@@ -1,0 +1,116 @@
+[tools]
+node = "24"
+rust = "latest"
+
+# =============================================================================
+# Setup
+# =============================================================================
+
+[tasks.setup]
+description = "Install all dependencies and git hooks"
+run = """
+pnpm install
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+echo "✅ Git hooks installed"
+"""
+
+# =============================================================================
+# Build
+# =============================================================================
+
+[tasks.build]
+description = "Build all (native + wasm)"
+depends = ["build:native", "build:wasm"]
+
+[tasks."build:native"]
+alias = "bn"
+description = "Build native NAPI bindings"
+run = "pnpm -C packages/vue-compiler-rs-native build"
+
+[tasks."build:wasm"]
+alias = "bw"
+description = "Build WASM bindings"
+run = "wasm-pack build crates/vue_bindings --target web --out-dir ../../packages/vite-plugin-vue-compiler-rs/wasm --features wasm --no-default-features"
+
+# =============================================================================
+# Test
+# =============================================================================
+
+[tasks.test]
+alias = "t"
+description = "Run all Rust tests"
+run = "cargo test --workspace"
+
+[tasks."test:vue"]
+alias = "tv"
+description = "Run Vue compatibility tests"
+run = "cargo test -p vue_test_runner"
+
+[tasks.coverage]
+alias = "cov"
+description = "Show test coverage report"
+run = "cargo run -p vue_test_runner --bin coverage"
+
+[tasks."coverage:verbose"]
+alias = "covv"
+description = "Show coverage with failing test names"
+run = "cargo run -p vue_test_runner --bin coverage -- -v"
+
+[tasks."coverage:diff"]
+alias = "covd"
+description = "Show coverage with diffs"
+run = "cargo run -p vue_test_runner --bin coverage -- -vv"
+
+# =============================================================================
+# Benchmark
+# =============================================================================
+
+[tasks.bench]
+alias = "b"
+description = "Run SFC compile benchmark (15,000 files)"
+depends = ["build:native", "bench:generate"]
+run = "node --experimental-strip-types bench/run.ts"
+
+[tasks."bench:generate"]
+alias = "bg"
+description = "Generate 15,000 SFC files for benchmarking"
+run = "node bench/generate.mjs 15000"
+
+[tasks."bench:rust"]
+alias = "br"
+description = "Run Rust benchmarks (criterion)"
+run = "cargo bench -p vue_compiler_sfc"
+
+# =============================================================================
+# Development
+# =============================================================================
+
+[tasks.dev]
+alias = "d"
+description = "Start playground dev server"
+depends = ["build:wasm"]
+run = "pnpm -C playground dev"
+
+[tasks.check]
+alias = "c"
+description = "Run cargo check"
+run = "cargo check --workspace"
+
+[tasks.clippy]
+alias = "cl"
+description = "Run clippy lints"
+run = "cargo clippy --workspace -- -D warnings"
+
+[tasks.fmt]
+alias = "f"
+description = "Format Rust code"
+run = "cargo fmt --all"
+
+# =============================================================================
+# CI / All checks
+# =============================================================================
+
+[tasks.ci]
+description = "Run all CI checks (fmt, clippy, test)"
+depends = ["fmt", "clippy", "test"]

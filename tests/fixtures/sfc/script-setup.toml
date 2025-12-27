@@ -1,0 +1,430 @@
+# SFC tests: <script setup> compilation
+# Based on Vue.js core compiler-sfc/__tests__/compileScript.spec.ts
+
+mode = "sfc"
+
+# =============================================================================
+# Basic script setup
+# =============================================================================
+
+[[cases]]
+name = "basic script setup"
+input = """
+<script setup>
+const msg = 'hello'
+</script>
+
+<template>
+  <div>{{ msg }}</div>
+</template>
+"""
+
+[[cases]]
+name = "script setup with imports"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+"""
+
+[[cases]]
+name = "multiple variable declarations"
+input = """
+<script setup>
+const a = 1
+let b = 2
+var c = 3
+</script>
+
+<template>
+  <div>{{ a }} {{ b }} {{ c }}</div>
+</template>
+"""
+
+[[cases]]
+name = "function declarations"
+input = """
+<script setup>
+function increment() {
+  count++
+}
+const handler = () => {}
+</script>
+
+<template>
+  <button @click="increment">Click</button>
+</template>
+"""
+
+[[cases]]
+name = "class declarations"
+input = """
+<script setup>
+class Foo {
+  bar = 1
+}
+</script>
+
+<template>
+  <div>{{ Foo }}</div>
+</template>
+"""
+
+# =============================================================================
+# defineProps
+# =============================================================================
+
+[[cases]]
+name = "defineProps array syntax"
+input = """
+<script setup>
+const props = defineProps(['msg', 'count'])
+</script>
+
+<template>
+  <div>{{ props.msg }}</div>
+</template>
+"""
+
+[[cases]]
+name = "defineProps object syntax"
+input = """
+<script setup>
+const props = defineProps({
+  msg: String,
+  count: { type: Number, default: 0 }
+})
+</script>
+
+<template>
+  <div>{{ props.msg }}</div>
+</template>
+"""
+
+[[cases]]
+name = "defineProps without assignment"
+input = """
+<script setup>
+defineProps(['msg'])
+</script>
+
+<template>
+  <div>{{ msg }}</div>
+</template>
+"""
+
+[[cases]]
+name = "defineProps with destructure"
+input = """
+<script setup>
+const { msg, count = 0 } = defineProps(['msg', 'count'])
+</script>
+
+<template>
+  <div>{{ msg }} {{ count }}</div>
+</template>
+"""
+
+# =============================================================================
+# defineEmits
+# =============================================================================
+
+[[cases]]
+name = "defineEmits array syntax"
+input = """
+<script setup>
+const emit = defineEmits(['update', 'change'])
+function onClick() {
+  emit('update', 1)
+}
+</script>
+
+<template>
+  <button @click="onClick">Click</button>
+</template>
+"""
+
+[[cases]]
+name = "defineEmits without assignment"
+input = """
+<script setup>
+defineEmits(['update'])
+</script>
+
+<template>
+  <button @click="$emit('update')">Click</button>
+</template>
+"""
+
+# =============================================================================
+# defineModel
+# =============================================================================
+
+[[cases]]
+name = "defineModel basic"
+input = """
+<script setup>
+const model = defineModel()
+</script>
+
+<template>
+  <input v-model="model">
+</template>
+"""
+
+[[cases]]
+name = "defineModel with name"
+input = """
+<script setup>
+const title = defineModel('title')
+</script>
+
+<template>
+  <input v-model="title">
+</template>
+"""
+
+[[cases]]
+name = "defineModel with options"
+input = """
+<script setup>
+const count = defineModel({ type: Number, default: 0 })
+</script>
+
+<template>
+  <input v-model="count" type="number">
+</template>
+"""
+
+# =============================================================================
+# defineExpose
+# =============================================================================
+
+[[cases]]
+name = "defineExpose"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+const increment = () => count.value++
+defineExpose({ count, increment })
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+"""
+
+# =============================================================================
+# defineOptions
+# =============================================================================
+
+[[cases]]
+name = "defineOptions"
+input = """
+<script setup>
+defineOptions({
+  name: 'MyComponent',
+  inheritAttrs: false
+})
+</script>
+
+<template>
+  <div>Component</div>
+</template>
+"""
+
+# =============================================================================
+# defineSlots
+# =============================================================================
+
+[[cases]]
+name = "defineSlots"
+input = """
+<script setup>
+const slots = defineSlots()
+</script>
+
+<template>
+  <slot></slot>
+</template>
+"""
+
+# =============================================================================
+# Script and script setup co-usage
+# =============================================================================
+
+[[cases]]
+name = "script before script setup"
+input = """
+<script>
+export const n = 1
+export default {}
+</script>
+
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }} {{ n }}</div>
+</template>
+"""
+
+[[cases]]
+name = "script setup before script"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<script>
+export const n = 1
+export default {}
+</script>
+
+<template>
+  <div>{{ count }} {{ n }}</div>
+</template>
+"""
+
+# =============================================================================
+# Reactive bindings
+# =============================================================================
+
+[[cases]]
+name = "ref binding"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+"""
+
+[[cases]]
+name = "reactive binding"
+input = """
+<script setup>
+import { reactive } from 'vue'
+const state = reactive({ count: 0 })
+</script>
+
+<template>
+  <div>{{ state.count }}</div>
+</template>
+"""
+
+[[cases]]
+name = "computed binding"
+input = """
+<script setup>
+import { ref, computed } from 'vue'
+const count = ref(0)
+const double = computed(() => count.value * 2)
+</script>
+
+<template>
+  <div>{{ double }}</div>
+</template>
+"""
+
+[[cases]]
+name = "watch and watchEffect"
+input = """
+<script setup>
+import { ref, watch, watchEffect } from 'vue'
+const count = ref(0)
+watch(count, (n) => console.log(n))
+watchEffect(() => console.log(count.value))
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+"""
+
+# =============================================================================
+# Template expressions
+# =============================================================================
+
+[[cases]]
+name = "template with v-model on ref"
+input = """
+<script setup>
+import { ref } from 'vue'
+const msg = ref('')
+</script>
+
+<template>
+  <input v-model="msg">
+</template>
+"""
+
+[[cases]]
+name = "template with event handler"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+const increment = () => count.value++
+</script>
+
+<template>
+  <button @click="increment">{{ count }}</button>
+</template>
+"""
+
+[[cases]]
+name = "template with inline handler"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <button @click="count++">{{ count }}</button>
+</template>
+"""
+
+# =============================================================================
+# Async setup
+# =============================================================================
+
+[[cases]]
+name = "async script setup"
+input = """
+<script setup>
+const data = await fetch('/api').then(r => r.json())
+</script>
+
+<template>
+  <div>{{ data }}</div>
+</template>
+"""
+
+[[cases]]
+name = "top-level await"
+input = """
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+await new Promise(r => setTimeout(r, 100))
+count.value = 1
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+"""

@@ -1,0 +1,26 @@
+# Rust
+target/
+
+# Node.js
+node_modules/
+pnpm-lock.yaml
+
+# WASM build output
+packages/vite-plugin-vue-compiler-rs/wasm/
+
+# Native (NAPI) build output
+*.node
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Benchmark input/output files
+bench/__in__/
+bench/__out__/

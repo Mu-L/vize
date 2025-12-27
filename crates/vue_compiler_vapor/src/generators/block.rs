@@ -1,0 +1,159 @@
+//! Block code generation for Vapor mode.
+
+use crate::ir::{BlockIRNode, IREffect, OperationNode};
+
+/// Context for code generation
+pub struct GenerateContext {
+    pub code: String,
+    pub indent_level: u32,
+    pub temp_count: usize,
+}
+
+impl GenerateContext {
+    pub fn new() -> Self {
+        Self {
+            code: String::with_capacity(4096),
+            indent_level: 0,
+            temp_count: 0,
+        }
+    }
+
+    pub fn push(&mut self, s: &str) {
+        self.code.push_str(s);
+    }
+
+    pub fn push_line(&mut self, s: &str) {
+        self.push_indent();
+        self.code.push_str(s);
+        self.code.push('\n');
+    }
+
+    pub fn push_indent(&mut self) {
+        for _ in 0..self.indent_level {
+            self.code.push_str("  ");
+        }
+    }
+
+    pub fn indent(&mut self) {
+        self.indent_level += 1;
+    }
+
+    pub fn deindent(&mut self) {
+        if self.indent_level > 0 {
+            self.indent_level -= 1;
+        }
+    }
+
+    pub fn next_temp(&mut self) -> String {
+        let name = format!("_t{}", self.temp_count);
+        self.temp_count += 1;
+        name
+    }
+
+    pub fn newline(&mut self) {
+        self.code.push('\n');
+    }
+}
+
+impl Default for GenerateContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Generate block code
+pub fn generate_block(
+    ctx: &mut GenerateContext,
+    block: &BlockIRNode<'_>,
+    generate_operation: impl Fn(&mut GenerateContext, &OperationNode<'_>),
+    generate_effect: impl Fn(&mut GenerateContext, &IREffect<'_>),
+) {
+    // Generate operations
+    for op in block.operation.iter() {
+        generate_operation(ctx, op);
+    }
+
+    // Generate effects
+    for effect in block.effect.iter() {
+        generate_effect(ctx, effect);
+    }
+
+    // Generate return statement
+    if !block.returns.is_empty() {
+        let returns = block
+            .returns
+            .iter()
+            .map(|r| format!("_n{}", r))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        if block.returns.len() == 1 {
+            ctx.push_line(&format!("return {}", returns));
+        } else {
+            ctx.push_line(&format!("return [{}]", returns));
+        }
+    }
+}
+
+/// Generate effect wrapper
+pub fn generate_effect_wrapper(
+    ctx: &mut GenerateContext,
+    operations: impl FnOnce(&mut GenerateContext),
+) {
+    ctx.push_line("_renderEffect(() => {");
+    ctx.indent();
+    operations(ctx);
+    ctx.deindent();
+    ctx.push_line("})");
+}
+
+/// Generate template instantiation
+pub fn generate_template_instantiation(
+    ctx: &mut GenerateContext,
+    element_id: usize,
+    template_index: usize,
+) {
+    ctx.push_line(&format!(
+        "const _n{} = _tmpl${}()",
+        element_id, template_index
+    ));
+}
+
+/// Generate template declaration
+pub fn generate_template_declaration(
+    ctx: &mut GenerateContext,
+    template_index: usize,
+    template: &str,
+) {
+    ctx.push_line(&format!(
+        "const _tmpl${} = _template(\"{}\")",
+        template_index,
+        escape_template(template)
+    ));
+}
+
+/// Escape template string for JavaScript
+pub fn escape_template(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_context() {
+        let mut ctx = GenerateContext::new();
+        ctx.push_line("const x = 1");
+        assert!(ctx.code.contains("const x = 1"));
+    }
+
+    #[test]
+    fn test_escape_template() {
+        assert_eq!(escape_template("hello"), "hello");
+        assert_eq!(escape_template("hello\nworld"), "hello\\nworld");
+    }
+}

@@ -1,0 +1,964 @@
+===
+name: basic script setup
+options: sfc
+--- INPUT ---
+<script setup>
+const msg = 'hello'
+</script>
+
+<template>
+  <div>{{ msg }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+const msg = 'hello'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(msg)))
+}
+}
+
+}
+
+===
+name: script setup with imports
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: multiple variable declarations
+options: sfc
+--- INPUT ---
+<script setup>
+const a = 1
+let b = 2
+var c = 3
+</script>
+
+<template>
+  <div>{{ a }} {{ b }} {{ c }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, unref as _unref, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+const a = 1
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+let b = 2
+var c = 3
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(a) + " " + _toDisplayString(_unref(b)) + " " + _toDisplayString(_unref(c)), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: function declarations
+options: sfc
+--- INPUT ---
+<script setup>
+function increment() {
+  count++
+}
+const handler = () => {}
+</script>
+
+<template>
+  <button @click="increment">Click</button>
+</template>
+
+--- OUTPUT ---
+import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+function increment() {
+  count++
+}
+const handler = () => {}
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("button", { onClick: increment }, "Click"))
+}
+}
+
+}
+
+===
+name: class declarations
+options: sfc
+--- INPUT ---
+<script setup>
+class Foo {
+  bar = 1
+}
+</script>
+
+<template>
+  <div>{{ Foo }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+class Foo {
+  bar = 1
+}
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(Foo)))
+}
+}
+
+}
+
+===
+name: defineProps array syntax
+options: sfc
+--- INPUT ---
+<script setup>
+const props = defineProps(['msg', 'count'])
+</script>
+
+<template>
+  <div>{{ props.msg }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: ['msg', 'count'],
+  setup(__props) {
+
+const props = __props
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(props.msg), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: defineProps object syntax
+options: sfc
+--- INPUT ---
+<script setup>
+const props = defineProps({
+  msg: String,
+  count: { type: Number, default: 0 }
+})
+</script>
+
+<template>
+  <div>{{ props.msg }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: {
+  msg: String,
+  count: { type: Number, default: 0 }
+},
+  setup(__props) {
+
+const props = __props
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(props.msg), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: defineProps without assignment
+options: sfc
+--- INPUT ---
+<script setup>
+defineProps(['msg'])
+</script>
+
+<template>
+  <div>{{ msg }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: ['msg'],
+  setup(__props) {
+
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(__props.msg), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: defineProps with destructure
+options: sfc
+--- INPUT ---
+<script setup>
+const { msg, count = 0 } = defineProps(['msg', 'count'])
+</script>
+
+<template>
+  <div>{{ msg }} {{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { mergeDefaults as _mergeDefaults } from 'vue'
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: /*@__PURE__*/_mergeDefaults(['msg', 'count'], {
+  count: 0
+}),
+  setup(__props) {
+
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(__props.msg) + " " + _toDisplayString(__props.count), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: defineEmits array syntax
+options: sfc
+--- INPUT ---
+<script setup>
+const emit = defineEmits(['update', 'change'])
+function onClick() {
+  emit('update', 1)
+}
+</script>
+
+<template>
+  <button @click="onClick">Click</button>
+</template>
+
+--- OUTPUT ---
+import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  emits: ['update', 'change'],
+  setup(__props, { emit: __emit }) {
+
+const emit = __emit
+function onClick() {
+  emit('update', 1)
+}
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("button", { onClick: onClick }, "Click"))
+}
+}
+
+}
+
+===
+name: defineEmits without assignment
+options: sfc
+--- INPUT ---
+<script setup>
+defineEmits(['update'])
+</script>
+
+<template>
+  <button @click="$emit('update')">Click</button>
+</template>
+
+--- OUTPUT ---
+import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  emits: ['update'],
+  setup(__props, { emit: $emit }) {
+
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("button", {
+    onClick: _cache[0] || (_cache[0] = $event => ($emit('update')))
+  }, "Click"))
+}
+}
+
+}
+
+===
+name: defineModel basic
+options: sfc
+--- INPUT ---
+<script setup>
+const model = defineModel()
+</script>
+
+<template>
+  <input v-model="model">
+</template>
+
+--- OUTPUT ---
+import { useModel as _useModel } from 'vue'
+import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: {
+    "modelValue": {},
+    "modelModifiers": {},
+  },
+  emits: ["update:modelValue"],
+  setup(__props) {
+
+const model = _useModel(__props, "modelValue")
+
+return (_ctx, _cache) => {
+  return _withDirectives((_openBlock(), _createElementBlock("input", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((model).value = $event))
+  }, null, 512 /* NEED_PATCH */)), [
+    [_vModelText, model.value]
+  ])
+}
+}
+
+}
+
+===
+name: defineModel with name
+options: sfc
+--- INPUT ---
+<script setup>
+const title = defineModel('title')
+</script>
+
+<template>
+  <input v-model="title">
+</template>
+
+--- OUTPUT ---
+import { useModel as _useModel } from 'vue'
+import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: {
+    "title": {},
+    "titleModifiers": {},
+  },
+  emits: ["update:title"],
+  setup(__props) {
+
+const title = _useModel(__props, 'title')
+
+return (_ctx, _cache) => {
+  return _withDirectives((_openBlock(), _createElementBlock("input", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((title).value = $event))
+  }, null, 512 /* NEED_PATCH */)), [
+    [_vModelText, title.value]
+  ])
+}
+}
+
+}
+
+===
+name: defineModel with options
+options: sfc
+--- INPUT ---
+<script setup>
+const count = defineModel({ type: Number, default: 0 })
+</script>
+
+<template>
+  <input v-model="count" type="number">
+</template>
+
+--- OUTPUT ---
+import { useModel as _useModel } from 'vue'
+import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  props: {
+    "modelValue": { type: Number, default: 0 },
+    "modelModifiers": {},
+  },
+  emits: ["update:modelValue"],
+  setup(__props) {
+
+const count = _useModel(__props, "modelValue")
+
+return (_ctx, _cache) => {
+  return _withDirectives((_openBlock(), _createElementBlock("input", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((count).value = $event)),
+    type: "number"
+  }, null, 512 /* NEED_PATCH */)), [
+    [_vModelText, count.value]
+  ])
+}
+}
+
+}
+
+===
+name: defineExpose
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+const increment = () => count.value++
+defineExpose({ count, increment })
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props, { expose: __expose }) {
+
+const count = ref(0)
+const increment = () => count.value++
+__expose({ count, increment })
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: defineOptions
+options: sfc
+--- INPUT ---
+<script setup>
+defineOptions({
+  name: 'MyComponent',
+  inheritAttrs: false
+})
+</script>
+
+<template>
+  <div>Component</div>
+</template>
+
+--- OUTPUT ---
+import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default /*@__PURE__*/Object.assign({
+  name: 'MyComponent',
+  inheritAttrs: false
+}, {
+  __name: 'test',
+  setup(__props) {
+
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, "Component"))
+}
+}
+
+})
+
+===
+name: defineSlots
+options: sfc
+--- INPUT ---
+<script setup>
+const slots = defineSlots()
+</script>
+
+<template>
+  <slot></slot>
+</template>
+
+--- OUTPUT ---
+import { useSlots as _useSlots } from 'vue'
+import { renderSlot as _renderSlot } from "vue"
+
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const slots = _useSlots()
+
+return (_ctx, _cache) => {
+  return _renderSlot(_ctx.$slots, "default")
+}
+}
+
+}
+
+===
+name: script before script setup
+options: sfc
+--- INPUT ---
+<script>
+export const n = 1
+export default {}
+</script>
+
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }} {{ n }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export const n = 1
+const __default__ = {}
+
+export default /*@__PURE__*/Object.assign(__default__, {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value) + " " + _toDisplayString(n), 1 /* TEXT */))
+}
+}
+
+})
+
+===
+name: script setup before script
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<script>
+export const n = 1
+export default {}
+</script>
+
+<template>
+  <div>{{ count }} {{ n }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export const n = 1
+const __default__ = {}
+
+
+export default /*@__PURE__*/Object.assign(__default__, {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value) + " " + _toDisplayString(n), 1 /* TEXT */))
+}
+}
+
+})
+
+===
+name: ref binding
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: reactive binding
+options: sfc
+--- INPUT ---
+<script setup>
+import { reactive } from 'vue'
+const state = reactive({ count: 0 })
+</script>
+
+<template>
+  <div>{{ state.count }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { reactive } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const state = reactive({ count: 0 })
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(state.count), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: computed binding
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref, computed } from 'vue'
+const count = ref(0)
+const double = computed(() => count.value * 2)
+</script>
+
+<template>
+  <div>{{ double }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref, computed } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+const double = computed(() => count.value * 2)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(double.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: watch and watchEffect
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref, watch, watchEffect } from 'vue'
+const count = ref(0)
+watch(count, (n) => console.log(n))
+watchEffect(() => console.log(count.value))
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref, watch, watchEffect } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+watch(count, (n) => console.log(n))
+watchEffect(() => console.log(count.value))
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: template with v-model on ref
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const msg = ref('')
+</script>
+
+<template>
+  <input v-model="msg">
+</template>
+
+--- OUTPUT ---
+import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const msg = ref('')
+
+return (_ctx, _cache) => {
+  return _withDirectives((_openBlock(), _createElementBlock("input", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = $event => ((msg).value = $event))
+  }, null, 512 /* NEED_PATCH */)), [
+    [_vModelText, msg.value]
+  ])
+}
+}
+
+}
+
+===
+name: template with event handler
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+const increment = () => count.value++
+</script>
+
+<template>
+  <button @click="increment">{{ count }}</button>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+const increment = () => count.value++
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("button", { onClick: increment }, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: template with inline handler
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+</script>
+
+<template>
+  <button @click="count++">{{ count }}</button>
+</template>
+
+--- OUTPUT ---
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  setup(__props) {
+
+const count = ref(0)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("button", {
+    onClick: _cache[0] || (_cache[0] = $event => (count.value++))
+  }, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: async script setup
+options: sfc
+--- INPUT ---
+<script setup>
+const data = await fetch('/api').then(r => r.json())
+</script>
+
+<template>
+  <div>{{ data }}</div>
+</template>
+
+--- OUTPUT ---
+import { withAsyncContext as _withAsyncContext } from 'vue'
+import { unref as _unref, toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+export default {
+  __name: 'test',
+  async setup(__props) {
+
+let __temp, __restore
+
+const data = (
+  ([__temp,__restore] = _withAsyncContext(() => fetch('/api').then(r => r.json()))),
+  __temp = await __temp,
+  __restore(),
+  __temp
+)
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(_unref(data)), 1 /* TEXT */))
+}
+}
+
+}
+
+===
+name: top-level await
+options: sfc
+--- INPUT ---
+<script setup>
+import { ref } from 'vue'
+const count = ref(0)
+await new Promise(r => setTimeout(r, 100))
+count.value = 1
+</script>
+
+<template>
+  <div>{{ count }}</div>
+</template>
+
+--- OUTPUT ---
+import { withAsyncContext as _withAsyncContext } from 'vue'
+import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+import { ref } from 'vue'
+
+export default {
+  __name: 'test',
+  async setup(__props) {
+
+let __temp, __restore
+
+const count = ref(0)
+;(
+  ([__temp,__restore] = _withAsyncContext(() => new Promise(r => setTimeout(r, 100)))),
+  await __temp,
+  __restore()
+)
+count.value = 1
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", null, _toDisplayString(count.value), 1 /* TEXT */))
+}
+}
+
+}

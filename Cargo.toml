@@ -1,0 +1,82 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vue_allocator",
+    "crates/vue_shared",
+    "crates/vue_compiler_core",
+    "crates/vue_compiler_dom",
+    "crates/vue_compiler_vapor",
+    "crates/vue_compiler_sfc",
+    "crates/vue_bindings",
+    "crates/vue_compiler_cli",
+    "tests/vue_test_runner",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ubugeeei/vue-compiler-rs"
+
+[workspace.dependencies]
+# Internal crates
+vue_allocator = { path = "crates/vue_allocator" }
+vue_shared = { path = "crates/vue_shared" }
+vue_compiler_core = { path = "crates/vue_compiler_core" }
+vue_compiler_dom = { path = "crates/vue_compiler_dom" }
+vue_compiler_vapor = { path = "crates/vue_compiler_vapor" }
+vue_compiler_sfc = { path = "crates/vue_compiler_sfc", default-features = false }
+vue_bindings = { path = "crates/vue_bindings" }
+
+# OXC dependencies
+oxc_parser = "0.45"
+oxc_ast = "0.45"
+oxc_span = "0.45"
+oxc_allocator = "0.45"
+oxc_syntax = "0.45"
+oxc_diagnostics = "0.45"
+oxc_semantic = "0.45"
+oxc_transformer = "0.45"
+oxc_codegen = "0.45"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# NAPI
+napi = { version = "2.14", default-features = false, features = ["napi8", "serde-json"] }
+napi-derive = "2.14"
+
+# WASM
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+
+# Arena allocator
+bumpalo = { version = "3.16", features = ["collections", "boxed"] }
+
+# Utilities
+thiserror = "2.0"
+rustc-hash = "2.1"
+bitflags = { version = "2.6", features = ["serde"] }
+once_cell = "1.20"
+compact_str = { version = "0.8", features = ["serde"] }
+phf = { version = "0.11", features = ["macros"] }
+memoffset = "0.9"
+memchr = "2.7"
+regex = "1.10"
+
+# CSS
+lightningcss = "1.0.0-alpha.68"
+
+# Testing
+insta = { version = "1.41", features = ["toml"] }
+
+# Benchmarking
+criterion = "0.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
