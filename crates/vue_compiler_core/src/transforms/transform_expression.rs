@@ -213,8 +213,8 @@ fn rewrite_expression(
         Err(_) => {
             // Parse failed - fallback to simple identifier check
             if is_simple_identifier(&js_content) {
-                if should_prefix_identifier(&js_content, ctx) {
-                    ["_ctx.", &js_content].concat()
+                if let Some(prefix) = get_identifier_prefix(&js_content, ctx) {
+                    [prefix, &js_content].concat()
                 } else if is_ref_binding_simple(&js_content, ctx) {
                     // Add .value for refs in inline mode
                     [&js_content, ".value"].concat()
@@ -517,15 +517,6 @@ impl<'a, 'ctx> IdentifierCollector<'a, 'ctx> {
         }
     }
 
-    fn should_prefix(&self, name: &str) -> bool {
-        // Skip if in local scope (function params, etc.)
-        if self.local_scope.contains(name) {
-            return false;
-        }
-
-        should_prefix_identifier(name, self.ctx)
-    }
-
     /// Check if an identifier is a ref that needs .value suffix
     fn is_ref_binding(&self, name: &str) -> bool {
         // Skip if in local scope
@@ -549,8 +540,12 @@ impl<'a, 'ctx> IdentifierCollector<'a, 'ctx> {
 impl<'a, 'ctx> Visit<'_> for IdentifierCollector<'a, 'ctx> {
     fn visit_identifier_reference(&mut self, ident: &oxc_ast_types::IdentifierReference<'_>) {
         let name = ident.name.as_str();
-        if self.should_prefix(name) {
-            let prefix = get_identifier_prefix(self.ctx, name);
+        // Skip if in local scope
+        if self.local_scope.contains(name) {
+            return;
+        }
+
+        if let Some(prefix) = get_identifier_prefix(name, self.ctx) {
             self.rewrites.insert((ident.span.start as usize, prefix));
         } else if self.is_ref_binding(name) {
             // Add .value suffix for refs in inline mode
@@ -622,37 +617,43 @@ impl<'a, 'ctx> IdentifierCollector<'a, 'ctx> {
 }
 
 /// Check if identifier should be prefixed
-fn should_prefix_identifier(name: &str, ctx: &TransformContext<'_>) -> bool {
+/// Determine what prefix (if any) an identifier needs
+/// Returns: None = no prefix, Some("_ctx.") = context prefix, Some("__props.") = props prefix
+fn get_identifier_prefix(name: &str, ctx: &TransformContext<'_>) -> Option<&'static str> {
     // Don't prefix globals
     if JS_GLOBALS.contains(name) {
-        return false;
+        return None;
     }
 
     // Don't prefix if in scope (local variable from v-for, v-slot, etc.)
     if ctx.is_in_scope(name) {
-        return false;
+        return None;
     }
 
-    // In inline mode, setup bindings don't need _ctx prefix
-    // In non-inline mode (default), ALL bindings need _ctx prefix
+    // In inline mode, check binding metadata
     if ctx.options.inline {
-        // Inline mode: setup bindings are accessed directly
         if let Some(bindings) = &ctx.options.binding_metadata {
-            if bindings.bindings.contains_key(name) {
-                // Known binding - don't prefix in inline mode
-                return false;
+            if let Some(binding_type) = bindings.bindings.get(name) {
+                // Props need __props. prefix
+                if matches!(
+                    binding_type,
+                    crate::options::BindingType::Props | crate::options::BindingType::PropsAliased
+                ) {
+                    return Some("__props.");
+                }
+                // Other setup bindings are accessed directly
+                return None;
             }
         }
     }
 
     // Default: prefix with _ctx.
-    true
+    Some("_ctx.")
 }
 
-/// Get prefix for identifier based on binding metadata
-fn get_identifier_prefix(_ctx: &TransformContext<'_>, _id: &str) -> &'static str {
-    // In module mode with prefix_identifiers, use _ctx. prefix
-    "_ctx."
+/// Check if identifier should get a prefix (legacy helper for compatibility)
+fn should_prefix_identifier(name: &str, ctx: &TransformContext<'_>) -> bool {
+    get_identifier_prefix(name, ctx).is_some()
 }
 
 /// Check if a simple identifier is a ref binding in inline mode

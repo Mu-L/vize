@@ -306,16 +306,82 @@ impl ScriptCompileContext {
     /// Register a macro call
     fn register_macro(&mut self, name: &str, call: MacroCall) {
         match name {
-            "defineProps" => self.macros.define_props = Some(call),
+            "defineProps" => {
+                // Extract prop names and add to bindings
+                self.extract_props_bindings(&call);
+                self.macros.define_props = Some(call);
+            }
             "defineEmits" => self.macros.define_emits = Some(call),
             "defineExpose" => self.macros.define_expose = Some(call),
             "defineOptions" => self.macros.define_options = Some(call),
             "defineSlots" => self.macros.define_slots = Some(call),
             "defineModel" => self.macros.define_models.push(call),
-            "withDefaults" => self.macros.with_defaults = Some(call),
+            "withDefaults" => {
+                // Extract prop names from withDefaults
+                self.extract_props_bindings(&call);
+                self.macros.with_defaults = Some(call);
+            }
             _ => {}
         }
     }
+
+    /// Extract prop names from defineProps/withDefaults and add to bindings
+    fn extract_props_bindings(&mut self, call: &MacroCall) {
+        // Parse args to extract prop names
+        // Handle array syntax: ['msg', 'count']
+        // Handle object syntax: { msg: String, count: Number }
+        let args = call.args.trim();
+
+        if args.starts_with('[') && args.ends_with(']') {
+            // Array syntax
+            let inner = &args[1..args.len() - 1];
+            for part in inner.split(',') {
+                let part = part.trim();
+                // Extract string literal
+                if (part.starts_with('\'') && part.ends_with('\''))
+                    || (part.starts_with('"') && part.ends_with('"'))
+                {
+                    let name = &part[1..part.len() - 1];
+                    self.bindings
+                        .bindings
+                        .insert(name.to_string(), BindingType::Props);
+                }
+            }
+        } else if args.starts_with('{') && args.ends_with('}') {
+            // Object syntax - extract keys
+            let inner = &args[1..args.len() - 1];
+            for part in inner.split(',') {
+                let part = part.trim();
+                // Find key before : or whitespace
+                if let Some(colon_pos) = part.find(':') {
+                    let key = part[..colon_pos].trim();
+                    if !key.is_empty() && is_valid_identifier(key) {
+                        self.bindings
+                            .bindings
+                            .insert(key.to_string(), BindingType::Props);
+                    }
+                } else if is_valid_identifier(part) {
+                    // Shorthand property
+                    self.bindings
+                        .bindings
+                        .insert(part.to_string(), BindingType::Props);
+                }
+            }
+        }
+    }
+}
+
+/// Check if a string is a valid JavaScript identifier
+fn is_valid_identifier(s: &str) -> bool {
+    if s.is_empty() {
+        return false;
+    }
+    let mut chars = s.chars();
+    let first = chars.next().unwrap();
+    if !first.is_ascii_alphabetic() && first != '_' && first != '$' {
+        return false;
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
 /// Check if a name is a compiler macro
@@ -362,7 +428,9 @@ fn infer_binding_type(init: &Expression<'_>, kind: VariableDeclarationKind) -> B
     if let Expression::CallExpression(call) = init {
         if let Some(name) = get_callee_name(call) {
             match name.as_str() {
-                "defineProps" => return BindingType::Props,
+                // defineProps binding is the props OBJECT, not a prop - treat as SetupReactiveConst
+                // Individual prop names are registered separately as Props bindings
+                "defineProps" => return BindingType::SetupReactiveConst,
                 "ref" | "shallowRef" | "customRef" | "toRef" => return BindingType::SetupRef,
                 "computed" | "toRefs" => return BindingType::SetupRef,
                 "reactive" | "shallowReactive" => return BindingType::SetupReactiveConst,
@@ -371,10 +439,10 @@ fn infer_binding_type(init: &Expression<'_>, kind: VariableDeclarationKind) -> B
         }
     }
 
-    // Check for withDefaults
+    // Check for withDefaults - the binding is the props OBJECT
     if let Expression::CallExpression(call) = init {
         if is_call_of(call, "withDefaults") {
-            return BindingType::Props;
+            return BindingType::SetupReactiveConst;
         }
     }
 

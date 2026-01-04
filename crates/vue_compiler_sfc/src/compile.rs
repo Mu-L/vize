@@ -292,6 +292,7 @@ fn compile_script_setup_inline(
     // Extract user imports
     let mut user_imports = Vec::new();
     let mut setup_lines = Vec::new();
+    let mut hoisted_lines = Vec::new(); // const with literals go outside export default
 
     // Parse script content - extract imports and setup code
     let mut in_import = false;
@@ -407,7 +408,12 @@ fn compile_script_setup_inline(
                 in_import = false;
             }
         } else if !trimmed.is_empty() && !is_macro_call_line(trimmed) {
-            setup_lines.push(line.to_string());
+            // Check if this is a hoistable const (const with literal value, no function calls)
+            if is_hoistable_const(trimmed) {
+                hoisted_lines.push(line.to_string());
+            } else {
+                setup_lines.push(line.to_string());
+            }
         }
     }
 
@@ -417,6 +423,15 @@ fn compile_script_setup_inline(
             if !processed.is_empty() {
                 output.push_str(&processed);
             }
+        }
+    }
+
+    // Hoisted const declarations (outside export default)
+    if !hoisted_lines.is_empty() {
+        output.push('\n');
+        for line in &hoisted_lines {
+            output.push_str(line);
+            output.push('\n');
         }
     }
 
@@ -445,8 +460,29 @@ fn compile_script_setup_inline(
         }
     }
 
-    // Setup function
-    output.push_str("  setup(__props) {\n");
+    // Setup function - include emit destructure if defineEmits is used
+    let has_emit = ctx.macros.define_emits.is_some();
+    let has_emit_binding = ctx
+        .macros
+        .define_emits
+        .as_ref()
+        .map(|e| e.binding_name.is_some())
+        .unwrap_or(false);
+
+    if has_emit {
+        // If binding name exists, use __emit and add const inside
+        // Otherwise use $emit directly
+        if has_emit_binding {
+            output.push_str("  setup(__props, { emit: __emit }) {\n");
+        } else {
+            output.push_str("  setup(__props, { emit: $emit }) {\n");
+        }
+    } else {
+        output.push_str("  setup(__props) {\n");
+    }
+
+    // Always add a blank line after setup signature
+    output.push('\n');
 
     // Emit binding: const emit = __emit
     if let Some(ref emits_macro) = ctx.macros.define_emits {
@@ -457,16 +493,22 @@ fn compile_script_setup_inline(
         }
     }
 
-    // Setup code body
-    if !setup_lines.is_empty() {
-        output.push('\n');
-        for line in &setup_lines {
-            output.push_str(line);
-            output.push('\n');
+    // Props binding: const props = __props
+    if let Some(ref props_macro) = ctx.macros.define_props {
+        if let Some(ref binding_name) = props_macro.binding_name {
+            output.push_str("const ");
+            output.push_str(binding_name);
+            output.push_str(" = __props\n");
         }
     }
 
-    // Inline render function as return
+    // Setup code body
+    for line in &setup_lines {
+        output.push_str(line);
+        output.push('\n');
+    }
+
+    // Inline render function as return (blank line before)
     output.push('\n');
     if !render_body.is_empty() {
         output.push_str("return (_ctx, _cache) => {\n");
@@ -1310,6 +1352,39 @@ fn is_paren_macro_start(line: &str) -> bool {
         }
     }
     false
+}
+
+/// Check if a line is a hoistable const (const with literal value, no function calls)
+/// These can be placed outside of setup() for optimization
+fn is_hoistable_const(line: &str) -> bool {
+    let trimmed = line.trim();
+
+    // Must start with "const " (not let/var)
+    if !trimmed.starts_with("const ") {
+        return false;
+    }
+
+    // Must not contain function calls (parentheses)
+    if trimmed.contains('(') {
+        return false;
+    }
+
+    // Must not contain arrow functions
+    if trimmed.contains("=>") {
+        return false;
+    }
+
+    // Must be a simple assignment (contains =)
+    if !trimmed.contains('=') {
+        return false;
+    }
+
+    // Must not be a destructure
+    if trimmed.starts_with("const {") || trimmed.starts_with("const [") {
+        return false;
+    }
+
+    true
 }
 
 /// Check if a line starts a multi-line macro call (e.g., defineEmits<{ ... }>())
