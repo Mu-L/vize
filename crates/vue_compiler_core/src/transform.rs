@@ -79,10 +79,10 @@ pub struct TransformContext<'a> {
     pub child_index: usize,
     /// Helpers used
     pub helpers: FxHashSet<RuntimeHelper>,
-    /// Components used
-    pub components: FxHashSet<String>,
-    /// Directives used
-    pub directives: FxHashSet<String>,
+    /// Components used (Vec to maintain template order for code generation)
+    pub components: std::vec::Vec<String>,
+    /// Directives used (Vec to maintain template order for code generation)
+    pub directives: std::vec::Vec<String>,
     /// Hoisted expressions
     pub hoists: Vec<'a, Option<JsChildNode<'a>>>,
     /// Cached expressions
@@ -148,8 +148,8 @@ impl<'a> TransformContext<'a> {
             current_node: None,
             child_index: 0,
             helpers: FxHashSet::default(),
-            components: FxHashSet::default(),
-            directives: FxHashSet::default(),
+            components: std::vec::Vec::new(),
+            directives: std::vec::Vec::new(),
             hoists: Vec::new_in(allocator),
             cached: Vec::new_in(allocator),
             temps: 0,
@@ -175,6 +175,22 @@ impl<'a> TransformContext<'a> {
     /// Check if helper exists
     pub fn has_helper(&self, helper: RuntimeHelper) -> bool {
         self.helpers.contains(&helper)
+    }
+
+    /// Add a component (maintains insertion order for code generation)
+    pub fn add_component(&mut self, component: impl Into<String>) {
+        let component = component.into();
+        if !self.components.contains(&component) {
+            self.components.push(component);
+        }
+    }
+
+    /// Add a directive (maintains insertion order for code generation)
+    pub fn add_directive(&mut self, directive: impl Into<String>) {
+        let directive = directive.into();
+        if !self.directives.contains(&directive) {
+            self.directives.push(directive);
+        }
     }
 
     /// Add an identifier to scope
@@ -797,13 +813,27 @@ fn transform_v_if<'a>(
                 loc: element_loc,
             };
 
-            // Add branch to if node (re-borrow parent)
+            // Add branch to if node and traverse its children
+            // Save context state before traversing (traverse_children modifies parent)
+            let saved_parent = ctx.parent;
+            let saved_grandparent = ctx.grandparent;
+            let saved_child_index = ctx.child_index;
+
             if let Some(parent) = &ctx.parent {
                 let children = parent.children_mut();
                 if let TemplateChildNode::If(if_node) = &mut children[if_idx] {
                     if_node.branches.push(branch);
+                    // Traverse the newly added branch to process components in it
+                    let branch_idx = if_node.branches.len() - 1;
+                    let branch_ptr = &mut if_node.branches[branch_idx] as *mut IfBranchNode<'a>;
+                    traverse_children(ctx, ParentNode::IfBranch(branch_ptr));
                 }
             }
+
+            // Restore context state before removing node
+            ctx.parent = saved_parent;
+            ctx.grandparent = saved_grandparent;
+            ctx.child_index = saved_child_index;
 
             // Remove the placeholder we left
             ctx.remove_node();
@@ -1045,7 +1075,7 @@ fn transform_element<'a>(
             if !is_in_bindings {
                 ctx.helper(RuntimeHelper::ResolveComponent);
             }
-            ctx.components.insert(el.tag.clone());
+            ctx.add_component(el.tag.clone());
         }
         ElementType::Slot => {
             ctx.helper(RuntimeHelper::RenderSlot);
@@ -1138,7 +1168,7 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
                 _ if !is_builtin_directive_name(&dir.name) => {
                     ctx.helper(RuntimeHelper::WithDirectives);
                     ctx.helper(RuntimeHelper::ResolveDirective);
-                    ctx.directives.insert(dir.name.clone());
+                    ctx.add_directive(dir.name.clone());
                 }
                 _ => {}
             }

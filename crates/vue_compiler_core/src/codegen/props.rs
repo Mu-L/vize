@@ -6,10 +6,77 @@ use super::context::CodegenContext;
 use super::expression::{generate_event_handler, generate_expression};
 use super::helpers::{camelize, capitalize_first, is_valid_js_identifier};
 
+/// Check if there's a v-bind without argument (object spread)
+fn has_vbind_object(props: &[PropNode<'_>]) -> bool {
+    props.iter().any(|p| {
+        if let PropNode::Directive(dir) = p {
+            return dir.name == "bind" && dir.arg.is_none();
+        }
+        false
+    })
+}
+
+/// Check if there are other props besides v-bind object
+fn has_other_props(props: &[PropNode<'_>]) -> bool {
+    props.iter().any(|p| match p {
+        PropNode::Attribute(_) => true,
+        PropNode::Directive(dir) => {
+            // v-bind without arg is the object spread, not a regular prop
+            if dir.name == "bind" && dir.arg.is_none() {
+                return false;
+            }
+            is_supported_directive(dir)
+        }
+    })
+}
+
+/// Generate the v-bind object expression
+fn generate_vbind_object_exp(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
+    for p in props {
+        if let PropNode::Directive(dir) = p {
+            if dir.name == "bind" && dir.arg.is_none() {
+                if let Some(exp) = &dir.exp {
+                    generate_expression(ctx, exp);
+                    return;
+                }
+            }
+        }
+    }
+}
+
 /// Generate props object
 pub fn generate_props(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
     if props.is_empty() {
         ctx.push("null");
+        return;
+    }
+
+    // Check for v-bind object (v-bind="attrs")
+    let has_vbind_obj = has_vbind_object(props);
+    let has_other = has_other_props(props);
+
+    if has_vbind_obj {
+        if has_other {
+            // v-bind="attrs" with other props: _mergeProps(_ctx.attrs, { ...otherProps })
+            ctx.use_helper(RuntimeHelper::MergeProps);
+            ctx.push(ctx.helper(RuntimeHelper::MergeProps));
+            ctx.push("(");
+            generate_vbind_object_exp(ctx, props);
+            ctx.push(", ");
+            // Generate other props as object
+            generate_props_object(ctx, props, true);
+            ctx.push(")");
+        } else {
+            // v-bind="attrs" alone: _normalizeProps(_guardReactiveProps(_ctx.attrs))
+            ctx.use_helper(RuntimeHelper::NormalizeProps);
+            ctx.use_helper(RuntimeHelper::GuardReactiveProps);
+            ctx.push(ctx.helper(RuntimeHelper::NormalizeProps));
+            ctx.push("(");
+            ctx.push(ctx.helper(RuntimeHelper::GuardReactiveProps));
+            ctx.push("(");
+            generate_vbind_object_exp(ctx, props);
+            ctx.push("))");
+        }
         return;
     }
 
@@ -21,6 +88,20 @@ pub fn generate_props(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
         ctx.push("(");
     }
 
+    generate_props_object(ctx, props, false);
+
+    // Close normalizeProps wrapper if needed
+    if has_dyn_vmodel {
+        ctx.push(")");
+    }
+}
+
+/// Generate props as a regular object { key: value, ... }
+fn generate_props_object(
+    ctx: &mut CodegenContext,
+    props: &[PropNode<'_>],
+    skip_vbind_object: bool,
+) {
     // Check for static class/style that need to be merged with dynamic
     let static_class = props.iter().find_map(|p| {
         if let PropNode::Attribute(attr) = p {
@@ -177,6 +258,10 @@ pub fn generate_props(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
                 }
             }
             PropNode::Directive(dir) => {
+                // Skip v-bind object (handled separately by generate_props)
+                if skip_vbind_object && dir.name == "bind" && dir.arg.is_none() {
+                    continue;
+                }
                 // Only add comma if directive produces valid output
                 if is_supported_directive(dir) {
                     if !first {
@@ -202,11 +287,6 @@ pub fn generate_props(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
         ctx.push("}");
     } else {
         ctx.push(" }");
-    }
-
-    // Close normalizeProps wrapper if needed
-    if has_dyn_vmodel {
-        ctx.push(")");
     }
 }
 

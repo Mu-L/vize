@@ -79,9 +79,13 @@ run = "cargo run -p vue_test_runner --bin coverage -- -vv"
 
 [tasks.bench]
 alias = "b"
-description = "Run SFC compile benchmark (15,000 files)"
-depends = ["build:native", "bench:generate"]
+description = "Run SFC compile benchmark (run 'mise run build:native' and 'mise run bench:generate' first if needed)"
 run = "node --experimental-strip-types bench/run.ts"
+
+[tasks."bench:quick"]
+alias = "bq"
+description = "Quick benchmark with 1,000 files (single-thread only)"
+run = "node --experimental-strip-types bench/run.ts 1000"
 
 [tasks."bench:generate"]
 alias = "bg"

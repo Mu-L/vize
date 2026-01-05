@@ -32,6 +32,7 @@ const OUTPUT_DIR = join(__dirname, "__out__");
 const ORIGINAL_OUT_DIR = join(OUTPUT_DIR, "original");
 const NATIVE_OUT_DIR = join(OUTPUT_DIR, "native");
 const CPU_COUNT = os.cpus().length;
+const FILE_LIMIT = parseInt(process.argv[2] || "0", 10) || Infinity;
 
 // Types
 interface NativeBindings {
@@ -80,7 +81,9 @@ if (!existsSync(INPUT_DIR)) {
   process.exit(1);
 }
 
-const vueFiles = readdirSync(INPUT_DIR).filter((f) => f.endsWith(".vue"));
+const vueFiles = readdirSync(INPUT_DIR)
+  .filter((f) => f.endsWith(".vue"))
+  .slice(0, FILE_LIMIT);
 if (vueFiles.length === 0) {
   console.error(
     `Error: No .vue files found in ${INPUT_DIR}\nRun 'node generate.mjs' first to create test files.`
@@ -264,14 +267,15 @@ console.log();
 console.log(" Single Thread:");
 console.log();
 
-// First run saves output
-const originalSingle = runOriginalSingleThread(true);
+// First run saves output (skip in quick mode)
+const saveOutput = FILE_LIMIT === Infinity;
+const originalSingle = runOriginalSingleThread(saveOutput);
 console.log(
   `   Original : ${formatTime(originalSingle).padStart(8)}  (${formatThroughput(files.length, originalSingle)})`
 );
 
 if (native) {
-  const nativeSingle = runNativeSingleThread(true);
+  const nativeSingle = runNativeSingleThread(saveOutput);
   const speedup = (originalSingle / nativeSingle).toFixed(1);
   console.log(
     `   Native   : ${formatTime(nativeSingle).padStart(8)}  (${formatThroughput(files.length, nativeSingle)})  ${speedup}x faster`
@@ -280,35 +284,65 @@ if (native) {
 
 // Multi-threaded benchmarks
 console.log();
-console.log(` Multi Thread (${CPU_COUNT} workers):`);
-console.log();
+if (FILE_LIMIT === Infinity) {
+  console.log(` Multi Thread (${CPU_COUNT} workers):`);
+  console.log();
 
-const originalMulti = await runOriginalMultiThread();
-console.log(
-  `   Original : ${formatTime(originalMulti).padStart(8)}  (${formatThroughput(files.length, originalMulti)})`
-);
-
-if (native) {
-  // Use native batch compile with glob pattern (native multithreading via rayon)
-  const pattern = join(INPUT_DIR, "*.vue");
-
-  // Warmup
-  for (let i = 0; i < 3; i++) {
-    native.compileSfcBatch(pattern);
-  }
-
-  const result = native.compileSfcBatch(pattern);
-  const nativeMulti = result.timeMs;
-  const speedup = (originalMulti / nativeMulti).toFixed(1);
+  const originalMulti = await runOriginalMultiThread();
   console.log(
-    `   Native   : ${formatTime(nativeMulti).padStart(8)}  (${formatThroughput(files.length, nativeMulti)})  ${speedup}x faster`
+    `   Original : ${formatTime(originalMulti).padStart(8)}  (${formatThroughput(files.length, originalMulti)})`
   );
+
+  if (native) {
+    // Use native batch compile with glob pattern (native multithreading via rayon)
+    const pattern = join(INPUT_DIR, "*.vue");
+
+    // Warmup
+    for (let i = 0; i < 3; i++) {
+      native.compileSfcBatch(pattern);
+    }
+
+    const result = native.compileSfcBatch(pattern);
+    const nativeMulti = result.timeMs;
+    const speedup = (originalMulti / nativeMulti).toFixed(1);
+    console.log(
+      `   Native   : ${formatTime(nativeMulti).padStart(8)}  (${formatThroughput(files.length, nativeMulti)})  ${speedup}x faster`
+    );
+  }
+} else {
+  // Quick mode: compare Original single-thread vs Native multi-thread (batch)
+  console.log(` Quick Comparison (Original 1T vs Native MT):`);
+  console.log();
+
+  const originalThroughput = (files.length / originalSingle) * 1000; // files/sec
+
+  if (native) {
+    const pattern = join(INPUT_DIR, "*.vue");
+
+    // Warmup
+    for (let i = 0; i < 3; i++) {
+      native.compileSfcBatch(pattern);
+    }
+
+    const result = native.compileSfcBatch(pattern);
+    const nativeThroughput = (result.success / result.timeMs) * 1000; // files/sec
+    const speedup = (nativeThroughput / originalThroughput).toFixed(1);
+
+    console.log(
+      `   Original : ${formatThroughput(files.length, originalSingle).padStart(12)}  (single-thread, ${files.length} files)`
+    );
+    console.log(
+      `   Native   : ${formatThroughput(result.success, result.timeMs).padStart(12)}  (multi-thread, ${result.success} files)  ${speedup}x faster`
+    );
+  }
 }
 
 console.log();
 console.log("-".repeat(65));
-console.log();
-console.log(` Output saved to:`);
-console.log(`   Original : ${ORIGINAL_OUT_DIR}`);
-console.log(`   Native   : ${NATIVE_OUT_DIR}`);
+if (FILE_LIMIT === Infinity) {
+  console.log();
+  console.log(` Output saved to:`);
+  console.log(`   Original : ${ORIGINAL_OUT_DIR}`);
+  console.log(`   Native   : ${NATIVE_OUT_DIR}`);
+}
 console.log();

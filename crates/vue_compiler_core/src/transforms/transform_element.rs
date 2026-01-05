@@ -17,7 +17,7 @@ pub fn resolve_element_type<'a>(
     // Check if it's a component
     if is_component(tag, el) {
         ctx.helper(RuntimeHelper::ResolveComponent);
-        ctx.components.insert(tag.clone());
+        ctx.add_component(tag.clone());
         ElementType::Component
     } else if tag == "slot" {
         ElementType::Slot
