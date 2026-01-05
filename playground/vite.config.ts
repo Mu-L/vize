@@ -6,8 +6,7 @@ import topLevelAwait from "vite-plugin-top-level-await";
 // Toggle between @vitejs/plugin-vue and vite-plugin-vue-compiler-rs
 // In CI (production build), use official Vue compiler for stability
 // In development, try to use vue-compiler-rs for testing
-// TODO: Re-enable once template compiler v-for bug is fixed
-const USE_VUE_COMPILER_RS = false; // process.env.CI !== "true";
+const USE_VUE_COMPILER_RS = process.env.CI !== "true";
 
 async function getVuePlugin() {
   if (USE_VUE_COMPILER_RS) {

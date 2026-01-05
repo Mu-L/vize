@@ -231,7 +231,9 @@ fn extract_template_parts(template_code: &str) -> (String, String, String) {
     let mut hoisted = String::new();
     let mut render_body = String::new();
     let mut in_render = false;
+    let mut in_return = false;
     let mut brace_depth = 0;
+    let mut return_brace_depth = 0;
 
     for line in template_code.lines() {
         let trimmed = line.trim();
@@ -255,12 +257,35 @@ fn extract_template_parts(template_code: &str) -> (String, String, String) {
             brace_depth += line.matches('{').count() as i32;
             brace_depth -= line.matches('}').count() as i32;
 
-            // Extract the return statement inside the render function
-            if let Some(stripped) = trimmed.strip_prefix("return ") {
+            // Extract the return statement inside the render function (may span multiple lines)
+            if in_return {
+                // Continue collecting return body
+                render_body.push('\n');
+                render_body.push_str(line);
+                return_brace_depth += line.matches('(').count() as i32;
+                return_brace_depth -= line.matches(')').count() as i32;
+
+                // Check if return statement is complete
+                if return_brace_depth <= 0 {
+                    in_return = false;
+                    // Remove trailing semicolon if present
+                    let trimmed_body = render_body.trim_end();
+                    if let Some(stripped) = trimmed_body.strip_suffix(';') {
+                        render_body = stripped.to_string();
+                    }
+                }
+            } else if let Some(stripped) = trimmed.strip_prefix("return ") {
                 render_body = stripped.to_string();
-                // Remove trailing semicolon if present
-                if render_body.ends_with(';') {
-                    render_body.pop();
+                // Count parentheses to handle multi-line return
+                return_brace_depth =
+                    stripped.matches('(').count() as i32 - stripped.matches(')').count() as i32;
+                if return_brace_depth > 0 {
+                    in_return = true;
+                } else {
+                    // Single line return - remove trailing semicolon if present
+                    if render_body.ends_with(';') {
+                        render_body.pop();
+                    }
                 }
             }
 
