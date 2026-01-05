@@ -24,6 +24,10 @@ Snapshot tests against `@vue/compiler-sfc` (v3.6.0-beta):
 | **SFC** | 28 | 40 | 70.0% |
 | **Total** | 324 | 476 | 68.1% |
 
+### Recent Improvements
+
+- **Props destructure handling**: Fixed compiler to properly handle both old-style array-based props destructuring (transformed away) and new Vue 3.5+ type-based props destructuring (preserved). This improved SFC test compatibility to 70.0%.
+
 ## Quick Start
 
 ```bash

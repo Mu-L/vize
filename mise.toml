@@ -103,9 +103,9 @@ run = "cargo bench -p vue_compiler_sfc"
 
 [tasks.dev]
 alias = "d"
-description = "Start playground dev server"
+description = "Start playground dev server (using official Vue compiler)"
 depends = ["build:vite-plugin"]
-run = "pnpm -C playground dev"
+run = "CI=true pnpm -C playground dev"
 
 [tasks.check]
 alias = "c"

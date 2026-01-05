@@ -129,6 +129,24 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text);
 }
 
+function copyFullOutput() {
+  if (!output.value) return;
+  const fullOutput = `
+=== COMPILER OUTPUT ===
+Compile Time: ${compileTime?.value?.toFixed(2) ?? 'N/A'}ms
+
+=== CODE ===
+${output.value.code}
+
+=== PREAMBLE ===
+${output.value.preamble || 'N/A'}
+
+=== HELPERS ===
+${output.value.helpers?.join('\n') || 'None'}
+`.trim();
+  copyToClipboard(fullOutput);
+}
+
 // Watchers
 let compileTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -222,6 +240,9 @@ onMounted(async () => {
             Output
             <span v-if="compileTime !== null" class="compile-time">{{ compileTime.toFixed(2) }}ms</span>
           </h2>
+          <div class="panel-actions">
+            <button @click="copyFullOutput" class="btn-ghost">Copy All Output</button>
+          </div>
           <div class="tabs">
             <button :class="['tab', { active: activeTab === 'code' }]" @click="activeTab = 'code'">Code</button>
             <button :class="['tab', { active: activeTab === 'ast' }]" @click="activeTab = 'ast'">AST</button>

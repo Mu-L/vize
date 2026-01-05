@@ -225,6 +225,71 @@ pub struct ScriptCompileResult {
     pub bindings: Option<BindingMetadata>,
 }
 
+/// Compact render body by removing unnecessary line breaks inside function calls and arrays
+fn compact_render_body(render_body: &str) -> String {
+    let mut result = String::new();
+    let mut chars = render_body.chars().peekable();
+    let mut paren_depth: i32 = 0;
+    let mut bracket_depth: i32 = 0;
+    let mut in_string = false;
+    let mut string_char = '\0';
+    let mut in_template = false;
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' | '\'' if !in_template => {
+                if !in_string {
+                    in_string = true;
+                    string_char = ch;
+                } else if string_char == ch {
+                    in_string = false;
+                }
+                result.push(ch);
+            }
+            '`' => {
+                in_template = !in_template;
+                result.push(ch);
+            }
+            '(' if !in_string && !in_template => {
+                paren_depth += 1;
+                result.push(ch);
+            }
+            ')' if !in_string && !in_template => {
+                paren_depth = paren_depth.saturating_sub(1);
+                result.push(ch);
+            }
+            '[' if !in_string && !in_template => {
+                bracket_depth += 1;
+                result.push(ch);
+            }
+            ']' if !in_string && !in_template => {
+                bracket_depth = bracket_depth.saturating_sub(1);
+                result.push(ch);
+            }
+            '\n' => {
+                // If inside parentheses or brackets (but not strings or templates), replace newline with space
+                if (paren_depth > 0 || bracket_depth > 0) && !in_string && !in_template {
+                    result.push(' ');
+                    // Skip following whitespace
+                    while let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_whitespace() && next_ch != '\n' {
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    // Keep newline outside of function calls/arrays or inside strings
+                    result.push(ch);
+                }
+            }
+            _ => result.push(ch),
+        }
+    }
+
+    result
+}
+
 /// Extract imports, hoisted consts, and render body from compiled template code
 fn extract_template_parts(template_code: &str) -> (String, String, String) {
     let mut imports = String::new();
@@ -259,9 +324,9 @@ fn extract_template_parts(template_code: &str) -> (String, String, String) {
 
             // Extract the return statement inside the render function (may span multiple lines)
             if in_return {
-                // Continue collecting return body
+                // Continue collecting return body - preserve line breaks but normalize whitespace
                 render_body.push('\n');
-                render_body.push_str(line);
+                render_body.push_str(line.trim_start());
                 return_brace_depth += line.matches('(').count() as i32;
                 return_brace_depth -= line.matches(')').count() as i32;
 
@@ -295,7 +360,10 @@ fn extract_template_parts(template_code: &str) -> (String, String, String) {
         }
     }
 
-    (imports, hoisted, render_body)
+    // Compact the render body to remove unnecessary line breaks inside function calls
+    let compacted = compact_render_body(&render_body);
+
+    (imports, hoisted, compacted)
 }
 
 /// Template parts for inline compilation
@@ -383,6 +451,18 @@ fn compile_script_setup_inline(
             destructure_buffer.push('\n');
             if trimmed.ends_with("()") || trimmed.ends_with(')') {
                 waiting_for_macro_close = false;
+                // Only add to setup_lines if it's Vue 3.5+ style (with generic type syntax)
+                // Old style: defineProps(['msg']) - should be transformed away
+                // New style: defineProps<{...}>() - should be preserved
+                let is_new_style =
+                    destructure_buffer.contains('<') && destructure_buffer.contains('>');
+                if is_new_style {
+                    for setup_line in destructure_buffer.trim_end().lines() {
+                        if !setup_line.trim().is_empty() {
+                            setup_lines.push(setup_line.to_string());
+                        }
+                    }
+                }
                 destructure_buffer.clear();
             }
             continue;
@@ -401,6 +481,15 @@ fn compile_script_setup_inline(
                     continue;
                 }
                 in_destructure = false;
+                // Add destructure to setup_lines if it's not a props macro
+                // Props macros are handled separately (either transformed or skipped)
+                if !is_props_macro {
+                    for setup_line in destructure_buffer.trim_end().lines() {
+                        if !setup_line.trim().is_empty() {
+                            setup_lines.push(setup_line.to_string());
+                        }
+                    }
+                }
                 destructure_buffer.clear();
             }
             continue;
@@ -439,7 +528,7 @@ fn compile_script_setup_inline(
             continue;
         }
 
-        // Skip single-line props destructure
+        // Skip single-line props destructure (handled by macro transformation)
         if is_props_destructure_line(trimmed) {
             continue;
         }
@@ -642,20 +731,38 @@ fn compile_script_setup_inline(
     output.push('\n');
     if !template.render_body.is_empty() {
         output.push_str("return (_ctx, _cache) => {\n");
-        // Indent the render body properly
-        let mut first_line = true;
-        for line in template.render_body.lines() {
-            if first_line {
-                output.push_str("  return ");
-                output.push_str(line);
-                first_line = false;
-            } else {
+        output.push_str("  return ");
+
+        // Handle multiline render body with proper indentation
+        let render_lines: Vec<&str> = template.render_body.lines().collect();
+
+        // Find minimum indentation to preserve relative indentation
+        let min_indent = render_lines
+            .iter()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| line.len() - line.trim_start().len())
+            .min()
+            .unwrap_or(0);
+
+        for (i, line) in render_lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if i == 0 {
+                // First line immediately after "return "
+                output.push_str(trimmed);
+            } else if !trimmed.is_empty() {
+                // Subsequent lines: preserve relative indentation with base indent of 4 spaces
                 output.push('\n');
-                // Preserve existing indentation by adding 2 spaces (setup indent)
-                if !line.trim().is_empty() {
-                    output.push_str("  ");
+                output.push_str("    ");
+                // Add relative indentation
+                let current_indent = line.len() - line.trim_start().len();
+                let relative_indent = current_indent.saturating_sub(min_indent);
+                for _ in 0..relative_indent {
+                    output.push(' ');
                 }
-                output.push_str(line);
+                output.push_str(trimmed);
+            } else {
+                // Empty lines: just newline
+                output.push('\n');
             }
         }
         output.push('\n');
