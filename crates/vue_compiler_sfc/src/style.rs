@@ -50,6 +50,9 @@ pub fn apply_scoped_css(css: &str, scope_id: &str) -> String {
             if c == string_char && !current.ends_with("\\\"") && !current.ends_with("\\'") {
                 in_string = false;
             }
+            if !in_selector {
+                output.push(c);
+            }
             continue;
         }
 
@@ -57,6 +60,9 @@ pub fn apply_scoped_css(css: &str, scope_id: &str) -> String {
             '"' | '\'' => {
                 in_string = true;
                 string_char = c;
+                if !in_selector {
+                    output.push(c);
+                }
             }
             '/' if chars.peek() == Some(&'*') => {
                 current.push(chars.next().unwrap());

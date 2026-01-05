@@ -315,6 +315,9 @@ fn apply_scoped_css_lightningcss(css: &str, scope_id: &str) -> String {
             if c == string_char && !current.ends_with("\\\"") && !current.ends_with("\\'") {
                 in_string = false;
             }
+            if !in_selector {
+                output.push(c);
+            }
             continue;
         }
 
@@ -322,6 +325,9 @@ fn apply_scoped_css_lightningcss(css: &str, scope_id: &str) -> String {
             '"' | '\'' => {
                 in_string = true;
                 string_char = c;
+                if !in_selector {
+                    output.push(c);
+                }
             }
             '/' if chars.peek() == Some(&'*') => {
                 current.push(chars.next().unwrap());
@@ -639,5 +645,41 @@ mod tests {
         );
         assert!(result.errors.is_empty());
         assert!(result.code.contains("flex"));
+    }
+
+    #[test]
+    fn test_scoped_css_with_quoted_font_family() {
+        let css = ".foo { font-family: 'JetBrains Mono', monospace; }";
+        let result = compile_css(
+            css,
+            &CssCompileOptions {
+                scoped: true,
+                scope_id: Some("data-v-123".to_string()),
+                ..Default::default()
+            },
+        );
+        println!("Result: {}", result.code);
+        assert!(result.errors.is_empty());
+        // Note: LightningCSS may remove quotes from font names
+        assert!(
+            result.code.contains("JetBrains Mono"),
+            "Expected font name in: {}",
+            result.code
+        );
+        assert!(result.code.contains("monospace"));
+    }
+
+    #[test]
+    fn test_apply_scoped_css_with_quoted_string() {
+        // Test the raw scoping function without LightningCSS
+        let css = ".foo { font-family: 'JetBrains Mono', monospace; }";
+        let result = apply_scoped_css_lightningcss(css, "data-v-123");
+        println!("Scoped result: {}", result);
+        assert!(
+            result.contains("'JetBrains Mono'"),
+            "Expected quoted font name in: {}",
+            result
+        );
+        assert!(result.contains("monospace"));
     }
 }

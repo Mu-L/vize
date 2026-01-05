@@ -46,7 +46,7 @@ function loadWasm(): WasmModule {
 
   try {
     // Load CommonJS WASM module using require (Node.js target)
-    const wasmPath = path.resolve(__dirname, '../wasm/vue_bindings.cjs');
+    const wasmPath = path.resolve(__dirname, '../wasm/vue_bindings.js');
     if (fs.existsSync(wasmPath)) {
       wasmModule = require(wasmPath) as WasmModule;
       return wasmModule;
