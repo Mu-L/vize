@@ -182,7 +182,7 @@ export const PRESETS = {
       '  name,',
       '  count = 0,',
       '  disabled = false,',
-      '  items = () => []',
+      '  items = []',
       '} = defineProps<{',
       '  name: string',
       '  count?: number',
