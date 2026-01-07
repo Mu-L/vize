@@ -954,7 +954,7 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
             ctx.push(slot_name);
             ctx.push("\"");
 
-            // Generate slot props
+            // Generate slot props (excluding 'name' attribute)
             let slot_props: Vec<_> = el
                 .props
                 .iter()
@@ -964,12 +964,34 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
                 })
                 .collect();
 
-            if !slot_props.is_empty() {
+            // Generate fallback content if present
+            if !el.children.is_empty() {
+                // If we have children but no props, pass empty object
+                if slot_props.is_empty() {
+                    ctx.push(", {}");
+                } else {
+                    ctx.push(", ");
+                    generate_props(ctx, &el.props);
+                }
+                ctx.push(", () => [");
+                ctx.indent();
+                for (i, child) in el.children.iter().enumerate() {
+                    if i > 0 {
+                        ctx.push(",");
+                    }
+                    ctx.newline();
+                    generate_node(ctx, child);
+                }
+                ctx.deindent();
+                ctx.newline();
+                ctx.push("])");
+            } else if !slot_props.is_empty() {
                 ctx.push(", ");
                 generate_props(ctx, &el.props);
+                ctx.push(")");
+            } else {
+                ctx.push(")");
             }
-
-            ctx.push(")");
         }
         ElementType::Template => {
             // Template elements render their children directly

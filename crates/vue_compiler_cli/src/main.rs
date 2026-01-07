@@ -166,6 +166,9 @@ fn compile_file(path: &PathBuf, ssr: bool) -> Result<CompileOutput, String> {
 fn main() {
     let cli = Cli::parse();
 
+    // Start timer (includes file collection time)
+    let start = Instant::now();
+
     // Configure thread pool
     if let Some(threads) = cli.threads {
         rayon::ThreadPoolBuilder::new()
@@ -183,17 +186,19 @@ fn main() {
     }
 
     let stats = CompileStats::new(files.len());
-    let start = Instant::now();
+    let collect_elapsed = start.elapsed();
 
     if cli.verbose {
         eprintln!(
-            "Compiling {} files using {} threads...",
+            "Found {} files in {:.2}s. Compiling using {} threads...",
             files.len(),
+            collect_elapsed.as_secs_f64(),
             rayon::current_num_threads()
         );
     }
 
     // Parallel compilation
+    let compile_start = Instant::now();
     let results: Vec<_> = files
         .par_iter()
         .map(|path| {
@@ -228,8 +233,10 @@ fn main() {
             }
         })
         .collect();
+    let compile_elapsed = compile_start.elapsed();
 
     // Output results
+    let io_start = Instant::now();
     match cli.format {
         OutputFormat::Stats => {
             // Just show stats, handled below
@@ -265,20 +272,31 @@ fn main() {
             }
         }
     }
+    let io_elapsed = io_start.elapsed();
 
     // Measure total elapsed time (including I/O)
-    let elapsed = start.elapsed();
+    let total_elapsed = start.elapsed();
 
     // Print stats
     let success = stats.success.load(Ordering::Relaxed);
     let failed = stats.failed.load(Ordering::Relaxed);
+
+    if cli.verbose {
+        eprintln!();
+        eprintln!("Timing breakdown:");
+        eprintln!("  File collection: {:.2}s", collect_elapsed.as_secs_f64());
+        eprintln!("  Compilation:     {:.2}s", compile_elapsed.as_secs_f64());
+        eprintln!("  I/O operations:  {:.2}s", io_elapsed.as_secs_f64());
+        eprintln!("  Total:           {:.2}s", total_elapsed.as_secs_f64());
+        eprintln!();
+    }
 
     if failed > 0 {
         eprintln!(
             "✗ {} file(s) failed, {} compiled in {:.2}s",
             failed,
             success,
-            elapsed.as_secs_f64()
+            total_elapsed.as_secs_f64()
         );
     } else {
         let file_word = if success == 1 { "file" } else { "files" };
@@ -286,7 +304,7 @@ fn main() {
             "✓ {} {} compiled in {:.2}s",
             success,
             file_word,
-            elapsed.as_secs_f64()
+            total_elapsed.as_secs_f64()
         );
     }
 

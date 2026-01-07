@@ -534,4 +534,43 @@ mod tests {
             "Should have language prop"
         );
     }
+
+    #[test]
+    fn test_codegen_slot_fallback() {
+        // Slot element with fallback content should include fallback function
+        assert_codegen!(r#"<slot name="label">{{ label }}</slot>"# => contains: [
+            "_renderSlot",
+            "\"label\"",
+            "{}"
+        ]);
+        // Check that the fallback function is present
+        let result = compile!(r#"<slot name="label">{{ label }}</slot>"#);
+        assert!(
+            result.code.contains("() => ["),
+            "Should have fallback function: {}",
+            result.code
+        );
+        assert!(
+            result.code.contains("_toDisplayString"),
+            "Should have toDisplayString for interpolation: {}",
+            result.code
+        );
+    }
+
+    #[test]
+    fn test_codegen_slot_without_fallback() {
+        // Slot element without fallback should not have empty object or function
+        let result = compile!(r#"<slot name="header"></slot>"#);
+        assert!(
+            result.code.contains("_renderSlot"),
+            "Should have renderSlot"
+        );
+        assert!(result.code.contains("\"header\""), "Should have slot name");
+        // Should not have fallback function
+        assert!(
+            !result.code.contains("() => ["),
+            "Should not have fallback function for empty slot: {}",
+            result.code
+        );
+    }
 }
