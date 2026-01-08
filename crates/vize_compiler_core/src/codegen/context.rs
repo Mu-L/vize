@@ -1,16 +1,14 @@
 //! Code generation context and result types.
 
-use vize_allocator::String;
-
 use crate::ast::RuntimeHelper;
 use crate::options::CodegenOptions;
 
 use super::helpers::default_helper_alias;
 
-/// Code generation context
+/// Code generation context using byte buffer for performance
 pub struct CodegenContext {
-    /// Generated code buffer
-    pub(super) code: String,
+    /// Generated code buffer (bytes)
+    pub(super) code: Vec<u8>,
     /// Current indentation level
     pub(super) indent_level: u32,
     /// Whether we're in SSR mode
@@ -31,7 +29,7 @@ pub struct CodegenContext {
     /// Cache index for v-once
     pub(super) cache_index: usize,
     /// Slot parameters (identifiers that should not be prefixed with _ctx.)
-    pub(super) slot_params: std::collections::HashSet<std::string::String>,
+    pub(super) slot_params: std::collections::HashSet<String>,
 }
 
 /// Code generation result
@@ -48,12 +46,12 @@ impl CodegenContext {
     /// Create a new codegen context
     pub fn new(options: CodegenOptions) -> Self {
         Self {
-            code: String::with_capacity(4096),
+            code: Vec::with_capacity(4096),
             indent_level: 0,
             ssr: options.ssr,
             helper_alias: default_helper_alias,
-            runtime_global_name: options.runtime_global_name.clone(),
-            runtime_module_name: options.runtime_module_name.clone(),
+            runtime_global_name: options.runtime_global_name.to_string(),
+            runtime_module_name: options.runtime_module_name.to_string(),
             options,
             pure: false,
             used_helpers: std::collections::HashSet::new(),
@@ -63,14 +61,14 @@ impl CodegenContext {
     }
 
     /// Add slot parameters (identifiers that should not be prefixed)
-    pub fn add_slot_params(&mut self, params: &[std::string::String]) {
+    pub fn add_slot_params(&mut self, params: &[String]) {
         for param in params {
             self.slot_params.insert(param.clone());
         }
     }
 
     /// Remove slot parameters (when exiting slot scope)
-    pub fn remove_slot_params(&mut self, params: &[std::string::String]) {
+    pub fn remove_slot_params(&mut self, params: &[String]) {
         for param in params {
             self.slot_params.remove(param);
         }
@@ -88,31 +86,42 @@ impl CodegenContext {
         index
     }
 
-    /// Push code to buffer
+    /// Push bytes to buffer
+    #[inline]
+    pub fn push_bytes(&mut self, bytes: &[u8]) {
+        self.code.extend_from_slice(bytes);
+    }
+
+    /// Push string to buffer
+    #[inline]
     pub fn push(&mut self, code: &str) {
-        self.code.push_str(code);
+        self.code.extend_from_slice(code.as_bytes());
     }
 
     /// Push code with newline
+    #[inline]
     pub fn push_line(&mut self, code: &str) {
         self.push(code);
         self.newline();
     }
 
     /// Add newline with proper indentation
+    #[inline]
     pub fn newline(&mut self) {
-        self.code.push('\n');
+        self.code.push(b'\n');
         for _ in 0..self.indent_level {
-            self.code.push_str("  ");
+            self.code.extend_from_slice(b"  ");
         }
     }
 
     /// Increase indentation
+    #[inline]
     pub fn indent(&mut self) {
         self.indent_level += 1;
     }
 
     /// Decrease indentation
+    #[inline]
     pub fn deindent(&mut self) {
         if self.indent_level > 0 {
             self.indent_level -= 1;
@@ -120,18 +129,21 @@ impl CodegenContext {
     }
 
     /// Add pure annotation /*#__PURE__*/
+    #[inline]
     pub fn push_pure(&mut self) {
         if self.pure {
-            self.push("/*#__PURE__*/ ");
+            self.code.extend_from_slice(b"/*#__PURE__*/ ");
         }
     }
 
     /// Get helper name
+    #[inline]
     pub fn helper(&self, helper: RuntimeHelper) -> &'static str {
         (self.helper_alias)(helper)
     }
 
     /// Track a helper for preamble generation
+    #[inline]
     pub fn use_helper(&mut self, helper: RuntimeHelper) {
         self.used_helpers.insert(helper);
     }
@@ -144,5 +156,17 @@ impl CodegenContext {
         } else {
             false
         }
+    }
+
+    /// Get the generated code as a String
+    pub fn into_code(self) -> String {
+        // SAFETY: We only push valid UTF-8 strings
+        unsafe { String::from_utf8_unchecked(self.code) }
+    }
+
+    /// Get the generated code as a reference (for temporary use)
+    pub fn code_as_str(&self) -> &str {
+        // SAFETY: We only push valid UTF-8 strings
+        unsafe { std::str::from_utf8_unchecked(&self.code) }
     }
 }

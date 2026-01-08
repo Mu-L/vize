@@ -24,8 +24,8 @@ Compiling **15,000 SFC files** (36.9 MB):
 
 |  | @vue/compiler-sfc | Vize | Speedup |
 |--|-------------------|-----------------|---------|
-| **Single Thread** | 14.13s | 6.77s | **2.1x** |
-| **Multi Thread** (10 workers) | 3.97s | 593ms | **6.7x** (23.8x vs Original 1T) |
+| **Single Thread** | 14.51s | 6.74s | **2.2x** |
+| **Multi Thread** (10 workers) | 4.12s | 510ms | **8.1x** (28.5x vs Original 1T) |
 
 ## Compatibility
 

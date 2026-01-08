@@ -59,8 +59,8 @@ pub fn compile_template_with_options<'a>(
 
     if !errors.is_empty() {
         let codegen_result = CodegenResult {
-            code: vize_allocator::String::default(),
-            preamble: vize_allocator::String::default(),
+            code: String::new(),
+            preamble: String::new(),
             map: None,
         };
         return (root, errors.to_vec(), codegen_result);

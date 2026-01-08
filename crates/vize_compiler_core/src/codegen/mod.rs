@@ -14,8 +14,6 @@ mod slots;
 mod v_for;
 mod v_if;
 
-use vize_allocator::String;
-
 use crate::ast::*;
 use crate::options::CodegenOptions;
 
@@ -99,7 +97,7 @@ pub fn generate(root: &RootNode<'_>, options: CodegenOptions) -> CodegenResult {
     }
 
     CodegenResult {
-        code: ctx.code,
+        code: ctx.into_code(),
         preamble,
         map: None,
     }
@@ -108,47 +106,48 @@ pub fn generate(root: &RootNode<'_>, options: CodegenOptions) -> CodegenResult {
 /// Generate preamble from a list of helpers
 fn generate_preamble_from_helpers(ctx: &CodegenContext, helpers: &[RuntimeHelper]) -> String {
     if helpers.is_empty() {
-        return String::default();
+        return String::new();
     }
 
     // Pre-calculate capacity: each helper needs ~20 chars on average
     let estimated_capacity = 32 + helpers.len() * 24;
-    let mut preamble = String::with_capacity(estimated_capacity);
+    let mut preamble = Vec::with_capacity(estimated_capacity);
 
     match ctx.options.mode {
         crate::options::CodegenMode::Module => {
             // ES module imports - build string directly without intermediate Vec
-            preamble.push_str("import { ");
+            preamble.extend_from_slice(b"import { ");
             for (i, h) in helpers.iter().enumerate() {
                 if i > 0 {
-                    preamble.push_str(", ");
+                    preamble.extend_from_slice(b", ");
                 }
-                preamble.push_str(h.name());
-                preamble.push_str(" as ");
-                preamble.push_str(ctx.helper(*h));
+                preamble.extend_from_slice(h.name().as_bytes());
+                preamble.extend_from_slice(b" as ");
+                preamble.extend_from_slice(ctx.helper(*h).as_bytes());
             }
-            preamble.push_str(" } from \"");
-            preamble.push_str(&ctx.runtime_module_name);
-            preamble.push_str("\"\n");
+            preamble.extend_from_slice(b" } from \"");
+            preamble.extend_from_slice(ctx.runtime_module_name.as_bytes());
+            preamble.extend_from_slice(b"\"\n");
         }
         crate::options::CodegenMode::Function => {
             // Destructuring from global - build string directly without intermediate Vec
-            preamble.push_str("const { ");
+            preamble.extend_from_slice(b"const { ");
             for (i, h) in helpers.iter().enumerate() {
                 if i > 0 {
-                    preamble.push_str(", ");
+                    preamble.extend_from_slice(b", ");
                 }
-                preamble.push_str(h.name());
-                preamble.push_str(": ");
-                preamble.push_str(ctx.helper(*h));
+                preamble.extend_from_slice(h.name().as_bytes());
+                preamble.extend_from_slice(b": ");
+                preamble.extend_from_slice(ctx.helper(*h).as_bytes());
             }
-            preamble.push_str(" } = ");
-            preamble.push_str(&ctx.runtime_global_name);
-            preamble.push('\n');
+            preamble.extend_from_slice(b" } = ");
+            preamble.extend_from_slice(ctx.runtime_global_name.as_bytes());
+            preamble.push(b'\n');
         }
     }
 
-    preamble
+    // SAFETY: We only push valid UTF-8 strings
+    unsafe { String::from_utf8_unchecked(preamble) }
 }
 
 /// Generate function signature
@@ -171,207 +170,210 @@ fn generate_function_signature(ctx: &mut CodegenContext) {
 
 /// Generate hoisted variable declarations
 fn generate_hoists(ctx: &CodegenContext, root: &RootNode<'_>) -> String {
-    let mut hoists_code = String::default();
+    let mut hoists_code: Vec<u8> = Vec::new();
 
     for (i, hoist) in root.hoists.iter().enumerate() {
         if let Some(node) = hoist {
-            hoists_code.push_str(&format!("const _hoisted_{} = ", i + 1));
+            hoists_code.extend_from_slice(b"const _hoisted_");
+            hoists_code.extend_from_slice((i + 1).to_string().as_bytes());
+            hoists_code.extend_from_slice(b" = ");
             // Only add /*#__PURE__*/ for VNodeCall (createElementVNode calls)
             if matches!(node, JsChildNode::VNodeCall(_)) {
-                hoists_code.push_str("/*#__PURE__*/ ");
+                hoists_code.extend_from_slice(b"/*#__PURE__*/ ");
             }
-            generate_js_child_node_to_string(ctx, node, &mut hoists_code);
-            hoists_code.push('\n');
+            generate_js_child_node_to_bytes(ctx, node, &mut hoists_code);
+            hoists_code.push(b'\n');
         }
     }
 
-    hoists_code
+    // SAFETY: We only push valid UTF-8 strings
+    unsafe { String::from_utf8_unchecked(hoists_code) }
 }
 
-/// Generate JsChildNode to a string
-fn generate_js_child_node_to_string(
+/// Generate JsChildNode to bytes
+fn generate_js_child_node_to_bytes(
     ctx: &CodegenContext,
     node: &JsChildNode<'_>,
-    out: &mut String,
+    out: &mut Vec<u8>,
 ) {
     match node {
-        JsChildNode::VNodeCall(vnode) => generate_vnode_call_to_string(ctx, vnode, out),
+        JsChildNode::VNodeCall(vnode) => generate_vnode_call_to_bytes(ctx, vnode, out),
         JsChildNode::SimpleExpression(exp) => {
             if exp.is_static {
-                out.push('"');
-                out.push_str(&exp.content);
-                out.push('"');
+                out.push(b'"');
+                out.extend_from_slice(exp.content.as_bytes());
+                out.push(b'"');
             } else {
                 // Expression should already be processed by transform
-                out.push_str(&exp.content);
+                out.extend_from_slice(exp.content.as_bytes());
             }
         }
         JsChildNode::Object(obj) => {
-            out.push_str("{ ");
+            out.extend_from_slice(b"{ ");
             for (i, prop) in obj.properties.iter().enumerate() {
                 if i > 0 {
-                    out.push_str(", ");
+                    out.extend_from_slice(b", ");
                 }
                 // Key
                 match &prop.key {
                     ExpressionNode::Simple(exp) => {
-                        out.push_str(&exp.content);
-                        out.push_str(": ");
+                        out.extend_from_slice(exp.content.as_bytes());
+                        out.extend_from_slice(b": ");
                     }
-                    ExpressionNode::Compound(_) => out.push_str("null: "),
+                    ExpressionNode::Compound(_) => out.extend_from_slice(b"null: "),
                 }
                 // Value
-                generate_js_child_node_to_string(ctx, &prop.value, out);
+                generate_js_child_node_to_bytes(ctx, &prop.value, out);
             }
-            out.push_str(" }");
+            out.extend_from_slice(b" }");
         }
-        _ => out.push_str("null /* unsupported */"),
+        _ => out.extend_from_slice(b"null /* unsupported */"),
     }
 }
 
-/// Generate VNodeCall to a string
-fn generate_vnode_call_to_string(ctx: &CodegenContext, vnode: &VNodeCall<'_>, out: &mut String) {
+/// Generate VNodeCall to bytes
+fn generate_vnode_call_to_bytes(ctx: &CodegenContext, vnode: &VNodeCall<'_>, out: &mut Vec<u8>) {
     // Block nodes use openBlock + createBlock/createElementBlock
     if vnode.is_block {
-        out.push('(');
-        out.push_str(ctx.helper(RuntimeHelper::OpenBlock));
-        out.push_str("(), ");
+        out.push(b'(');
+        out.extend_from_slice(ctx.helper(RuntimeHelper::OpenBlock).as_bytes());
+        out.extend_from_slice(b"(), ");
         if vnode.is_component {
-            out.push_str(ctx.helper(RuntimeHelper::CreateBlock));
+            out.extend_from_slice(ctx.helper(RuntimeHelper::CreateBlock).as_bytes());
         } else {
-            out.push_str(ctx.helper(RuntimeHelper::CreateElementBlock));
+            out.extend_from_slice(ctx.helper(RuntimeHelper::CreateElementBlock).as_bytes());
         }
     } else if vnode.is_component {
-        out.push_str(ctx.helper(RuntimeHelper::CreateVNode));
+        out.extend_from_slice(ctx.helper(RuntimeHelper::CreateVNode).as_bytes());
     } else {
-        out.push_str(ctx.helper(RuntimeHelper::CreateElementVNode));
+        out.extend_from_slice(ctx.helper(RuntimeHelper::CreateElementVNode).as_bytes());
     }
-    out.push('(');
+    out.push(b'(');
 
     // Tag
     match &vnode.tag {
         VNodeTag::String(s) => {
-            out.push('"');
-            out.push_str(s);
-            out.push('"');
+            out.push(b'"');
+            out.extend_from_slice(s.as_bytes());
+            out.push(b'"');
         }
-        VNodeTag::Symbol(helper) => out.push_str(ctx.helper(*helper)),
-        VNodeTag::Call(_) => out.push_str("null"),
+        VNodeTag::Symbol(helper) => out.extend_from_slice(ctx.helper(*helper).as_bytes()),
+        VNodeTag::Call(_) => out.extend_from_slice(b"null"),
     }
 
     // Props
     if let Some(props) = &vnode.props {
-        out.push_str(", ");
-        generate_props_expression_to_string(ctx, props, out);
+        out.extend_from_slice(b", ");
+        generate_props_expression_to_bytes(ctx, props, out);
     } else if vnode.children.is_some() || vnode.patch_flag.is_some() {
-        out.push_str(", null");
+        out.extend_from_slice(b", null");
     }
 
     // Children
     if let Some(children) = &vnode.children {
-        out.push_str(", ");
-        generate_vnode_children_to_string(ctx, children, out);
+        out.extend_from_slice(b", ");
+        generate_vnode_children_to_bytes(ctx, children, out);
     } else if vnode.patch_flag.is_some() {
-        out.push_str(", null");
+        out.extend_from_slice(b", null");
     }
 
     // Patch flag
     if let Some(patch_flag) = &vnode.patch_flag {
-        out.push_str(", ");
-        out.push_str(&patch_flag.bits().to_string());
-        out.push_str(" /* ");
-        out.push_str(&format!("{:?}", patch_flag));
-        out.push_str(" */");
+        out.extend_from_slice(b", ");
+        out.extend_from_slice(patch_flag.bits().to_string().as_bytes());
+        out.extend_from_slice(b" /* ");
+        out.extend_from_slice(format!("{:?}", patch_flag).as_bytes());
+        out.extend_from_slice(b" */");
     }
 
     // Dynamic props
     if let Some(dynamic_props) = &vnode.dynamic_props {
-        out.push_str(", ");
+        out.extend_from_slice(b", ");
         match dynamic_props {
             DynamicProps::String(s) => {
-                out.push_str(s);
+                out.extend_from_slice(s.as_bytes());
             }
             DynamicProps::Simple(exp) => {
-                out.push_str(&exp.content);
+                out.extend_from_slice(exp.content.as_bytes());
             }
         }
     }
 
-    out.push(')');
+    out.push(b')');
 
     // Close block wrapper
     if vnode.is_block {
-        out.push(')');
+        out.push(b')');
     }
 }
 
-/// Generate PropsExpression to a string
-fn generate_props_expression_to_string(
+/// Generate PropsExpression to bytes
+fn generate_props_expression_to_bytes(
     ctx: &CodegenContext,
     props: &PropsExpression<'_>,
-    out: &mut String,
+    out: &mut Vec<u8>,
 ) {
     match props {
         PropsExpression::Object(obj) => {
-            out.push_str("{ ");
+            out.extend_from_slice(b"{ ");
             for (i, prop) in obj.properties.iter().enumerate() {
                 if i > 0 {
-                    out.push_str(", ");
+                    out.extend_from_slice(b", ");
                 }
                 // Key (no quotes for valid identifiers)
                 match &prop.key {
                     ExpressionNode::Simple(exp) => {
-                        out.push_str(&exp.content);
-                        out.push_str(": ");
+                        out.extend_from_slice(exp.content.as_bytes());
+                        out.extend_from_slice(b": ");
                     }
-                    ExpressionNode::Compound(_) => out.push_str("null: "),
+                    ExpressionNode::Compound(_) => out.extend_from_slice(b"null: "),
                 }
                 // Value
-                generate_js_child_node_to_string(ctx, &prop.value, out);
+                generate_js_child_node_to_bytes(ctx, &prop.value, out);
             }
-            out.push_str(" }");
+            out.extend_from_slice(b" }");
         }
         PropsExpression::Simple(exp) => {
             if exp.is_static {
-                out.push('"');
-                out.push_str(&exp.content);
-                out.push('"');
+                out.push(b'"');
+                out.extend_from_slice(exp.content.as_bytes());
+                out.push(b'"');
             } else {
                 // Expression should already be processed by transform
-                out.push_str(&exp.content);
+                out.extend_from_slice(exp.content.as_bytes());
             }
         }
-        PropsExpression::Call(_) => out.push_str("null"),
+        PropsExpression::Call(_) => out.extend_from_slice(b"null"),
     }
 }
 
-/// Generate VNodeChildren to a string
-fn generate_vnode_children_to_string(
+/// Generate VNodeChildren to bytes
+fn generate_vnode_children_to_bytes(
     _ctx: &CodegenContext,
     children: &VNodeChildren<'_>,
-    out: &mut String,
+    out: &mut Vec<u8>,
 ) {
     match children {
         VNodeChildren::Single(text_child) => match text_child {
             TemplateTextChildNode::Text(text) => {
-                out.push('"');
-                out.push_str(&escape_js_string(&text.content));
-                out.push('"');
+                out.push(b'"');
+                out.extend_from_slice(escape_js_string(&text.content).as_bytes());
+                out.push(b'"');
             }
-            TemplateTextChildNode::Interpolation(_) => out.push_str("null"),
-            TemplateTextChildNode::Compound(_) => out.push_str("null"),
+            TemplateTextChildNode::Interpolation(_) => out.extend_from_slice(b"null"),
+            TemplateTextChildNode::Compound(_) => out.extend_from_slice(b"null"),
         },
         VNodeChildren::Simple(exp) => {
             if exp.is_static {
-                out.push('"');
-                out.push_str(&escape_js_string(&exp.content));
-                out.push('"');
+                out.push(b'"');
+                out.extend_from_slice(escape_js_string(&exp.content).as_bytes());
+                out.push(b'"');
             } else {
                 // Expression should already be processed by transform
-                out.push_str(&exp.content);
+                out.extend_from_slice(exp.content.as_bytes());
             }
         }
-        _ => out.push_str("null"),
+        _ => out.extend_from_slice(b"null"),
     }
 }
 
