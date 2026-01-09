@@ -1,0 +1,22 @@
+[package]
+name = "vize_carton"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Carton - The artist's toolbox for Vize compiler"
+
+[dependencies]
+# Arena allocator
+bumpalo = { workspace = true }
+compact_str = { workspace = true }
+
+# Utilities
+bitflags = { workspace = true }
+phf = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+once_cell = { workspace = true }
+
+[features]
+default = []

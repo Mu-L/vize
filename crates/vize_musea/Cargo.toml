@@ -1,0 +1,8 @@
+[package]
+name = "vize_musea"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Musea - Component gallery and documentation for Vize Vue components"
+
+[dependencies]

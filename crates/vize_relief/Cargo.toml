@@ -1,0 +1,13 @@
+[package]
+name = "vize_relief"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Relief - The sculptured AST surface for Vize Vue templates"
+
+[dependencies]
+vize_carton = { workspace = true }
+
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

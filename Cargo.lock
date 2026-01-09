@@ -2240,39 +2240,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "vize_allocator"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "compact_str",
- "serde",
-]
-
-[[package]]
-name = "vize_bindings"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.3.4",
- "glob",
- "js-sys",
- "napi",
- "napi-build",
- "napi-derive",
- "rayon",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "vize_allocator",
- "vize_compiler_core",
- "vize_compiler_dom",
- "vize_compiler_sfc",
- "vize_compiler_vapor",
- "vize_shared",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "vize_compiler_cli"
+name = "vize"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -2287,11 +2255,27 @@ dependencies = [
  "regex-lite",
  "serde",
  "serde_json",
- "vize_compiler_sfc",
+ "vize_atelier_sfc",
+ "vize_canon",
+ "vize_glyph",
+ "vize_maestro",
+ "vize_musea",
+ "vize_patina",
 ]
 
 [[package]]
-name = "vize_compiler_core"
+name = "vize_armature"
+version = "0.1.0"
+dependencies = [
+ "compact_str",
+ "serde",
+ "thiserror 2.0.17",
+ "vize_carton",
+ "vize_relief",
+]
+
+[[package]]
+name = "vize_atelier_core"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
@@ -2312,12 +2296,13 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.17",
- "vize_allocator",
- "vize_shared",
+ "vize_armature",
+ "vize_carton",
+ "vize_relief",
 ]
 
 [[package]]
-name = "vize_compiler_dom"
+name = "vize_atelier_dom"
 version = "0.1.0"
 dependencies = [
  "insta",
@@ -2325,13 +2310,12 @@ dependencies = [
  "rustc-hash",
  "serde",
  "thiserror 2.0.17",
- "vize_allocator",
- "vize_compiler_core",
- "vize_shared",
+ "vize_atelier_core",
+ "vize_carton",
 ]
 
 [[package]]
-name = "vize_compiler_sfc"
+name = "vize_atelier_sfc"
 version = "0.1.0"
 dependencies = [
  "criterion",
@@ -2351,45 +2335,66 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "toml",
- "vize_allocator",
- "vize_compiler_core",
- "vize_compiler_dom",
- "vize_compiler_vapor",
- "vize_shared",
+ "vize_atelier_core",
+ "vize_atelier_dom",
+ "vize_atelier_vapor",
+ "vize_carton",
 ]
 
 [[package]]
-name = "vize_compiler_vapor"
+name = "vize_atelier_vapor"
 version = "0.1.0"
 dependencies = [
  "insta",
  "rustc-hash",
  "serde",
  "thiserror 2.0.17",
- "vize_allocator",
- "vize_compiler_core",
- "vize_shared",
+ "vize_atelier_core",
+ "vize_carton",
 ]
 
 [[package]]
-name = "vize_formatter"
+name = "vize_canon"
 version = "0.1.0"
 
 [[package]]
-name = "vize_linter"
-version = "0.1.0"
-
-[[package]]
-name = "vize_shared"
+name = "vize_carton"
 version = "0.1.0"
 dependencies = [
  "bitflags",
+ "bumpalo",
+ "compact_str",
  "once_cell",
  "phf",
  "rustc-hash",
  "serde",
  "serde_json",
- "vize_allocator",
+]
+
+[[package]]
+name = "vize_glyph"
+version = "0.1.0"
+
+[[package]]
+name = "vize_maestro"
+version = "0.1.0"
+
+[[package]]
+name = "vize_musea"
+version = "0.1.0"
+
+[[package]]
+name = "vize_patina"
+version = "0.1.0"
+
+[[package]]
+name = "vize_relief"
+version = "0.1.0"
+dependencies = [
+ "rustc-hash",
+ "serde",
+ "thiserror 2.0.17",
+ "vize_carton",
 ]
 
 [[package]]
@@ -2398,16 +2403,33 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "toml",
- "vize_allocator",
- "vize_compiler_core",
- "vize_compiler_sfc",
- "vize_compiler_vapor",
- "vize_shared",
+ "vize_atelier_core",
+ "vize_atelier_sfc",
+ "vize_atelier_vapor",
+ "vize_carton",
 ]
 
 [[package]]
-name = "vize_typechecker"
+name = "vize_vitrine"
 version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "glob",
+ "js-sys",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "rayon",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "vize_atelier_core",
+ "vize_atelier_dom",
+ "vize_atelier_sfc",
+ "vize_atelier_vapor",
+ "vize_carton",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "vlq"

@@ -1,0 +1,14 @@
+[package]
+name = "vize_armature"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Armature - The structural parser framework for Vize Vue templates"
+
+[dependencies]
+vize_carton = { workspace = true }
+vize_relief = { workspace = true }
+
+compact_str = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

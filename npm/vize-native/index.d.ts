@@ -76,6 +76,11 @@ export interface CompilerOptions {
   outputMode?: string
   /** Whether the template contains TypeScript */
   isTs?: boolean
+  /**
+   * Script extension handling: "preserve" (keep TypeScript) or "downcompile" (transpile to JS)
+   * Defaults to "downcompile"
+   */
+  scriptExt?: string
 }
 /** Compile result */
 export interface CompileResult {

@@ -1,0 +1,8 @@
+[package]
+name = "vize_maestro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Maestro - Language Server Protocol implementation for Vize Vue templates"
+
+[dependencies]

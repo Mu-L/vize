@@ -1,0 +1,47 @@
+[package]
+name = "vize_vitrine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Vitrine - The display case for Vize (Node.js/WASM bindings)"
+
+[lib]
+name = "vize_bindings"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["napi"]
+napi = ["dep:napi", "dep:napi-derive", "dep:glob", "dep:rayon", "vize_atelier_sfc/native"]
+wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:js-sys"]
+
+[dependencies]
+vize_carton = { workspace = true }
+vize_atelier_core = { workspace = true }
+vize_atelier_dom = { workspace = true }
+vize_atelier_vapor = { workspace = true }
+vize_atelier_sfc = { workspace = true, default-features = false }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# NAPI (optional)
+napi = { workspace = true, optional = true }
+napi-derive = { workspace = true, optional = true }
+
+# Glob pattern (for batch compile)
+glob = { version = "0.3", optional = true }
+
+# Multithreading (for batch compile)
+rayon = { version = "1.10", optional = true }
+
+# WASM (optional)
+wasm-bindgen = { workspace = true, optional = true }
+serde-wasm-bindgen = { workspace = true, optional = true }
+js-sys = { workspace = true, optional = true }
+
+# For WASM compatibility with getrandom
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
+napi-build = "2.0"

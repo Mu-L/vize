@@ -5,161 +5,174 @@
 <h1 align="center">Vize</h1>
 
 <p align="center">
-  <strong>Unofficial Fastest Vue.js Compiler Collection</strong>
+  <strong>Unofficial High-Performance Vue.js Toolchain in Rust</strong>
 </p>
 
 <p align="center">
-  <em>A high-performance Rust implementation of the Vue.js compiler.<br/>Named after Vizier + Visor + Advisor — a wise tool that sees through your code.</em>
+  <em>/viːz/ — Named after Vizier + Visor + Advisor: a wise tool that sees through your code.</em>
 </p>
 
 <p align="center">
   <a href="https://ubugeeei.github.io/vize/"><strong>Playground</strong></a>
 </p>
 
+> [!WARNING]
+> This project is under active development and is not yet ready for production use.
+> APIs and features may change without notice.
+
 ---
 
-## Performance
+## Crates
 
-Compiling **15,000 SFC files** (36.9 MB):
+<table>
+  <tr>
+    <th>Crate</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_carton/logo.png" width="32" align="center" /> <a href="./crates/vize_carton">vize_carton</a></td>
+    <td>Shared utilities & arena allocator</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_relief/logo.png" width="32" align="center" /> <a href="./crates/vize_relief">vize_relief</a></td>
+    <td>AST definitions, errors, options</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_armature/logo.png" width="32" align="center" /> <a href="./crates/vize_armature">vize_armature</a></td>
+    <td>Parser & tokenizer</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_atelier_core/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_core">vize_atelier_core</a></td>
+    <td>Transforms & code generation</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_atelier_dom/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_dom">vize_atelier_dom</a></td>
+    <td>DOM (VDom) compiler</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_atelier_vapor/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_vapor">vize_atelier_vapor</a></td>
+    <td>Vapor mode compiler</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_atelier_sfc/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_sfc">vize_atelier_sfc</a></td>
+    <td>SFC (.vue) compiler</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_vitrine/logo.png" width="32" align="center" /> <a href="./crates/vize_vitrine">vize_vitrine</a></td>
+    <td>Node.js / WASM bindings</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize/logo.png" width="32" align="center" /> <a href="./crates/vize">vize</a></td>
+    <td>Command-line interface</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_canon/logo.png" width="32" align="center" /> <a href="./crates/vize_canon">vize_canon</a></td>
+    <td>TypeScript type checker</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_patina/logo.png" width="32" align="center" /> <a href="./crates/vize_patina">vize_patina</a></td>
+    <td>Vue.js linter</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_glyph/logo.png" width="32" align="center" /> <a href="./crates/vize_glyph">vize_glyph</a></td>
+    <td>Vue.js formatter</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_maestro/logo.png" width="32" align="center" /> <a href="./crates/vize_maestro">vize_maestro</a></td>
+    <td>Language Server Protocol</td>
+  </tr>
+  <tr>
+    <td><img src="./crates/vize_musea/logo.png" width="32" align="center" /> <a href="./crates/vize_musea">vize_musea</a></td>
+    <td>Component gallery (Storybook)</td>
+  </tr>
+</table>
 
-|  | @vue/compiler-sfc | Vize | Speedup |
-|--|-------------------|-----------------|---------|
-| **Single Thread** | 16.21s | 6.65s | **2.4x** |
-| **Multi Thread** (10 workers) | 4.13s | 498ms | **8.3x** (32.5x vs Original 1T) |
+## Naming Theme
 
-## Compatibility
+Vize crates are named after **art and sculpture terminology**, reflecting how each component shapes and transforms Vue code:
 
-Snapshot tests against `@vue/compiler-sfc` (v3.6.0-beta):
+| Name | Origin | Meaning |
+|------|--------|---------|
+| **Carton** | /kɑːˈtɒn/ | Artist's portfolio case — stores and organizes tools |
+| **Relief** | /rɪˈliːf/ | Sculptural technique projecting from a surface — AST structure |
+| **Armature** | /ˈɑːrmətʃər/ | Internal skeleton supporting a sculpture — parsing framework |
+| **Atelier** | /ˌætəlˈjeɪ/ | Artist's workshop — compiler workspaces |
+| **Vitrine** | /vɪˈtriːn/ | Glass display case — bindings exposing the compiler |
+| **Canon** | /ˈkænən/ | Standard of ideal proportions — type checking |
+| **Patina** | /ˈpætɪnə/ | Aged surface indicating quality — linting |
+| **Glyph** | /ɡlɪf/ | Carved symbol or letterform — formatting |
+| **Maestro** | /ˈmaɪstroʊ/ | Master conductor — LSP orchestration |
+| **Musea** | /mjuːˈziːə/ | Plural of museum — component gallery |
 
-| Category | Passed | Total | Coverage |
-|----------|--------|-------|----------|
-| **VDom** | 267 | 338 | 79.0% |
-| **Vapor** | 29 | 98 | 29.6% |
-| **SFC** | 3 | 70 | 4.3% |
-| **Total** | 299 | 506 | 59.1% |
+## Architecture
 
-### TypeScript Output Snapshots
-
-We maintain **70 snapshot tests** for TypeScript output mode in `tests/snapshots/sfc/ts/`. These capture the current behavior for:
-
-- Basic script setup patterns
-- defineProps/defineEmits/defineModel
-- Props destructure with defaults
-- Generic components (Vue 3.3+)
-- Complex TypeScript types (arrow functions, unions, intersections)
-- Top-level await
-- withDefaults patterns
-- Real-world patterns from production codebases
-
-Run `mise run snapshot` to update snapshots after changes.
-
-### CLI Output Modes
-
-The CLI supports two output modes via `--script-ext`:
-
-- `downcompile` (default): Transpiles TypeScript to JavaScript
-- `preserve`: Keeps TypeScript output as-is
-
-```bash
-# Preserve TypeScript output (recommended for TypeScript projects)
-vize "src/**/*.vue" --script-ext preserve -o dist
-
-# Downcompile to JavaScript (default)
-vize "src/**/*.vue" -o dist
-```
-
-### Known Limitations
-
-Some Vue 3.3+ features are not yet fully supported:
-- Generic component declarations (`<script setup generic="T">`)
-- `as const` assertions in multiline expressions
-
-### Recent Improvements
-
-- **TypeScript Type Stripping**: Full TypeScript syntax is now correctly stripped when transpiling to JavaScript, including:
-  - Function parameter type annotations: `(x: number) => ...` → `(x) => ...`
-  - Return type annotations: `(): string => ...` → `() => ...`
-  - Variable type annotations: `const foo: string = ...` → `const foo = ...`
-  - Generic type parameters: `ref<T>(...)` → `ref(...)`
-  - Interface and type alias declarations
-  - Complex types: `Record<string, unknown>`, union types, etc.
-- **TypeScript Interface Resolution**: `defineProps<Props>()` now correctly resolves interface and type alias references defined in the same file
-- **Props Destructure Defaults**: Default values in props destructure patterns are properly handled
-- **withDefaults Support**: `withDefaults(defineProps<Props>(), { ... })` works correctly with interface references
-- **Downcompile Mode Fix**: TypeScript files are now correctly transpiled to JavaScript in downcompile mode (default), including complex patterns like `ref<HTMLElement | null>(null)`
-- **Component Resolution**: Custom components like `v-btn` now correctly generate `resolveComponent` calls in inline templates
-- **v-on Object Spread**: `v-on="handlers"` object spread syntax is now correctly compiled using `toHandlers`
-- **$emit Prefixing**: `$emit` and other Vue instance properties are now correctly prefixed with `_ctx.` in template expressions
-- **Normal Script Transpilation**: When using both `<script>` and `<script setup>`, the normal script block is now also transpiled to JavaScript in downcompile mode
+<p align="center">
+  <img src="./assets/architecture.svg" alt="Vize Architecture" width="700" />
+</p>
 
 ## Quick Start
 
 ```bash
-mise install && mise run setup
-mise run build    # Build bindings
-mise run cli      # Enable to use `vize` cli command
-mise run test     # Run tests
-mise run cov      # Coverage report
-mise run dev      # Playground
+mise install && mise setup
+mise cli      # Enable `vize` CLI command
+mise dev      # Playground
 ```
-
-Run `mise tasks` to see all available commands.
 
 ## Usage
 
 ### CLI
 
 ```bash
-# Build CLI
-cargo build -p vize_compiler_cli --release
-
-# Compile single file
-./target/release/vize "src/**/*.vue"
-
-# Compile with output directory
-./target/release/vize "src/**/*.vue" -o dist
-
-# Show statistics only
-./target/release/vize "src/**/*.vue" -f stats
-
-# SSR mode
-./target/release/vize "src/**/*.vue" --ssr
-
-# Control thread count
-./target/release/vize "src/**/*.vue" -j 4
+vize [COMMAND] [OPTIONS]
 ```
 
-Options:
-- `-o, --output <DIR>` - Output directory (stdout if not specified)
-- `-f, --format <FORMAT>` - Output format: `js`, `json`, `stats` (default: js)
-- `-j, --threads <N>` - Number of threads (default: CPU count)
-- `--script-ext <MODE>` - Script extension handling: `preserve` or `downcompile` (default: downcompile)
-- `--ssr` - Enable SSR mode
-- `--continue-on-error` - Continue on errors
-- `--profile` - Show timing profile breakdown
+| Command | Description |
+|---------|-------------|
+| `build` | Compile Vue SFC files (default) |
+| `fmt` | Format Vue SFC files |
+| `lint` | Lint Vue SFC files |
+| `check` | Type check Vue SFC files |
+| `musea` | Start component gallery server |
+| `lsp` | Start Language Server Protocol server |
 
-### Node.js / Browser
+```bash
+vize --help           # Show help
+vize <command> --help # Show command-specific help
+```
+
+**Examples:**
+
+```bash
+vize                              # Compile ./**/*.vue to ./dist
+vize build src/**/*.vue -o out    # Custom input/output
+vize build --ssr                  # SSR mode
+vize build --script_ext=preserve  # Keep .ts/.tsx/.jsx extensions
+vize fmt --check                  # Check formatting
+vize lint --fix                   # Auto-fix lint issues
+vize check --strict               # Strict type checking
+```
+
+### Node.js / WASM
 
 ```javascript
-// Node.js (Native)
+// Node.js
 const { compileSfc } = require('@vize/native');
 const { code } = compileSfc(`<template><div>{{ msg }}</div></template>`, { filename: 'App.vue' });
 
-// Browser (WASM)
+// Browser
 import init, { compileSfc } from '@vize/wasm';
 await init();
 const { code } = compileSfc(`...`, { filename: 'App.vue' });
 ```
 
-## Roadmap
+## Performance
 
-| Crate | Description | Status |
-|-------|-------------|--------|
-| `vize_compiler_sfc` | SFC Compiler | In Progress |
-| `vize_compiler_vapor` | Vapor Mode Compiler | In Progress |
-| `vize_typechecker` | TypeScript Type Checker | Planned |
-| `vize_linter` | Vue.js Linter | Planned |
-| `vize_formatter` | Vue.js Formatter | Planned |
+Compiling **15,000 SFC files** (36.9 MB):
+
+|  | @vue/compiler-sfc | Vize | Speedup |
+|--|-------------------|------|---------|
+| **Single Thread** | 16.21s | 6.65s | **2.4x** |
+| **Multi Thread** | 4.13s | 498ms | **8.3x** |
 
 ## License
 

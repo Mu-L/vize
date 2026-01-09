@@ -1,0 +1,18 @@
+[package]
+name = "vize_atelier_dom"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Atelier DOM - The DOM compiler workshop for Vize"
+
+[dependencies]
+vize_carton = { workspace = true }
+vize_atelier_core = { workspace = true }
+
+phf = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

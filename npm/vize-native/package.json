@@ -9,8 +9,8 @@
     "triples": {}
   },
   "scripts": {
-    "build": "napi build --platform --release --cargo-cwd=../../crates/vize_bindings --cargo-name=vize_bindings",
-    "build:debug": "napi build --platform --cargo-cwd=../../crates/vize_bindings --cargo-name=vize_bindings"
+    "build": "napi build --platform --release --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_bindings",
+    "build:debug": "napi build --platform --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_bindings"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"

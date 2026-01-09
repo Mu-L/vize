@@ -9,10 +9,9 @@ name = "coverage"
 path = "src/coverage.rs"
 
 [dependencies]
-vize_compiler_core.workspace = true
-vize_compiler_vapor.workspace = true
-vize_compiler_sfc.workspace = true
-vize_allocator.workspace = true
-vize_shared.workspace = true
+vize_atelier_core.workspace = true
+vize_atelier_vapor.workspace = true
+vize_atelier_sfc.workspace = true
+vize_carton.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"

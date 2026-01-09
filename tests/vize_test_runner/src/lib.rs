@@ -5,15 +5,15 @@
 
 use serde::Deserialize;
 use std::path::Path;
-use vize_allocator::Allocator;
-use vize_compiler_core::{
+use vize_atelier_core::{
     codegen::generate,
     options::{CodegenMode, CodegenOptions, ParserOptions, TransformOptions},
     parser::parse_with_options,
     transform::transform,
 };
-use vize_compiler_sfc::{compile_sfc, parse_sfc, SfcCompileOptions, SfcParseOptions};
-use vize_compiler_vapor::{compile_vapor, VaporCompilerOptions};
+use vize_atelier_sfc::{compile_sfc, parse_sfc, SfcCompileOptions, SfcParseOptions};
+use vize_atelier_vapor::{compile_vapor, VaporCompilerOptions};
+use vize_carton::Allocator;
 
 /// Test fixture file
 #[derive(Debug, Deserialize)]
@@ -156,8 +156,8 @@ pub fn compile_vdom(input: &str, options: &TestOptions) -> String {
     let allocator = Allocator::default();
 
     let parser_opts = ParserOptions {
-        is_void_tag: vize_shared::is_void_tag,
-        is_native_tag: Some(vize_shared::is_native_tag),
+        is_void_tag: vize_carton::is_void_tag,
+        is_native_tag: Some(vize_carton::is_native_tag),
         is_pre_tag: |tag| tag == "pre",
         ..Default::default()
     };

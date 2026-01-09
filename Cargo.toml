@@ -1,17 +1,20 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/vize_allocator",
-    "crates/vize_shared",
-    "crates/vize_compiler_core",
-    "crates/vize_compiler_dom",
-    "crates/vize_compiler_vapor",
-    "crates/vize_compiler_sfc",
-    "crates/vize_bindings",
-    "crates/vize_compiler_cli",
-    "crates/vize_typechecker",
-    "crates/vize_linter",
-    "crates/vize_formatter",
+    "crates/vize_carton",
+    "crates/vize_relief",
+    "crates/vize_armature",
+    "crates/vize_atelier_core",
+    "crates/vize_atelier_dom",
+    "crates/vize_atelier_vapor",
+    "crates/vize_atelier_sfc",
+    "crates/vize_vitrine",
+    "crates/vize",
+    "crates/vize_canon",
+    "crates/vize_patina",
+    "crates/vize_glyph",
+    "crates/vize_musea",
+    "crates/vize_maestro",
     "tests/vize_test_runner",
 ]
 
@@ -23,13 +26,14 @@ repository = "https://github.com/ubugeeei/vize"
 
 [workspace.dependencies]
 # Internal crates
-vize_allocator = { path = "crates/vize_allocator" }
-vize_shared = { path = "crates/vize_shared" }
-vize_compiler_core = { path = "crates/vize_compiler_core" }
-vize_compiler_dom = { path = "crates/vize_compiler_dom" }
-vize_compiler_vapor = { path = "crates/vize_compiler_vapor" }
-vize_compiler_sfc = { path = "crates/vize_compiler_sfc", default-features = false }
-vize_bindings = { path = "crates/vize_bindings" }
+vize_carton = { path = "crates/vize_carton" }
+vize_relief = { path = "crates/vize_relief" }
+vize_armature = { path = "crates/vize_armature" }
+vize_atelier_core = { path = "crates/vize_atelier_core" }
+vize_atelier_dom = { path = "crates/vize_atelier_dom" }
+vize_atelier_vapor = { path = "crates/vize_atelier_vapor" }
+vize_atelier_sfc = { path = "crates/vize_atelier_sfc", default-features = false }
+vize_vitrine = { path = "crates/vize_vitrine" }
 
 # OXC dependencies
 oxc_parser = "0.45"

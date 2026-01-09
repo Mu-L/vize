@@ -1,0 +1,42 @@
+[package]
+name = "vize"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Vize - High-performance Vue.js toolchain in Rust"
+
+[[bin]]
+name = "vize"
+path = "src/main.rs"
+
+[dependencies]
+vize_atelier_sfc = { workspace = true, features = ["native"] }
+vize_glyph = { path = "../vize_glyph" }
+vize_patina = { path = "../vize_patina" }
+vize_canon = { path = "../vize_canon" }
+vize_musea = { path = "../vize_musea" }
+vize_maestro = { path = "../vize_maestro" }
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Directory walking with .gitignore support
+ignore = "0.4"
+
+# Multithreading
+rayon = "1.10"
+
+# Serialization (for JSON output)
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# TypeScript/JSX transpilation
+oxc_allocator = { workspace = true }
+oxc_parser = { workspace = true }
+oxc_codegen = { workspace = true }
+oxc_semantic = { workspace = true }
+oxc_span = { workspace = true }
+oxc_transformer = { workspace = true }
+
+# Regex for script language detection
+regex-lite = "0.1"
