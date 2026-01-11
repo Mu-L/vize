@@ -226,49 +226,81 @@ depends = ["fmt", "clippy", "test", "bench:quick", "build"]
 alias = "r"
 description = "Release new version (bump: patch|minor|major|alpha|beta|rc|release)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh {{arg(name='bump', help='Version bump type')}} -y"
+run = """
+./scripts/release.sh {{arg(name='bump', help='Version bump type')}} -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:patch"]
 alias = "rp"
 description = "Release patch version (0.0.1 → 0.0.2)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh patch -y"
+run = """
+./scripts/release.sh patch -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:minor"]
 alias = "rmi"
 description = "Release minor version (0.0.1 → 0.1.0)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh minor -y"
+run = """
+./scripts/release.sh minor -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:major"]
 alias = "rma"
 description = "Release major version (0.0.1 → 1.0.0)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh major -y"
+run = """
+./scripts/release.sh major -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:alpha"]
 alias = "ra"
 description = "Bump alpha version (0.0.1-alpha → 0.0.1-alpha.2)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh alpha -y"
+run = """
+./scripts/release.sh alpha -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:beta"]
 alias = "rb"
 description = "Promote to beta (0.0.1-alpha → 0.0.1-beta)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh beta -y"
+run = """
+./scripts/release.sh beta -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:rc"]
 alias = "rrc"
 description = "Promote to release candidate (0.0.1-beta → 0.0.1-rc)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh rc -y"
+run = """
+./scripts/release.sh rc -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 [tasks."release:stable"]
 alias = "rs"
 description = "Promote to stable release (0.0.1-rc → 0.0.1)"
 depends = ["release:preflight"]
-run = "./scripts/release.sh release -y"
+run = """
+./scripts/release.sh release -y
+mise run publish:npm
+mise run publish:crates
+"""
 
 # =============================================================================
 # Publish (Local)
