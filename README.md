@@ -13,7 +13,14 @@
 </p>
 
 <p align="center">
-  <a href="https://ubugeeei.github.io/vize/"><strong>Playground</strong></a>
+  <a href="https://vizejs.dev/play/"><strong>Playground</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://crates.io/crates/vize"><img src="https://img.shields.io/crates/v/vize.svg" alt="crates.io" /></a>
+  <a href="https://www.npmjs.com/package/@vizejs/vite-plugin"><img src="https://img.shields.io/npm/v/@vizejs/vite-plugin.svg" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/@vizejs/wasm"><img src="https://img.shields.io/npm/v/@vizejs/wasm.svg?label=@vizejs/wasm" alt="npm" /></a>
+  <a href="https://github.com/ubugeeei/vize/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
 </p>
 
 > [!WARNING]

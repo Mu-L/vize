@@ -1,22 +1,59 @@
 {
   "name": "@vizejs/native",
-  "version": "0.0.1-alpha",
+  "version": "0.0.1-alpha.2",
+  "description": "High-performance Vue.js compiler - Native bindings",
   "publishConfig": {
     "provenance": false,
     "access": "public"
   },
-  "private": true,
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
     "name": "vize-bindings",
-    "triples": {}
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-unknown-linux-musl",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-linux-musl",
+        "aarch64-apple-darwin",
+        "aarch64-pc-windows-msvc"
+      ]
+    }
   },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
   "scripts": {
     "build": "napi build --platform --release --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_bindings",
-    "build:debug": "napi build --platform --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_bindings"
+    "build:debug": "napi build --platform --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_bindings",
+    "prepublishOnly": "napi prepublish -t npm"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ubugeeei/vize"
+  },
+  "keywords": [
+    "vue",
+    "compiler",
+    "rust",
+    "native",
+    "napi",
+    "vize"
+  ],
+  "license": "MIT",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
+  },
+  "optionalDependencies": {
+    "@vizejs/native-win32-x64-msvc": "0.0.1-alpha.2",
+    "@vizejs/native-darwin-x64": "0.0.1-alpha.2",
+    "@vizejs/native-darwin-arm64": "0.0.1-alpha.2",
+    "@vizejs/native-linux-x64-gnu": "0.0.1-alpha.2",
+    "@vizejs/native-linux-x64-musl": "0.0.1-alpha.2",
+    "@vizejs/native-linux-arm64-gnu": "0.0.1-alpha.2",
+    "@vizejs/native-linux-arm64-musl": "0.0.1-alpha.2",
+    "@vizejs/native-win32-arm64-msvc": "0.0.1-alpha.2"
   }
 }

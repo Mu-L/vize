@@ -138,6 +138,14 @@ for pkg in npm/vize-wasm npm/vize-native npm/vite-plugin-vize; do
       const fs = require('fs');
       const pkg = JSON.parse(fs.readFileSync('$pkg/package.json', 'utf8'));
       pkg.version = '$NEW_VERSION';
+      // Update optionalDependencies versions for native package
+      if (pkg.optionalDependencies) {
+        for (const dep of Object.keys(pkg.optionalDependencies)) {
+          if (dep.startsWith('@vizejs/native-')) {
+            pkg.optionalDependencies[dep] = '$NEW_VERSION';
+          }
+        }
+      }
       fs.writeFileSync('$pkg/package.json', JSON.stringify(pkg, null, 2) + '\n');
     "
     echo "  Updated $pkg/package.json"

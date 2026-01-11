@@ -1,4 +1,4 @@
-# vite-plugin-vize
+# @vizejs/vite-plugin
 
 High-performance native Vite plugin for Vue SFC compilation powered by [Vize](https://github.com/ubugeeei/vize).
 
@@ -14,13 +14,13 @@ High-performance native Vite plugin for Vue SFC compilation powered by [Vize](ht
 
 ```bash
 # npm
-npm install vite-plugin-vize @vize/native
+npm install @vizejs/vite-plugin
 
 # pnpm
-pnpm add vite-plugin-vize @vize/native
+pnpm add @vizejs/vite-plugin
 
 # yarn
-yarn add vite-plugin-vize @vize/native
+yarn add @vizejs/vite-plugin
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ yarn add vite-plugin-vize @vize/native
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { vizeNative } from 'vite-plugin-vize'
+import { vizeNative } from '@vizejs/vite-plugin'
 
 export default defineConfig({
   plugins: [
@@ -47,7 +47,7 @@ For Nuxt 3, add the plugin to your `nuxt.config.ts`:
 
 ```ts
 // nuxt.config.ts
-import { vizeNative } from 'vite-plugin-vize'
+import { vizeNative } from '@vizejs/vite-plugin'
 
 export default defineNuxtConfig({
   vite: {

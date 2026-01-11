@@ -15,12 +15,12 @@ export function loadNative(): CompileSfcFn {
   if (compileSfc) return compileSfc;
 
   try {
-    const native = require('@vize/native');
+    const native = require('@vizejs/native');
     compileSfc = native.compileSfc;
     return compileSfc!;
   } catch (e) {
     throw new Error(
-      `Failed to load @vize/native. Make sure it's installed and built:\n${e}`
+      `Failed to load @vizejs/native. Make sure it's installed and built:\n${e}`
     );
   }
 }
