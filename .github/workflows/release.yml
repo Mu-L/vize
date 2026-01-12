@@ -189,7 +189,7 @@ jobs:
 
       - name: Publish
         working-directory: npm/vize-native
-        run: npm publish --provenance --access public
+        run: pnpm publish --provenance --access public --no-git-checks
 
   # Build and publish WASM package (using Trusted Publishing / OIDC)
   release-npm-wasm:
@@ -228,7 +228,7 @@ jobs:
 
       - name: Publish @vizejs/wasm
         working-directory: npm/vize-wasm
-        run: npm publish --provenance --access public
+        run: pnpm publish --provenance --access public --no-git-checks
 
   # Build and publish Vite plugin (using Trusted Publishing / OIDC)
   release-npm-vite-plugin:
@@ -259,7 +259,7 @@ jobs:
 
       - name: Publish @vizejs/vite-plugin
         working-directory: npm/vite-plugin-vize
-        run: npm publish --provenance --access public
+        run: pnpm publish --provenance --access public --no-git-checks
 
   # Publish crates to crates.io (using Trusted Publishing)
   release-crates:
@@ -376,4 +376,4 @@ jobs:
 
       - name: Publish vize CLI package
         working-directory: npm/vize
-        run: npm publish --provenance --access public
+        run: pnpm publish --provenance --access public --no-git-checks
