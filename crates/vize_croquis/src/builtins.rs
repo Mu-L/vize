@@ -6,19 +6,21 @@
 //! - Render function locals (_ctx, _cache, $event, etc.)
 //! - Built-in components (Transition, KeepAlive, etc.)
 //!
+//! Uses compile-time perfect hash functions (phf) for O(1) lookup
+//! with zero runtime initialization cost.
+//!
 //! Note: For directive checking, use `vize_carton::is_builtin_directive` which
 //! provides the complete list for compilation purposes.
 
-use std::sync::LazyLock;
-use vize_carton::FxHashSet;
+use phf::phf_set;
 
 // =============================================================================
-// JavaScript Globals
+// Compile-time Perfect Hash Sets
 // =============================================================================
 
 /// JavaScript global objects and built-in constructors.
 /// These should never be prefixed with _ctx in templates.
-pub static JS_GLOBALS: &[&str] = &[
+static JS_GLOBALS_SET: phf::Set<&'static str> = phf_set! {
     // ES primitives/values
     "Infinity",
     "undefined",
@@ -65,33 +67,27 @@ pub static JS_GLOBALS: &[&str] = &[
     "import",
     "exports",
     "module",
-];
-
-// =============================================================================
-// Render Function Locals
-// =============================================================================
+};
 
 /// Local parameters in render function scope.
 /// These are always available without _ctx prefix.
-pub static RENDER_LOCALS: &[&str] = &[
+static RENDER_LOCALS_SET: phf::Set<&'static str> = phf_set! {
     "_ctx",    // Component context
     "_cache",  // Cache array for handlers/memoized values
     "_push",   // SSR push function
     "_parent", // SSR parent
-];
+};
 
 /// Event handler implicit arguments.
 /// $event is automatically available in v-on handlers.
-pub static EVENT_LOCALS: &[&str] = &["$event"];
-
-// =============================================================================
-// Vue Template Builtins
-// =============================================================================
+static EVENT_LOCALS_SET: phf::Set<&'static str> = phf_set! {
+    "$event",
+};
 
 /// Template built-in variables available on component instance.
 /// These are accessed via _ctx in compiled code but available
 /// directly in template expressions.
-pub static VUE_BUILTINS: &[&str] = &[
+static VUE_BUILTINS_SET: phf::Set<&'static str> = phf_set! {
     "$slots",
     "$refs",
     "$parent",
@@ -105,51 +101,36 @@ pub static VUE_BUILTINS: &[&str] = &[
     "$forceUpdate",
     "$nextTick",
     "$watch",
-];
-
-// =============================================================================
-// Built-in Components
-// =============================================================================
+};
 
 /// Vue built-in components that don't need resolution.
 /// These are imported directly from Vue runtime.
-pub static BUILTIN_COMPONENTS: &[&str] = &[
+static BUILTIN_COMPONENTS_SET: phf::Set<&'static str> = phf_set! {
     "Transition",
     "TransitionGroup",
     "KeepAlive",
     "Suspense",
     "Teleport",
     "BaseTransition",
-];
-
-// =============================================================================
-// Pre-computed Sets for Fast Lookup
-// =============================================================================
-
-static JS_GLOBALS_SET: LazyLock<FxHashSet<&'static str>> =
-    LazyLock::new(|| JS_GLOBALS.iter().copied().collect());
-
-static RENDER_LOCALS_SET: LazyLock<FxHashSet<&'static str>> =
-    LazyLock::new(|| RENDER_LOCALS.iter().copied().collect());
-
-static EVENT_LOCALS_SET: LazyLock<FxHashSet<&'static str>> =
-    LazyLock::new(|| EVENT_LOCALS.iter().copied().collect());
-
-static VUE_BUILTINS_SET: LazyLock<FxHashSet<&'static str>> =
-    LazyLock::new(|| VUE_BUILTINS.iter().copied().collect());
-
-static BUILTIN_COMPONENTS_SET: LazyLock<FxHashSet<&'static str>> =
-    LazyLock::new(|| BUILTIN_COMPONENTS.iter().copied().collect());
+};
 
 /// Combined set of all identifiers that should not be prefixed with _ctx.
 /// Includes: JS globals + render locals + event locals.
-static GLOBAL_ALLOWLIST: LazyLock<FxHashSet<&'static str>> = LazyLock::new(|| {
-    let mut set = FxHashSet::default();
-    set.extend(JS_GLOBALS.iter().copied());
-    set.extend(RENDER_LOCALS.iter().copied());
-    set.extend(EVENT_LOCALS.iter().copied());
-    set
-});
+static GLOBAL_ALLOWLIST_SET: phf::Set<&'static str> = phf_set! {
+    // JS globals
+    "Infinity", "undefined", "NaN",
+    "Array", "Boolean", "Date", "Error", "Function", "JSON", "Math",
+    "Number", "Object", "Promise", "Proxy", "Reflect", "RegExp",
+    "Set", "String", "Symbol", "Map", "WeakMap", "WeakSet", "BigInt",
+    "parseInt", "parseFloat", "isNaN", "isFinite",
+    "decodeURI", "decodeURIComponent", "encodeURI", "encodeURIComponent",
+    "arguments", "console", "window", "document", "navigator", "globalThis",
+    "require", "import", "exports", "module",
+    // Render locals
+    "_ctx", "_cache", "_push", "_parent",
+    // Event locals
+    "$event",
+};
 
 // =============================================================================
 // Lookup Functions
@@ -189,19 +170,7 @@ pub fn is_builtin_component(name: &str) -> bool {
 /// Returns true for: JS globals, render locals, event locals.
 #[inline]
 pub fn is_global_allowed(name: &str) -> bool {
-    GLOBAL_ALLOWLIST.contains(name)
-}
-
-/// Get the combined global allowlist set (for iteration).
-#[inline]
-pub fn global_allowlist() -> &'static FxHashSet<&'static str> {
-    &GLOBAL_ALLOWLIST
-}
-
-/// Get the Vue builtins set (for iteration).
-#[inline]
-pub fn vue_builtins_set() -> &'static FxHashSet<&'static str> {
-    &VUE_BUILTINS_SET
+    GLOBAL_ALLOWLIST_SET.contains(name)
 }
 
 // =============================================================================

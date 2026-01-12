@@ -64,6 +64,9 @@ pub use bitflags::bitflags;
 // Re-export rustc-hash for fast hash maps/sets
 pub use rustc_hash::{FxHashMap, FxHashSet};
 
+// Re-export phf for compile-time perfect hash functions
+pub use phf::{phf_map, phf_set, Map as PhfMap, Set as PhfSet};
+
 // Re-export shared utilities
 pub use dom_tag_config::*;
 pub use flags::*;
