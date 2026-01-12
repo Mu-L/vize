@@ -92,28 +92,20 @@ impl Rule for NoUseVIfWithVFor {
             // If v-if uses v-for variables, it's a filtering pattern which is less problematic
             // but still not recommended. We warn in both cases.
             let message = if v_if_uses_v_for_var {
-                "Avoid using `v-if` with `v-for` on the same element. \
-                 Use a computed property to filter the list instead."
+                ctx.t("vue/no-use-v-if-with-v-for.message_perf")
             } else {
-                "Avoid using `v-if` with `v-for` on the same element. \
-                 The `v-if` condition does not have access to `v-for` variables."
+                ctx.t("vue/no-use-v-if-with-v-for.message_access")
             };
 
-            let help = if v_if_uses_v_for_var {
-                "Use a computed property to pre-filter the list, \
-                 e.g., `computed: { activeItems() { return items.filter(i => i.active) } }`"
-            } else {
-                "Move `v-if` to a wrapper `<template>` element, \
-                 or use a computed property to filter the list"
-            };
+            let help = ctx.t("vue/no-use-v-if-with-v-for.help");
 
             let diagnostic = LintDiagnostic::warn(
                 META.name,
-                message,
+                message.as_ref(),
                 v_if_loc.start.offset,
                 v_if_loc.end.offset,
             )
-            .with_help(help)
+            .with_help(help.as_ref())
             .with_label(
                 "v-for is here",
                 v_for_loc.start.offset,

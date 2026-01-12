@@ -33,21 +33,45 @@ const products = ref([
   { id: 1, name: 'Product A', inStock: true },
   { id: 2, name: 'Product B', inStock: false },
 ])
+
+const htmlContent = '<b>Hello</b>'
+const handleClick = () => {}
 <\/script>
 
 <template>
   <div class="container">
-    <!-- This will trigger vue/require-v-for-key -->
+    <!-- vue/require-v-for-key: Missing :key attribute -->
     <ul>
       <li v-for="item in items">{{ item.name }}</li>
     </ul>
 
-    <!-- This will trigger vue/no-use-v-if-with-v-for -->
+    <!-- vue/no-use-v-if-with-v-for: v-if with v-for on same element -->
     <div v-for="user in users" v-if="user.active" :key="user.id">
       {{ user.name }}
     </div>
 
-    <!-- This is valid -->
+    <!-- a11y/img-alt: Missing alt attribute -->
+    <img src="/logo.png" />
+
+    <!-- a11y/anchor-has-content: Empty anchor -->
+    <a href="/home"></a>
+
+    <!-- a11y/heading-has-content: Empty heading -->
+    <h1></h1>
+
+    <!-- a11y/click-events-have-key-events: Click without keyboard handler -->
+    <div @click="handleClick">Click me</div>
+
+    <!-- a11y/tabindex-no-positive: Positive tabindex -->
+    <button tabindex="5">Bad Tab Order</button>
+
+    <!-- a11y/form-control-has-label: Input without label -->
+    <input type="text" placeholder="Enter name" />
+
+    <!-- vue/no-v-html: XSS risk -->
+    <div v-html="htmlContent"></div>
+
+    <!-- Valid code for comparison -->
     <template v-for="product in products" :key="product.id">
       <div v-if="product.inStock">
         {{ product.name }}
@@ -221,14 +245,14 @@ const templateLineOffset = computed(() => {
 });
 
 // Convert lint diagnostics to Monaco markers
+// Note: WASM already returns 1-indexed line/column numbers for the full SFC file
 const diagnostics = computed((): Diagnostic[] => {
   if (!lintResult.value?.diagnostics) return [];
-  const offset = templateLineOffset.value;
   return lintResult.value.diagnostics.map(d => ({
     message: `[${d.rule}] ${d.message}`,
-    startLine: d.location.start.line + offset,
+    startLine: d.location.start.line,
     startColumn: d.location.start.column,
-    endLine: (d.location.end?.line ?? d.location.start.line) + offset,
+    endLine: d.location.end?.line ?? d.location.start.line,
     endColumn: d.location.end?.column ?? d.location.start.column + 1,
     severity: d.severity,
   }));

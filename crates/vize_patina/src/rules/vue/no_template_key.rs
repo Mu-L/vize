@@ -54,9 +54,9 @@ impl Rule for NoTemplateKey {
                 PropNode::Attribute(attr) => {
                     if attr.name.as_str() == "key" {
                         ctx.error_with_help(
-                            "`<template>` cannot have a `key` attribute",
+                            ctx.t("vue/no-template-key.message"),
                             &attr.loc,
-                            "Move the `key` attribute to a real element inside the template",
+                            ctx.t("vue/no-template-key.help"),
                         );
                     }
                 }
@@ -65,9 +65,9 @@ impl Rule for NoTemplateKey {
                         if let Some(ref arg) = dir.arg {
                             if get_expression_content(arg) == "key" {
                                 ctx.error_with_help(
-                                    "`<template>` cannot have a `:key` attribute",
+                                    ctx.t("vue/no-template-key.message"),
                                     &dir.loc,
-                                    "Move the `:key` attribute to a real element inside the template",
+                                    ctx.t("vue/no-template-key.help"),
                                 );
                             }
                         }

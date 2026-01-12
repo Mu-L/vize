@@ -60,9 +60,9 @@ impl Rule for ValidVIf {
 
         if !has_expression {
             ctx.error_with_help(
-                "`v-if` requires an expression",
+                ctx.t("vue/valid-v-if.missing_expression"),
                 &directive.loc,
-                "Add a condition: v-if=\"condition\"",
+                ctx.t("vue/valid-v-if.help"),
             );
         }
 
@@ -72,9 +72,9 @@ impl Rule for ValidVIf {
         });
         if has_v_else {
             ctx.error_with_help(
-                "`v-if` and `v-else`/`v-else-if` should not be on the same element",
+                ctx.t("vue/valid-v-if.missing_expression"),
                 &directive.loc,
-                "Use separate elements for v-if and v-else",
+                ctx.t("vue/valid-v-if.help"),
             );
         }
     }

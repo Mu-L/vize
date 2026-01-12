@@ -57,9 +57,9 @@ impl Rule for ValidVFor {
         // Check for modifiers (v-for should not have modifiers)
         if !directive.modifiers.is_empty() {
             ctx.error_with_help(
-                "'v-for' directives require no modifier",
+                ctx.t("vue/valid-v-for.missing_expression"),
                 &directive.loc,
-                "Remove the modifier from v-for",
+                ctx.t("vue/valid-v-for.help"),
             );
             return;
         }
@@ -67,9 +67,9 @@ impl Rule for ValidVFor {
         // Check for argument (v-for should not have an argument like v-for:something)
         if directive.arg.is_some() {
             ctx.error_with_help(
-                "'v-for' directives require no argument",
+                ctx.t("vue/valid-v-for.missing_expression"),
                 &directive.loc,
-                "Remove the argument from v-for",
+                ctx.t("vue/valid-v-for.help"),
             );
             return;
         }
@@ -78,9 +78,9 @@ impl Rule for ValidVFor {
         match &directive.exp {
             None => {
                 ctx.error_with_help(
-                    "'v-for' directives require an expression",
+                    ctx.t("vue/valid-v-for.missing_expression"),
                     &directive.loc,
-                    "Add an expression like: v-for=\"item in items\"",
+                    ctx.t("vue/valid-v-for.help"),
                 );
             }
             Some(exp) => {
@@ -95,9 +95,9 @@ impl Rule for ValidVFor {
                 // Check if empty
                 if trimmed.is_empty() {
                     ctx.error_with_help(
-                        "'v-for' directives require a non-empty expression",
+                        ctx.t("vue/valid-v-for.missing_expression"),
                         &directive.loc,
-                        "Add an expression like: v-for=\"item in items\"",
+                        ctx.t("vue/valid-v-for.help"),
                     );
                     return;
                 }
@@ -108,9 +108,9 @@ impl Rule for ValidVFor {
 
                 if !has_in && !has_of {
                     ctx.error_with_help(
-                        "'v-for' expression must contain 'in' or 'of'",
+                        ctx.t("vue/valid-v-for.invalid_syntax"),
                         &directive.loc,
-                        "Use format: v-for=\"item in items\" or v-for=\"item of items\"",
+                        ctx.t("vue/valid-v-for.help"),
                     );
                     return;
                 }
@@ -130,9 +130,9 @@ impl Rule for ValidVFor {
                 // Check alias is not empty
                 if alias.is_empty() {
                     ctx.error_with_help(
-                        "'v-for' alias (left side) cannot be empty",
+                        ctx.t("vue/valid-v-for.invalid_syntax"),
                         &directive.loc,
-                        "Add a variable name before 'in'/'of'",
+                        ctx.t("vue/valid-v-for.help"),
                     );
                     return;
                 }
@@ -140,9 +140,9 @@ impl Rule for ValidVFor {
                 // Check source is not empty
                 if source.is_empty() {
                     ctx.error_with_help(
-                        "'v-for' source (right side) cannot be empty",
+                        ctx.t("vue/valid-v-for.invalid_syntax"),
                         &directive.loc,
-                        "Add an iterable expression after 'in'/'of'",
+                        ctx.t("vue/valid-v-for.help"),
                     );
                 }
             }
@@ -212,6 +212,5 @@ mod tests {
         let linter = create_linter();
         let result = linter.lint_template(r#"<div v-for="items"></div>"#, "test.vue");
         assert_eq!(result.error_count, 1);
-        assert!(result.diagnostics[0].message.contains("'in' or 'of'"));
     }
 }

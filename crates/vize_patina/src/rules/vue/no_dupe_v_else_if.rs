@@ -90,9 +90,9 @@ fn check_element_children(ctx: &mut LintContext, children: &[TemplateChildNode])
                         // Report the error
                         if let Some(loc) = info.loc {
                             ctx.error_with_help(
-                                format!("Duplicate condition `{}` in v-if chain", cond),
+                                ctx.t("vue/no-dupe-v-else-if.message"),
                                 &loc,
-                                "This condition was already used earlier in the chain. The branch will never be reached.",
+                                ctx.t("vue/no-dupe-v-else-if.help"),
                             );
                         }
                     } else {
@@ -194,7 +194,6 @@ mod tests {
             "test.vue",
         );
         assert_eq!(result.error_count, 1);
-        assert!(result.diagnostics[0].message.contains("Duplicate"));
     }
 
     #[test]

@@ -75,9 +75,9 @@ impl Rule for ValidVBind {
 
         // No argument and no expression
         ctx.error_with_help(
-            "`v-bind` requires an attribute name or object expression",
+            ctx.t("vue/valid-v-bind.missing_expression"),
             &directive.loc,
-            "Specify an attribute: :attr=\"value\" or use object syntax: v-bind=\"{ attr: value }\"",
+            ctx.t("vue/valid-v-bind.help"),
         );
     }
 }

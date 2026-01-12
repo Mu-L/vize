@@ -73,9 +73,9 @@ impl Rule for ValidVOn {
                 let has_modifiers = !directive.modifiers.is_empty();
                 if !has_modifiers {
                     ctx.error_with_help(
-                        "`v-on` directive requires a handler expression",
+                        ctx.t("vue/valid-v-on.missing_event"),
                         &directive.loc,
-                        "Add a handler: @click=\"handleClick\" or use a modifier: @click.prevent",
+                        ctx.t("vue/valid-v-on.help"),
                     );
                 }
             }
@@ -84,9 +84,9 @@ impl Rule for ValidVOn {
 
         // No argument and no expression
         ctx.error_with_help(
-            "`v-on` directive requires an event name or object expression",
+            ctx.t("vue/valid-v-on.missing_event"),
             &directive.loc,
-            "Specify an event: @click=\"handler\" or use object syntax: v-on=\"{ click: handler }\"",
+            ctx.t("vue/valid-v-on.help"),
         );
     }
 }

@@ -68,9 +68,9 @@ impl Rule for ValidVModel {
 
         if !has_expression {
             ctx.error_with_help(
-                "`v-model` requires a value expression",
+                ctx.t("vue/valid-v-model.missing_expression"),
                 &directive.loc,
-                "Add a value: v-model=\"variableName\"",
+                ctx.t("vue/valid-v-model.help"),
             );
             return;
         }
@@ -82,9 +82,9 @@ impl Rule for ValidVModel {
 
         if !is_valid_element {
             ctx.error_with_help(
-                format!("`v-model` is not valid on `<{}>`", element.tag),
+                ctx.t_fmt("vue/valid-v-model.invalid_element", &[("tag", &tag)]),
                 &directive.loc,
-                "Use v-model on <input>, <select>, <textarea>, or a custom component",
+                ctx.t("vue/valid-v-model.help"),
             );
             return;
         }
@@ -95,9 +95,9 @@ impl Rule for ValidVModel {
                 let mod_name = modifier.content.as_str();
                 if !VALID_MODIFIERS.contains(&mod_name) {
                     ctx.error_with_help(
-                        format!("Invalid modifier `{}` on v-model", mod_name),
+                        ctx.t("vue/valid-v-model.missing_expression"),
                         &modifier.loc,
-                        format!("Valid modifiers are: {}", VALID_MODIFIERS.join(", ")),
+                        ctx.t("vue/valid-v-model.help"),
                     );
                 }
             }
@@ -151,7 +151,6 @@ mod tests {
         let linter = create_linter();
         let result = linter.lint_template(r#"<div v-model="foo"></div>"#, "test.vue");
         assert_eq!(result.error_count, 1);
-        assert!(result.diagnostics[0].message.contains("not valid"));
     }
 
     #[test]

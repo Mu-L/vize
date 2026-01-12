@@ -49,9 +49,9 @@ impl Rule for NoInlineTemplate {
             if let PropNode::Attribute(attr) = prop {
                 if attr.name.as_str().eq_ignore_ascii_case("inline-template") {
                     ctx.error_with_help(
-                        "inline-template is deprecated and not supported in Vapor mode",
+                        ctx.t("vapor/no-inline-template.message"),
                         &attr.loc,
-                        "Use named slots or separate the component template into its own file",
+                        ctx.t("vapor/no-inline-template.help"),
                     );
                 }
             }

@@ -44,10 +44,9 @@ impl Rule for NoSuspense {
     fn enter_element<'a>(&self, ctx: &mut LintContext<'a>, element: &ElementNode<'a>) {
         if element.tag.as_str() == "Suspense" || element.tag.as_str() == "suspense" {
             ctx.warn_with_help(
-                "Suspense is not supported in Vapor-only applications",
+                ctx.t("vapor/no-suspense.message"),
                 &element.loc,
-                "Suspense only works when Vapor components render inside a VDOM Suspense boundary. \
-                 Use `createApp` with `vaporInteropPlugin` for Suspense support.",
+                ctx.t("vapor/no-suspense.help"),
             );
         }
     }

@@ -62,11 +62,11 @@ impl Rule for ValidVElse {
             ctx.report(
                 crate::diagnostic::LintDiagnostic::error(
                     META.name,
-                    "`v-else` should not have an expression",
+                    ctx.t("vue/valid-v-else.unexpected_expression").as_ref(),
                     directive.loc.start.offset,
                     directive.loc.end.offset,
                 )
-                .with_help("Remove the expression: use `v-else` without `=\"...\"`")
+                .with_help(ctx.t("vue/valid-v-else.help").as_ref())
                 .with_fix(fix),
             );
         }
@@ -77,9 +77,9 @@ impl Rule for ValidVElse {
         });
         if has_v_if {
             ctx.error_with_help(
-                "`v-else` and `v-if`/`v-else-if` should not be on the same element",
+                ctx.t("vue/valid-v-else.missing_v_if"),
                 &directive.loc,
-                "Remove one of the directives",
+                ctx.t("vue/valid-v-else.help"),
             );
         }
     }

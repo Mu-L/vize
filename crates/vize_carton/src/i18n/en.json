@@ -84,7 +84,11 @@
 
   "vue/no-template-shadow.description": "Disallow variable shadowing in v-for",
   "vue/no-template-shadow.message": "Variable '{name}' shadows a variable in an outer scope",
-  "vue/no-template-shadow.help": "Rename the variable to avoid shadowing: use a different name instead of '{name}'",
+  "vue/no-template-shadow.help": "Rename the variable to avoid shadowing",
+
+  "vue/no-inline-style.description": "Discourage use of inline style attributes",
+  "vue/no-inline-style.message": "Avoid using inline style attributes",
+  "vue/no-inline-style.help": "Use CSS classes or scoped styles instead",
 
   "vue/no-multi-spaces.description": "Disallow multiple consecutive spaces",
   "vue/no-multi-spaces.message": "Multiple consecutive spaces found",

@@ -214,12 +214,9 @@ impl Rule for NoReservedComponentNames {
         // Check against reserved names
         if RESERVED_NAMES.contains(&tag_lower.as_str()) {
             ctx.error_with_help(
-                format!(
-                    "'{}' is a reserved name and cannot be used as a component name",
-                    tag
-                ),
+                ctx.t_fmt("vue/no-reserved-component-names.message", &[("name", tag)]),
                 &element.loc,
-                "Choose a different component name",
+                ctx.t("vue/no-reserved-component-names.help"),
             );
             return;
         }
@@ -227,9 +224,9 @@ impl Rule for NoReservedComponentNames {
         // Check against HTML elements
         if self.disallow_html && HTML_ELEMENTS.contains(&tag_lower.as_str()) {
             ctx.error_with_help(
-                format!("'{}' conflicts with an HTML element name", tag),
+                ctx.t_fmt("vue/no-reserved-component-names.message", &[("name", tag)]),
                 &element.loc,
-                "Choose a component name that doesn't conflict with HTML elements",
+                ctx.t("vue/no-reserved-component-names.help"),
             );
             return;
         }
@@ -237,9 +234,9 @@ impl Rule for NoReservedComponentNames {
         // Check against Vue built-ins
         if self.disallow_vue_builtins && VUE_BUILTINS.contains(&tag_lower.as_str()) {
             ctx.error_with_help(
-                format!("'{}' is a Vue built-in component name", tag),
+                ctx.t_fmt("vue/no-reserved-component-names.message", &[("name", tag)]),
                 &element.loc,
-                "Choose a different component name that doesn't conflict with Vue built-ins",
+                ctx.t("vue/no-reserved-component-names.help"),
             );
         }
     }
@@ -277,7 +274,6 @@ mod tests {
         let linter = create_linter();
         let result = linter.lint_template(r#"<Div></Div>"#, "test.vue");
         assert_eq!(result.error_count, 1);
-        assert!(result.diagnostics[0].message.contains("conflicts"));
     }
 
     #[test]

@@ -81,9 +81,9 @@ impl Rule for ValidVSlot {
         // v-slot can only be used on components or <template>
         if tag != "template" && !Self::is_custom_component(tag) {
             ctx.error_with_help(
-                format!("`v-slot` cannot be used on `<{}>`", tag),
+                ctx.t("vue/valid-v-slot.invalid_location"),
                 &directive.loc,
-                "Use `v-slot` on a `<template>` element or custom component",
+                ctx.t("vue/valid-v-slot.help"),
             );
             return;
         }
@@ -92,24 +92,28 @@ impl Rule for ValidVSlot {
         let (default_count, named_count) = Self::count_slot_directives(element);
 
         if default_count > 1 {
-            ctx.error("Duplicate default `v-slot` directive", &directive.loc);
+            ctx.error_with_help(
+                ctx.t("vue/valid-v-slot.invalid_location"),
+                &directive.loc,
+                ctx.t("vue/valid-v-slot.help"),
+            );
         }
 
         // On <template>, can only have one named slot
         if tag == "template" && named_count > 1 {
             ctx.error_with_help(
-                "Multiple named slots on single `<template>`",
+                ctx.t("vue/valid-v-slot.invalid_location"),
                 &directive.loc,
-                "Use separate `<template>` elements for each slot",
+                ctx.t("vue/valid-v-slot.help"),
             );
         }
 
         // Mixing default and named on same element
         if default_count > 0 && named_count > 0 {
             ctx.error_with_help(
-                "Cannot mix default and named `v-slot` on same element",
+                ctx.t("vue/valid-v-slot.invalid_location"),
                 &directive.loc,
-                "Use `<template #default>` for the default slot",
+                ctx.t("vue/valid-v-slot.help"),
             );
         }
     }

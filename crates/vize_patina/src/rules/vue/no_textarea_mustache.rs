@@ -48,9 +48,9 @@ impl Rule for NoTextareaMustache {
         for child in element.children.iter() {
             if let TemplateChildNode::Interpolation(interp) = child {
                 ctx.error_with_help(
-                    "Mustache interpolation in `<textarea>` does not work",
+                    ctx.t("vue/no-textarea-mustache.message"),
                     &interp.loc,
-                    "Use `v-model` instead: <textarea v-model=\"...\"></textarea>",
+                    ctx.t("vue/no-textarea-mustache.help"),
                 );
             }
         }

@@ -65,9 +65,9 @@ impl Rule for NoVHtml {
     ) {
         if directive.name == "html" {
             ctx.warn_with_help(
-                "Avoid using v-html as it may cause XSS vulnerabilities",
+                ctx.t("vue/no-v-html.message"),
                 &directive.loc,
-                "Use {{ text }} interpolation or sanitize HTML with DOMPurify before rendering",
+                ctx.t("vue/no-v-html.help"),
             );
         }
     }

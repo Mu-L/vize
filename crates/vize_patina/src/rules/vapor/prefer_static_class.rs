@@ -79,17 +79,7 @@ impl Rule for PreferStaticClass {
                 matches!(p, PropNode::Attribute(attr) if attr.name.as_str().eq_ignore_ascii_case("class"))
             });
 
-            let message = if has_static_class {
-                format!(
-                    "Static class '{}' should be merged with existing class attribute",
-                    inner
-                )
-            } else {
-                format!(
-                    "Static class '{}' should use class=\"{}\" instead of :class",
-                    inner, inner
-                )
-            };
+            let message = ctx.t("vapor/prefer-static-class.message");
 
             // Create fix: replace :class="'value'" with class="value"
             if !has_static_class {
@@ -105,7 +95,7 @@ impl Rule for PreferStaticClass {
                 ctx.report(
                     crate::diagnostic::LintDiagnostic::warn(
                         META.name,
-                        message,
+                        message.as_ref(),
                         arg.loc.start.offset,
                         directive.loc.end.offset,
                     )
@@ -115,7 +105,7 @@ impl Rule for PreferStaticClass {
                 ctx.warn_with_help(
                     message,
                     &directive.loc,
-                    "Merge the static class value with the existing class attribute",
+                    ctx.t("vapor/prefer-static-class.help"),
                 );
             }
         }

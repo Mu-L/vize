@@ -70,9 +70,9 @@ impl Rule for NoTemplateShadow {
             let var_name = var.as_str();
             if ctx.is_parent_v_for_var(var_name) {
                 ctx.warn_with_help(
-                    format!("Variable '{}' shadows a variable in an outer scope", var_name),
+                    ctx.t_fmt("vue/no-template-shadow.message", &[("name", var_name)]),
                     &directive.loc,
-                    format!("Rename the variable to avoid shadowing: use a different name instead of '{}'", var_name),
+                    ctx.t("vue/no-template-shadow.help"),
                 );
             }
         }

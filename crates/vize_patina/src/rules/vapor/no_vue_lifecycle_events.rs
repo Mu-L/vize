@@ -65,31 +65,14 @@ impl Rule for NoVueLifecycleEvents {
 
         if let Some(lifecycle_name) = event_name.strip_prefix("vue:") {
             ctx.error_with_help(
-                format!(
-                    "@vue:{} per-element lifecycle event is not supported in Vapor mode",
-                    lifecycle_name
+                ctx.t_fmt(
+                    "vapor/no-vue-lifecycle-events.message",
+                    &[("event", lifecycle_name)],
                 ),
                 &directive.loc,
-                format!(
-                    "Use {} lifecycle hook in <script setup vapor> instead. \
-                     Vapor components cannot use per-element lifecycle events.",
-                    get_suggested_hook(lifecycle_name)
-                ),
+                ctx.t("vapor/no-vue-lifecycle-events.help"),
             );
         }
-    }
-}
-
-/// Get the suggested lifecycle hook for a vue event
-fn get_suggested_hook(event_name: &str) -> &'static str {
-    match event_name {
-        "mounted" => "onMounted()",
-        "updated" => "onUpdated()",
-        "beforeMount" => "onBeforeMount()",
-        "beforeUpdate" => "onBeforeUpdate()",
-        "unmounted" => "onUnmounted()",
-        "beforeUnmount" => "onBeforeUnmount()",
-        _ => "the appropriate lifecycle hook",
     }
 }
 

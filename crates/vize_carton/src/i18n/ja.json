@@ -84,7 +84,11 @@
 
   "vue/no-template-shadow.description": "v-forでの変数シャドーイングを禁止する",
   "vue/no-template-shadow.message": "変数'{name}'は外側のスコープの変数をシャドーイングしています",
-  "vue/no-template-shadow.help": "シャドーイングを避けるために変数名を変更してください: '{name}'の代わりに別の名前を使用してください",
+  "vue/no-template-shadow.help": "シャドーイングを避けるために変数名を変更してください",
+
+  "vue/no-inline-style.description": "インラインスタイル属性の使用を非推奨にする",
+  "vue/no-inline-style.message": "インラインスタイルの使用を避けてください",
+  "vue/no-inline-style.help": "CSSクラスまたはスコープ付きスタイルを使用してください",
 
   "vue/no-multi-spaces.description": "複数の連続したスペースを禁止する",
   "vue/no-multi-spaces.message": "複数の連続したスペースが見つかりました",

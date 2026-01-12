@@ -53,9 +53,9 @@ impl Rule for NoInlineStyle {
             if let vize_relief::ast::PropNode::Attribute(attr) = attr {
                 if attr.name == "style" {
                     ctx.warn_with_help(
-                        "Avoid using inline style attribute",
+                        ctx.t("vue/no-inline-style.message"),
                         &attr.loc,
-                        "Use CSS classes or scoped styles instead: <div class=\"my-class\">",
+                        ctx.t("vue/no-inline-style.help"),
                     );
                 }
             }
@@ -70,9 +70,9 @@ impl Rule for NoInlineStyle {
                         };
                         if arg_content == "style" {
                             ctx.warn_with_help(
-                                "Avoid using dynamic :style binding",
+                                ctx.t("vue/no-inline-style.message"),
                                 &dir.loc,
-                                "Use :class binding for conditional styling: :class=\"{ 'class-name': condition }\"",
+                                ctx.t("vue/no-inline-style.help"),
                             );
                         }
                     }

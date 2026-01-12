@@ -63,7 +63,11 @@ impl Rule for NoDuplicateAttributes {
 
                     // Check for duplicate static attributes
                     if seen_attrs.contains(&name) {
-                        ctx.error(format!("Duplicate attribute '{}'", attr.name), &attr.loc);
+                        ctx.error_with_help(
+                            ctx.t_fmt("vue/no-duplicate-attributes.message", &[("attr", &name)]),
+                            &attr.loc,
+                            ctx.t("vue/no-duplicate-attributes.help"),
+                        );
                     } else {
                         seen_attrs.insert(name.clone());
                     }
@@ -73,18 +77,20 @@ impl Rule for NoDuplicateAttributes {
                         && name == "class"
                         && seen_directives.contains("class")
                     {
-                        ctx.error(
-                            "Duplicate attribute 'class' (already defined as v-bind:class)",
+                        ctx.error_with_help(
+                            ctx.t_fmt("vue/no-duplicate-attributes.message", &[("attr", "class")]),
                             &attr.loc,
+                            ctx.t("vue/no-duplicate-attributes.help"),
                         );
                     }
                     if !self.allow_coexist_style
                         && name == "style"
                         && seen_directives.contains("style")
                     {
-                        ctx.error(
-                            "Duplicate attribute 'style' (already defined as v-bind:style)",
+                        ctx.error_with_help(
+                            ctx.t_fmt("vue/no-duplicate-attributes.message", &[("attr", "style")]),
                             &attr.loc,
+                            ctx.t("vue/no-duplicate-attributes.help"),
                         );
                     }
                 }
@@ -96,9 +102,13 @@ impl Rule for NoDuplicateAttributes {
 
                             // Check for duplicate directives
                             if seen_directives.contains(&arg_name) {
-                                ctx.error(
-                                    format!("Duplicate directive 'v-bind:{}'", arg_name),
+                                ctx.error_with_help(
+                                    ctx.t_fmt(
+                                        "vue/no-duplicate-attributes.message",
+                                        &[("attr", &format!("v-bind:{}", arg_name))],
+                                    ),
                                     &dir.loc,
+                                    ctx.t("vue/no-duplicate-attributes.help"),
                                 );
                             } else {
                                 seen_directives.insert(arg_name.clone());
@@ -109,18 +119,26 @@ impl Rule for NoDuplicateAttributes {
                                 && arg_name == "class"
                                 && seen_attrs.contains("class")
                             {
-                                ctx.error(
-                                    "Duplicate directive 'v-bind:class' (already defined as class attribute)",
+                                ctx.error_with_help(
+                                    ctx.t_fmt(
+                                        "vue/no-duplicate-attributes.message",
+                                        &[("attr", "v-bind:class")],
+                                    ),
                                     &dir.loc,
+                                    ctx.t("vue/no-duplicate-attributes.help"),
                                 );
                             }
                             if !self.allow_coexist_style
                                 && arg_name == "style"
                                 && seen_attrs.contains("style")
                             {
-                                ctx.error(
-                                    "Duplicate directive 'v-bind:style' (already defined as style attribute)",
+                                ctx.error_with_help(
+                                    ctx.t_fmt(
+                                        "vue/no-duplicate-attributes.message",
+                                        &[("attr", "v-bind:style")],
+                                    ),
                                     &dir.loc,
+                                    ctx.t("vue/no-duplicate-attributes.help"),
                                 );
                             }
                         }
@@ -139,13 +157,17 @@ impl Rule for NoDuplicateAttributes {
                             };
                             if seen_directives.contains(&event_key) {
                                 let display_name = if modifiers.is_empty() {
-                                    event_name.clone()
+                                    format!("v-on:{}", event_name)
                                 } else {
-                                    format!("{}.{}", event_name, modifiers.join("."))
+                                    format!("v-on:{}.{}", event_name, modifiers.join("."))
                                 };
-                                ctx.error(
-                                    format!("Duplicate event handler 'v-on:{}'", display_name),
+                                ctx.error_with_help(
+                                    ctx.t_fmt(
+                                        "vue/no-duplicate-attributes.message",
+                                        &[("attr", &display_name)],
+                                    ),
                                     &dir.loc,
+                                    ctx.t("vue/no-duplicate-attributes.help"),
                                 );
                             } else {
                                 seen_directives.insert(event_key);
@@ -160,7 +182,14 @@ impl Rule for NoDuplicateAttributes {
                             "model:modelValue".to_string()
                         };
                         if seen_directives.contains(&model_key) {
-                            ctx.error("Duplicate v-model directive", &dir.loc);
+                            ctx.error_with_help(
+                                ctx.t_fmt(
+                                    "vue/no-duplicate-attributes.message",
+                                    &[("attr", "v-model")],
+                                ),
+                                &dir.loc,
+                                ctx.t("vue/no-duplicate-attributes.help"),
+                            );
                         } else {
                             seen_directives.insert(model_key);
                         }

@@ -59,9 +59,9 @@ impl Rule for ValidVShow {
 
         if !has_expression {
             ctx.error_with_help(
-                "`v-show` requires an expression",
+                ctx.t("vue/valid-v-show.missing_expression"),
                 &directive.loc,
-                "Add a condition: v-show=\"condition\"",
+                ctx.t("vue/valid-v-show.help"),
             );
             return;
         }
@@ -69,9 +69,9 @@ impl Rule for ValidVShow {
         // Check 2: v-show cannot be used on <template>
         if element.tag.as_str() == "template" {
             ctx.error_with_help(
-                "`v-show` cannot be used on `<template>`",
+                ctx.t("vue/valid-v-show.on_template"),
                 &directive.loc,
-                "Use `v-if` instead, or move `v-show` to a real element",
+                ctx.t("vue/valid-v-show.help"),
             );
         }
     }

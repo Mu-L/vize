@@ -214,12 +214,9 @@ impl<'r> UnusedVarsChecker<'r> {
                         eprintln!("Reporting unused var: {}", var_name);
 
                         ctx.warn_with_help(
-                            format!("'{}' is defined but never used", var_name),
+                            ctx.t_fmt("vue/no-unused-vars.message", &[("name", &var_name)]),
                             &var_loc,
-                            format!(
-                                "Remove the unused variable or prefix with underscore: _{}",
-                                var_name
-                            ),
+                            ctx.t("vue/no-unused-vars.help"),
                         );
                     }
                 }
