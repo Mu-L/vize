@@ -58,6 +58,7 @@ pub enum ScopeKind {
     JsGlobalBun,
     VueGlobal,
     ExternalModule,
+    Closure,
 }
 
 impl From<crate::scope::ScopeKind> for ScopeKind {
@@ -81,6 +82,7 @@ impl From<crate::scope::ScopeKind> for ScopeKind {
             crate::scope::ScopeKind::JsGlobalBun => Self::JsGlobalBun,
             crate::scope::ScopeKind::VueGlobal => Self::VueGlobal,
             crate::scope::ScopeKind::ExternalModule => Self::ExternalModule,
+            crate::scope::ScopeKind::Closure => Self::Closure,
         }
     }
 }
@@ -125,6 +127,7 @@ impl ScopeKind {
             Self::JsGlobalBun => "server",
             Self::VueGlobal => "vue",
             Self::ExternalModule => "extern",
+            Self::Closure => "closure",
         }
     }
 
@@ -150,6 +153,7 @@ impl ScopeKind {
             Self::JsGlobalBun => "server",
             Self::VueGlobal => "vue",
             Self::ExternalModule => "extern",
+            Self::Closure => "closure",
         }
     }
 

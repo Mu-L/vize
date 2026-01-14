@@ -86,6 +86,9 @@ pub enum ScopeKind {
     VueGlobal = 16,
     /// External module scope (imported modules)
     ExternalModule = 17,
+    /// Closure scope (function declaration, function expression, arrow function)
+    /// Has access to arguments, this, and local variables
+    Closure = 18,
 }
 
 impl ScopeKind {
@@ -127,6 +130,7 @@ impl ScopeKind {
             Self::JsGlobalBun => "server",
             Self::VueGlobal => "vue",
             Self::ExternalModule => "extern",
+            Self::Closure => "closure",
         }
     }
 
@@ -152,6 +156,7 @@ impl ScopeKind {
             Self::JsGlobalBun => "server",
             Self::VueGlobal => "vue",
             Self::ExternalModule => "extern",
+            Self::Closure => "closure",
         }
     }
 
@@ -286,6 +291,69 @@ pub struct ExternalModuleScopeData {
     pub is_type_only: bool,
 }
 
+/// Data specific to closure scope (function declaration, function expression, arrow function)
+#[derive(Debug, Clone)]
+pub struct ClosureScopeData {
+    /// Function name (if named function)
+    pub name: Option<CompactString>,
+    /// Parameter names
+    pub param_names: ParamNames,
+    /// Whether this is an arrow function (no `arguments`, no `this` binding)
+    pub is_arrow: bool,
+    /// Whether this is async
+    pub is_async: bool,
+    /// Whether this is a generator
+    pub is_generator: bool,
+}
+
+/// Block kind for block scopes
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum BlockKind {
+    Block,
+    If,
+    Else,
+    For,
+    ForIn,
+    ForOf,
+    While,
+    DoWhile,
+    Switch,
+    Try,
+    Catch,
+    Finally,
+    With,
+}
+
+impl BlockKind {
+    /// Get the display name for this block kind
+    #[inline]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Block => "block",
+            Self::If => "if",
+            Self::Else => "else",
+            Self::For => "for",
+            Self::ForIn => "for-in",
+            Self::ForOf => "for-of",
+            Self::While => "while",
+            Self::DoWhile => "do-while",
+            Self::Switch => "switch",
+            Self::Try => "try",
+            Self::Catch => "catch",
+            Self::Finally => "finally",
+            Self::With => "with",
+        }
+    }
+}
+
+/// Data specific to block scope (if, for, switch, etc.)
+#[derive(Debug, Clone, Copy)]
+pub struct BlockScopeData {
+    /// Block kind
+    pub kind: BlockKind,
+}
+
 /// Scope-specific data
 #[derive(Debug, Clone)]
 pub enum ScopeData {
@@ -313,6 +381,10 @@ pub enum ScopeData {
     VueGlobal(VueGlobalScopeData),
     /// External module specific data
     ExternalModule(ExternalModuleScopeData),
+    /// Closure specific data
+    Closure(ClosureScopeData),
+    /// Block specific data
+    Block(BlockScopeData),
 }
 
 impl JsRuntime {
@@ -610,6 +682,7 @@ impl ScopeChain {
         let mut root = Scope::new(ScopeId::ROOT, None, ScopeKind::JsGlobalUniversal);
         for name in [
             "AggregateError",
+            "arguments", // Function scope closure
             "Array",
             "ArrayBuffer",
             "AsyncFunction",
@@ -664,6 +737,7 @@ impl ScopeChain {
             "String",
             "Symbol",
             "SyntaxError",
+            "this", // Function scope closure
             "TypeError",
             "Uint16Array",
             "Uint32Array",
@@ -691,6 +765,7 @@ impl ScopeChain {
         let mut root = Scope::new(ScopeId::ROOT, None, ScopeKind::JsGlobalUniversal);
         for name in [
             "AggregateError",
+            "arguments",
             "Array",
             "ArrayBuffer",
             "AsyncFunction",
@@ -745,6 +820,7 @@ impl ScopeChain {
             "String",
             "Symbol",
             "SyntaxError",
+            "this",
             "TypeError",
             "Uint16Array",
             "Uint32Array",
@@ -1174,6 +1250,35 @@ impl ScopeChain {
             end,
         );
         scope.set_data(ScopeData::ExternalModule(data));
+        self.scopes.push(scope);
+        self.current = id;
+        id
+    }
+
+    /// Enter a closure scope (function declaration, function expression, arrow function)
+    pub fn enter_closure_scope(&mut self, data: ClosureScopeData, start: u32, end: u32) -> ScopeId {
+        let id = ScopeId::new(self.scopes.len() as u32);
+        let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Closure, start, end);
+
+        // Add parameter names as bindings
+        for param in &data.param_names {
+            scope.add_binding(
+                param.clone(),
+                ScopeBinding::new(BindingType::SetupConst, start),
+            );
+        }
+
+        scope.set_data(ScopeData::Closure(data));
+        self.scopes.push(scope);
+        self.current = id;
+        id
+    }
+
+    /// Enter a block scope (if, for, switch, try, catch, etc.)
+    pub fn enter_block_scope(&mut self, data: BlockScopeData, start: u32, end: u32) -> ScopeId {
+        let id = ScopeId::new(self.scopes.len() as u32);
+        let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Block, start, end);
+        scope.set_data(ScopeData::Block(data));
         self.scopes.push(scope);
         self.current = id;
         id

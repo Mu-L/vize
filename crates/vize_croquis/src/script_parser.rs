@@ -22,8 +22,8 @@ use crate::analysis::{
 use crate::macros::{EmitDefinition, MacroKind, MacroTracker, ModelDefinition, PropDefinition};
 use crate::reactivity::{ReactiveKind, ReactivityTracker};
 use crate::scope::{
-    CallbackScopeData, ClientOnlyScopeData, ExternalModuleScopeData, NonScriptSetupScopeData,
-    ScopeChain, ScriptSetupScopeData, VueGlobalScopeData,
+    BlockKind, BlockScopeData, ClientOnlyScopeData, ClosureScopeData, ExternalModuleScopeData,
+    NonScriptSetupScopeData, ScopeChain, ScriptSetupScopeData, VueGlobalScopeData,
 };
 use vize_carton::CompactString;
 use vize_relief::BindingType;
@@ -262,6 +262,33 @@ fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, sourc
                 let name = id.name.as_str();
                 result.bindings.add(name, BindingType::SetupConst);
             }
+
+            // Create closure scope and walk body
+            let params = extract_function_params(&func.params);
+            let name = func
+                .id
+                .as_ref()
+                .map(|id| CompactString::new(id.name.as_str()));
+
+            result.scopes.enter_closure_scope(
+                ClosureScopeData {
+                    name,
+                    param_names: params,
+                    is_arrow: false,
+                    is_async: func.r#async,
+                    is_generator: func.generator,
+                },
+                func.span.start,
+                func.span.end,
+            );
+
+            if let Some(body) = &func.body {
+                for stmt in body.statements.iter() {
+                    walk_statement(result, stmt, source);
+                }
+            }
+
+            result.scopes.exit_scope();
         }
 
         // Class declarations
@@ -896,15 +923,17 @@ fn is_client_only_hook(name: &str) -> bool {
 #[inline]
 fn walk_expression(result: &mut ScriptParseResult, expr: &Expression<'_>, source: &str) {
     match expr {
-        // Arrow functions create callback scopes
+        // Arrow functions create closure scopes (no `arguments`, no `this` binding)
         Expression::ArrowFunctionExpression(arrow) => {
             let params = extract_function_params(&arrow.params);
-            let context = CompactString::new("arrow");
 
-            result.scopes.enter_callback_scope(
-                CallbackScopeData {
+            result.scopes.enter_closure_scope(
+                ClosureScopeData {
+                    name: None,
                     param_names: params,
-                    context,
+                    is_arrow: true,
+                    is_async: arrow.r#async,
+                    is_generator: false, // Arrow functions cannot be generators
                 },
                 arrow.span.start,
                 arrow.span.end,
@@ -931,19 +960,21 @@ fn walk_expression(result: &mut ScriptParseResult, expr: &Expression<'_>, source
             result.scopes.exit_scope();
         }
 
-        // Function expressions create callback scopes
+        // Function expressions create closure scopes
         Expression::FunctionExpression(func) => {
             let params = extract_function_params(&func.params);
-            let context = func
+            let name = func
                 .id
                 .as_ref()
-                .map(|id| CompactString::new(id.name.as_str()))
-                .unwrap_or_else(|| CompactString::new("anonymous"));
+                .map(|id| CompactString::new(id.name.as_str()));
 
-            result.scopes.enter_callback_scope(
-                CallbackScopeData {
+            result.scopes.enter_closure_scope(
+                ClosureScopeData {
+                    name,
                     param_names: params,
-                    context,
+                    is_arrow: false,
+                    is_async: func.r#async,
+                    is_generator: func.generator,
                 },
                 func.span.start,
                 func.span.end,
@@ -1114,12 +1145,15 @@ fn walk_call_arguments(result: &mut ScriptParseResult, call: &CallExpression<'_>
                                     call.span.end,
                                 );
 
-                                // Now create the callback scope inside the client-only scope
+                                // Now create the closure scope inside the client-only scope
                                 let params = extract_function_params(&arrow.params);
-                                result.scopes.enter_callback_scope(
-                                    CallbackScopeData {
+                                result.scopes.enter_closure_scope(
+                                    ClosureScopeData {
+                                        name: None,
                                         param_names: params,
-                                        context: CompactString::new("arrow"),
+                                        is_arrow: true,
+                                        is_async: arrow.r#async,
+                                        is_generator: false,
                                     },
                                     arrow.span.start,
                                     arrow.span.end,
@@ -1138,7 +1172,7 @@ fn walk_call_arguments(result: &mut ScriptParseResult, call: &CallExpression<'_>
                                     }
                                 }
 
-                                result.scopes.exit_scope(); // Exit callback scope
+                                result.scopes.exit_scope(); // Exit closure scope
                                 result.scopes.exit_scope(); // Exit client-only scope
                                 continue;
                             }
@@ -1152,18 +1186,20 @@ fn walk_call_arguments(result: &mut ScriptParseResult, call: &CallExpression<'_>
                                     call.span.end,
                                 );
 
-                                // Create callback scope inside client-only scope
+                                // Create closure scope inside client-only scope
                                 let params = extract_function_params(&func.params);
-                                let context = func
+                                let fn_name = func
                                     .id
                                     .as_ref()
-                                    .map(|id| CompactString::new(id.name.as_str()))
-                                    .unwrap_or_else(|| CompactString::new("anonymous"));
+                                    .map(|id| CompactString::new(id.name.as_str()));
 
-                                result.scopes.enter_callback_scope(
-                                    CallbackScopeData {
+                                result.scopes.enter_closure_scope(
+                                    ClosureScopeData {
+                                        name: fn_name,
                                         param_names: params,
-                                        context,
+                                        is_arrow: false,
+                                        is_async: func.r#async,
+                                        is_generator: func.generator,
                                     },
                                     func.span.start,
                                     func.span.end,
@@ -1175,7 +1211,7 @@ fn walk_call_arguments(result: &mut ScriptParseResult, call: &CallExpression<'_>
                                     }
                                 }
 
-                                result.scopes.exit_scope(); // Exit callback scope
+                                result.scopes.exit_scope(); // Exit closure scope
                                 result.scopes.exit_scope(); // Exit client-only scope
                                 continue;
                             }
@@ -1189,6 +1225,23 @@ fn walk_call_arguments(result: &mut ScriptParseResult, call: &CallExpression<'_>
     }
 }
 
+/// Add variable bindings from a binding pattern to the current scope
+#[inline]
+fn add_binding_pattern_to_scope(
+    result: &mut ScriptParseResult,
+    pattern: &oxc_ast::ast::BindingPattern<'_>,
+    offset: u32,
+) {
+    let mut names = vize_carton::SmallVec::<[CompactString; 4]>::new();
+    extract_param_names(pattern, &mut names);
+    for name in names {
+        result.scopes.add_binding(
+            name,
+            crate::ScopeBinding::new(BindingType::SetupConst, offset),
+        );
+    }
+}
+
 /// Walk a statement to find nested scopes
 #[inline]
 fn walk_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, source: &str) {
@@ -1197,9 +1250,81 @@ fn walk_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, source: 
             walk_expression(result, &expr_stmt.expression, source);
         }
         Statement::VariableDeclaration(var_decl) => {
+            // Add variable bindings to current scope
             for decl in var_decl.declarations.iter() {
+                add_binding_pattern_to_scope(result, &decl.id, decl.span.start);
                 if let Some(init) = &decl.init {
                     walk_expression(result, init, source);
+                }
+            }
+        }
+        // Nested function declarations
+        Statement::FunctionDeclaration(func) => {
+            // Add function name as binding
+            if let Some(id) = &func.id {
+                result.scopes.add_binding(
+                    CompactString::new(id.name.as_str()),
+                    crate::ScopeBinding::new(BindingType::SetupConst, func.span.start),
+                );
+            }
+
+            // Create closure scope
+            let params = extract_function_params(&func.params);
+            let name = func
+                .id
+                .as_ref()
+                .map(|id| CompactString::new(id.name.as_str()));
+
+            result.scopes.enter_closure_scope(
+                ClosureScopeData {
+                    name,
+                    param_names: params,
+                    is_arrow: false,
+                    is_async: func.r#async,
+                    is_generator: func.generator,
+                },
+                func.span.start,
+                func.span.end,
+            );
+
+            if let Some(body) = &func.body {
+                for stmt in body.statements.iter() {
+                    walk_statement(result, stmt, source);
+                }
+            }
+
+            result.scopes.exit_scope();
+        }
+        // Nested class declarations
+        Statement::ClassDeclaration(class) => {
+            // Add class name as binding
+            if let Some(id) = &class.id {
+                result.scopes.add_binding(
+                    CompactString::new(id.name.as_str()),
+                    crate::ScopeBinding::new(BindingType::SetupConst, class.span.start),
+                );
+            }
+            // Walk class body for methods
+            for element in class.body.body.iter() {
+                if let oxc_ast::ast::ClassElement::MethodDefinition(method) = element {
+                    if let Some(body) = &method.value.body {
+                        let params = extract_function_params(&method.value.params);
+                        result.scopes.enter_closure_scope(
+                            ClosureScopeData {
+                                name: None,
+                                param_names: params,
+                                is_arrow: false,
+                                is_async: method.value.r#async,
+                                is_generator: method.value.generator,
+                            },
+                            method.span.start,
+                            method.span.end,
+                        );
+                        for stmt in body.statements.iter() {
+                            walk_statement(result, stmt, source);
+                        }
+                        result.scopes.exit_scope();
+                    }
                 }
             }
         }
@@ -1209,46 +1334,226 @@ fn walk_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, source: 
             }
         }
         Statement::BlockStatement(block) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::Block,
+                },
+                block.span.start,
+                block.span.end,
+            );
             for stmt in block.body.iter() {
                 walk_statement(result, stmt, source);
             }
+            result.scopes.exit_scope();
         }
         Statement::IfStatement(if_stmt) => {
             walk_expression(result, &if_stmt.test, source);
+
+            // Consequent block
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::If,
+                },
+                if_stmt.consequent.span().start,
+                if_stmt.consequent.span().end,
+            );
             walk_statement(result, &if_stmt.consequent, source);
+            result.scopes.exit_scope();
+
+            // Alternate block (else/else if)
             if let Some(alt) = &if_stmt.alternate {
+                result.scopes.enter_block_scope(
+                    BlockScopeData {
+                        kind: BlockKind::Else,
+                    },
+                    alt.span().start,
+                    alt.span().end,
+                );
                 walk_statement(result, alt, source);
+                result.scopes.exit_scope();
             }
         }
         Statement::ForStatement(for_stmt) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::For,
+                },
+                for_stmt.span.start,
+                for_stmt.span.end,
+            );
+            // Add loop variable bindings
+            if let Some(init) = &for_stmt.init {
+                match init {
+                    oxc_ast::ast::ForStatementInit::VariableDeclaration(var_decl) => {
+                        for decl in var_decl.declarations.iter() {
+                            add_binding_pattern_to_scope(result, &decl.id, decl.span.start);
+                            if let Some(init_expr) = &decl.init {
+                                walk_expression(result, init_expr, source);
+                            }
+                        }
+                    }
+                    _ => {
+                        // Expression init (e.g., for (i = 0; ...))
+                        if let Some(expr) = init.as_expression() {
+                            walk_expression(result, expr, source);
+                        }
+                    }
+                }
+            }
+            if let Some(test) = &for_stmt.test {
+                walk_expression(result, test, source);
+            }
+            if let Some(update) = &for_stmt.update {
+                walk_expression(result, update, source);
+            }
             walk_statement(result, &for_stmt.body, source);
+            result.scopes.exit_scope();
         }
         Statement::ForInStatement(for_in) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::ForIn,
+                },
+                for_in.span.start,
+                for_in.span.end,
+            );
+            // Add loop variable binding
+            if let oxc_ast::ast::ForStatementLeft::VariableDeclaration(var_decl) = &for_in.left {
+                for decl in var_decl.declarations.iter() {
+                    add_binding_pattern_to_scope(result, &decl.id, decl.span.start);
+                }
+            }
+            walk_expression(result, &for_in.right, source);
             walk_statement(result, &for_in.body, source);
+            result.scopes.exit_scope();
         }
         Statement::ForOfStatement(for_of) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::ForOf,
+                },
+                for_of.span.start,
+                for_of.span.end,
+            );
+            // Add loop variable binding
+            if let oxc_ast::ast::ForStatementLeft::VariableDeclaration(var_decl) = &for_of.left {
+                for decl in var_decl.declarations.iter() {
+                    add_binding_pattern_to_scope(result, &decl.id, decl.span.start);
+                }
+            }
+            walk_expression(result, &for_of.right, source);
             walk_statement(result, &for_of.body, source);
+            result.scopes.exit_scope();
         }
         Statement::WhileStatement(while_stmt) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::While,
+                },
+                while_stmt.span.start,
+                while_stmt.span.end,
+            );
+            walk_expression(result, &while_stmt.test, source);
             walk_statement(result, &while_stmt.body, source);
+            result.scopes.exit_scope();
         }
         Statement::DoWhileStatement(do_while) => {
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::DoWhile,
+                },
+                do_while.span.start,
+                do_while.span.end,
+            );
             walk_statement(result, &do_while.body, source);
+            walk_expression(result, &do_while.test, source);
+            result.scopes.exit_scope();
+        }
+        Statement::SwitchStatement(switch_stmt) => {
+            walk_expression(result, &switch_stmt.discriminant, source);
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::Switch,
+                },
+                switch_stmt.span.start,
+                switch_stmt.span.end,
+            );
+            for case in switch_stmt.cases.iter() {
+                if let Some(test) = &case.test {
+                    walk_expression(result, test, source);
+                }
+                for stmt in case.consequent.iter() {
+                    walk_statement(result, stmt, source);
+                }
+            }
+            result.scopes.exit_scope();
         }
         Statement::TryStatement(try_stmt) => {
+            // try block
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::Try,
+                },
+                try_stmt.block.span.start,
+                try_stmt.block.span.end,
+            );
             for stmt in try_stmt.block.body.iter() {
                 walk_statement(result, stmt, source);
             }
+            result.scopes.exit_scope();
+
+            // catch block
             if let Some(handler) = &try_stmt.handler {
+                result.scopes.enter_block_scope(
+                    BlockScopeData {
+                        kind: BlockKind::Catch,
+                    },
+                    handler.span.start,
+                    handler.span.end,
+                );
+                // Add catch parameter as binding if present
+                if let Some(param) = &handler.param {
+                    let mut names = vize_carton::SmallVec::<[CompactString; 4]>::new();
+                    extract_param_names(&param.pattern, &mut names);
+                    for name in names {
+                        result.scopes.add_binding(
+                            name,
+                            crate::ScopeBinding::new(BindingType::SetupConst, handler.span.start),
+                        );
+                    }
+                }
                 for stmt in handler.body.body.iter() {
                     walk_statement(result, stmt, source);
                 }
+                result.scopes.exit_scope();
             }
+
+            // finally block
             if let Some(finalizer) = &try_stmt.finalizer {
+                result.scopes.enter_block_scope(
+                    BlockScopeData {
+                        kind: BlockKind::Finally,
+                    },
+                    finalizer.span.start,
+                    finalizer.span.end,
+                );
                 for stmt in finalizer.body.iter() {
                     walk_statement(result, stmt, source);
                 }
+                result.scopes.exit_scope();
             }
+        }
+        Statement::WithStatement(with_stmt) => {
+            walk_expression(result, &with_stmt.object, source);
+            result.scopes.enter_block_scope(
+                BlockScopeData {
+                    kind: BlockKind::With,
+                },
+                with_stmt.body.span().start,
+                with_stmt.body.span().end,
+            );
+            walk_statement(result, &with_stmt.body, source);
+            result.scopes.exit_scope();
         }
         _ => {}
     }
@@ -1479,7 +1784,7 @@ mod tests {
     }
 
     #[test]
-    fn test_callback_params_extracted() {
+    fn test_closure_params_extracted() {
         use crate::scope::{ScopeData, ScopeKind};
 
         let result = parse_script_setup(
@@ -1488,22 +1793,23 @@ mod tests {
         "#,
         );
 
-        // Find the callback scope for the map function
-        let callback_scope = result.scopes.iter().find(|s| s.kind == ScopeKind::Callback);
+        // Find the closure scope for the map function
+        let closure_scope = result.scopes.iter().find(|s| s.kind == ScopeKind::Closure);
 
-        assert!(callback_scope.is_some(), "Should have a callback scope");
+        assert!(closure_scope.is_some(), "Should have a closure scope");
 
-        if let ScopeData::Callback(data) = callback_scope.unwrap().data() {
+        if let ScopeData::Closure(data) = closure_scope.unwrap().data() {
             assert!(
                 data.param_names.contains(&CompactString::new("item")),
-                "Callback scope should have 'item' param"
+                "Closure scope should have 'item' param"
             );
             assert!(
                 data.param_names.contains(&CompactString::new("index")),
-                "Callback scope should have 'index' param"
+                "Closure scope should have 'index' param"
             );
+            assert!(data.is_arrow, "Should be an arrow function");
         } else {
-            panic!("Expected callback scope data");
+            panic!("Expected closure scope data");
         }
     }
 }
