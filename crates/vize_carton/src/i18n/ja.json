@@ -2,6 +2,9 @@
   "test.hello": "こんにちは",
   "test.greeting": "こんにちは、{name}さん！",
 
+  "diagnostic.format": "[vize:{rule}] {message}",
+  "diagnostic.format.ts": "[vize:TS{code}] {message}",
+
   "category.essential": "必須",
   "category.strongly_recommended": "強く推奨",
   "category.recommended": "推奨",
@@ -215,5 +218,71 @@
   "ssr/no-hydration-mismatch.description": "ハイドレーションミスマッチを引き起こす非決定的な値を禁止する",
   "ssr/no-hydration-mismatch.message": "'{pattern}'はサーバーとクライアント間でハイドレーションミスマッチを引き起こす可能性があります",
   "ssr/no-hydration-mismatch.message-attr": "属性バインディングの'{pattern}'はハイドレーションミスマッチを引き起こす可能性があります",
-  "ssr/no-hydration-mismatch.help": "一意のIDにはuseId()を使用するか、クライアント専用の値には<ClientOnly>でラップしてください"
+  "ssr/no-hydration-mismatch.help": "一意のIDにはuseId()を使用するか、クライアント専用の値には<ClientOnly>でラップしてください",
+
+  "ts/2304.message": "'{name}'が見つかりません",
+  "ts/2304.help": "**`{name}`** が定義されていません。\n\n**考えられる原因:**\n- 変数がインポートまたは宣言されていない\n- 名前にタイプミスがある\n- 変数が別のスコープで定義されている\n\n**解決方法:**\n```ts\n// 1. モジュールからインポート\nimport { {name} } from './module';\n\n// 2. script setupで宣言\nconst {name} = ...;\n\n// 3. 名前のタイプミスを確認\n```",
+
+  "ts/2322.message": "型'{source}'を型'{target}'に割り当てることはできません",
+  "ts/2322.help": "**型の不一致が検出されました。**\n\n`{target}`を期待する場所に`{source}`型の値を割り当てようとしています。\n\n**一般的な修正方法:**\n- 値が期待される型と一致するか確認\n- 確信がある場合は型アサーションを使用: `value as {target}`\n- 実際の型を受け入れるように型定義を更新\n\n**例:**\n```ts\n// targetが'number'でsourceが'string'の場合\nconst value = parseInt(stringValue); // stringをnumberに変換\n```",
+
+  "ts/2339.message": "プロパティ'{name}'は型'{type}'に存在しません",
+  "ts/2339.help": "**プロパティ`{name}`が`{type}`に見つかりません。**\n\n**考えられる原因:**\n- プロパティ名のスペルミス\n- この型にプロパティが存在しない\n- 先に型を絞り込む必要がある\n\n**解決方法:**\n```ts\n// 1. プロパティの存在確認\nif ('{name}' in obj) {\n  obj.{name};\n}\n\n// 2. オプショナルチェーンを使用\nobj?.{name};\n\n// 3. 型定義にプロパティを追加\ninterface MyType {\n  {name}: SomeType;\n}\n```",
+
+  "ts/2345.message": "型'{source}'の引数を型'{target}'のパラメータに割り当てることはできません",
+  "ts/2345.help": "**引数の型が一致しません。**\n\n関数は`{target}`を期待していますが、`{source}`を受け取りました。\n\n**解決方法:**\n- 値を期待される型に変換\n- 正しい引数を渡しているか確認\n- 必要に応じて関数のシグネチャを更新\n\n```ts\n// 例: 関数がnumberを期待する場合\nfunc(Number(value)); // numberに変換\n```",
+
+  "ts/2349.message": "この式は呼び出し可能ではありません",
+  "ts/2349.help": "**関数ではない値を呼び出そうとしています。**\n\n関数ではないものを呼び出そうとしています。\n\n**一般的な原因:**\n- 値が`undefined`または`null`\n- 関数ではなくオブジェクト\n- プロパティがメソッドではなく値を返す\n\n**解決方法:**\n```ts\n// 呼び出す前に関数かどうか確認\nif (typeof maybeFunc === 'function') {\n  maybeFunc();\n}\n\n// またはオプショナルチェーンを使用\nmaybeFunc?.();\n```",
+
+  "ts/2531.message": "オブジェクトは'null'である可能性があります",
+  "ts/2531.help": "**null値の可能性が検出されました。**\n\nTypeScriptはこの値が`null`である可能性を警告しています。\n\n**解決方法:**\n```ts\n// 1. オプショナルチェーンを使用\nobj?.property;\n\n// 2. Null合体演算子を使用\nconst value = obj ?? defaultValue;\n\n// 3. nullチェックを追加\nif (obj !== null) {\n  obj.property;\n}\n\n// 4. 非nullアサーション（確実な場合のみ）\nobj!.property; // 100%確実な場合のみ\n```",
+
+  "ts/2532.message": "オブジェクトは'undefined'である可能性があります",
+  "ts/2532.help": "**undefined値の可能性が検出されました。**\n\nTypeScriptはこの値が`undefined`である可能性を警告しています。\n\n**解決方法:**\n```ts\n// 1. オプショナルチェーンを使用\nobj?.property;\n\n// 2. デフォルト値を提供\nconst value = obj ?? defaultValue;\n\n// 3. undefinedチェックを追加\nif (obj !== undefined) {\n  obj.property;\n}\n\n// 4. 値を初期化\nconst obj = ref<Type>(initialValue);\n```",
+
+  "ts/2554.message": "{expected}個の引数が必要ですが、{actual}個指定されました",
+  "ts/2554.help": "**引数の数が間違っています。**\n\n関数は**{expected}**個の引数を期待していますが、**{actual}**個指定されました。\n\n**解決方法:**\n- 不足している引数を追加\n- 余分な引数を削除\n- 関数のシグネチャを確認\n\n```ts\n// 関数定義を確認\nfunction example(a: string, b?: number) { }\n// 必須: a (string)\n// オプション: b (number)\n```",
+
+  "ts/2555.message": "{expected}個の引数が必要ですが、{actual}個指定されました",
+  "ts/2555.help": "**引数が多すぎます。**\n\n関数は**{expected}**個の引数のみ受け付けますが、**{actual}**個渡されました。\n\n**解決方法:**\n余分な引数を削除するか、関数を更新してより多くのパラメータを受け入れるようにしてください。",
+
+  "ts/2307.message": "モジュール'{module}'またはその型宣言が見つかりません",
+  "ts/2307.help": "**モジュールが見つかりません: `{module}`**\n\n**考えられる原因:**\n- パッケージがインストールされていない\n- インポートパスが間違っている\n- 型宣言が不足している\n\n**解決方法:**\n```bash\n# 1. パッケージをインストール\nnpm install {module}\n\n# 2. 型宣言をインストール（別パッケージの場合）\nnpm install -D @types/{module}\n```\n\n**ローカルモジュールの場合:**\n- ファイルパスが正しいか確認\n- 相対パスを使用: `./` または `../`\n- ファイル拡張子を確認",
+
+  "ts/2300.message": "識別子'{name}'が重複しています",
+  "ts/2300.help": "**`{name}`の宣言が重複しています。**\n\nこの識別子は既にこのスコープで宣言されています。\n\n**解決方法:**\n- いずれかの宣言の名前を変更\n- 重複を削除\n- 同じものを2回インポートしていないか確認",
+
+  "ts/2451.message": "ブロックスコープの変数'{name}'を再宣言できません",
+  "ts/2451.help": "**変数`{name}`は既に宣言されています。**\n\n同じスコープで`let`または`const`変数を再宣言することはできません。\n\n**解決方法:**\n```ts\n// 1. 変数名を変更\nconst {name}2 = ...;\n\n// 2. 再宣言ではなく代入（letの場合）\n{name} = newValue;\n\n// 3. 別のスコープを使用\n{\n  const {name} = ...; // 新しいブロックではOK\n}\n```",
+
+  "ts/7006.message": "パラメータ'{name}'の型は暗黙的に'any'になります",
+  "ts/7006.help": "**`{name}`の型注釈がありません。**\n\nTypeScriptはこのパラメータの型を推論できません。\n\n**解決方法 - 明示的な型を追加:**\n```ts\n// 変更前\nfunction example({name}) { }\n\n// 変更後\nfunction example({name}: string) { }\n\n// デフォルト値あり（型推論される）\nfunction example({name} = 'default') { }\n```",
+
+  "ts/2741.message": "プロパティ'{name}'は型'{source}'にありませんが、型'{target}'では必須です",
+  "ts/2741.help": "**必須プロパティがありません: `{name}`**\n\n型`{target}`はプロパティ`{name}`を必要としていますが、`{source}`には存在しません。\n\n**解決方法:**\n```ts\n// 1. 不足しているプロパティを追加\nconst obj: {target} = {\n  ...existingProps,\n  {name}: value,\n};\n\n// 2. 型定義でプロパティをオプショナルに\ninterface {target} {\n  {name}?: Type; // オプショナル\n}\n```",
+
+  "ts/2344.message": "型'{type}'は制約'{constraint}'を満たしていません",
+  "ts/2344.help": "**型制約違反です。**\n\n型`{type}`は`{constraint}`の要件を満たしていません。\n\n**解決方法:**\n型が必要な制約を拡張または実装していることを確認してください:\n```ts\n// 例: TはSomeBaseを拡張する必要がある\nfunction example<T extends SomeBase>(value: T) { }\n```",
+
+  "ts/2351.message": "この式はコンストラクト可能ではありません",
+  "ts/2351.help": "**この値に`new`を使用できません。**\n\nこの式は`new`と一緒に使用できません。\n\n**一般的な原因:**\n- クラスやコンストラクタ関数ではない\n- クラスではなく型をインスタンス化しようとしている\n\n**例:**\n```ts\n// ❌ 間違い: 型エイリアスはクラスではない\ntype MyType = { x: number };\nnew MyType(); // エラー!\n\n// ✅ 正しい: クラスを使用\nclass MyClass { x: number = 0; }\nnew MyClass(); // OK\n```",
+
+  "ts/vue/9001.message": "'{name}'のprop型が無効です",
+  "ts/vue/9001.help": "**`{name}`のprop型が一致しません。**\n\npropの値が`defineProps`で定義された期待される型と一致しません。\n\n**解決方法:**\n```ts\n// prop定義を確認\ndefineProps<{\n  {name}: string; // 期待される型\n}>();\n\n// 親が正しい型を渡しているか確認\n<MyComponent :{name}=\"stringValue\" />\n```",
+
+  "ts/vue/9002.message": "無効なemit呼び出し: '{event}'",
+  "ts/vue/9002.help": "**`{event}`のemit使用が無効です。**\n\nemit呼び出しが定義されたイベントと一致しません。\n\n**解決方法:**\n```ts\n// emit定義を確認\nconst emit = defineEmits<{\n  {event}: [payload: PayloadType];\n}>();\n\n// 正しいペイロードで呼び出し\nemit('{event}', payload);\n```",
+
+  "ts/vue/9003.message": "不明なコンポーネント: '{name}'",
+  "ts/vue/9003.help": "**コンポーネント`{name}`が見つかりません。**\n\n**考えられる原因:**\n- コンポーネントがインポートされていない\n- コンポーネント名のスペルミス\n- ケバブケースとパスカルケースの違い\n\n**解決方法:**\n```ts\n// コンポーネントをインポート\nimport {name} from './components/{name}.vue';\n\n// またはグローバルに登録\napp.component('{name}', {name});\n```",
+
+  "ts/vue/9004.message": "無効なslot使用: '{name}'",
+  "ts/vue/9004.help": "**スロット`{name}`の使用エラー。**\n\n**一般的な問題:**\n- コンポーネントにスロットが存在しない\n- スロットpropsが間違っている\n\n**使用方法:**\n```vue\n<template>\n  <MyComponent>\n    <template #{name}=\"{ prop }\">\n      <!-- スロットコンテンツ -->\n    </template>\n  </MyComponent>\n</template>\n```",
+
+  "ts/vue/9005.message": "無効なディレクティブ: '{name}'",
+  "ts/vue/9005.help": "**ディレクティブ`{name}`エラー。**\n\n**一般的な原因:**\n- ディレクティブが登録されていない\n- ディレクティブの構文が間違っている\n\n**解決方法:**\n```ts\n// ローカルにディレクティブを登録\nimport { v{name} } from './directives';\n\n// またはグローバルに\napp.directive('{name}', {\n  mounted(el, binding) { ... }\n});\n```",
+
+  "ts/vue/9006.message": "リアクティビティの問題が検出されました",
+  "ts/vue/9006.help": "**リアクティビティが失われる可能性があります。**\n\n値のアクセス方法や分割代入の方法により、リアクティビティが失われる可能性があります。\n\n**一般的な問題と修正:**\n```ts\n// ❌ 分割代入でリアクティビティが失われる\nconst { count } = props;\n\n// ✅ toRefsを使用\nconst { count } = toRefs(props);\n\n// ❌ refの値を代入\nlet x = ref(0).value;\n\n// ✅ refを保持\nconst x = ref(0);\n```"
 }

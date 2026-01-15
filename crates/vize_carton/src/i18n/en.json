@@ -2,6 +2,9 @@
   "test.hello": "Hello",
   "test.greeting": "Hello, {name}!",
 
+  "diagnostic.format": "[vize:{rule}] {message}",
+  "diagnostic.format.ts": "[vize:TS{code}] {message}",
+
   "category.essential": "Essential",
   "category.strongly_recommended": "Strongly Recommended",
   "category.recommended": "Recommended",
@@ -15,34 +18,34 @@
 
   "vue/require-v-for-key.description": "Require v-bind:key with v-for directives",
   "vue/require-v-for-key.message": "Elements in iteration expect to have 'v-bind:key' directives. Element: <{tag}>",
-  "vue/require-v-for-key.help": "Add a `:key` attribute with a unique identifier for each item",
+  "vue/require-v-for-key.help": "**Why:** The `:key` attribute helps Vue's virtual DOM efficiently track and update list items.\n\n**Fix:** Add a unique identifier as the key:\n```vue\n<li v-for=\"item in items\" :key=\"item.id\">\n  {{ item.name }}\n</li>\n```\n\n**Best practices:**\n- Use unique, stable identifiers (like database IDs)\n- Avoid using array index as key when list order may change\n- Keys must be primitive values (string or number)",
 
   "vue/valid-v-for.description": "Enforce valid v-for directives",
   "vue/valid-v-for.missing_expression": "v-for directive requires an expression",
   "vue/valid-v-for.invalid_syntax": "v-for has invalid syntax: expected 'item in items' or '(item, index) in items'",
-  "vue/valid-v-for.help": "Use syntax: v-for=\"item in items\" or v-for=\"(item, index) in items\"",
+  "vue/valid-v-for.help": "**Valid v-for syntax:**\n```vue\n<!-- Array iteration -->\n<li v-for=\"item in items\">{{ item }}</li>\n<li v-for=\"(item, index) in items\">{{ index }}: {{ item }}</li>\n\n<!-- Object iteration -->\n<li v-for=\"(value, key) in object\">{{ key }}: {{ value }}</li>\n<li v-for=\"(value, key, index) in object\">{{ index }}</li>\n\n<!-- Range -->\n<span v-for=\"n in 10\">{{ n }}</span>\n```",
 
   "vue/valid-v-if.description": "Enforce valid v-if directives",
   "vue/valid-v-if.missing_expression": "v-if directive requires an expression",
-  "vue/valid-v-if.help": "Add an expression to the v-if directive",
+  "vue/valid-v-if.help": "**Fix:** Add a boolean expression:\n```vue\n<div v-if=\"isVisible\">Content</div>\n<div v-if=\"items.length > 0\">Has items</div>\n```\n\n**Note:** Use `v-show` for frequent toggling (better performance), `v-if` for conditions that rarely change.",
 
   "vue/valid-v-else.description": "Enforce valid v-else directives",
   "vue/valid-v-else.unexpected_expression": "v-else directives require no expression",
   "vue/valid-v-else.missing_v_if": "v-else requires a corresponding v-if or v-else-if",
-  "vue/valid-v-else.help": "Place v-else immediately after a v-if or v-else-if element",
+  "vue/valid-v-else.help": "**Correct usage:**\n```vue\n<div v-if=\"type === 'A'\">A</div>\n<div v-else-if=\"type === 'B'\">B</div>\n<div v-else>Other</div>\n```\n\n**Rules:**\n- `v-else` takes no expression\n- Must immediately follow `v-if` or `v-else-if`\n- No other elements between them",
 
   "vue/valid-v-bind.description": "Enforce valid v-bind directives",
   "vue/valid-v-bind.missing_expression": "v-bind requires an expression",
-  "vue/valid-v-bind.help": "Add an expression to the v-bind directive",
+  "vue/valid-v-bind.help": "**Fix:** Provide a value to bind:\n```vue\n<!-- Shorthand -->\n<img :src=\"imageUrl\" :alt=\"imageAlt\">\n\n<!-- Full syntax -->\n<img v-bind:src=\"imageUrl\">\n\n<!-- Bind multiple attributes -->\n<div v-bind=\"{ id: itemId, class: itemClass }\"></div>\n```",
 
   "vue/valid-v-on.description": "Enforce valid v-on directives",
   "vue/valid-v-on.missing_event": "v-on requires an event name",
-  "vue/valid-v-on.help": "Add an event name like @click or v-on:click",
+  "vue/valid-v-on.help": "**Fix:** Specify the event name:\n```vue\n<!-- Shorthand -->\n<button @click=\"handleClick\">Click</button>\n\n<!-- Full syntax -->\n<button v-on:click=\"handleClick\">Click</button>\n\n<!-- With modifiers -->\n<form @submit.prevent=\"onSubmit\">...</form>\n<input @keyup.enter=\"onEnter\">\n```",
 
   "vue/valid-v-model.description": "Enforce valid v-model directives",
   "vue/valid-v-model.missing_expression": "v-model requires an expression",
   "vue/valid-v-model.invalid_element": "v-model cannot be used on <{tag}> element",
-  "vue/valid-v-model.help": "v-model can be used on input, textarea, select, or custom components",
+  "vue/valid-v-model.help": "**Supported elements:**\n- `<input>` (text, checkbox, radio, etc.)\n- `<textarea>`\n- `<select>`\n- Custom components with `modelValue` prop\n\n**Examples:**\n```vue\n<input v-model=\"message\">\n<input v-model.number=\"age\" type=\"number\">\n<input v-model.trim=\"name\">\n<MyComponent v-model=\"value\">\n```",
 
   "vue/valid-v-show.description": "Enforce valid v-show directives",
   "vue/valid-v-show.missing_expression": "v-show directive requires an expression",
@@ -56,11 +59,11 @@
   "vue/no-use-v-if-with-v-for.description": "Disallow using v-if on the same element as v-for",
   "vue/no-use-v-if-with-v-for.message_access": "Avoid using v-if with v-for on the same element. The v-if condition does not have access to v-for scope variables",
   "vue/no-use-v-if-with-v-for.message_perf": "Avoid using v-if with v-for on the same element. Use a computed property to filter the list first",
-  "vue/no-use-v-if-with-v-for.help": "Move v-if to a wrapper element or use a computed property",
+  "vue/no-use-v-if-with-v-for.help": "**Problem:** `v-for` has higher priority than `v-if`, causing the entire list to iterate before filtering.\n\n**Solution 1:** Use a computed property:\n```vue\n<script setup>\nconst activeUsers = computed(() => \n  users.filter(u => u.isActive)\n)\n</script>\n<template>\n  <li v-for=\"user in activeUsers\" :key=\"user.id\">\n</template>\n```\n\n**Solution 2:** Wrap with `<template>`:\n```vue\n<template v-for=\"user in users\" :key=\"user.id\">\n  <li v-if=\"user.isActive\">{{ user.name }}</li>\n</template>\n```",
 
   "vue/no-unused-vars.description": "Disallow unused variable definitions in v-for directives",
   "vue/no-unused-vars.message": "Variable '{name}' is defined but never used",
-  "vue/no-unused-vars.help": "Remove the unused variable or prefix it with _ to indicate intentional non-use",
+  "vue/no-unused-vars.help": "**Options:**\n\n1. Use the variable in your template\n2. Remove unused variables:\n```vue\n<!-- Before -->\n<li v-for=\"(item, index) in items\" :key=\"item.id\">\n\n<!-- After (if index is unused) -->\n<li v-for=\"item in items\" :key=\"item.id\">\n```\n\n3. Prefix with `_` to indicate intentional non-use:\n```vue\n<li v-for=\"(_item, index) in items\" :key=\"index\">\n```",
 
   "vue/no-duplicate-attributes.description": "Disallow duplicate attributes",
   "vue/no-duplicate-attributes.message": "Duplicate attribute '{attr}'",
@@ -119,7 +122,7 @@
 
   "vue/no-v-html.description": "Disallow use of v-html to prevent XSS attacks",
   "vue/no-v-html.message": "v-html can lead to XSS attacks. Avoid using it with user-provided content",
-  "vue/no-v-html.help": "Consider using text interpolation {{ }} or a sanitization library",
+  "vue/no-v-html.help": "**Security Risk:** `v-html` renders raw HTML and can execute malicious scripts from user input.\n\n**Alternatives:**\n\n1. Use text interpolation (auto-escaped):\n```vue\n<p>{{ userContent }}</p>\n```\n\n2. Use a sanitization library:\n```ts\nimport DOMPurify from 'dompurify'\nconst safeHtml = DOMPurify.sanitize(userInput)\n```\n\n3. Use a markdown renderer with XSS protection\n\n**If you must use v-html:**\n- Never use with user-provided content\n- Only use with trusted, static content",
 
   "vue/require-scoped-style.description": "Require scoped attribute on style blocks",
   "vue/require-scoped-style.message": "Style blocks should use scoped attribute to prevent style leaking",
@@ -163,19 +166,19 @@
 
   "a11y/img-alt.description": "Require alt attribute on images",
   "a11y/img-alt.message": "<img> elements must have an alt attribute for accessibility",
-  "a11y/img-alt.help": "Add alt=\"description\" for informative images or alt=\"\" for decorative images",
+  "a11y/img-alt.help": "**Why:** Screen readers use alt text to describe images to visually impaired users.\n\n**For informative images:**\n```vue\n<img src=\"chart.png\" alt=\"Sales increased 20% in Q4\">\n```\n\n**For decorative images:**\n```vue\n<img src=\"decoration.png\" alt=\"\">\n```\n\n**For complex images:**\n```vue\n<img src=\"diagram.png\" alt=\"Process flow\" aria-describedby=\"desc\">\n<p id=\"desc\">Detailed description...</p>\n```",
 
   "a11y/anchor-has-content.description": "Require anchor elements to have accessible content",
   "a11y/anchor-has-content.message": "<a> elements must have accessible content",
-  "a11y/anchor-has-content.help": "Add text content, an image with alt text, or aria-label attribute",
+  "a11y/anchor-has-content.help": "**Fix options:**\n\n1. Add text content:\n```vue\n<a href=\"/about\">About Us</a>\n```\n\n2. Add aria-label for icon-only links:\n```vue\n<a href=\"/settings\" aria-label=\"Settings\">\n  <IconSettings />\n</a>\n```\n\n3. Include image with alt:\n```vue\n<a href=\"/\"><img src=\"logo.png\" alt=\"Home\"></a>\n```",
 
   "a11y/heading-has-content.description": "Require heading elements to have accessible content",
   "a11y/heading-has-content.message": "<{tag}> elements must have accessible content",
-  "a11y/heading-has-content.help": "Add text content or aria-label attribute",
+  "a11y/heading-has-content.help": "**Why:** Empty headings confuse screen reader users and break document structure.\n\n**Fix:**\n```vue\n<!-- Add text content -->\n<h2>Section Title</h2>\n\n<!-- Or use aria-label for dynamic content -->\n<h2 aria-label=\"Loading...\"><Spinner /></h2>\n```",
 
   "a11y/iframe-has-title.description": "Require iframe elements to have a title attribute",
   "a11y/iframe-has-title.message": "<iframe> elements must have a title attribute",
-  "a11y/iframe-has-title.help": "Add title=\"...\" to describe the iframe content for screen readers",
+  "a11y/iframe-has-title.help": "**Why:** Screen readers announce the title to help users understand the iframe content.\n\n**Fix:**\n```vue\n<iframe \n  src=\"https://example.com/video\"\n  title=\"Product demo video\"\n></iframe>\n```\n\n**Note:** The title should describe the content, not the source.",
 
   "a11y/no-distracting-elements.description": "Disallow distracting elements like <marquee> and <blink>",
   "a11y/no-distracting-elements.message": "<{tag}> elements are distracting and should not be used",
@@ -187,12 +190,12 @@
 
   "a11y/click-events-have-key-events.description": "Require keyboard event handlers with click events",
   "a11y/click-events-have-key-events.message": "Non-interactive elements with @click must also have keyboard event handlers",
-  "a11y/click-events-have-key-events.help": "Add @keydown or @keyup handler, or use an interactive element like <button>",
+  "a11y/click-events-have-key-events.help": "**Why:** Keyboard users cannot activate click-only handlers.\n\n**Best solution:** Use semantic elements:\n```vue\n<button @click=\"handleClick\">Click me</button>\n```\n\n**If you must use a div:**\n```vue\n<div \n  role=\"button\"\n  tabindex=\"0\"\n  @click=\"handleClick\"\n  @keydown.enter=\"handleClick\"\n  @keydown.space=\"handleClick\"\n>\n  Click me\n</div>\n```",
 
   "a11y/form-control-has-label.description": "Require form controls to have associated labels",
   "a11y/form-control-has-label.message": "<{tag}> elements must have an associated label",
-  "a11y/form-control-has-label.help": "Add aria-label, aria-labelledby, or a <label> element with matching for/id",
-  "a11y/form-control-has-label.help_placeholder": "Add aria-label, aria-labelledby, or a <label> element. Placeholder alone is not accessible",
+  "a11y/form-control-has-label.help": "**Option 1:** Use `<label>` with `for`:\n```vue\n<label for=\"email\">Email</label>\n<input id=\"email\" type=\"email\">\n```\n\n**Option 2:** Wrap input in label:\n```vue\n<label>\n  Email\n  <input type=\"email\">\n</label>\n```\n\n**Option 3:** Use aria-label:\n```vue\n<input type=\"search\" aria-label=\"Search\">\n```\n\n**Note:** Placeholder is NOT a substitute for a label.",
+  "a11y/form-control-has-label.help_placeholder": "**Warning:** Placeholder text disappears when typing and is not accessible to all users.\n\n**Fix:** Add a proper label:\n```vue\n<label for=\"search\">Search</label>\n<input id=\"search\" placeholder=\"Enter keywords...\">\n```\n\nOr use aria-label:\n```vue\n<input aria-label=\"Search\" placeholder=\"Enter keywords...\">\n```",
 
   "compiler.parse_error": "Parse error: {message}",
   "compiler.unexpected_token": "Unexpected token '{token}'",
@@ -215,5 +218,71 @@
   "ssr/no-hydration-mismatch.description": "Disallow non-deterministic values that cause hydration mismatch",
   "ssr/no-hydration-mismatch.message": "'{pattern}' may cause hydration mismatch between server and client",
   "ssr/no-hydration-mismatch.message-attr": "'{pattern}' in attribute binding may cause hydration mismatch",
-  "ssr/no-hydration-mismatch.help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+  "ssr/no-hydration-mismatch.help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values",
+
+  "ts/2304.message": "Cannot find name '{name}'",
+  "ts/2304.help": "**`{name}`** is not defined.\n\n**Possible causes:**\n- The variable is not imported or declared\n- There's a typo in the name\n- The variable is defined in a different scope\n\n**Solutions:**\n```ts\n// 1. Import from a module\nimport { {name} } from './module';\n\n// 2. Declare in script setup\nconst {name} = ...;\n\n// 3. Check for typos in the name\n```",
+
+  "ts/2322.message": "Type '{source}' is not assignable to type '{target}'",
+  "ts/2322.help": "**Type mismatch detected.**\n\nYou're trying to assign a value of type `{source}` to something that expects `{target}`.\n\n**Common fixes:**\n- Check if the value matches the expected type\n- Use type assertion if you're sure: `value as {target}`\n- Update the type definition to accept the actual type\n\n**Example:**\n```ts\n// If target is 'number' but source is 'string'\nconst value = parseInt(stringValue); // Convert string to number\n```",
+
+  "ts/2339.message": "Property '{name}' does not exist on type '{type}'",
+  "ts/2339.help": "**Property `{name}` not found on `{type}`.**\n\n**Possible causes:**\n- The property name is misspelled\n- The property doesn't exist on this type\n- You need to narrow the type first\n\n**Solutions:**\n```ts\n// 1. Check if property exists\nif ('{name}' in obj) {\n  obj.{name};\n}\n\n// 2. Use optional chaining\nobj?.{name};\n\n// 3. Add property to type definition\ninterface MyType {\n  {name}: SomeType;\n}\n```",
+
+  "ts/2345.message": "Argument of type '{source}' is not assignable to parameter of type '{target}'",
+  "ts/2345.help": "**Argument type mismatch.**\n\nThe function expects `{target}` but received `{source}`.\n\n**Solutions:**\n- Convert the value to the expected type\n- Check if you're passing the correct argument\n- Update the function signature if needed\n\n```ts\n// Example: function expects number\nfunc(Number(value)); // Convert to number\n```",
+
+  "ts/2349.message": "This expression is not callable",
+  "ts/2349.help": "**Cannot call non-function value.**\n\nYou're trying to call something that isn't a function.\n\n**Common causes:**\n- The value is `undefined` or `null`\n- It's an object, not a function\n- The property returns a value, not a method\n\n**Solutions:**\n```ts\n// Check if it's a function before calling\nif (typeof maybeFunc === 'function') {\n  maybeFunc();\n}\n\n// Or use optional chaining\nmaybeFunc?.();\n```",
+
+  "ts/2531.message": "Object is possibly 'null'",
+  "ts/2531.help": "**Possible null value detected.**\n\nTypeScript warns that this value might be `null`.\n\n**Solutions:**\n```ts\n// 1. Use optional chaining\nobj?.property;\n\n// 2. Use nullish coalescing\nconst value = obj ?? defaultValue;\n\n// 3. Add null check\nif (obj !== null) {\n  obj.property;\n}\n\n// 4. Use non-null assertion (if certain)\nobj!.property; // Only if you're 100% sure\n```",
+
+  "ts/2532.message": "Object is possibly 'undefined'",
+  "ts/2532.help": "**Possible undefined value detected.**\n\nTypeScript warns that this value might be `undefined`.\n\n**Solutions:**\n```ts\n// 1. Use optional chaining\nobj?.property;\n\n// 2. Provide default value\nconst value = obj ?? defaultValue;\n\n// 3. Add undefined check\nif (obj !== undefined) {\n  obj.property;\n}\n\n// 4. Initialize the value\nconst obj = ref<Type>(initialValue);\n```",
+
+  "ts/2554.message": "Expected {expected} arguments, but got {actual}",
+  "ts/2554.help": "**Wrong number of arguments.**\n\nThe function expects **{expected}** argument(s) but you provided **{actual}**.\n\n**Solutions:**\n- Add missing arguments\n- Remove extra arguments\n- Check the function signature\n\n```ts\n// Check function definition\nfunction example(a: string, b?: number) { }\n// Required: a (string)\n// Optional: b (number)\n```",
+
+  "ts/2555.message": "Expected {expected} arguments, but got {actual}",
+  "ts/2555.help": "**Too many arguments provided.**\n\nThe function only accepts **{expected}** argument(s) but you passed **{actual}**.\n\n**Solution:**\nRemove the extra arguments or update the function to accept more parameters.",
+
+  "ts/2307.message": "Cannot find module '{module}' or its corresponding type declarations",
+  "ts/2307.help": "**Module not found: `{module}`**\n\n**Possible causes:**\n- The package is not installed\n- The import path is incorrect\n- Type declarations are missing\n\n**Solutions:**\n```bash\n# 1. Install the package\nnpm install {module}\n\n# 2. Install type declarations (if separate)\nnpm install -D @types/{module}\n```\n\n**For local modules:**\n- Check the file path is correct\n- Use relative paths: `./` or `../`\n- Check file extension",
+
+  "ts/2300.message": "Duplicate identifier '{name}'",
+  "ts/2300.help": "**Duplicate declaration of `{name}`.**\n\nThis identifier is already declared in this scope.\n\n**Solutions:**\n- Rename one of the declarations\n- Remove the duplicate\n- Check if you're accidentally importing the same thing twice",
+
+  "ts/2451.message": "Cannot redeclare block-scoped variable '{name}'",
+  "ts/2451.help": "**Variable `{name}` already declared.**\n\nYou cannot redeclare a `let` or `const` variable in the same scope.\n\n**Solutions:**\n```ts\n// 1. Rename the variable\nconst {name}2 = ...;\n\n// 2. Assign instead of redeclare\n{name} = newValue; // if using let\n\n// 3. Use different scope\n{\n  const {name} = ...; // OK in new block\n}\n```",
+
+  "ts/7006.message": "Parameter '{name}' implicitly has an 'any' type",
+  "ts/7006.help": "**Missing type annotation for `{name}`.**\n\nTypeScript cannot infer the type of this parameter.\n\n**Solution - Add explicit type:**\n```ts\n// Before\nfunction example({name}) { }\n\n// After\nfunction example({name}: string) { }\n\n// With default value (type inferred)\nfunction example({name} = 'default') { }\n```",
+
+  "ts/2741.message": "Property '{name}' is missing in type '{source}' but required in type '{target}'",
+  "ts/2741.help": "**Missing required property: `{name}`**\n\nThe type `{target}` requires property `{name}` but it's not present in `{source}`.\n\n**Solutions:**\n```ts\n// 1. Add the missing property\nconst obj: {target} = {\n  ...existingProps,\n  {name}: value,\n};\n\n// 2. Make property optional in type definition\ninterface {target} {\n  {name}?: Type; // Optional\n}\n```",
+
+  "ts/2344.message": "Type '{type}' does not satisfy the constraint '{constraint}'",
+  "ts/2344.help": "**Type constraint violation.**\n\nThe type `{type}` doesn't meet the requirements of `{constraint}`.\n\n**Solution:**\nEnsure your type extends or implements the required constraint:\n```ts\n// Example: T must extend SomeBase\nfunction example<T extends SomeBase>(value: T) { }\n```",
+
+  "ts/2351.message": "This expression is not constructable",
+  "ts/2351.help": "**Cannot use `new` on this value.**\n\nThis expression cannot be used with `new`.\n\n**Common causes:**\n- It's not a class or constructor function\n- You're trying to instantiate a type, not a class\n\n**Example:**\n```ts\n// Wrong: type alias, not a class\ntype MyType = { x: number };\nnew MyType(); // Error!\n\n// Correct: use class\nclass MyClass { x: number = 0; }\nnew MyClass(); // OK\n```",
+
+  "ts/vue/9001.message": "Invalid prop type for '{name}'",
+  "ts/vue/9001.help": "**Prop type mismatch for `{name}`.**\n\nThe prop value doesn't match the expected type defined in `defineProps`.\n\n**Solutions:**\n```ts\n// Check prop definition\ndefineProps<{\n  {name}: string; // Expected type\n}>();\n\n// Ensure parent passes correct type\n<MyComponent :{name}=\"stringValue\" />\n```",
+
+  "ts/vue/9002.message": "Invalid emit call: '{event}'",
+  "ts/vue/9002.help": "**Invalid emit usage for `{event}`.**\n\nThe emit call doesn't match the defined events.\n\n**Solutions:**\n```ts\n// Check emit definition\nconst emit = defineEmits<{\n  {event}: [payload: PayloadType];\n}>();\n\n// Call with correct payload\nemit('{event}', payload);\n```",
+
+  "ts/vue/9003.message": "Unknown component: '{name}'",
+  "ts/vue/9003.help": "**Component `{name}` not found.**\n\n**Possible causes:**\n- Component is not imported\n- Component name is misspelled\n- Using kebab-case instead of PascalCase (or vice versa)\n\n**Solutions:**\n```ts\n// Import the component\nimport {name} from './components/{name}.vue';\n\n// Or register globally\napp.component('{name}', {name});\n```",
+
+  "ts/vue/9004.message": "Invalid slot usage: '{name}'",
+  "ts/vue/9004.help": "**Slot `{name}` usage error.**\n\n**Common issues:**\n- Slot doesn't exist on the component\n- Wrong slot props\n\n**Usage:**\n```vue\n<template>\n  <MyComponent>\n    <template #{name}=\"{ prop }\">\n      <!-- slot content -->\n    </template>\n  </MyComponent>\n</template>\n```",
+
+  "ts/vue/9005.message": "Invalid directive: '{name}'",
+  "ts/vue/9005.help": "**Directive `{name}` error.**\n\n**Common causes:**\n- Directive is not registered\n- Wrong directive syntax\n\n**Solutions:**\n```ts\n// Register directive locally\nimport { v{name} } from './directives';\n\n// Or globally\napp.directive('{name}', {\n  mounted(el, binding) { ... }\n});\n```",
+
+  "ts/vue/9006.message": "Reactivity issue detected",
+  "ts/vue/9006.help": "**Possible reactivity loss.**\n\nYour code may lose reactivity due to how values are accessed or destructured.\n\n**Common issues and fixes:**\n```ts\n// ❌ Destructuring loses reactivity\nconst { count } = props;\n\n// ✅ Use toRefs\nconst { count } = toRefs(props);\n\n// ❌ Assigning ref value\nlet x = ref(0).value;\n\n// ✅ Keep the ref\nconst x = ref(0);\n```"
 }

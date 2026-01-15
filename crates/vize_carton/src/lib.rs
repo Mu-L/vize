@@ -41,6 +41,7 @@ pub mod general;
 pub mod i18n;
 pub mod profiler;
 pub mod source_range;
+pub mod string_builder;
 
 // Re-export allocator types
 pub use allocator::Allocator;

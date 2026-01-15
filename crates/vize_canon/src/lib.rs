@@ -54,7 +54,9 @@ mod tests;
 
 pub use checker::TypeChecker;
 pub use context::{Binding, BindingKind, Import, Prop, TypeContext};
-pub use diagnostic::{TypeDiagnostic, TypeSeverity};
+pub use diagnostic::{TypeDiagnostic, TypeErrorCode, TypeSeverity};
+
+// Re-export Locale for i18n support
 pub use intelligence::{
     Completion, CompletionKind as IntelCompletionKind, CursorContext, Diagnostic,
     DiagnosticSeverity, HoverInfo, Location, TypeIntelligence,
@@ -68,6 +70,7 @@ pub use source_map::{
     SourceMap, Span,
 };
 pub use types::{CompletionItem, CompletionKind, TypeInfo, TypeKind};
+pub use vize_carton::i18n::Locale;
 
 #[cfg(feature = "native")]
 pub use tsgo_bridge::{

@@ -1,5 +1,8 @@
 //! Type error diagnostics.
 
+use std::borrow::Cow;
+use vize_carton::i18n::{t, t_fmt, Locale};
+
 /// A type diagnostic from the type checker.
 #[derive(Debug, Clone)]
 pub struct TypeDiagnostic {
@@ -132,12 +135,14 @@ pub enum TypeErrorCode {
 
 impl TypeErrorCode {
     /// Get the numeric code.
-    pub fn code(&self) -> u32 {
+    #[inline]
+    pub const fn code(&self) -> u32 {
         *self as u32
     }
 
     /// Get a human-readable name for the error code.
-    pub fn name(&self) -> &'static str {
+    #[inline]
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::UnknownIdentifier => "unknown-identifier",
             Self::PropertyNotFound => "property-not-found",
@@ -162,6 +167,52 @@ impl TypeErrorCode {
             Self::InvalidDirective => "invalid-directive",
             Self::ReactivityIssue => "reactivity-issue",
         }
+    }
+
+    /// Get the i18n key for help message.
+    #[inline]
+    pub const fn help_key(&self) -> &'static str {
+        match self {
+            Self::UnknownIdentifier => "ts/2304.help",
+            Self::PropertyNotFound => "ts/2339.help",
+            Self::ArgumentTypeMismatch => "ts/2345.help",
+            Self::TypeNotAssignable => "ts/2322.help",
+            Self::NotCallable => "ts/2349.help",
+            Self::MissingProperty => "ts/2741.help",
+            Self::ImplicitAny => "ts/7006.help",
+            Self::ModuleNotFound => "ts/2307.help",
+            Self::ExpectedArguments => "ts/2554.help",
+            Self::TooManyArguments => "ts/2555.help",
+            Self::TypeConstraint => "ts/2344.help",
+            Self::PossiblyUndefined => "ts/2532.help",
+            Self::PossiblyNull => "ts/2531.help",
+            Self::NotConstructable => "ts/2351.help",
+            Self::DuplicateIdentifier => "ts/2300.help",
+            Self::CannotRedeclare => "ts/2451.help",
+            Self::InvalidPropType => "ts/vue/9001.help",
+            Self::InvalidEmit => "ts/vue/9002.help",
+            Self::UnknownComponent => "ts/vue/9003.help",
+            Self::InvalidSlot => "ts/vue/9004.help",
+            Self::InvalidDirective => "ts/vue/9005.help",
+            Self::ReactivityIssue => "ts/vue/9006.help",
+        }
+    }
+
+    /// Get localized help text for this error code.
+    /// Returns the help text with variable substitution.
+    ///
+    /// # Arguments
+    /// * `locale` - The locale for the help message
+    /// * `vars` - Variable substitutions (e.g., [("name", "foo")])
+    #[inline]
+    pub fn help(&self, locale: Locale, vars: &[(&str, &str)]) -> String {
+        t_fmt(locale, self.help_key(), vars)
+    }
+
+    /// Get localized help text without variable substitution.
+    #[inline]
+    pub fn help_simple(&self, locale: Locale) -> Cow<'static, str> {
+        t(locale, self.help_key())
     }
 }
 

@@ -849,6 +849,7 @@ pub fn lint_template_wasm(source: &str, options: JsValue) -> Result<JsValue, JsV
 /// Lint Vue SFC file (full SFC including script)
 #[wasm_bindgen(js_name = "lintSfc")]
 pub fn lint_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    use vize_carton::i18n::{t_fmt, Locale as CartonLocale};
     use vize_patina::{Linter, Locale, LspEmitter};
 
     let filename: String = js_sys::Reflect::get(&options, &JsValue::from_str("filename"))
@@ -862,6 +863,13 @@ pub fn lint_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsValue>
         .and_then(|v| v.as_string())
         .and_then(|s| Locale::parse(&s))
         .unwrap_or_default();
+
+    // Convert to carton locale for i18n
+    let carton_locale = match locale {
+        Locale::En => CartonLocale::En,
+        Locale::Ja => CartonLocale::Ja,
+        Locale::Zh => CartonLocale::Zh,
+    };
 
     // Parse enabledRules from options (array of rule names)
     let enabled_rules: Option<Vec<String>> =
@@ -890,13 +898,20 @@ pub fn lint_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsValue>
         .iter()
         .zip(lsp_diagnostics.iter())
         .map(|(d, lsp)| {
+            // Format message with i18n format string
+            let formatted_message = t_fmt(
+                carton_locale,
+                "diagnostic.format",
+                &[("rule", d.rule_name), ("message", d.message.as_ref())],
+            );
+
             serde_json::json!({
                 "rule": d.rule_name,
                 "severity": match d.severity {
                     vize_patina::Severity::Error => "error",
                     vize_patina::Severity::Warning => "warning",
                 },
-                "message": d.message,
+                "message": formatted_message,
                 "location": {
                     "start": {
                         "line": lsp.range.start.line + 1, // 1-indexed for display

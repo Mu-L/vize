@@ -39,7 +39,7 @@
 //! ```
 
 use serde::Serialize;
-use vize_carton::Bump;
+use vize_carton::{push_all, push_line, Bump};
 
 /// Type diagnostic severity.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -522,8 +522,14 @@ fn generate_virtual_ts_with_scopes(
                 .as_ref()
                 .map(|t| t.as_str())
                 .unwrap_or("unknown");
-            let optional = if prop.required { "" } else { "?" };
-            ts.push_str(&format!("  {}{}: {};\n", prop.name, optional, type_str));
+            ts.push_str("  ");
+            ts.push_str(&prop.name);
+            if !prop.required {
+                ts.push('?');
+            }
+            ts.push_str(": ");
+            ts.push_str(type_str);
+            ts.push_str(";\n");
         }
         ts.push_str("}\n\n");
     } else {
@@ -541,10 +547,11 @@ fn generate_virtual_ts_with_scopes(
                 .as_ref()
                 .map(|t| t.as_str())
                 .unwrap_or("void");
-            ts.push_str(&format!(
-                "  (e: '{}', payload: {}): void;\n",
-                emit.name, payload_type
-            ));
+            ts.push_str("  (e: '");
+            ts.push_str(&emit.name);
+            ts.push_str("', payload: ");
+            ts.push_str(payload_type);
+            ts.push_str("): void;\n");
         }
         ts.push_str("}\n\n");
     } else {
@@ -591,10 +598,11 @@ fn generate_virtual_ts_with_scopes(
                 .as_ref()
                 .map(|t| t.as_str())
                 .unwrap_or("unknown");
-            ts.push_str(&format!(
-                "  const {}: import('vue').ModelRef<{}> = undefined!;\n",
-                name, type_str
-            ));
+            ts.push_str("  const ");
+            ts.push_str(name);
+            ts.push_str(": import('vue').ModelRef<");
+            ts.push_str(type_str);
+            ts.push_str("> = undefined!;\n");
         }
         ts.push('\n');
     }
@@ -621,10 +629,7 @@ fn generate_virtual_ts_with_scopes(
 
         // Emit source map marker for script content
         // Format: // @vize-map: genStart:genEnd -> srcStart:srcEnd
-        ts.push_str(&format!(
-            "  // @vize-map: {}:{} -> {}:{}\n",
-            gen_start, gen_end, src_start, src_end
-        ));
+        push_line!(ts, "  // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
         ts.push('\n');
     }
 
@@ -660,7 +665,9 @@ fn generate_virtual_ts_with_scopes(
             binding_type,
             vize_croquis::BindingType::Props | vize_croquis::BindingType::PropsAliased
         ) {
-            ts.push_str(&format!("    void {};\n", name));
+            ts.push_str("    void ");
+            ts.push_str(name);
+            ts.push_str(";\n");
         }
     }
     ts.push('\n');
@@ -676,21 +683,15 @@ fn generate_virtual_ts_with_scopes(
             let src_end = template_offset + expr.end;
 
             // Output expression comment
-            ts.push_str(&format!(
-                "    // {:?} @{}:{}\n",
-                expr.kind, src_start, src_end
-            ));
+            push_line!(ts, "    // ", expr.kind.as_str(), " @", @src_start, #':', @src_end);
 
             // Output expression with source map
             let gen_start = ts.len();
-            ts.push_str(&format!("    void ({});\n", expr.content));
+            push_line!(ts, "    void (", &expr.content, ");");
             let gen_end = ts.len();
 
             // Emit source map marker
-            ts.push_str(&format!(
-                "    // @vize-map: {}:{} -> {}:{}\n",
-                gen_start, gen_end, src_start, src_end
-            ));
+            push_line!(ts, "    // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
         }
         ts.push('\n');
     }
@@ -735,15 +736,15 @@ fn generate_virtual_ts_with_scopes(
             let src_start = template_offset + undef.offset;
             let src_end = src_start + undef.name.len() as u32;
 
-            ts.push_str(&format!(
-                "  // @ts-expect-error TS2304: '{}' is not defined\n",
-                undef.name
-            ));
-            ts.push_str(&format!(
-                "  // Context: {} @[{}:{}]\n",
-                undef.context, src_start, src_end
-            ));
-            ts.push_str(&format!("  void {};\n\n", undef.name));
+            push_line!(
+                ts,
+                "  // @ts-expect-error TS2304: '",
+                &undef.name,
+                "' is not defined"
+            );
+            push_line!(ts, "  // Context: ", &undef.context, " @[", @src_start, #':', @src_end, "]");
+            push_line!(ts, "  void ", &undef.name, ";");
+            ts.push('\n');
         }
 
         ts.push_str("}\n");
@@ -805,37 +806,42 @@ fn generate_template_scopes(
                 let src_start = template_offset + scope.span.start;
                 let src_end = template_offset + scope.span.end;
 
-                ts.push_str(&format!(
-                    "{}// v-for: {} in {} @{}:{}\n",
-                    indent, data.value_alias, data.source, src_start, src_end
-                ));
+                push_line!(ts, &indent, "// v-for: ", &data.value_alias, " in ", &data.source, " @", @src_start, #':', @src_end);
 
                 // Use for-of with proper type inference - track source expression position
                 let gen_start = ts.len();
-                ts.push_str(&format!(
-                    "{}for (const {} of {}) {{\n",
-                    indent, data.value_alias, data.source
-                ));
+                push_line!(
+                    ts,
+                    &indent,
+                    "for (const ",
+                    &data.value_alias,
+                    " of ",
+                    &data.source,
+                    ") {"
+                );
                 let gen_end = ts.len();
 
                 // Emit source map for the for-of statement (covers the source expression)
-                ts.push_str(&format!(
-                    "{}  // @vize-map: {}:{} -> {}:{}\n",
-                    indent, gen_start, gen_end, src_start, src_end
-                ));
+                push_line!(ts, &indent, "  // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
 
                 // Index and key variables inside the loop
                 if let Some(ref index) = data.index_alias {
-                    ts.push_str(&format!(
-                        "{}  const {}: number = 0; // loop index\n",
-                        indent, index
-                    ));
+                    push_line!(
+                        ts,
+                        &indent,
+                        "  const ",
+                        index.as_str(),
+                        ": number = 0; // loop index"
+                    );
                 }
                 if let Some(ref key) = data.key_alias {
-                    ts.push_str(&format!(
-                        "{}  const {}: string | number = undefined!; // loop key\n",
-                        indent, key
-                    ));
+                    push_line!(
+                        ts,
+                        &indent,
+                        "  const ",
+                        key.as_str(),
+                        ": string | number = undefined!; // loop key"
+                    );
                 }
 
                 // Output all bindings defined in this scope
@@ -844,10 +850,14 @@ fn generate_template_scopes(
                         && data.index_alias.as_ref().map(|i| i.as_str()) != Some(name)
                         && data.key_alias.as_ref().map(|k| k.as_str()) != Some(name)
                     {
-                        ts.push_str(&format!(
-                            "{}  void {}; // {:?}\n",
-                            indent, name, binding.binding_type
-                        ));
+                        push_line!(
+                            ts,
+                            &indent,
+                            "  void ",
+                            name,
+                            "; // ",
+                            binding.binding_type.to_vir()
+                        );
                     }
                 }
 
@@ -855,23 +865,23 @@ fn generate_template_scopes(
                 // Key must be string | number for Vue's reconciliation
                 if let Some(ref key_expr) = data.key_expression {
                     let key_gen_start = ts.len();
-                    ts.push_str(&format!(
-                        "{}  const __key: string | number = {}; // :key type constraint\n",
-                        indent, key_expr
-                    ));
+                    push_line!(
+                        ts,
+                        &indent,
+                        "  const __key: string | number = ",
+                        key_expr.as_str(),
+                        "; // :key type constraint"
+                    );
                     let key_gen_end = ts.len();
 
                     // Source map for key expression
-                    ts.push_str(&format!(
-                        "{}  // @vize-map: {}:{} -> {}:{}\n",
-                        indent, key_gen_start, key_gen_end, src_start, src_end
-                    ));
+                    push_line!(ts, &indent, "  // @vize-map: ", @key_gen_start, #':', @key_gen_end, " -> ", @src_start, #':', @src_end);
                 }
 
                 // Use the iterator value
-                ts.push_str(&format!("{}  void {};\n", indent, data.value_alias));
+                push_line!(ts, &indent, "  void ", &data.value_alias, ";");
 
-                ts.push_str(&format!("{}}}\n\n", indent));
+                push_all!(ts, &indent, "}\n\n");
             }
 
             // v-slot: IIFE receiving slot props
@@ -882,22 +892,21 @@ fn generate_template_scopes(
                     data.name.as_str()
                 };
 
-                ts.push_str(&format!(
-                    "{}// v-slot:{} @{}:{}\n",
-                    indent,
-                    slot_name,
-                    template_offset + scope.span.start,
-                    template_offset + scope.span.end
-                ));
+                let src_start = template_offset + scope.span.start;
+                let src_end = template_offset + scope.span.end;
+                push_line!(ts, &indent, "// v-slot:", slot_name, " @", @src_start, #':', @src_end);
 
                 // IIFE that receives slot props
-                ts.push_str(&format!(
-                    "{}((__slotProps: Parameters<NonNullable<__Slots['{}']>>[0]) => {{\n",
-                    indent, slot_name
-                ));
+                push_line!(
+                    ts,
+                    &indent,
+                    "((__slotProps: Parameters<NonNullable<__Slots['",
+                    slot_name,
+                    "']>>[0]) => {"
+                );
 
                 if !data.prop_names.is_empty() {
-                    ts.push_str(&format!("{}  const {{ ", indent));
+                    push_all!(ts, &indent, "  const { ");
                     for (i, prop) in data.prop_names.iter().enumerate() {
                         if i > 0 {
                             ts.push_str(", ");
@@ -907,21 +916,25 @@ fn generate_template_scopes(
                     ts.push_str(" } = __slotProps;\n");
 
                     for prop in &data.prop_names {
-                        ts.push_str(&format!("{}  void {};\n", indent, prop));
+                        push_line!(ts, &indent, "  void ", prop.as_str(), ";");
                     }
                 }
 
                 // Output additional bindings from croquis scope
                 for (name, binding) in scope.bindings() {
                     if !data.prop_names.iter().any(|p| p.as_str() == name) {
-                        ts.push_str(&format!(
-                            "{}  void {}; // {:?}\n",
-                            indent, name, binding.binding_type
-                        ));
+                        push_line!(
+                            ts,
+                            &indent,
+                            "  void ",
+                            name,
+                            "; // ",
+                            binding.binding_type.to_vir()
+                        );
                     }
                 }
 
-                ts.push_str(&format!("{}}})({{}} as any);\n\n", indent));
+                push_all!(ts, &indent, "})({} as any);\n\n");
             }
 
             // Event handler: Arrow function with typed $event
@@ -932,13 +945,10 @@ fn generate_template_scopes(
                 let src_start = template_offset + scope.span.start;
                 let src_end = template_offset + scope.span.end;
 
-                ts.push_str(&format!(
-                    "{}// @{} @{}:{}\n",
-                    indent, data.event_name, src_start, src_end
-                ));
+                push_line!(ts, &indent, "// @", &data.event_name, " @", @src_start, #':', @src_end);
 
                 if data.has_implicit_event {
-                    ts.push_str(&format!("{}(($event: {}) => {{\n", indent, event_type));
+                    push_line!(ts, &indent, "(($event: ", event_type, ") => {");
 
                     // Output the handler expression with $event and source map
                     if let Some(ref expr) = data.handler_expression {
@@ -951,21 +961,18 @@ fn generate_template_scopes(
                         let gen_start = ts.len();
                         if is_simple_identifier && !expr_str.contains('(') {
                             // Simple method reference like "handleClick" -> "handleClick($event)"
-                            ts.push_str(&format!("{}  {}($event);\n", indent, expr_str));
+                            push_line!(ts, &indent, "  ", expr_str, "($event);");
                         } else {
                             // Expression already has parens or is complex, output as-is
-                            ts.push_str(&format!("{}  {};\n", indent, expr_str));
+                            push_line!(ts, &indent, "  ", expr_str, ";");
                         }
                         let gen_end = ts.len();
 
                         // Emit source map for the expression
-                        ts.push_str(&format!(
-                            "{}  // @vize-map: {}:{} -> {}:{}\n",
-                            indent, gen_start, gen_end, src_start, src_end
-                        ));
+                        push_line!(ts, &indent, "  // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
                     }
                 } else if !data.param_names.is_empty() {
-                    ts.push_str(&format!("{}((", indent));
+                    push_all!(ts, &indent, "((");
                     for (i, param) in data.param_names.iter().enumerate() {
                         if i > 0 {
                             ts.push_str(", ");
@@ -974,9 +981,9 @@ fn generate_template_scopes(
                             || param.as_str() == "e"
                             || param.as_str() == "event"
                         {
-                            ts.push_str(&format!("{}: {}", param, event_type));
+                            push_all!(ts, param.as_str(), ": ", event_type);
                         } else {
-                            ts.push_str(&format!("{}: unknown", param));
+                            push_all!(ts, param.as_str(), ": unknown");
                         }
                     }
                     ts.push_str(") => {\n");
@@ -984,131 +991,123 @@ fn generate_template_scopes(
                     // Output the handler expression with source map
                     if let Some(ref expr) = data.handler_expression {
                         let gen_start = ts.len();
-                        ts.push_str(&format!("{}  {};\n", indent, expr.as_str()));
+                        push_line!(ts, &indent, "  ", expr.as_str(), ";");
                         let gen_end = ts.len();
 
-                        ts.push_str(&format!(
-                            "{}  // @vize-map: {}:{} -> {}:{}\n",
-                            indent, gen_start, gen_end, src_start, src_end
-                        ));
+                        push_line!(ts, &indent, "  // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
                     }
                 } else {
-                    ts.push_str(&format!("{}(() => {{\n", indent));
+                    push_line!(ts, &indent, "(() => {");
 
                     // Output the handler expression with source map
                     if let Some(ref expr) = data.handler_expression {
                         let gen_start = ts.len();
-                        ts.push_str(&format!("{}  {};\n", indent, expr.as_str()));
+                        push_line!(ts, &indent, "  ", expr.as_str(), ";");
                         let gen_end = ts.len();
 
-                        ts.push_str(&format!(
-                            "{}  // @vize-map: {}:{} -> {}:{}\n",
-                            indent, gen_start, gen_end, src_start, src_end
-                        ));
+                        push_line!(ts, &indent, "  // @vize-map: ", @gen_start, #':', @gen_end, " -> ", @src_start, #':', @src_end);
                     }
                 }
 
-                ts.push_str(&format!("{}}})();\n\n", indent));
+                push_all!(ts, &indent, "})();\n\n");
             }
 
             // Callback: Arrow function
             (ScopeKind::Callback, ScopeData::Callback(data)) => {
-                ts.push_str(&format!(
-                    "{}// callback: {} @{}:{}\n",
-                    indent,
-                    data.context,
-                    template_offset + scope.span.start,
-                    template_offset + scope.span.end
-                ));
+                let src_start = template_offset + scope.span.start;
+                let src_end = template_offset + scope.span.end;
+                push_line!(ts, &indent, "// callback: ", &data.context, " @", @src_start, #':', @src_end);
 
-                ts.push_str(&format!("{}((", indent));
+                push_all!(ts, &indent, "((");
                 for (i, param) in data.param_names.iter().enumerate() {
                     if i > 0 {
                         ts.push_str(", ");
                     }
-                    ts.push_str(&format!("{}: unknown", param));
+                    push_all!(ts, param.as_str(), ": unknown");
                 }
                 ts.push_str(") => {\n");
 
                 for param in &data.param_names {
-                    ts.push_str(&format!("{}  void {};\n", indent, param));
+                    push_line!(ts, &indent, "  void ", param.as_str(), ";");
                 }
 
                 // Output additional bindings from croquis scope
                 for (name, binding) in scope.bindings() {
                     if !data.param_names.iter().any(|p| p.as_str() == name) {
-                        ts.push_str(&format!(
-                            "{}  void {}; // {:?}\n",
-                            indent, name, binding.binding_type
-                        ));
+                        push_line!(
+                            ts,
+                            &indent,
+                            "  void ",
+                            name,
+                            "; // ",
+                            binding.binding_type.to_vir()
+                        );
                     }
                 }
 
-                ts.push_str(&format!("{}}})(undefined!);\n\n", indent));
+                push_all!(ts, &indent, "})(undefined!);\n\n");
             }
 
             // Closure: Function expression
             (ScopeKind::Closure, ScopeData::Closure(data)) => {
                 let async_kw = if data.is_async { "async " } else { "" };
+                let src_start = template_offset + scope.span.start;
+                let src_end = template_offset + scope.span.end;
 
-                ts.push_str(&format!(
-                    "{}// closure @{}:{}\n",
-                    indent,
-                    template_offset + scope.span.start,
-                    template_offset + scope.span.end
-                ));
+                push_line!(ts, &indent, "// closure @", @src_start, #':', @src_end);
 
-                ts.push_str(&format!("{}{}((", indent, async_kw));
+                push_all!(ts, &indent, async_kw, "((");
                 for (i, param) in data.param_names.iter().enumerate() {
                     if i > 0 {
                         ts.push_str(", ");
                     }
-                    ts.push_str(&format!("{}: unknown", param));
+                    push_all!(ts, param.as_str(), ": unknown");
                 }
                 ts.push_str(") => {\n");
 
                 for param in &data.param_names {
-                    ts.push_str(&format!("{}  void {};\n", indent, param));
+                    push_line!(ts, &indent, "  void ", param.as_str(), ";");
                 }
 
                 // Output additional bindings from croquis scope
                 for (name, binding) in scope.bindings() {
                     if !data.param_names.iter().any(|p| p.as_str() == name) {
-                        ts.push_str(&format!(
-                            "{}  void {}; // {:?}\n",
-                            indent, name, binding.binding_type
-                        ));
+                        push_line!(
+                            ts,
+                            &indent,
+                            "  void ",
+                            name,
+                            "; // ",
+                            binding.binding_type.to_vir()
+                        );
                     }
                 }
 
-                ts.push_str(&format!("{}}})(undefined!);\n\n", indent));
+                push_all!(ts, &indent, "})(undefined!);\n\n");
             }
 
             // Client-only: onMounted etc.
             (ScopeKind::ClientOnly, ScopeData::ClientOnly(data)) => {
-                ts.push_str(&format!(
-                    "{}// {} (client-only) @{}:{}\n",
-                    indent,
-                    data.hook_name,
-                    template_offset + scope.span.start,
-                    template_offset + scope.span.end
-                ));
+                let src_start = template_offset + scope.span.start;
+                let src_end = template_offset + scope.span.end;
+                push_line!(ts, &indent, "// ", &data.hook_name, " (client-only) @", @src_start, #':', @src_end);
 
-                ts.push_str(&format!("{}{}(() => {{\n", indent, data.hook_name));
-                ts.push_str(&format!(
-                    "{}  // Browser APIs available: window, document\n",
-                    indent
-                ));
+                push_line!(ts, &indent, &data.hook_name, "(() => {");
+                push_line!(ts, &indent, "  // Browser APIs available: window, document");
 
                 // Output bindings from croquis scope
                 for (name, binding) in scope.bindings() {
-                    ts.push_str(&format!(
-                        "{}  void {}; // {:?}\n",
-                        indent, name, binding.binding_type
-                    ));
+                    push_line!(
+                        ts,
+                        &indent,
+                        "  void ",
+                        name,
+                        "; // ",
+                        binding.binding_type.to_vir()
+                    );
                 }
 
-                ts.push_str(&format!("{}}});\n\n", indent));
+                push_all!(ts, &indent, "});\n\n");
             }
 
             _ => {}

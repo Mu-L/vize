@@ -74,7 +74,8 @@ fn format_json(results: &[LintResult]) -> String {
                             crate::diagnostic::Severity::Error => 2,
                             crate::diagnostic::Severity::Warning => 1,
                         },
-                        message: d.message.to_string(),
+                        // Use formatted message with [vize:RULE] prefix
+                        message: d.formatted_message(),
                         line: 1, // TODO: calculate from offset
                         column: d.start + 1,
                         end_line: 1,

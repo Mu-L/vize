@@ -125,6 +125,21 @@ pub enum TemplateExpressionKind {
     VModel,
 }
 
+impl TemplateExpressionKind {
+    /// Get the string representation without allocation.
+    #[inline]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Interpolation => "Interpolation",
+            Self::VBind => "VBind",
+            Self::VOn => "VOn",
+            Self::VIf => "VIf",
+            Self::VShow => "VShow",
+            Self::VModel => "VModel",
+        }
+    }
+}
+
 impl AnalysisSummary {
     /// Convert analysis summary to VIR (Vize Intermediate Representation) text format.
     ///

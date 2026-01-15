@@ -212,12 +212,21 @@ impl LintDiagnostic {
         self.fix.is_some()
     }
 
+    /// Get the formatted message with `[vize:RULE]` prefix.
+    #[inline]
+    pub fn formatted_message(&self) -> String {
+        format!("[vize:{}] {}", self.rule_name, self.message)
+    }
+
     /// Convert to OxcDiagnostic for rich rendering
     #[inline]
     pub fn into_oxc_diagnostic(self) -> OxcDiagnostic {
+        // Format message with [vize:RULE] prefix
+        let formatted_msg = format!("[vize:{}] {}", self.rule_name, self.message);
+
         let mut diag = match self.severity {
-            Severity::Error => OxcDiagnostic::error(self.message.to_string()),
-            Severity::Warning => OxcDiagnostic::warn(self.message.to_string()),
+            Severity::Error => OxcDiagnostic::error(formatted_msg),
+            Severity::Warning => OxcDiagnostic::warn(formatted_msg),
         };
 
         // Add primary label

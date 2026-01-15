@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import MonacoEditor from './MonacoEditor.vue';
+import * as monaco from 'monaco-editor';
 import type { WasmModule, LintResult, LintDiagnostic, LintRule, LocaleInfo } from '../wasm/index';
 
 interface Diagnostic {
   message: string;
+  help?: string;
   startLine: number;
   startColumn: number;
   endLine?: number;
@@ -249,7 +251,9 @@ const templateLineOffset = computed(() => {
 const diagnostics = computed((): Diagnostic[] => {
   if (!lintResult.value?.diagnostics) return [];
   return lintResult.value.diagnostics.map(d => ({
-    message: `[${d.rule}] ${d.message}`,
+    // Message is already formatted by WASM with [vize:RULE] prefix via i18n
+    message: d.message,
+    help: d.help,
     startLine: d.location.start.line,
     startColumn: d.location.start.column,
     endLine: d.location.end?.line ?? d.location.start.line,
@@ -309,6 +313,194 @@ function loadRules() {
   }
 }
 
+// Simple syntax highlighter for code - uses token-based approach to avoid conflicts
+function highlightCode(code: string, lang: string): string {
+  // Token placeholders to prevent regex conflicts
+  const tokens: string[] = [];
+  let tokenId = 0;
+  const placeholder = (content: string): string => {
+    const id = `__TOKEN_${tokenId++}__`;
+    tokens.push(content);
+    return id;
+  };
+
+  let result = code;
+
+  // Vue/HTML specific
+  if (lang === 'vue' || lang === 'html') {
+    // HTML comments first
+    result = result.replace(/(&lt;!--[\s\S]*?--&gt;)/g, (_, m) =>
+      placeholder(`<span class="hl-comment">${m}</span>`)
+    );
+    // Attribute values in quotes (before tags to avoid conflicts)
+    result = result.replace(/="([^"]*)"/g, (_, v) =>
+      `="${placeholder(`<span class="hl-string">${v}</span>`)}"`
+    );
+    // Vue directives
+    result = result.replace(/(v-[\w-]+|@[\w.-]+|:[\w.-]+(?==")|#[\w.-]+)/g, (_, m) =>
+      placeholder(`<span class="hl-directive">${m}</span>`)
+    );
+    // Tags (opening and closing)
+    result = result.replace(/(&lt;\/?)([\w-]+)/g, (_, prefix, tag) =>
+      `${prefix}${placeholder(`<span class="hl-tag">${tag}</span>`)}`
+    );
+    // Mustache interpolation
+    result = result.replace(/(\{\{|\}\})/g, (_, m) =>
+      placeholder(`<span class="hl-delimiter">${m}</span>`)
+    );
+  }
+
+  // TypeScript/JavaScript
+  if (lang === 'ts' || lang === 'typescript' || lang === 'js' || lang === 'javascript') {
+    // Comments first (to avoid highlighting inside comments)
+    result = result.replace(/(\/\/.*)/g, (_, m) =>
+      placeholder(`<span class="hl-comment">${m}</span>`)
+    );
+    // Strings (must be before keywords to avoid highlighting keywords inside strings)
+    result = result.replace(/('[^']*'|"[^"]*"|`[^`]*`)/g, (_, m) =>
+      placeholder(`<span class="hl-string">${m}</span>`)
+    );
+    // Vue APIs (before general keywords)
+    result = result.replace(/\b(ref|reactive|computed|watch|watchEffect|onMounted|onUnmounted|defineProps|defineEmits|toRefs|inject|provide)\b/g, (_, m) =>
+      placeholder(`<span class="hl-vue-api">${m}</span>`)
+    );
+    // Keywords
+    result = result.replace(/\b(const|let|var|function|return|if|else|for|while|import|export|from|async|await|new|typeof|instanceof|class|interface|type|extends)\b/g, (_, m) =>
+      placeholder(`<span class="hl-keyword">${m}</span>`)
+    );
+    // Types
+    result = result.replace(/\b(string|number|boolean|null|undefined|void|any|never)\b/g, (_, m) =>
+      placeholder(`<span class="hl-type">${m}</span>`)
+    );
+    // Numbers
+    result = result.replace(/\b(\d+)\b/g, (_, m) =>
+      placeholder(`<span class="hl-number">${m}</span>`)
+    );
+  }
+
+  // CSS
+  if (lang === 'css') {
+    // At-rules
+    result = result.replace(/(@[\w-]+)/g, (_, m) =>
+      placeholder(`<span class="hl-keyword">${m}</span>`)
+    );
+    // Properties
+    result = result.replace(/([\w-]+)(\s*:)/g, (_, prop, colon) =>
+      `${placeholder(`<span class="hl-property">${prop}</span>`)}${colon}`
+    );
+  }
+
+  // Bash
+  if (lang === 'bash' || lang === 'sh') {
+    // Comments first
+    result = result.replace(/(#.*)/g, (_, m) =>
+      placeholder(`<span class="hl-comment">${m}</span>`)
+    );
+    // Commands
+    result = result.replace(/\b(npm|yarn|pnpm|git|cd|mkdir|rm|cp|mv|install)\b/g, (_, m) =>
+      placeholder(`<span class="hl-keyword">${m}</span>`)
+    );
+  }
+
+  // Replace all token placeholders with actual content
+  for (let i = 0; i < tokens.length; i++) {
+    result = result.replace(`__TOKEN_${i}__`, tokens[i]);
+  }
+
+  return result;
+}
+
+// Simple markdown formatter for help text
+function formatHelp(help: string): string {
+  let result = help
+    // Escape HTML first
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Code blocks (```lang ... ```)
+  result = result.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const highlighted = highlightCode(code, lang || 'text');
+    return `<pre class="help-code" data-lang="${lang || 'text'}"><code>${highlighted}</code></pre>`;
+  });
+
+  // Inline code (`code`)
+  result = result.replace(/`([^`]+)`/g, '<code class="help-inline-code">$1</code>');
+  // Bold (**text**)
+  result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Line breaks
+  result = result.replace(/\n/g, '<br>');
+
+  return result;
+}
+
+// Hover provider for showing diagnostic help in Monaco
+let hoverProviderDisposable: monaco.IDisposable | null = null;
+
+// Find diagnostic at a given position
+function findDiagnosticAtPosition(line: number, col: number): LintDiagnostic | null {
+  if (!lintResult.value?.diagnostics) return null;
+
+  for (const diag of lintResult.value.diagnostics) {
+    const startLine = diag.location.start.line;
+    const startCol = diag.location.start.column;
+    const endLine = diag.location.end?.line ?? startLine;
+    const endCol = diag.location.end?.column ?? startCol + 1;
+
+    // Check if position is within diagnostic range
+    if (line > startLine && line < endLine) {
+      return diag;
+    }
+    if (line === startLine && line === endLine) {
+      if (col >= startCol && col <= endCol) {
+        return diag;
+      }
+    }
+    if (line === startLine && line < endLine && col >= startCol) {
+      return diag;
+    }
+    if (line === endLine && line > startLine && col <= endCol) {
+      return diag;
+    }
+  }
+  return null;
+}
+
+function registerHoverProvider() {
+  if (hoverProviderDisposable) {
+    hoverProviderDisposable.dispose();
+  }
+
+  hoverProviderDisposable = monaco.languages.registerHoverProvider('vue', {
+    provideHover(model, position) {
+      const contents: monaco.IMarkdownString[] = [];
+
+      // Check if hovering over a diagnostic
+      const diag = findDiagnosticAtPosition(position.lineNumber, position.column);
+      if (diag) {
+        // Add diagnostic message with severity indicator
+        const severityLabel = diag.severity === 'error' ? 'Error' : 'Warning';
+        contents.push({
+          value: `**[${severityLabel}]** \`${diag.rule}\`\n\n${diag.message}`,
+        });
+
+        // Add help if available (render as markdown)
+        if (diag.help) {
+          contents.push({
+            value: `---\n**Hint**\n\n${diag.help}`,
+          });
+        }
+      }
+
+      if (contents.length === 0) return null;
+
+      return {
+        contents,
+      };
+    },
+  });
+}
+
 function getSeverityIcon(severity: 'error' | 'warning'): string {
   return severity === 'error' ? '✕' : '⚠';
 }
@@ -341,8 +533,16 @@ watch(
 onMounted(() => {
   loadLocaleConfig();
   loadRuleConfig();
+  registerHoverProvider();
   if (props.compiler) {
     loadRules();
+  }
+});
+
+onUnmounted(() => {
+  if (hoverProviderDisposable) {
+    hoverProviderDisposable.dispose();
+    hoverProviderDisposable = null;
   }
 });
 </script>
@@ -433,8 +633,11 @@ onMounted(() => {
                 </div>
                 <div class="diagnostic-message">{{ diagnostic.message }}</div>
                 <div v-if="diagnostic.help" class="diagnostic-help">
-                  <span class="help-label">Fix:</span>
-                  {{ diagnostic.help }}
+                  <div class="help-header">
+                    <span class="help-icon">?</span>
+                    <span class="help-label">Hint</span>
+                  </div>
+                  <div class="help-content" v-html="formatHelp(diagnostic.help)"></div>
                 </div>
               </div>
             </div>
@@ -815,21 +1018,113 @@ onMounted(() => {
 }
 
 .diagnostic-help {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.08) 0%, rgba(147, 51, 234, 0.05) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.help-header {
   display: flex;
-  align-items: flex-start;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.15);
+}
+
+.help-icon {
+  font-size: 1rem;
 }
 
 .help-label {
-  color: #4ade80;
-  font-weight: 500;
-  flex-shrink: 0;
+  font-weight: 600;
+  color: #60a5fa;
+  font-size: 0.9rem;
+}
+
+.help-content {
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.help-content :deep(strong) {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.help-content :deep(.help-code) {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.help-content :deep(.help-code code) {
+  color: #a5d6ff;
+  background: none;
+  padding: 0;
+}
+
+.help-content :deep(.help-inline-code) {
+  background: rgba(110, 118, 129, 0.3);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  color: #ff7b72;
+}
+
+/* Syntax highlighting colors */
+.help-content :deep(.hl-keyword) {
+  color: #ff7b72;
+}
+
+.help-content :deep(.hl-vue-api) {
+  color: #7ee787;
+}
+
+.help-content :deep(.hl-string) {
+  color: #a5d6ff;
+}
+
+.help-content :deep(.hl-comment) {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.help-content :deep(.hl-tag) {
+  color: #7ee787;
+}
+
+.help-content :deep(.hl-directive) {
+  color: #d2a8ff;
+}
+
+.help-content :deep(.hl-delimiter) {
+  color: #ffa657;
+}
+
+.help-content :deep(.hl-type) {
+  color: #79c0ff;
+}
+
+.help-content :deep(.hl-number) {
+  color: #79c0ff;
+}
+
+.help-content :deep(.hl-property) {
+  color: #79c0ff;
+}
+
+.help-content :deep(.hl-value) {
+  color: #a5d6ff;
 }
 
 /* Rules Output */
