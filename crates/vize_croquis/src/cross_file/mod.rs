@@ -56,7 +56,7 @@ mod suppression;
 mod analyzers;
 
 // Re-exports
-pub use analyzer::{CrossFileAnalyzer, CrossFileOptions, CrossFileResult};
+pub use analyzer::{CrossFileAnalyzer, CrossFileOptions, CrossFileResult, CrossFileStats};
 pub use diagnostics::{CrossFileDiagnostic, CrossFileDiagnosticKind, DiagnosticSeverity};
 pub use graph::{DependencyEdge, DependencyGraph, ModuleNode};
 pub use registry::{FileId, ModuleEntry, ModuleRegistry};

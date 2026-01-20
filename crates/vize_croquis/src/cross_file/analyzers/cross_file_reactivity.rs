@@ -1051,54 +1051,5 @@ pub fn analyze_cross_file_reactivity(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_reactive_value_id() {
-        let id = ReactiveValueId {
-            file_id: FileId::new(1),
-            name: CompactString::new("count"),
-            offset: 42,
-        };
-
-        assert_eq!(id.name.as_str(), "count");
-        assert_eq!(id.offset, 42);
-    }
-
-    #[test]
-    fn test_reactivity_flow_kind() {
-        let flow = ReactivityFlow {
-            source: ReactiveValueId {
-                file_id: FileId::new(1),
-                name: CompactString::new("theme"),
-                offset: 0,
-            },
-            target: ReactiveValueId {
-                file_id: FileId::new(2),
-                name: CompactString::new("theme"),
-                offset: 0,
-            },
-            flow_kind: ReactivityFlowKind::ProvideInject,
-            preserved: true,
-            loss_reason: None,
-        };
-
-        assert_eq!(flow.flow_kind, ReactivityFlowKind::ProvideInject);
-        assert!(flow.preserved);
-    }
-
-    #[test]
-    fn test_reactivity_loss_reason() {
-        let reason = ReactivityLossReason::Destructured {
-            props: vec![CompactString::new("count"), CompactString::new("name")],
-        };
-
-        match reason {
-            ReactivityLossReason::Destructured { props } => {
-                assert_eq!(props.len(), 2);
-            }
-            _ => panic!("Wrong reason type"),
-        }
-    }
-}
+#[path = "cross_file_reactivity_tests.rs"]
+mod tests;
