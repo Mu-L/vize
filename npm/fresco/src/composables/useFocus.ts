@@ -2,9 +2,9 @@
  * useFocus - Focus management composable
  */
 
-import { ref, computed, watch, provide, inject, type InjectionKey, type Ref } from '@vue/runtime-core';
+import { ref, computed, provide, inject, type InjectionKey, type Ref } from "@vue/runtime-core";
 
-const FOCUS_KEY: InjectionKey<FocusManager> = Symbol('fresco-focus');
+const FOCUS_KEY: InjectionKey<FocusManager> = Symbol("fresco-focus");
 
 export interface UseFocusOptions {
   /** Whether this element starts focused */
@@ -46,9 +46,7 @@ export function createFocusManager(): FocusManager {
   const focusNext = () => {
     if (focusableIds.value.length === 0) return;
 
-    const currentIndex = focusedId.value
-      ? focusableIds.value.indexOf(focusedId.value)
-      : -1;
+    const currentIndex = focusedId.value ? focusableIds.value.indexOf(focusedId.value) : -1;
     const nextIndex = (currentIndex + 1) % focusableIds.value.length;
     focusedId.value = focusableIds.value[nextIndex];
   };

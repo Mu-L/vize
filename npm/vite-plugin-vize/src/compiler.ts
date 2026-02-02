@@ -1,15 +1,13 @@
-import fs from 'node:fs';
-import { createRequire } from 'node:module';
+import fs from "node:fs";
+import { createRequire } from "node:module";
 import type {
   CompileSfcFn,
   CompileSfcBatchWithResultsFn,
   CompiledModule,
-  SfcCompileOptionsNapi,
   BatchFileInput,
-  BatchCompileOptionsNapi,
   BatchCompileResultWithFiles,
-} from './types.js';
-import { generateScopeId } from './utils.js';
+} from "./types.js";
+import { generateScopeId } from "./utils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -20,12 +18,12 @@ export function loadNative(): CompileSfcFn {
   if (compileSfc) return compileSfc;
 
   try {
-    const native = require('@vizejs/native');
+    const native = require("@vizejs/native");
     compileSfc = native.compileSfc;
     return compileSfc!;
   } catch (e) {
     throw new Error(
-      `Failed to load @vizejs/native. Make sure it's installed and built:\n${e}`
+      `Failed to load @vizejs/native. Make sure it's installed and built:\n${String(e)}`,
     );
   }
 }
@@ -34,12 +32,12 @@ export function loadNativeBatch(): CompileSfcBatchWithResultsFn {
   if (compileSfcBatchWithResults) return compileSfcBatchWithResults;
 
   try {
-    const native = require('@vizejs/native');
+    const native = require("@vizejs/native");
     compileSfcBatchWithResults = native.compileSfcBatchWithResults;
     return compileSfcBatchWithResults!;
   } catch (e) {
     throw new Error(
-      `Failed to load @vizejs/native. Make sure it's installed and built:\n${e}`
+      `Failed to load @vizejs/native. Make sure it's installed and built:\n${String(e)}`,
     );
   }
 }
@@ -48,10 +46,10 @@ export function compileFile(
   filePath: string,
   cache: Map<string, CompiledModule>,
   options: { sourceMap: boolean; ssr: boolean },
-  source?: string
+  source?: string,
 ): CompiledModule {
   const compile = loadNative();
-  const content = source ?? fs.readFileSync(filePath, 'utf-8');
+  const content = source ?? fs.readFileSync(filePath, "utf-8");
   const scopeId = generateScopeId(filePath);
   const hasScoped = /<style[^>]*\bscoped\b/.test(content);
 
@@ -63,7 +61,7 @@ export function compileFile(
   });
 
   if (result.errors.length > 0) {
-    const errorMsg = result.errors.join('\n');
+    const errorMsg = result.errors.join("\n");
     console.error(`[vize] Compilation error in ${filePath}:\n${errorMsg}`);
   }
 
@@ -91,7 +89,7 @@ export function compileFile(
 export function compileBatch(
   files: { path: string; source: string }[],
   cache: Map<string, CompiledModule>,
-  options: { ssr: boolean }
+  options: { ssr: boolean },
 ): BatchCompileResultWithFiles {
   const compile = loadNativeBatch();
 
@@ -121,7 +119,7 @@ export function compileBatch(
     // Log errors and warnings
     if (fileResult.errors.length > 0) {
       console.error(
-        `[vize] Compilation error in ${fileResult.path}:\n${fileResult.errors.join('\n')}`
+        `[vize] Compilation error in ${fileResult.path}:\n${fileResult.errors.join("\n")}`,
       );
     }
     if (fileResult.warnings.length > 0) {

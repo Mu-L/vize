@@ -10,23 +10,52 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
+  fmt-rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Format
+          components: rustfmt
+      - name: Format Rust
         run: cargo fmt --all -- --check
 
+  fmt-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install
+      - name: Format JS/TS
+        run: pnpm fmt:check
+
+  lint-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install
+      - name: Lint JS/TS
+        run: pnpm lint
+
+  clippy-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
       - name: Clippy
         run: cargo clippy --workspace -- -D warnings
-
       - name: Test
         run: cargo test --workspace
 
@@ -47,20 +76,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache WASM build
+        id: cache-wasm
+        uses: actions/cache@v4
+        with:
+          path: playground/src/wasm
+          key: ${{ runner.os }}-wasm-${{ hashFiles('crates/**/*.rs', 'Cargo.lock') }}
+
       - name: Setup Rust
+        if: steps.cache-wasm.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
 
       - name: Cache Rust
+        if: steps.cache-wasm.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
 
       - name: Install wasm-bindgen-cli
+        if: steps.cache-wasm.outputs.cache-hit != 'true'
         uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen-cli
 
       - name: Build WASM
+        if: steps.cache-wasm.outputs.cache-hit != 'true'
         run: |
           cargo build --release -p vize_vitrine --no-default-features --features wasm --target wasm32-unknown-unknown
           wasm-bindgen target/wasm32-unknown-unknown/release/vize_vitrine.wasm --out-dir playground/src/wasm --target web
@@ -73,11 +113,33 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install dependencies
         run: pnpm install
 
+      - name: Build npm packages
+        run: pnpm -r --filter './npm/*' run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/pnpm-lock.yaml') }}
+
       - name: Install Playwright browsers
-        run: npx playwright install chromium
+        working-directory: playground
+        run: npx playwright install chromium --with-deps
 
       - name: Run playground tests
         working-directory: playground

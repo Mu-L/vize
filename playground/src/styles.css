@@ -14,8 +14,8 @@
   --accent-metal: #d0d4dc;
   --accent-metal-dark: #9ca3b0;
   --accent-gradient: linear-gradient(135deg, #f0f2f5 0%, #9ca3b0 50%, #e07048 100%);
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   --radius: 8px;
   --radius-lg: 12px;
 }
@@ -115,7 +115,10 @@
   border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .main-tab .tab-name {
@@ -209,6 +212,15 @@
   grid-template-columns: 1fr 1fr;
   flex: 1;
   overflow: hidden;
+}
+
+/* Full-width playgrounds */
+.cross-file-playground,
+.patina-playground,
+.croquis-playground,
+.typecheck-playground,
+.musea-playground {
+  grid-column: 1 / -1;
 }
 
 .panel {
@@ -334,7 +346,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error {

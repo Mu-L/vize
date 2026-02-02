@@ -2,12 +2,12 @@
  * Fresco App - Application instance management
  */
 
-import { type Component, type App as VueApp, ref, type Ref } from '@vue/runtime-core';
-import { createRenderer, treeToRenderNodes, type FrescoElement, type FrescoNode } from './renderer.js';
+import { type Component, type App as VueApp, ref, type Ref } from "@vue/runtime-core";
+import { createRenderer, treeToRenderNodes, type FrescoElement } from "./renderer.js";
 
 // Event types
 export interface KeyEvent {
-  type: 'key';
+  type: "key";
   key?: string;
   char?: string;
   ctrl: boolean;
@@ -16,7 +16,7 @@ export interface KeyEvent {
 }
 
 export interface ResizeEvent {
-  type: 'resize';
+  type: "resize";
   width: number;
   height: number;
 }
@@ -27,11 +27,11 @@ export type InputEvent = KeyEvent | ResizeEvent;
 export const lastKeyEvent: Ref<KeyEvent | null> = ref(null);
 
 // Import native bindings
-let native: typeof import('@vizejs/fresco-native') | null = null;
+let native: typeof import("@vizejs/fresco-native") | null = null;
 
 async function loadNative() {
   if (!native) {
-    native = await import('@vizejs/fresco-native');
+    native = await import("@vizejs/fresco-native");
   }
   return native;
 }
@@ -70,7 +70,7 @@ export interface App {
  * Create a Fresco TUI app
  */
 export function createApp(rootComponent: Component, options: AppOptions = {}): App {
-  const { mouse = false, exitOnCtrlC = true, onError, debug = false } = options;
+  const { mouse = false, exitOnCtrlC = true, onError } = options;
 
   let vueApp: VueApp | null = null;
   let rootElement: FrescoElement | null = null;
@@ -102,15 +102,15 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
     // Create a root element for mounting
     rootElement = {
       id: -1,
-      type: 'root',
+      type: "root",
       props: {
         style: {
-          width: '100%',
-          height: '100%',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'flex-start',
-          alignContent: 'flex-start',
+          width: "100%",
+          height: "100%",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+          alignItems: "flex-start",
+          alignContent: "flex-start",
         },
       },
       children: [],
@@ -125,7 +125,7 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
     needsRender = true;
 
     // Start event loop
-    eventLoop();
+    void eventLoop();
   }
 
   async function unmount() {
@@ -176,7 +176,7 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
       if (onError) {
         onError(error as Error);
       } else {
-        console.error('Render error:', error);
+        console.error("Render error:", error);
       }
     }
   }
@@ -196,7 +196,7 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
 
         if (event) {
           // Handle resize
-          if (event.eventType === 'resize') {
+          if (event.eventType === "resize") {
             n.syncTerminalSize();
             n.clearScreen();
             needsRender = true;
@@ -205,8 +205,8 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
           // Handle Ctrl+C
           if (
             exitOnCtrlC &&
-            event.eventType === 'key' &&
-            event.char === 'c' &&
+            event.eventType === "key" &&
+            event.char === "c" &&
             event.modifiers?.ctrl
           ) {
             await unmount();
@@ -214,9 +214,9 @@ export function createApp(rootComponent: Component, options: AppOptions = {}): A
           }
 
           // Dispatch key events
-          if (event.eventType === 'key') {
+          if (event.eventType === "key") {
             lastKeyEvent.value = {
-              type: 'key',
+              type: "key",
               key: event.key ?? undefined,
               char: event.char ?? undefined,
               ctrl: event.modifiers?.ctrl ?? false,

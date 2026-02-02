@@ -2,7 +2,7 @@
  * Checkbox Component - Toggle checkbox
  */
 
-import { defineComponent, h, type PropType } from '@vue/runtime-core';
+import { defineComponent, h } from "@vue/runtime-core";
 
 export interface CheckboxProps {
   /** Whether the checkbox is checked */
@@ -24,7 +24,7 @@ export interface CheckboxProps {
 }
 
 export const Checkbox = defineComponent({
-  name: 'Checkbox',
+  name: "Checkbox",
   props: {
     modelValue: {
       type: Boolean,
@@ -41,48 +41,43 @@ export const Checkbox = defineComponent({
     },
     checked: {
       type: String,
-      default: '[x]',
+      default: "[x]",
     },
     unchecked: {
       type: String,
-      default: '[ ]',
+      default: "[ ]",
     },
     fg: String,
     checkedFg: {
       type: String,
-      default: 'green',
+      default: "green",
     },
   },
-  emits: ['update:modelValue', 'change'],
-  setup(props, { emit }) {
-    const toggle = () => {
-      if (!props.disabled) {
-        const newValue = !props.modelValue;
-        emit('update:modelValue', newValue);
-        emit('change', newValue);
-      }
-    };
+  emits: ["update:modelValue", "change"],
+  setup(props, { emit: _emit }) {
+    // Note: toggle is designed for keyboard event handlers
+    // It is currently not wired up but kept for future use
 
     return () => {
       const indicator = props.modelValue ? props.checked : props.unchecked;
       const color = props.modelValue ? props.checkedFg : props.fg;
 
       return h(
-        'box',
+        "box",
         {
-          style: { flex_direction: 'row' },
+          style: { flex_direction: "row" },
         },
         [
           h(
-            'text',
+            "text",
             {
               fg: color,
               dim: props.disabled,
               bold: props.focused,
             },
-            `${indicator} ${props.label ?? ''}`
+            `${indicator} ${props.label ?? ""}`,
           ),
-        ]
+        ],
       );
     };
   },
