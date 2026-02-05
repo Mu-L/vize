@@ -9,26 +9,26 @@
   "main": "index.js",
   "types": "index.d.ts",
   "napi": {
-    "name": "vize-vitrine",
-    "triples": {
-      "defaults": true,
-      "additional": [
-        "x86_64-unknown-linux-musl",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-linux-musl",
-        "aarch64-apple-darwin",
-        "aarch64-pc-windows-msvc"
-      ]
-    }
+    "binaryName": "vize-vitrine",
+    "targets": [
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl"
+    ]
   },
   "files": [
     "index.js",
     "index.d.ts"
   ],
   "scripts": {
-    "build": "napi build --platform --release --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_vitrine --features napi",
-    "build:debug": "napi build --platform --cargo-cwd=../../crates/vize_vitrine --cargo-name=vize_vitrine --features napi",
-    "prepublishOnly": "napi prepublish -t npm"
+    "build": "napi build --platform --release --manifest-path ../../crates/vize_vitrine/Cargo.toml -p vize_vitrine --features napi",
+    "build:debug": "napi build --platform --manifest-path ../../crates/vize_vitrine/Cargo.toml -p vize_vitrine --features napi",
+    "prepublishOnly": "napi pre-publish -t npm --no-gh-release --skip-optional-publish"
   },
   "repository": {
     "type": "git",
@@ -44,6 +44,6 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.0"
+    "@napi-rs/cli": "^3.0.0"
   }
 }
