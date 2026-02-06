@@ -40,6 +40,7 @@ fn main() {
         ("vapor/v-model", CompilerMode::Vapor),
         ("vapor/v-slot", CompilerMode::Vapor),
         ("vapor/v-show", CompilerMode::Vapor),
+        ("vapor/edge-cases", CompilerMode::Vapor),
         ("sfc/basic", CompilerMode::Sfc),
         ("sfc/script-setup", CompilerMode::Sfc),
     ];
