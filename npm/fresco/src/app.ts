@@ -27,6 +27,7 @@ export type InputEvent = KeyEvent | ResizeEvent;
 export const lastKeyEvent: Ref<KeyEvent | null> = ref(null);
 
 // Import native bindings
+// eslint-disable-next-line typescript-eslint/no-redundant-type-constituents -- index.d.ts is not yet generated
 let native: typeof import("@vizejs/fresco-native") | null = null;
 
 async function loadNative() {
