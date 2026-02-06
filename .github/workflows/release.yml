@@ -559,57 +559,37 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
         run: |
+          # Helper function: publish a crate, treating "already uploaded" as success
+          publish_crate() {
+            local crate=$1
+            echo "Publishing $crate..."
+            output=$(cargo publish -p "$crate" 2>&1) && { echo "$output"; return 0; }
+            if echo "$output" | grep -q "already uploaded"; then
+              echo "$crate is already published, skipping."
+              return 0
+            fi
+            echo "$output"
+            return 1
+          }
+
           # Publish in dependency order with delays for index updates
-          echo "Publishing vize_carton..."
-          cargo publish -p vize_carton && sleep 60
-
-          echo "Publishing vize_relief..."
-          cargo publish -p vize_relief && sleep 60
-
-          echo "Publishing vize_armature..."
-          cargo publish -p vize_armature && sleep 60
-
-          echo "Publishing vize_croquis..."
-          cargo publish -p vize_croquis && sleep 60
-
-          echo "Publishing vize_atelier_core..."
-          cargo publish -p vize_atelier_core && sleep 60
-
-          echo "Publishing vize_atelier_dom..."
-          cargo publish -p vize_atelier_dom && sleep 60
-
-          echo "Publishing vize_atelier_vapor..."
-          cargo publish -p vize_atelier_vapor && sleep 60
-
-          echo "Publishing vize_atelier_sfc..."
-          cargo publish -p vize_atelier_sfc && sleep 60
-
-          echo "Publishing vize_atelier_ssr..."
-          cargo publish -p vize_atelier_ssr && sleep 60
-
-          echo "Publishing vize_glyph..."
-          cargo publish -p vize_glyph && sleep 60
-
-          echo "Publishing vize_patina..."
-          cargo publish -p vize_patina && sleep 60
-
-          echo "Publishing vize_canon..."
-          cargo publish -p vize_canon && sleep 60
-
-          echo "Publishing vize_musea..."
-          cargo publish -p vize_musea && sleep 60
-
-          echo "Publishing vize_vitrine..."
-          cargo publish -p vize_vitrine && sleep 60
-
-          echo "Publishing vize_fresco..."
-          cargo publish -p vize_fresco && sleep 60
-
-          echo "Publishing vize_maestro..."
-          cargo publish -p vize_maestro && sleep 60
-
-          echo "Publishing vize (CLI)..."
-          cargo publish -p vize
+          publish_crate vize_carton && sleep 60
+          publish_crate vize_relief && sleep 60
+          publish_crate vize_armature && sleep 60
+          publish_crate vize_croquis && sleep 60
+          publish_crate vize_atelier_core && sleep 60
+          publish_crate vize_atelier_dom && sleep 60
+          publish_crate vize_atelier_vapor && sleep 60
+          publish_crate vize_atelier_sfc && sleep 60
+          publish_crate vize_atelier_ssr && sleep 60
+          publish_crate vize_glyph && sleep 60
+          publish_crate vize_patina && sleep 60
+          publish_crate vize_canon && sleep 60
+          publish_crate vize_musea && sleep 60
+          publish_crate vize_vitrine && sleep 60
+          publish_crate vize_fresco && sleep 60
+          publish_crate vize_maestro && sleep 60
+          publish_crate vize
 
   # Create GitHub Release with CLI binaries
   create-github-release:
