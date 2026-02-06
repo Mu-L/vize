@@ -18,7 +18,20 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { MuseaOptions, ArtFileInfo, ArtMetadata, ArtVariant, CsfOutput } from "./types.js";
+import type {
+  MuseaOptions,
+  ArtFileInfo,
+  ArtMetadata,
+  ArtVariant,
+  CsfOutput,
+  PaletteApiResponse,
+  AnalysisApiResponse,
+  A11yOptions,
+  A11yResult,
+  CaptureConfig,
+  ComparisonConfig,
+  CiConfig,
+} from "./types.js";
 
 export type {
   MuseaOptions,
@@ -28,6 +41,13 @@ export type {
   CsfOutput,
   VrtOptions,
   ViewportConfig,
+  PaletteApiResponse,
+  AnalysisApiResponse,
+  A11yOptions,
+  A11yResult,
+  CaptureConfig,
+  ComparisonConfig,
+  CiConfig,
 } from "./types.js";
 
 export {
@@ -48,6 +68,20 @@ export {
   type StyleDictionaryConfig,
   type StyleDictionaryOutput,
 } from "./style-dictionary.js";
+
+export {
+  MuseaA11yRunner,
+  type A11ySummary,
+} from "./a11y.js";
+
+export {
+  generateArtFile,
+  writeArtFile,
+  type AutogenOptions,
+  type AutogenOutput,
+  type PropDefinition,
+  type GeneratedVariant,
+} from "./autogen.js";
 
 // Virtual module prefixes
 const VIRTUAL_MUSEA_PREFIX = "\0musea:";
@@ -86,6 +120,44 @@ interface NativeBinding {
   ) => {
     code: string;
     filename: string;
+  };
+  generateArtPalette?: (
+    source: string,
+    artOptions?: { filename?: string },
+    paletteOptions?: { infer_options?: boolean; group_by_type?: boolean },
+  ) => {
+    title: string;
+    controls: Array<{
+      name: string;
+      control: string;
+      default_value?: unknown;
+      description?: string;
+      required: boolean;
+      options: Array<{ label: string; value: unknown }>;
+      range?: { min: number; max: number; step?: number };
+      group?: string;
+    }>;
+    groups: string[];
+    json: string;
+    typescript: string;
+  };
+  generateArtDoc?: (
+    source: string,
+    artOptions?: { filename?: string },
+    docOptions?: { include_source?: boolean; include_templates?: boolean; include_metadata?: boolean },
+  ) => {
+    markdown: string;
+    filename: string;
+    title: string;
+    category?: string;
+    variant_count: number;
+  };
+  analyzeSfc?: (
+    source: string,
+    options?: { filename?: string },
+  ) => {
+    props: Array<{ name: string; type: string; required: boolean; default_value?: unknown }>;
+    emits: string[];
   };
 }
 
@@ -144,13 +216,44 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
     configureServer(devServer) {
       server = devServer;
 
-      // Gallery UI route
+      // Gallery SPA route - serves built SPA or falls back to inline HTML
       devServer.middlewares.use(basePath, async (req, res, next) => {
-        if (req.url === "/" || req.url === "/index.html") {
-          const html = generateGalleryHtml(basePath);
-          res.setHeader("Content-Type", "text/html");
-          res.end(html);
-          return;
+        const url = req.url || "/";
+
+        // Serve SPA for gallery routes (not /api/, /preview, /preview-module, /art)
+        if (
+          url === "/" ||
+          url === "/index.html" ||
+          url.startsWith("/tokens") ||
+          url.startsWith("/component/")
+        ) {
+          // Try serving built SPA first
+          const galleryDistDir = path.resolve(
+            path.dirname(new URL(import.meta.url).pathname),
+            "gallery",
+          );
+          const indexHtmlPath = path.join(galleryDistDir, "index.html");
+
+          try {
+            await fs.promises.access(indexHtmlPath);
+            let html = await fs.promises.readFile(indexHtmlPath, "utf-8");
+            // Inject basePath for runtime use
+            html = html.replace(
+              "</head>",
+              `<script>window.__MUSEA_BASE_PATH__='${basePath}';</script></head>`,
+            );
+            // Transform through Vite for HMR
+            html = await devServer.transformIndexHtml(basePath + url, html);
+            res.setHeader("Content-Type", "text/html");
+            res.end(html);
+            return;
+          } catch {
+            // Fall back to inline gallery HTML
+            const html = generateGalleryHtml(basePath);
+            res.setHeader("Content-Type", "text/html");
+            res.end(html);
+            return;
+          }
         }
         next();
       });
@@ -283,24 +386,175 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
 
       // API endpoints
       devServer.middlewares.use(`${basePath}/api`, async (req, res, next) => {
+        const sendJson = (data: unknown, status = 200) => {
+          res.statusCode = status;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(data));
+        };
+
+        const sendError = (message: string, status = 500) => {
+          sendJson({ error: message }, status);
+        };
+
         // GET /api/arts - List all arts
         if (req.url === "/arts" && req.method === "GET") {
-          res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify(Array.from(artFiles.values())));
+          sendJson(Array.from(artFiles.values()));
           return;
         }
 
-        // GET /api/arts/:path - Get single art
+        // GET /api/tokens - Get design tokens
+        if (req.url === "/tokens" && req.method === "GET") {
+          sendJson({ categories: [] });
+          return;
+        }
+
+        // Arts sub-routes: /api/arts/:encodedPath/...
         if (req.url?.startsWith("/arts/") && req.method === "GET") {
-          const artPath = decodeURIComponent(req.url.slice(6));
+          const rest = req.url.slice(6); // after "/arts/"
+
+          // Check for sub-resource patterns
+          const paletteMatch = rest.match(/^(.+)\/palette$/);
+          const analysisMatch = rest.match(/^(.+)\/analysis$/);
+          const docsMatch = rest.match(/^(.+)\/docs$/);
+          const a11yMatch = rest.match(/^(.+)\/variants\/([^/]+)\/a11y$/);
+
+          if (paletteMatch) {
+            // GET /api/arts/:path/palette
+            const artPath = decodeURIComponent(paletteMatch[1]);
+            const art = artFiles.get(artPath);
+            if (!art) { sendError("Art not found", 404); return; }
+
+            try {
+              const source = await fs.promises.readFile(artPath, "utf-8");
+              const binding = loadNative();
+              if (binding.generateArtPalette) {
+                const palette = binding.generateArtPalette(source, { filename: artPath });
+                sendJson(palette);
+              } else {
+                sendJson({ title: art.metadata.title, controls: [], groups: [], json: "{}", typescript: "" });
+              }
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+            return;
+          }
+
+          if (analysisMatch) {
+            // GET /api/arts/:path/analysis
+            const artPath = decodeURIComponent(analysisMatch[1]);
+            const art = artFiles.get(artPath);
+            if (!art) { sendError("Art not found", 404); return; }
+
+            try {
+              if (art.metadata.component) {
+                const componentPath = path.isAbsolute(art.metadata.component)
+                  ? art.metadata.component
+                  : path.resolve(path.dirname(artPath), art.metadata.component);
+                const source = await fs.promises.readFile(componentPath, "utf-8");
+                const binding = loadNative();
+                if (binding.analyzeSfc) {
+                  const analysis = binding.analyzeSfc(source, { filename: componentPath });
+                  sendJson(analysis);
+                } else {
+                  sendJson({ props: [], emits: [] });
+                }
+              } else {
+                sendJson({ props: [], emits: [] });
+              }
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+            return;
+          }
+
+          if (docsMatch) {
+            // GET /api/arts/:path/docs
+            const artPath = decodeURIComponent(docsMatch[1]);
+            const art = artFiles.get(artPath);
+            if (!art) { sendError("Art not found", 404); return; }
+
+            try {
+              const source = await fs.promises.readFile(artPath, "utf-8");
+              const binding = loadNative();
+              if (binding.generateArtDoc) {
+                const doc = binding.generateArtDoc(source, { filename: artPath });
+                sendJson(doc);
+              } else {
+                sendJson({ markdown: "", title: art.metadata.title, variant_count: art.variants.length });
+              }
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+            return;
+          }
+
+          if (a11yMatch) {
+            // GET /api/arts/:path/variants/:name/a11y
+            const artPath = decodeURIComponent(a11yMatch[1]);
+            const _variantName = decodeURIComponent(a11yMatch[2]);
+            const art = artFiles.get(artPath);
+            if (!art) { sendError("Art not found", 404); return; }
+
+            // Return empty a11y results (populated after VRT --a11y run)
+            sendJson({ violations: [], passes: 0, incomplete: 0 });
+            return;
+          }
+
+          // GET /api/arts/:path - Get single art (no sub-resource)
+          const artPath = decodeURIComponent(rest);
           const art = artFiles.get(artPath);
           if (art) {
-            res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify(art));
+            sendJson(art);
           } else {
-            res.statusCode = 404;
-            res.end(JSON.stringify({ error: "Art not found" }));
+            sendError("Art not found", 404);
           }
+          return;
+        }
+
+        // POST /api/preview-with-props
+        if (req.url === "/preview-with-props" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { artPath: reqArtPath, variantName, props: propsOverride } = JSON.parse(body);
+              const art = artFiles.get(reqArtPath);
+              if (!art) { sendError("Art not found", 404); return; }
+
+              const variant = art.variants.find((v) => v.name === variantName);
+              if (!variant) { sendError("Variant not found", 404); return; }
+
+              // Generate preview module with props override
+              const variantComponentName = toPascalCase(variant.name);
+              const moduleCode = generatePreviewModuleWithProps(art, variantComponentName, variant.name, propsOverride);
+              res.setHeader("Content-Type", "application/javascript");
+              res.end(moduleCode);
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+          });
+          return;
+        }
+
+        // POST /api/generate
+        if (req.url === "/generate" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", async () => {
+            try {
+              const { componentPath: reqComponentPath, options: autogenOptions } = JSON.parse(body);
+              const { generateArtFile: genArt } = await import("./autogen.js");
+              const result = await genArt(reqComponentPath, autogenOptions);
+              sendJson({
+                generated: true,
+                componentName: result.componentName,
+                variants: result.variants,
+                artFileContent: result.artFileContent,
+              });
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+          });
           return;
         }
 
@@ -1435,6 +1689,51 @@ function toPascalCase(str: string): string {
 
 function escapeTemplate(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n");
+}
+
+function generatePreviewModuleWithProps(
+  art: ArtFileInfo,
+  variantComponentName: string,
+  variantName: string,
+  propsOverride: Record<string, unknown>,
+): string {
+  const artModuleId = `virtual:musea-art:${art.path}`;
+  const escapedVariantName = escapeTemplate(variantName);
+  const propsJson = JSON.stringify(propsOverride);
+
+  return `
+import { createApp, h } from 'vue';
+import * as artModule from '${artModuleId}';
+
+const container = document.getElementById('app');
+const propsOverride = ${propsJson};
+
+async function mount() {
+  try {
+    const VariantComponent = artModule['${variantComponentName}'];
+    if (!VariantComponent) {
+      throw new Error('Variant component "${variantComponentName}" not found');
+    }
+
+    const WrappedComponent = {
+      render() {
+        return h(VariantComponent, propsOverride);
+      }
+    };
+
+    const app = createApp(WrappedComponent);
+    container.innerHTML = '';
+    container.className = 'musea-variant';
+    app.mount(container);
+    console.log('[musea-preview] Mounted variant: ${escapedVariantName} with props override');
+  } catch (error) {
+    console.error('[musea-preview] Failed to mount:', error);
+    container.innerHTML = '<div class="musea-error"><div class="musea-error-title">Failed to render</div><div>' + error.message + '</div></div>';
+  }
+}
+
+mount();
+`;
 }
 
 function generatePreviewHtml(art: ArtFileInfo, variant: ArtVariant, basePath: string): string {
