@@ -163,9 +163,6 @@ importers:
       tinyglobby:
         specifier: ^0.2.0
         version: 0.2.15
-      vize:
-        specifier: workspace:*
-        version: link:../vscode-vize
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
