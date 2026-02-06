@@ -21,48 +21,19 @@ fn get_slot_props_raw(dir: &DirectiveNode<'_>) -> Option<vize_carton::String> {
 /// e.g., "{ item }" -> ["item"], "{ item, index }" -> ["item", "index"]
 /// e.g., "slotProps" -> ["slotProps"]
 fn extract_slot_params(props_str: &str) -> Vec<std::string::String> {
-    let trimmed = props_str.trim();
     let mut params = Vec::new();
-
-    if trimmed.starts_with('{') && trimmed.ends_with('}') {
-        // Destructuring pattern: { item, index }
-        let inner = &trimmed[1..trimmed.len() - 1];
-        for part in inner.split(',') {
-            let part = part.trim();
-            // Handle default values like "item = default"
-            let name = if let Some(pos) = part.find('=') {
-                part[..pos].trim()
-            } else if let Some(pos) = part.find(':') {
-                // Handle renaming like "user: { name }" - take the first part
-                part[..pos].trim()
-            } else {
-                part
-            };
-            if !name.is_empty() && is_identifier(name) {
-                params.push(name.to_string());
-            }
-        }
-    } else if is_identifier(trimmed) {
-        // Simple identifier: slotProps
-        params.push(trimmed.to_string());
-    }
-
+    super::v_for::extract_destructure_params(props_str.trim(), &mut params);
     params
-}
-
-/// Check if a string is a valid JavaScript identifier
-fn is_identifier(s: &str) -> bool {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(c) if c.is_alphabetic() || c == '_' || c == '$' => {}
-        _ => return false,
-    }
-    chars.all(|c| c.is_alphanumeric() || c == '_' || c == '$')
 }
 
 /// Check if component has slot children that need to be generated as slots object
 pub fn has_slot_children(el: &ElementNode<'_>) -> bool {
     if el.children.is_empty() {
+        return false;
+    }
+
+    // Teleport and KeepAlive pass children as arrays, not slot objects
+    if matches!(el.tag.as_str(), "Teleport" | "KeepAlive") {
         return false;
     }
 
@@ -87,7 +58,8 @@ pub fn has_dynamic_slots_flag(el: &ElementNode<'_>) -> bool {
 
 /// Generate slots object for component
 pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
-    ctx.use_helper(RuntimeHelper::WithCtx);
+    // Note: WithCtx helper is registered at each _withCtx() output site,
+    // not here, to avoid importing it when slots don't actually use it.
 
     // Check for v-slot on component root (shorthand for default slot)
     let root_slot = el.props.iter().find_map(|p| {
@@ -109,6 +81,7 @@ pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
         // v-slot on component root - all children go to default slot
         ctx.newline();
         ctx.push("default: ");
+        ctx.use_helper(RuntimeHelper::WithCtx);
         ctx.push(ctx.helper(RuntimeHelper::WithCtx));
         ctx.push("(");
         // Slot props (scoped slot params) - use raw source, not transformed
@@ -186,6 +159,7 @@ pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
                         }
 
                         ctx.push(": ");
+                        ctx.use_helper(RuntimeHelper::WithCtx);
                         ctx.push(ctx.helper(RuntimeHelper::WithCtx));
                         ctx.push("(");
 
@@ -236,6 +210,7 @@ pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
             }
             ctx.newline();
             ctx.push("default: ");
+            ctx.use_helper(RuntimeHelper::WithCtx);
             ctx.push(ctx.helper(RuntimeHelper::WithCtx));
             ctx.push("(() => [");
             ctx.indent();

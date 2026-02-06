@@ -8,51 +8,101 @@ use super::element::{generate_vshow_closing, has_vshow_directive};
 use super::expression::generate_expression;
 use super::helpers::escape_js_string;
 use super::node::generate_node;
+use super::patch_flag::{calculate_element_patch_info, patch_flag_name};
 
 /// Extract parameter names from a v-for callback expression.
-/// Handles simple identifiers ("item") and destructuring patterns ("{ id, name }").
+/// Handles simple identifiers ("item"), destructuring patterns ("{ id, name }"),
+/// nested destructure ("{ user: { name } }"), rest elements ("{ id, ...rest }"),
+/// and array destructuring ("[first, second]").
 fn extract_for_params(expr: &ExpressionNode<'_>, params: &mut Vec<String>) {
     let content = match expr {
         ExpressionNode::Simple(exp) => exp.content.as_str(),
         _ => return,
     };
-    let trimmed = content.trim();
+    extract_destructure_params(content.trim(), params);
+}
 
+/// Recursively extract parameter names from a destructuring pattern string.
+pub(super) fn extract_destructure_params(trimmed: &str, params: &mut Vec<String>) {
     if trimmed.starts_with('{') && trimmed.ends_with('}') {
-        // Destructuring pattern: { id, name }
         let inner = &trimmed[1..trimmed.len() - 1];
-        for part in inner.split(',') {
+        // Split by commas at the top level (respecting nested braces/brackets)
+        for part in split_top_level(inner) {
             let part = part.trim();
-            // Handle default values: "item = default"
-            let name = if let Some(pos) = part.find('=') {
-                part[..pos].trim()
-            } else if let Some(pos) = part.find(':') {
-                // Handle renaming: "original: alias" - take alias
-                part[pos + 1..].trim()
-            } else {
-                part
-            };
-            if !name.is_empty() && is_valid_ident(name) {
-                params.push(name.to_string());
+            // Handle rest element: ...rest
+            if let Some(rest) = part.strip_prefix("...") {
+                let rest = rest.trim();
+                if !rest.is_empty() && is_valid_ident(rest) {
+                    params.push(rest.to_string());
+                }
+                continue;
+            }
+            // Handle default values: "item = default" — take name before =
+            if let Some(eq_pos) = part.find('=') {
+                let name = part[..eq_pos].trim();
+                if !name.is_empty() && is_valid_ident(name) {
+                    params.push(name.to_string());
+                }
+                continue;
+            }
+            // Handle renaming/nested: "original: value"
+            if let Some(colon_pos) = part.find(':') {
+                let value = part[colon_pos + 1..].trim();
+                // Value might be another destructure pattern or a simple identifier
+                if value.starts_with('{') || value.starts_with('[') {
+                    extract_destructure_params(value, params);
+                } else if is_valid_ident(value) {
+                    params.push(value.to_string());
+                }
+                continue;
+            }
+            // Simple identifier
+            if !part.is_empty() && is_valid_ident(part) {
+                params.push(part.to_string());
             }
         }
     } else if trimmed.starts_with('[') && trimmed.ends_with(']') {
-        // Array destructuring: [first, second]
         let inner = &trimmed[1..trimmed.len() - 1];
-        for part in inner.split(',') {
-            let name = part.trim();
-            if !name.is_empty() && is_valid_ident(name) {
-                params.push(name.to_string());
+        for part in split_top_level(inner) {
+            let part = part.trim();
+            if let Some(rest) = part.strip_prefix("...") {
+                let rest = rest.trim();
+                if !rest.is_empty() && is_valid_ident(rest) {
+                    params.push(rest.to_string());
+                }
+            } else if part.starts_with('{') || part.starts_with('[') {
+                extract_destructure_params(part, params);
+            } else if !part.is_empty() && is_valid_ident(part) {
+                params.push(part.to_string());
             }
         }
     } else if is_valid_ident(trimmed) {
-        // Simple identifier: item
         params.push(trimmed.to_string());
     }
 }
 
+/// Split a string by commas at the top level, respecting nested braces and brackets.
+pub(super) fn split_top_level(s: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0;
+    for (i, b) in s.bytes().enumerate() {
+        match b {
+            b'{' | b'[' | b'(' => depth += 1,
+            b'}' | b']' | b')' => depth -= 1,
+            b',' if depth == 0 => {
+                parts.push(&s[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&s[start..]);
+    parts
+}
+
 /// Check if a string is a valid JS identifier
-fn is_valid_ident(s: &str) -> bool {
+pub(super) fn is_valid_ident(s: &str) -> bool {
     let mut chars = s.chars();
     match chars.next() {
         Some(c) if c.is_ascii_alphabetic() || c == '_' || c == '$' => {}
@@ -479,15 +529,64 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                 }
 
                 // Add patch flag
-                let has_interpolation = el
-                    .children
-                    .iter()
-                    .any(|c| matches!(c, TemplateChildNode::Interpolation(_)));
-
-                if is_template {
+                if is_component {
+                    // For components inside v-for, use full patch flag calculation
+                    let (patch_flag, dynamic_props) = calculate_element_patch_info(
+                        el,
+                        ctx.options.binding_metadata.as_ref(),
+                        ctx.options.cache_handlers,
+                    );
+                    // If no children were emitted but we have patch info, emit null for children
+                    if el.children.is_empty() && (patch_flag.is_some() || dynamic_props.is_some()) {
+                        ctx.push(", null");
+                    }
+                    if let Some(flag) = patch_flag {
+                        ctx.push(", ");
+                        ctx.push(&flag.to_string());
+                        ctx.push(" /* ");
+                        ctx.push(&patch_flag_name(flag));
+                        ctx.push(" */");
+                    }
+                    if let Some(props) = dynamic_props {
+                        ctx.push(", [");
+                        for (i, prop) in props.iter().enumerate() {
+                            if i > 0 {
+                                ctx.push(", ");
+                            }
+                            ctx.push("\"");
+                            ctx.push(prop);
+                            ctx.push("\"");
+                        }
+                        ctx.push("]");
+                    }
+                } else if is_template {
                     ctx.push(", 64 /* STABLE_FRAGMENT */");
-                } else if has_interpolation {
-                    ctx.push(", 1 /* TEXT */");
+                } else {
+                    // For regular elements, use full patch flag calculation
+                    let (patch_flag, dynamic_props) = calculate_element_patch_info(
+                        el,
+                        ctx.options.binding_metadata.as_ref(),
+                        ctx.options.cache_handlers,
+                    );
+                    if let Some(flag) = patch_flag {
+                        ctx.push(", ");
+                        ctx.push(&flag.to_string());
+                        ctx.push(" /* ");
+                        ctx.push(&patch_flag_name(flag));
+                        ctx.push(" */");
+                    }
+                    if let Some(props) = dynamic_props {
+                        ctx.push(", [");
+                        for (i, prop) in props.iter().enumerate() {
+                            if i > 0 {
+                                ctx.push(", ");
+                            }
+                            ctx.push("\"");
+                            ctx.push(prop);
+                            ctx.push("\"");
+                        }
+                        ctx.push("]");
+                    }
                 }
 
                 ctx.push("))");

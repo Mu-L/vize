@@ -267,19 +267,35 @@ fn generate_props_object(
 
     // Count visible props (attributes + supported directives + scope_id if present)
     let has_scope_id = scope_id.is_some();
+    let skip_is = ctx.skip_is_prop;
     let visible_count = props
         .iter()
-        .filter(|p| match p {
-            PropNode::Attribute(attr) => {
-                if skip_static_class && attr.name == "class" {
-                    return false;
+        .filter(|p| {
+            // Skip `is` prop for dynamic components
+            if skip_is {
+                match p {
+                    PropNode::Attribute(attr) if attr.name == "is" => return false,
+                    PropNode::Directive(dir)
+                        if dir.name == "bind"
+                            && matches!(&dir.arg, Some(ExpressionNode::Simple(exp)) if exp.content == "is") =>
+                    {
+                        return false
+                    }
+                    _ => {}
                 }
-                if skip_static_style && attr.name == "style" {
-                    return false;
-                }
-                true
             }
-            PropNode::Directive(dir) => is_supported_directive(dir),
+            match p {
+                PropNode::Attribute(attr) => {
+                    if skip_static_class && attr.name == "class" {
+                        return false;
+                    }
+                    if skip_static_style && attr.name == "style" {
+                        return false;
+                    }
+                    true
+                }
+                PropNode::Directive(dir) => is_supported_directive(dir),
+            }
         })
         .count()
         + if has_scope_id { 1 } else { 0 };
@@ -351,6 +367,20 @@ fn generate_props_object(
     let mut emitted_events: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for prop in props {
+        // Skip `is` prop when generating for dynamic components
+        if ctx.skip_is_prop {
+            match prop {
+                PropNode::Attribute(attr) if attr.name == "is" => continue,
+                PropNode::Directive(dir)
+                    if dir.name == "bind"
+                        && matches!(&dir.arg, Some(ExpressionNode::Simple(exp)) if exp.content == "is") =>
+                {
+                    continue
+                }
+                _ => {}
+            }
+        }
+
         match prop {
             PropNode::Attribute(attr) => {
                 // Skip static class/style if merging with dynamic

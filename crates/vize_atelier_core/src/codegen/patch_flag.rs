@@ -51,11 +51,30 @@ fn is_const_handler(expr: &ExpressionNode<'_>, bindings: Option<&BindingMetadata
     }
 }
 
-/// Calculate patch flag and dynamic props for an element
+/// Calculate patch flag and dynamic props for an element.
+/// `skip_is_prop`: when true, skip `:is` binding (used for `<component :is="...">`)
 pub fn calculate_element_patch_info(
     el: &ElementNode<'_>,
     bindings: Option<&BindingMetadata>,
     cache_handlers: bool,
+) -> (Option<i32>, Option<Vec<String>>) {
+    calculate_element_patch_info_inner(el, bindings, cache_handlers, false)
+}
+
+/// Same as `calculate_element_patch_info` but allows skipping the `is` prop.
+pub fn calculate_element_patch_info_skip_is(
+    el: &ElementNode<'_>,
+    bindings: Option<&BindingMetadata>,
+    cache_handlers: bool,
+) -> (Option<i32>, Option<Vec<String>>) {
+    calculate_element_patch_info_inner(el, bindings, cache_handlers, true)
+}
+
+fn calculate_element_patch_info_inner(
+    el: &ElementNode<'_>,
+    bindings: Option<&BindingMetadata>,
+    cache_handlers: bool,
+    skip_is: bool,
 ) -> (Option<i32>, Option<Vec<String>>) {
     let mut flag: i32 = 0;
     // Pre-allocate with small capacity - most elements have few dynamic props
@@ -74,6 +93,15 @@ pub fn calculate_element_patch_info(
         if let PropNode::Directive(dir) = prop {
             match dir.name.as_str() {
                 "bind" => {
+                    // Skip `:is` binding for dynamic components
+                    if skip_is {
+                        if let Some(ExpressionNode::Simple(arg)) = &dir.arg {
+                            if arg.content == "is" {
+                                continue;
+                            }
+                        }
+                    }
+
                     // Check for modifiers
                     let has_camel = dir.modifiers.iter().any(|m| m.content == "camel");
                     let has_prop = dir.modifiers.iter().any(|m| m.content == "prop");
@@ -251,6 +279,20 @@ pub fn calculate_element_patch_info(
                         }
                     }
                 }
+                "model" => {
+                    // v-model with dynamic argument → FULL_PROPS
+                    if let Some(arg) = &dir.arg {
+                        match arg {
+                            ExpressionNode::Simple(exp) if !exp.is_static => {
+                                flag |= 16; // FULL_PROPS
+                            }
+                            ExpressionNode::Compound(_) => {
+                                flag |= 16; // FULL_PROPS
+                            }
+                            _ => {}
+                        }
+                    }
+                }
                 "show" => {
                     // v-show requires NEED_PATCH, but only if no other flags are set
                     has_vshow = true;
@@ -305,6 +347,11 @@ pub fn calculate_element_patch_info(
         if !all_constant {
             flag |= 1; // TEXT
         }
+    }
+
+    // When FULL_PROPS is set, PROPS is redundant (FULL_PROPS covers all prop changes)
+    if flag & 16 != 0 {
+        flag &= !8; // Remove PROPS
     }
 
     let patch_flag = if flag > 0 { Some(flag) } else { None };
