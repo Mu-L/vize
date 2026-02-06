@@ -119,10 +119,53 @@
   "vue/no-unsafe-url.message": "动态:{attr}绑定可能通过javascript:协议导致XSS漏洞",
   "vue/no-unsafe-url.help_href": "考虑使用<router-link :to=\"...\">或使用@braintree/sanitize-url净化URL",
   "vue/no-unsafe-url.help_src": "确保在绑定前净化URL。使用@braintree/sanitize-url进行验证",
+  "vue/no-unsafe-url.help": "在绑定前净化URL以防止通过javascript:协议的XSS攻击",
 
   "vue/no-v-html.description": "禁止使用v-html以防止XSS攻击",
   "vue/no-v-html.message": "v-html可能导致XSS攻击。避免在用户提供的内容中使用",
   "vue/no-v-html.help": "**安全风险:** `v-html`渲染原始HTML，可能执行用户输入的恶意脚本。\n\n**替代方案:**\n\n1. 使用文本插值（自动转义）:\n```vue\n<p>{{ userContent }}</p>\n```\n\n2. 使用净化库:\n```ts\nimport DOMPurify from 'dompurify'\nconst safeHtml = DOMPurify.sanitize(userInput)\n```\n\n3. 使用带XSS保护的markdown渲染器\n\n**如果必须使用v-html:**\n- 永远不要用于用户提供的内容\n- 只用于可信的静态内容",
+
+  "vue/html-self-closing.description": "强制自闭合样式",
+  "vue/html-self-closing.void": "void元素应该自闭合",
+  "vue/html-self-closing.empty": "空元素应该自闭合",
+  "vue/html-self-closing.component": "空组件应该自闭合",
+  "vue/html-self-closing.help": "使用自闭合语法",
+
+  "vue/prefer-props-shorthand.description": "强制同名prop绑定使用简写语法",
+  "vue/prefer-props-shorthand.message": "对同名prop绑定使用简写语法",
+  "vue/prefer-props-shorthand.help": "使用prop简写语法",
+
+  "vue/attribute-hyphenation.description": "强制模板中属性名的命名风格",
+  "vue/attribute-hyphenation.message": "属性应使用连字符命名",
+  "vue/attribute-hyphenation.help": "属性名使用kebab-case风格",
+
+  "vue/attribute-order.description": "强制模板中属性的排列顺序",
+  "vue/attribute-order.message": "属性应按正确顺序排列",
+  "vue/attribute-order.help": "按推荐顺序重新排列属性",
+
+  "vue/no-lone-template.description": "禁止不必要的template使用",
+  "vue/no-lone-template.message": "没有指令的`<template>`是不必要的",
+  "vue/no-lone-template.help": "删除`<template>`包装器或添加指令（v-if、v-for、v-slot）",
+
+  "vue/mustache-interpolation-spacing.description": "强制mustache插值的间距",
+  "vue/mustache-interpolation-spacing.expected": "mustache插值内需要空格",
+  "vue/mustache-interpolation-spacing.unexpected": "mustache插值内有多余的空格",
+  "vue/mustache-interpolation-spacing.help_expected": "添加空格: {{ value }}",
+  "vue/mustache-interpolation-spacing.help_unexpected": "删除空格: {{value}}",
+
+  "vue/scoped-event-names.description": "建议使用有作用域的事件名以便更好地组织",
+  "vue/scoped-event-names.message": "考虑使用有作用域的事件名以便更好地组织",
+  "vue/scoped-event-names.help": "使用'update:modelValue'这样的有作用域的事件名代替通用名称",
+
+  "vue/component-name-in-template-casing.description": "强制模板中组件名的命名风格",
+  "vue/component-name-in-template-casing.pascal": "组件应使用PascalCase",
+  "vue/component-name-in-template-casing.kebab": "组件应使用kebab-case",
+  "vue/component-name-in-template-casing.help_pascal": "组件名使用PascalCase",
+  "vue/component-name-in-template-casing.help_kebab": "组件名使用kebab-case",
+
+  "vue/no-undefined-refs.description": "禁止未定义的模板引用",
+  "vue/no-undefined-refs.message": "'{name}'未定义",
+  "vue/no-undefined-refs.help": "确保变量已导入或在<script setup>中定义",
 
   "vue/require-scoped-style.description": "要求style块使用scoped属性",
   "vue/require-scoped-style.message": "style块应使用scoped属性以防止样式泄漏",

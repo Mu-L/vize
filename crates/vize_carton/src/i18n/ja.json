@@ -119,10 +119,53 @@
   "vue/no-unsafe-url.message": "動的な:{attr}バインディングはjavascript:プロトコル経由でXSSに脆弱な可能性があります",
   "vue/no-unsafe-url.help_href": "<router-link :to=\"...\">を使用するか、@braintree/sanitize-urlでURLをサニタイズすることを検討してください",
   "vue/no-unsafe-url.help_src": "バインディング前にURLがサニタイズされていることを確認してください。検証には@braintree/sanitize-urlを使用してください",
+  "vue/no-unsafe-url.help": "javascript:プロトコルによるXSSを防ぐため、バインディング前にURLをサニタイズしてください",
 
   "vue/no-v-html.description": "XSS攻撃を防ぐためにv-htmlの使用を禁止する",
   "vue/no-v-html.message": "v-htmlはXSS攻撃につながる可能性があります。ユーザー提供のコンテンツでの使用は避けてください",
   "vue/no-v-html.help": "テキスト補間{{ }}またはサニタイゼーションライブラリの使用を検討してください",
+
+  "vue/html-self-closing.description": "セルフクロージングスタイルを強制する",
+  "vue/html-self-closing.void": "void要素はセルフクロージングにしてください",
+  "vue/html-self-closing.empty": "空の要素はセルフクロージングにしてください",
+  "vue/html-self-closing.component": "空のコンポーネントはセルフクロージングにしてください",
+  "vue/html-self-closing.help": "セルフクロージング構文を使用してください",
+
+  "vue/prefer-props-shorthand.description": "同名propsバインディングに省略構文を強制する",
+  "vue/prefer-props-shorthand.message": "同名propsバインディングには省略構文を使用してください",
+  "vue/prefer-props-shorthand.help": "propsの省略構文を使用してください",
+
+  "vue/attribute-hyphenation.description": "テンプレートでの属性名のケーシングを強制する",
+  "vue/attribute-hyphenation.message": "属性はハイフネーションする必要があります",
+  "vue/attribute-hyphenation.help": "属性名にはケバブケースを使用してください",
+
+  "vue/attribute-order.description": "テンプレートでの属性の順序を強制する",
+  "vue/attribute-order.message": "属性は正しい順序で配置してください",
+  "vue/attribute-order.help": "推奨される順序に属性を並び替えてください",
+
+  "vue/no-lone-template.description": "不要なtemplate使用を禁止する",
+  "vue/no-lone-template.message": "ディレクティブなしの`<template>`は不要です",
+  "vue/no-lone-template.help": "`<template>`ラッパーを削除するか、ディレクティブ（v-if、v-for、v-slot）を追加してください",
+
+  "vue/mustache-interpolation-spacing.description": "マスタッシュ補間のスペーシングを強制する",
+  "vue/mustache-interpolation-spacing.expected": "マスタッシュ補間内にスペースが必要です",
+  "vue/mustache-interpolation-spacing.unexpected": "マスタッシュ補間内に不要なスペースがあります",
+  "vue/mustache-interpolation-spacing.help_expected": "スペースを追加: {{ value }}",
+  "vue/mustache-interpolation-spacing.help_unexpected": "スペースを削除: {{value}}",
+
+  "vue/scoped-event-names.description": "整理のためにスコープ付きイベント名を提案する",
+  "vue/scoped-event-names.message": "整理のためにスコープ付きイベント名の使用を検討してください",
+  "vue/scoped-event-names.help": "汎用的な名前の代わりに'update:modelValue'のようなスコープ付きイベント名を使用してください",
+
+  "vue/component-name-in-template-casing.description": "テンプレートでのコンポーネント名のスタイルを強制する",
+  "vue/component-name-in-template-casing.pascal": "コンポーネントはPascalCaseを使用してください",
+  "vue/component-name-in-template-casing.kebab": "コンポーネントはkebab-caseを使用してください",
+  "vue/component-name-in-template-casing.help_pascal": "コンポーネント名にはPascalCaseを使用してください",
+  "vue/component-name-in-template-casing.help_kebab": "コンポーネント名にはkebab-caseを使用してください",
+
+  "vue/no-undefined-refs.description": "テンプレート内の未定義参照を禁止する",
+  "vue/no-undefined-refs.message": "'{name}'は定義されていません",
+  "vue/no-undefined-refs.help": "変数がインポートされているか、<script setup>で定義されていることを確認してください",
 
   "vue/require-scoped-style.description": "styleブロックにscoped属性を必須にする",
   "vue/require-scoped-style.message": "styleブロックはスタイルの漏れを防ぐためにscoped属性を使用する必要があります",

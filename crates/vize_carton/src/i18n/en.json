@@ -119,10 +119,53 @@
   "vue/no-unsafe-url.message": "Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
   "vue/no-unsafe-url.help_href": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url",
   "vue/no-unsafe-url.help_src": "Ensure URLs are sanitized before binding. Use @braintree/sanitize-url for validation",
+  "vue/no-unsafe-url.help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol",
 
   "vue/no-v-html.description": "Disallow use of v-html to prevent XSS attacks",
   "vue/no-v-html.message": "v-html can lead to XSS attacks. Avoid using it with user-provided content",
   "vue/no-v-html.help": "**Security Risk:** `v-html` renders raw HTML and can execute malicious scripts from user input.\n\n**Alternatives:**\n\n1. Use text interpolation (auto-escaped):\n```vue\n<p>{{ userContent }}</p>\n```\n\n2. Use a sanitization library:\n```ts\nimport DOMPurify from 'dompurify'\nconst safeHtml = DOMPurify.sanitize(userInput)\n```\n\n3. Use a markdown renderer with XSS protection\n\n**If you must use v-html:**\n- Never use with user-provided content\n- Only use with trusted, static content",
+
+  "vue/html-self-closing.description": "Enforce self-closing style",
+  "vue/html-self-closing.void": "Void element should be self-closing",
+  "vue/html-self-closing.empty": "Empty element should be self-closing",
+  "vue/html-self-closing.component": "Empty component should be self-closing",
+  "vue/html-self-closing.help": "Use self-closing syntax",
+
+  "vue/prefer-props-shorthand.description": "Enforce shorthand syntax for same-name prop bindings",
+  "vue/prefer-props-shorthand.message": "Use shorthand syntax for same-name prop binding",
+  "vue/prefer-props-shorthand.help": "Use shorthand prop syntax",
+
+  "vue/attribute-hyphenation.description": "Enforce attribute name casing in templates",
+  "vue/attribute-hyphenation.message": "Attribute should be hyphenated",
+  "vue/attribute-hyphenation.help": "Use kebab-case for attribute names",
+
+  "vue/attribute-order.description": "Enforce attribute ordering in templates",
+  "vue/attribute-order.message": "Attribute should be placed in correct order",
+  "vue/attribute-order.help": "Reorder attributes to follow the recommended order",
+
+  "vue/no-lone-template.description": "Disallow unnecessary template usage",
+  "vue/no-lone-template.message": "`<template>` without directive is unnecessary",
+  "vue/no-lone-template.help": "Remove the `<template>` wrapper or add a directive (v-if, v-for, v-slot)",
+
+  "vue/mustache-interpolation-spacing.description": "Enforce spacing in mustache interpolation",
+  "vue/mustache-interpolation-spacing.expected": "Expected spaces inside mustache interpolation",
+  "vue/mustache-interpolation-spacing.unexpected": "Unexpected spaces inside mustache interpolation",
+  "vue/mustache-interpolation-spacing.help_expected": "Add spaces: {{ value }}",
+  "vue/mustache-interpolation-spacing.help_unexpected": "Remove spaces: {{value}}",
+
+  "vue/scoped-event-names.description": "Suggest scoped event names for better organization",
+  "vue/scoped-event-names.message": "Consider using scoped event name for better organization",
+  "vue/scoped-event-names.help": "Use scoped event names like 'update:modelValue' instead of generic names",
+
+  "vue/component-name-in-template-casing.description": "Enforce component naming style in templates",
+  "vue/component-name-in-template-casing.pascal": "Component should use PascalCase",
+  "vue/component-name-in-template-casing.kebab": "Component should use kebab-case",
+  "vue/component-name-in-template-casing.help_pascal": "Use PascalCase for component names",
+  "vue/component-name-in-template-casing.help_kebab": "Use kebab-case for component names",
+
+  "vue/no-undefined-refs.description": "Disallow undefined template references",
+  "vue/no-undefined-refs.message": "'{name}' is not defined",
+  "vue/no-undefined-refs.help": "Make sure the variable is imported or defined in <script setup>",
 
   "vue/require-scoped-style.description": "Require scoped attribute on style blocks",
   "vue/require-scoped-style.message": "Style blocks should use scoped attribute to prevent style leaking",
