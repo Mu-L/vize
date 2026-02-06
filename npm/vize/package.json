@@ -1,5 +1,5 @@
 {
-  "name": "vizejs",
+  "name": "vize",
   "version": "0.0.1-alpha.54",
   "description": "Vize - High-performance Vue.js toolchain in Rust",
   "publishConfig": {
@@ -38,7 +38,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vizejs/vize"
+    "url": "https://github.com/ubugeeei/vize"
   },
   "keywords": [
     "vue",

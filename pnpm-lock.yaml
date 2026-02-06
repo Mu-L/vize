@@ -163,9 +163,9 @@ importers:
       tinyglobby:
         specifier: ^0.2.0
         version: 0.2.15
-      vizejs:
+      vize:
         specifier: workspace:*
-        version: link:../vize
+        version: link:../vscode-vize
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -198,9 +198,9 @@ importers:
       vite-plugin-inspect:
         specifier: ^11.0.1
         version: 11.3.3(vite@8.0.0-beta.11(@types/node@22.19.3)(esbuild@0.27.2)(jiti@2.6.1)(tsx@4.21.0))
-      vizejs:
+      vize:
         specifier: workspace:*
-        version: link:../../vize
+        version: link:../../vscode-vize
 
   npm/vize:
     dependencies:

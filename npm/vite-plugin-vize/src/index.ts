@@ -11,8 +11,8 @@ import { detectHmrUpdateType, type HmrUpdateType } from "./hmr.js";
 export type { VizeOptions, CompiledModule };
 
 // Re-export config utilities from vizejs
-export { defineConfig, loadConfig } from "vizejs";
-export type { VizeConfig, LoadConfigOptions } from "vizejs";
+export { defineConfig, loadConfig } from "vize";
+export type { VizeConfig, LoadConfigOptions } from "vize";
 
 const VIRTUAL_PREFIX = "\0vize:";
 const VIRTUAL_CSS_MODULE = "virtual:vize-styles";
@@ -156,7 +156,7 @@ export function vize(options: VizeOptions = {}): Plugin {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let fileConfig: any = null;
       if (options.configMode !== false) {
-        const { loadConfig } = await import("vizejs");
+        const { loadConfig } = await import("vize");
         fileConfig = await loadConfig(root, {
           mode: options.configMode ?? "root",
           configFile: options.configFile,
@@ -183,7 +183,11 @@ export function vize(options: VizeOptions = {}): Plugin {
 
       filter = createFilter(mergedOptions.include, mergedOptions.exclude);
       scanPatterns = mergedOptions.scanPatterns ?? ["**/*.vue"];
-      ignorePatterns = mergedOptions.ignorePatterns ?? ["node_modules/**", "dist/**", ".git/**"];
+      ignorePatterns = mergedOptions.ignorePatterns ?? [
+        "node_modules/**",
+        "dist/**",
+        ".git/**",
+      ];
     },
 
     configureServer(devServer: ViteDevServer) {
@@ -208,13 +212,16 @@ export function vize(options: VizeOptions = {}): Plugin {
 
       // If importer is a virtual module, resolve imports against the real path
       if (importer?.startsWith(VIRTUAL_PREFIX)) {
-        const realImporter = virtualToReal.get(importer) ?? importer.slice(VIRTUAL_PREFIX.length);
+        const realImporter =
+          virtualToReal.get(importer) ?? importer.slice(VIRTUAL_PREFIX.length);
         // Remove .ts suffix if present
         const cleanImporter = realImporter.endsWith(".ts")
           ? realImporter.slice(0, -3)
           : realImporter;
 
-        logger.log(`resolveId from virtual: id=${id}, cleanImporter=${cleanImporter}`);
+        logger.log(
+          `resolveId from virtual: id=${id}, cleanImporter=${cleanImporter}`,
+        );
 
         // For non-vue files, resolve relative to the real importer
         if (!id.endsWith(".vue")) {
@@ -224,11 +231,16 @@ export function vize(options: VizeOptions = {}): Plugin {
             const querySuffix = queryPart ? `?${queryPart}` : "";
 
             // Relative imports - resolve and check if file exists
-            const resolved = path.resolve(path.dirname(cleanImporter), pathPart);
+            const resolved = path.resolve(
+              path.dirname(cleanImporter),
+              pathPart,
+            );
             for (const ext of ["", ".ts", ".tsx", ".js", ".jsx", ".json"]) {
               if (fs.existsSync(resolved + ext)) {
                 const finalPath = resolved + ext + querySuffix;
-                logger.log(`resolveId: resolved relative ${id} to ${finalPath}`);
+                logger.log(
+                  `resolveId: resolved relative ${id} to ${finalPath}`,
+                );
                 return finalPath;
               }
             }
@@ -236,15 +248,26 @@ export function vize(options: VizeOptions = {}): Plugin {
             // External package imports (e.g., '@mdi/js', 'vue')
             // Check if the id looks like an already-resolved path (contains /dist/ or /lib/)
             // This can happen when other plugins (like vue-i18n) have already transformed the import
-            if (id.includes("/dist/") || id.includes("/lib/") || id.includes("/es/")) {
+            if (
+              id.includes("/dist/") ||
+              id.includes("/lib/") ||
+              id.includes("/es/")
+            ) {
               // Already looks resolved, return null to let Vite handle it
               logger.log(`resolveId: skipping already-resolved path ${id}`);
               return null;
             }
             // Re-resolve with the real importer path
-            logger.log(`resolveId: resolving external ${id} from ${cleanImporter}`);
-            const resolved = await this.resolve(id, cleanImporter, { skipSelf: true });
-            logger.log(`resolveId: resolved external ${id} to`, resolved?.id ?? "null");
+            logger.log(
+              `resolveId: resolving external ${id} from ${cleanImporter}`,
+            );
+            const resolved = await this.resolve(id, cleanImporter, {
+              skipSelf: true,
+            });
+            logger.log(
+              `resolveId: resolved external ${id} to`,
+              resolved?.id ?? "null",
+            );
             return resolved;
           }
         }
@@ -283,7 +306,8 @@ export function vize(options: VizeOptions = {}): Plugin {
       if (id.includes("?vue&type=style")) {
         const [filename] = id.split("?");
         const realPath = filename.startsWith(VIRTUAL_PREFIX)
-          ? (virtualToReal.get(filename) ?? filename.slice(VIRTUAL_PREFIX.length))
+          ? (virtualToReal.get(filename) ??
+            filename.slice(VIRTUAL_PREFIX.length))
           : filename;
         const compiled = cache.get(realPath);
         if (compiled?.css) {
@@ -296,7 +320,8 @@ export function vize(options: VizeOptions = {}): Plugin {
       if (id.startsWith(VIRTUAL_PREFIX)) {
         // Remove .ts suffix if present for lookup
         const lookupId = id.endsWith(".ts") ? id.slice(0, -3) : id;
-        const realPath = virtualToReal.get(id) ?? lookupId.slice(VIRTUAL_PREFIX.length);
+        const realPath =
+          virtualToReal.get(id) ?? lookupId.slice(VIRTUAL_PREFIX.length);
         const compiled = cache.get(realPath);
 
         if (compiled) {
@@ -339,9 +364,14 @@ export function vize(options: VizeOptions = {}): Plugin {
           const newCompiled = cache.get(file)!;
 
           // Detect HMR update type
-          const updateType: HmrUpdateType = detectHmrUpdateType(prevCompiled, newCompiled);
+          const updateType: HmrUpdateType = detectHmrUpdateType(
+            prevCompiled,
+            newCompiled,
+          );
 
-          logger.log(`Re-compiled: ${path.relative(root, file)} (${updateType})`);
+          logger.log(
+            `Re-compiled: ${path.relative(root, file)} (${updateType})`,
+          );
 
           // Find the virtual module for this file
           const virtualId = VIRTUAL_PREFIX + file + ".ts";
@@ -386,7 +416,9 @@ export function vize(options: VizeOptions = {}): Plugin {
           fileName: "assets/vize-components.css",
           source: allCss,
         });
-        logger.log(`Extracted CSS to assets/vize-components.css (${collectedCss.size} components)`);
+        logger.log(
+          `Extracted CSS to assets/vize-components.css (${collectedCss.size} components)`,
+        );
       }
     },
   };
