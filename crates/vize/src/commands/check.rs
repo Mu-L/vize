@@ -44,6 +44,11 @@ pub struct CheckArgs {
     /// Path to tsgo executable (can also use TSGO_PATH env var)
     #[arg(long)]
     pub tsgo_path: Option<String>,
+
+    /// Template globals to declare (e.g., "$t:(...args: any[]) => string,$route:any").
+    /// Overrides default plugin globals. Use "none" to disable all plugin globals.
+    #[arg(long)]
+    pub globals: Option<String>,
 }
 
 /// JSON output structure
@@ -398,11 +403,47 @@ fn run_direct(args: &CheckArgs) {
     use vize_atelier_core::parser::parse;
     use vize_atelier_sfc::{parse_sfc, SfcParseOptions};
     use vize_canon::lsp_client::TsgoLspClient;
-    use vize_canon::virtual_ts::generate_virtual_ts_with_offsets;
+    use vize_canon::virtual_ts::{
+        generate_virtual_ts_with_offsets, TemplateGlobal, VirtualTsOptions,
+    };
     use vize_carton::Bump;
     use vize_croquis::{Analyzer, AnalyzerOptions};
 
     let start = Instant::now();
+
+    // Build VirtualTsOptions from CLI args
+    let vts_options = if let Some(ref globals_str) = args.globals {
+        if globals_str == "none" {
+            VirtualTsOptions {
+                template_globals: vec![],
+            }
+        } else {
+            let globals = globals_str
+                .split(',')
+                .filter(|s| !s.is_empty())
+                .map(|entry| {
+                    if let Some((name, type_ann)) = entry.split_once(':') {
+                        TemplateGlobal {
+                            name: name.trim().to_string(),
+                            type_annotation: type_ann.trim().to_string(),
+                            default_value: "{} as any".to_string(),
+                        }
+                    } else {
+                        TemplateGlobal {
+                            name: entry.trim().to_string(),
+                            type_annotation: "any".to_string(),
+                            default_value: "{} as any".to_string(),
+                        }
+                    }
+                })
+                .collect();
+            VirtualTsOptions {
+                template_globals: globals,
+            }
+        }
+    } else {
+        VirtualTsOptions::default()
+    };
 
     // Collect .vue files
     let collect_start = Instant::now();
@@ -497,6 +538,7 @@ fn run_direct(args: &CheckArgs) {
                 template_ast.as_ref(),
                 script_offset,
                 template_offset,
+                &vts_options,
             );
 
             Some(GeneratedFile {
@@ -786,7 +828,11 @@ fn run_direct(args: &CheckArgs) {
                             {
                                 continue;
                             }
-                            // Skip ImportMeta property errors (custom augmented types)
+                            // Skip ImportMeta property errors for project-specific augmentations.
+                            // Common properties (client, server, env, hot) are covered by
+                            // declare global augmentation in virtual TS, but project-specific
+                            // properties (e.g., vfFeatures) cannot be known without reading
+                            // the project's type declarations.
                             if matches!(code_num, Some(2339)) && diag.message.contains("ImportMeta")
                             {
                                 continue;

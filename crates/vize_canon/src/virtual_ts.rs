@@ -22,6 +22,85 @@ pub struct VizeMapping {
     pub src_range: Range<usize>,
 }
 
+/// A user-defined template global variable (e.g., `$t` from vue-i18n).
+#[derive(Debug, Clone)]
+pub struct TemplateGlobal {
+    /// Variable name (e.g., "$t")
+    pub name: String,
+    /// TypeScript type annotation (e.g., "(...args: any[]) => string")
+    pub type_annotation: String,
+    /// Default value expression (e.g., "(() => '') as any")
+    pub default_value: String,
+}
+
+/// Options for virtual TypeScript generation.
+#[derive(Debug, Clone)]
+pub struct VirtualTsOptions {
+    /// Additional template globals beyond Vue core ($attrs, $slots, $refs, $emit).
+    /// Use this to declare plugin globals like $t (vue-i18n), $route (vue-router), etc.
+    pub template_globals: Vec<TemplateGlobal>,
+}
+
+impl Default for VirtualTsOptions {
+    fn default() -> Self {
+        Self {
+            template_globals: default_plugin_globals(),
+        }
+    }
+}
+
+/// Default plugin globals (vue-i18n, vue-router, vue-forms).
+/// These can be overridden by user configuration.
+fn default_plugin_globals() -> Vec<TemplateGlobal> {
+    vec![
+        TemplateGlobal {
+            name: "$t".into(),
+            type_annotation: "(...args: any[]) => string".into(),
+            default_value: "(() => '') as any".into(),
+        },
+        TemplateGlobal {
+            name: "$d".into(),
+            type_annotation: "(...args: any[]) => string".into(),
+            default_value: "(() => '') as any".into(),
+        },
+        TemplateGlobal {
+            name: "$n".into(),
+            type_annotation: "(...args: any[]) => string".into(),
+            default_value: "(() => '') as any".into(),
+        },
+        TemplateGlobal {
+            name: "$tm".into(),
+            type_annotation: "(key: string) => any[]".into(),
+            default_value: "(() => []) as any".into(),
+        },
+        TemplateGlobal {
+            name: "$rt".into(),
+            type_annotation: "(...args: any[]) => string".into(),
+            default_value: "(() => '') as any".into(),
+        },
+        TemplateGlobal {
+            name: "$te".into(),
+            type_annotation: "(key: string, locale?: string) => boolean".into(),
+            default_value: "(() => false) as any".into(),
+        },
+        TemplateGlobal {
+            name: "$route".into(),
+            type_annotation: "any".into(),
+            default_value: "{} as any".into(),
+        },
+        TemplateGlobal {
+            name: "$router".into(),
+            type_annotation: "any".into(),
+            default_value: "{} as any".into(),
+        },
+        TemplateGlobal {
+            name: "$form".into(),
+            type_annotation: "any".into(),
+            default_value: "{} as any".into(),
+        },
+    ]
+}
+
 /// Output of virtual TypeScript generation.
 #[derive(Debug)]
 pub struct VirtualTsOutput {
@@ -47,26 +126,75 @@ const VUE_SETUP_COMPILER_MACROS: &str = r#"  // Compiler macros (only valid in s
   // Mark compiler macros as used
   void defineProps; void defineEmits; void defineExpose; void defineModel; void defineSlots; void withDefaults; void useTemplateRef;"#;
 
-/// Vue template context - available inside template expressions
-/// Note: $event is declared in event handler closures, not here
-const VUE_TEMPLATE_CONTEXT: &str = r#"  // Vue instance context (available in template)
-  const $attrs: Record<string, unknown> = {} as any;
-  const $slots: Record<string, (...args: any[]) => any> = {} as any;
-  const $refs: Record<string, any> = {} as any;
-  const $emit: (...args: any[]) => void = (() => {}) as any;
-  // Vue plugin globals (i18n, router, forms, etc.)
-  const $t: (...args: any[]) => string = (() => '') as any;
-  const $d: (...args: any[]) => string = (() => '') as any;
-  const $n: (...args: any[]) => string = (() => '') as any;
-  const $tm: (key: string) => any[] = (() => []) as any;
-  const $rt: (...args: any[]) => string = (() => '') as any;
-  const $te: (key: string, locale?: string) => boolean = (() => false) as any;
-  const $route: any = {} as any;
-  const $router: any = {} as any;
-  const $form: any = {} as any;
-  // Mark template context as used
-  void $attrs; void $slots; void $refs; void $emit;
-  void $t; void $d; void $n; void $tm; void $rt; void $te; void $route; void $router; void $form;"#;
+/// Generate Vue template context declarations dynamically.
+/// Includes Vue core globals ($attrs, $slots, $refs, $emit) and
+/// user-configurable plugin globals ($t, $route, etc.).
+fn generate_template_context(options: &VirtualTsOptions) -> String {
+    let mut ctx = String::new();
+
+    // Vue core globals (always present)
+    ctx.push_str("    // Vue instance context (available in template)\n");
+    ctx.push_str("    const $attrs: Record<string, unknown> = {} as any;\n");
+    ctx.push_str("    const $slots: Record<string, (...args: any[]) => any> = {} as any;\n");
+    ctx.push_str("    const $refs: Record<string, any> = {} as any;\n");
+    ctx.push_str("    const $emit: (...args: any[]) => void = (() => {}) as any;\n");
+
+    // Plugin globals (configurable)
+    if !options.template_globals.is_empty() {
+        ctx.push_str("    // Plugin globals (configurable via --globals)\n");
+        for global in &options.template_globals {
+            ctx.push_str(&format!(
+                "    const {}: {} = {};\n",
+                global.name, global.type_annotation, global.default_value
+            ));
+        }
+    }
+
+    // Mark all as used
+    ctx.push_str("    // Mark template context as used\n");
+    ctx.push_str("    void $attrs; void $slots; void $refs; void $emit;\n");
+    if !options.template_globals.is_empty() {
+        ctx.push_str("    ");
+        for (i, global) in options.template_globals.iter().enumerate() {
+            if i > 0 {
+                ctx.push(' ');
+            }
+            ctx.push_str(&format!("void {};", global.name));
+        }
+        ctx.push('\n');
+    }
+
+    ctx
+}
+
+/// ImportMeta augmentation for Vite/Nuxt projects.
+/// Uses `declare global` to merge with the built-in ImportMeta interface,
+/// so `import.meta.client`, `import.meta.env`, etc. are recognized.
+const IMPORT_META_AUGMENTATION: &str = r#"// ImportMeta augmentation (Vite/Nuxt)
+declare global {
+  interface ImportMeta {
+    readonly env: Record<string, string | boolean | undefined>;
+    readonly client: boolean;
+    readonly server: boolean;
+    readonly dev: boolean;
+    readonly prod: boolean;
+    readonly ssr: boolean;
+    readonly hot?: {
+      readonly data: any;
+      accept(): void;
+      accept(cb: (mod: any) => void): void;
+      accept(dep: string, cb: (mod: any) => void): void;
+      accept(deps: readonly string[], cb: (mods: any[]) => void): void;
+      dispose(cb: (data: any) => void): void;
+      decline(): void;
+      invalidate(message?: string): void;
+      on(event: string, cb: (...args: any[]) => void): void;
+    };
+    glob(pattern: string, options?: any): Record<string, any>;
+    glob(pattern: string[], options?: any): Record<string, any>;
+  }
+}
+"#;
 
 /// Check if a type declaration is complete based on brace depth and declaration kind.
 fn is_type_decl_complete(trimmed: &str, brace_depth: i32, is_alias: bool) -> bool {
@@ -233,7 +361,14 @@ pub fn generate_virtual_ts(
     template_ast: Option<&vize_relief::ast::RootNode<'_>>,
     template_offset: u32,
 ) -> VirtualTsOutput {
-    generate_virtual_ts_with_offsets(summary, script_content, template_ast, 0, template_offset)
+    generate_virtual_ts_with_offsets(
+        summary,
+        script_content,
+        template_ast,
+        0,
+        template_offset,
+        &VirtualTsOptions::default(),
+    )
 }
 
 /// Generate virtual TypeScript with explicit script and template offsets.
@@ -241,12 +376,14 @@ pub fn generate_virtual_ts(
 /// `script_offset` is the byte offset of the script content within the SFC file.
 /// `template_offset` is the byte offset of the template content within the SFC file.
 /// When these are provided, source mappings point to SFC-absolute positions.
+/// `options` controls template globals and other generation settings.
 pub fn generate_virtual_ts_with_offsets(
     summary: &Croquis,
     script_content: Option<&str>,
     template_ast: Option<&vize_relief::ast::RootNode<'_>>,
     script_offset: u32,
     template_offset: u32,
+    options: &VirtualTsOptions,
 ) -> VirtualTsOutput {
     let mut ts = String::new();
     let mut mappings: Vec<VizeMapping> = Vec::new();
@@ -277,6 +414,10 @@ pub fn generate_virtual_ts_with_offsets(
             is_async = true;
         }
     }
+
+    // ImportMeta augmentation (must be at top level, before any code)
+    ts.push_str(IMPORT_META_AUGMENTATION);
+    ts.push('\n');
 
     // Module scope: Extract imports and type declarations to module level.
     // Type declarations (interface, type, enum) must be at module level so they
@@ -433,12 +574,7 @@ pub fn generate_virtual_ts_with_offsets(
         ts.push_str("  (function __template() {\n");
 
         // Vue template context (available in template expressions)
-        // Indent each line of VUE_TEMPLATE_CONTEXT
-        for line in VUE_TEMPLATE_CONTEXT.lines() {
-            ts.push_str("  ");
-            ts.push_str(line);
-            ts.push('\n');
-        }
+        ts.push_str(&generate_template_context(options));
         ts.push('\n');
 
         // Props are available in template as variables
@@ -813,8 +949,8 @@ fn generate_component_prop_checks(
 
                 let gen_prop_start = ts.len();
                 ts.push_str(&format!(
-                    "{}const __prop_{}_{}: __{}_{}_prop_{} = {};\n",
-                    indent, idx, safe_prop_name, component_name, idx, safe_prop_name, value
+                    "{}({}) as __{}_{}_prop_{};\n",
+                    indent, value, component_name, idx, safe_prop_name
                 ));
                 let gen_prop_end = ts.len();
                 mappings.push(VizeMapping {
@@ -931,8 +1067,9 @@ fn generate_scope_closures(
             let src_end = src_start + undef.name.len();
 
             let gen_start = ts.len();
-            let expr_code = format!("  const __undef_{} = {};\n", undef.name, undef.name);
-            let name_offset = expr_code.find(undef.name.as_str()).unwrap_or(0);
+            let expr_code = format!("  const _undef_{} = {};\n", undef.name, undef.name);
+            // Find the SECOND occurrence of the name (the value, not the variable name)
+            let name_offset = expr_code.rfind(undef.name.as_str()).unwrap_or(0);
             let gen_name_start = gen_start + name_offset;
             let gen_name_end = gen_name_start + undef.name.len();
 
@@ -960,11 +1097,23 @@ fn generate_scope_closures(
                 .push((idx, usage));
         }
 
-        // Emit type declarations for all components at template level
+        // Emit type declarations only for components with dynamic props
         // (TypeScript type aliases cannot be inside function bodies)
         ts.push_str("\n  // Component props type declarations\n");
         for (idx, usage) in summary.component_usages.iter().enumerate() {
             let component_name = &usage.name;
+
+            // Only emit type when there are dynamic props to check
+            let has_dynamic_props = usage.props.iter().any(|p| {
+                p.name.as_str() != "key"
+                    && p.name.as_str() != "ref"
+                    && p.value.is_some()
+                    && p.is_dynamic
+            });
+            if !has_dynamic_props {
+                continue;
+            }
+
             let src_start = (template_offset + usage.start) as usize;
             let src_end = (template_offset + usage.end) as usize;
 
@@ -1124,7 +1273,7 @@ fn generate_scope_node(
 
             let props_pattern = data.props_pattern.as_deref().unwrap_or("slotProps");
             ts.push_str(&format!(
-                "{}const __slot_{} = ({}: any) => {{\n",
+                "{}const _slot_{} = ({}: any) => {{\n",
                 indent, data.name, props_pattern
             ));
             ts.push_str(&format!("{}void {};\n", inner_indent, props_pattern));
@@ -1376,10 +1525,14 @@ mod tests {
     #[test]
     fn test_vue_template_context() {
         // Template context should contain Vue instance properties
-        assert!(VUE_TEMPLATE_CONTEXT.contains("$attrs"));
-        assert!(VUE_TEMPLATE_CONTEXT.contains("$slots"));
-        assert!(VUE_TEMPLATE_CONTEXT.contains("$refs"));
-        assert!(VUE_TEMPLATE_CONTEXT.contains("$emit"));
+        let ctx = generate_template_context(&VirtualTsOptions::default());
+        assert!(ctx.contains("$attrs"));
+        assert!(ctx.contains("$slots"));
+        assert!(ctx.contains("$refs"));
+        assert!(ctx.contains("$emit"));
+        // Plugin globals should be included by default
+        assert!(ctx.contains("$t"));
+        assert!(ctx.contains("$route"));
     }
 
     #[test]
@@ -1641,9 +1794,9 @@ const todos = ref([{ id: 1, text: 'Hello' }])
             output.code.contains(".forEach("),
             "Should have a forEach for v-for component props"
         );
-        // The prop value assignment should exist
+        // The prop type assertion should exist (value cast to prop type)
         assert!(
-            output.code.contains("__prop_") && output.code.contains("= todo"),
+            output.code.contains("(todo) as __TodoItem_"),
             "Should check prop value `todo` inside forEach scope"
         );
     }
