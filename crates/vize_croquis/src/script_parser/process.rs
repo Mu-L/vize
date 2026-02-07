@@ -44,6 +44,9 @@ pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, s
             if let Some(id) = &func.id {
                 let name = id.name.as_str();
                 result.bindings.add(name, BindingType::SetupConst);
+                result
+                    .binding_spans
+                    .insert(CompactString::new(name), (id.span.start, id.span.end));
             }
 
             // Create closure scope and walk body
@@ -79,6 +82,9 @@ pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, s
             if let Some(id) = &class.id {
                 let name = id.name.as_str();
                 result.bindings.add(name, BindingType::SetupConst);
+                result
+                    .binding_spans
+                    .insert(CompactString::new(name), (id.span.start, id.span.end));
             }
         }
 
@@ -112,17 +118,22 @@ pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, s
 
             if let Some(specifiers) = &import.specifiers {
                 for spec in specifiers.iter() {
-                    let (name, is_type_spec) = match spec {
+                    let (name, is_type_spec, local_span) = match spec {
                         oxc_ast::ast::ImportDeclarationSpecifier::ImportSpecifier(s) => {
-                            (s.local.name.as_str(), s.import_kind.is_type())
+                            (s.local.name.as_str(), s.import_kind.is_type(), s.local.span)
                         }
                         oxc_ast::ast::ImportDeclarationSpecifier::ImportDefaultSpecifier(s) => {
-                            (s.local.name.as_str(), false)
+                            (s.local.name.as_str(), false, s.local.span)
                         }
                         oxc_ast::ast::ImportDeclarationSpecifier::ImportNamespaceSpecifier(s) => {
-                            (s.local.name.as_str(), false)
+                            (s.local.name.as_str(), false, s.local.span)
                         }
                     };
+
+                    // Record definition span for Go-to-Definition
+                    result
+                        .binding_spans
+                        .insert(CompactString::new(name), (local_span.start, local_span.end));
 
                     // Add binding to external module scope
                     let binding_type = if is_type_only || is_type_spec {
@@ -232,6 +243,11 @@ fn process_variable_declarator(
     match &declarator.id.kind {
         BindingPatternKind::BindingIdentifier(id) => {
             let name = id.name.as_str();
+
+            // Record definition span for Go-to-Definition
+            result
+                .binding_spans
+                .insert(CompactString::new(name), (id.span.start, id.span.end));
 
             // Check if the init is a macro or reactivity call
             // Use extract_call_expression to handle type assertions (as/satisfies)

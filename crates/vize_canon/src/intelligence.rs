@@ -250,12 +250,10 @@ impl<'a> TypeIntelligence<'a> {
     pub fn definition(&self, offset: u32) -> Option<Location> {
         let (name, _) = self.find_identifier_at(offset)?;
 
-        // Look up binding location in summary
-        // Note: This requires binding location tracking in croquis
-        if self.summary.bindings.bindings.contains_key(name) {
-            // TODO: Return actual definition location from croquis
-            // For now, return None as we need to track definition spans
-            return None;
+        if let Some(&(start, end)) = self.summary.binding_spans.get(name) {
+            return Some(Location {
+                span: Span::new(start, end),
+            });
         }
 
         None
@@ -485,5 +483,51 @@ mod tests {
         assert!(get_vue_global_hover("$attrs").is_some());
         assert!(get_vue_global_hover("$emit").is_some());
         assert!(get_vue_global_hover("unknown").is_none());
+    }
+
+    #[test]
+    fn test_definition_lookup() {
+        // Source: "const count = ref(0)"
+        let source = "const count = ref(0)";
+        let mut summary = Croquis::default();
+        summary
+            .bindings
+            .bindings
+            .insert(CompactString::new("count"), BindingType::SetupRef);
+        // "count" starts at offset 6, ends at 11
+        summary
+            .binding_spans
+            .insert(CompactString::new("count"), (6, 11));
+
+        let intel = TypeIntelligence::new(source, &summary);
+
+        // Cursor on "count" (offset 7) should find definition
+        let loc = intel.definition(7);
+        assert!(loc.is_some());
+        let loc = loc.unwrap();
+        assert_eq!(loc.span.start, 6);
+        assert_eq!(loc.span.end, 11);
+    }
+
+    #[test]
+    fn test_definition_unknown_ident() {
+        let source = "const count = ref(0)";
+        let summary = Croquis::default();
+        let intel = TypeIntelligence::new(source, &summary);
+
+        // "count" not in binding_spans → None
+        let loc = intel.definition(7);
+        assert!(loc.is_none());
+    }
+
+    #[test]
+    fn test_definition_not_on_ident() {
+        let source = "const count = ref(0)";
+        let summary = Croquis::default();
+        let intel = TypeIntelligence::new(source, &summary);
+
+        // Offset 5 is space → None
+        let loc = intel.definition(5);
+        assert!(loc.is_none());
     }
 }

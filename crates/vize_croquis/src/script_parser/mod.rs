@@ -61,6 +61,8 @@ pub struct ScriptParseResult {
     pub setup_context: SetupContextTracker,
     /// Flag to track if we're in a non-setup script context
     pub(crate) is_non_setup_script: bool,
+    /// Definition spans for bindings (name -> (start, end) offset in script)
+    pub binding_spans: FxHashMap<CompactString, (u32, u32)>,
 }
 
 /// Setup global scopes hierarchy:
@@ -457,6 +459,67 @@ mod tests {
             assert!(data.is_arrow, "Should be an arrow function");
         } else {
             panic!("Expected closure scope data");
+        }
+    }
+
+    #[test]
+    fn test_binding_spans_captured() {
+        let source = r#"
+import { ref } from 'vue'
+const count = ref(0)
+function increment() {}
+class MyClass {}
+"#;
+        let result = parse_script_setup(source);
+
+        // ref is an import specifier
+        assert!(
+            result.binding_spans.contains_key("ref"),
+            "Should capture import specifier span"
+        );
+
+        // count is a variable declaration
+        assert!(
+            result.binding_spans.contains_key("count"),
+            "Should capture variable declaration span"
+        );
+        let (start, end) = result.binding_spans["count"];
+        assert_eq!(&source[start as usize..end as usize], "count");
+
+        // increment is a function declaration
+        assert!(
+            result.binding_spans.contains_key("increment"),
+            "Should capture function declaration span"
+        );
+        let (start, end) = result.binding_spans["increment"];
+        assert_eq!(&source[start as usize..end as usize], "increment");
+
+        // MyClass is a class declaration
+        assert!(
+            result.binding_spans.contains_key("MyClass"),
+            "Should capture class declaration span"
+        );
+        let (start, end) = result.binding_spans["MyClass"];
+        assert_eq!(&source[start as usize..end as usize], "MyClass");
+    }
+
+    #[test]
+    fn test_binding_spans_imports() {
+        let source = r#"
+import { ref, computed } from 'vue'
+import MyComp from './MyComp.vue'
+import * as utils from './utils'
+"#;
+        let result = parse_script_setup(source);
+
+        for name in &["ref", "computed", "MyComp", "utils"] {
+            assert!(
+                result.binding_spans.contains_key(*name),
+                "Should capture span for import '{}'",
+                name
+            );
+            let (start, end) = result.binding_spans[*name];
+            assert_eq!(&source[start as usize..end as usize], *name);
         }
     }
 
