@@ -8,6 +8,9 @@ expression: virtual_ts
 // ============================================
 
 // ========== Module Scope (imports) ==========
+import { ref, markRaw } from 'vue'
+import CompA from './CompA.vue'
+import CompB from './CompB.vue'
 
 // ========== Setup Scope ==========
 function __setup() {
@@ -26,13 +29,13 @@ function __setup() {
 
   // User setup code
   
-  interface Props {
-    title: string
-    count?: number
-  }
   
-  const props = defineProps<Props>()
-  // @vize-map: 1567:1671 -> 0:90
+  const currentComponent = ref(markRaw(CompA))
+  
+  function switchComponent() {
+    currentComponent.value = currentComponent.value === CompA ? markRaw(CompB) : markRaw(CompA)
+  }
+  // @vize-map: 1666:1853 -> 0:272
 
   // ========== Template Scope (inherits from setup) ==========
   (function __template() {
@@ -44,18 +47,14 @@ function __setup() {
     // Mark template context as used
     void $attrs; void $slots; void $refs; void $emit;
 
-  // Props are available in template as variables
-  // Access via `propName` or `props.propName`
-  const props: Props = {} as Props;
+  void (currentComponent); // VBind
+  // @vize-map: expr -> 346:362
 
-  void (props.title); // Interpolation
-  // @vize-map: expr -> 145:156
-  void (props.count); // VIf
-  // @vize-map: expr -> 176:187
-  if (props.count) {
-    void (props.count); // Interpolation
-    // @vize-map: expr -> 199:210
-  }
+  // @click handler
+  (($event: MouseEvent) => {
+    switchComponent($event);  // handler expression
+    // @vize-map: handler -> 379:402
+  })({} as MouseEvent);
   })();
 }
 
@@ -63,6 +62,7 @@ function __setup() {
 __setup();
 
 // ========== Exported Types ==========
+export type Props = {};
 
 export type Emits = {};
 export type Slots = {};

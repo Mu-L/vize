@@ -7,7 +7,28 @@
 //! Key design: Uses closures from Croquis scope information instead of
 //! `declare const` to properly model Vue's template scoping.
 
-use vize_croquis::{naming::to_pascal_case, Croquis, ScopeData, ScopeKind};
+use std::ops::Range;
+use vize_croquis::{
+    analysis::ComponentUsage, naming::to_pascal_case, Croquis, ScopeData, ScopeKind,
+};
+
+/// A mapping from generated virtual TS position to SFC source position.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VizeMapping {
+    /// Byte range in the generated virtual TypeScript.
+    pub gen_range: Range<usize>,
+    /// Byte range in the original SFC source.
+    pub src_range: Range<usize>,
+}
+
+/// Output of virtual TypeScript generation.
+#[derive(Debug)]
+pub struct VirtualTsOutput {
+    /// The generated TypeScript code.
+    pub code: String,
+    /// Source mappings from virtual TS positions to SFC positions.
+    pub mappings: Vec<VizeMapping>,
+}
 
 /// Vue compiler macros - these are defined inside setup scope, NOT globally.
 /// This ensures they're only valid within <script setup>.
@@ -164,8 +185,24 @@ pub fn generate_virtual_ts(
     script_content: Option<&str>,
     template_ast: Option<&vize_relief::ast::RootNode<'_>>,
     template_offset: u32,
-) -> String {
+) -> VirtualTsOutput {
+    generate_virtual_ts_with_offsets(summary, script_content, template_ast, 0, template_offset)
+}
+
+/// Generate virtual TypeScript with explicit script and template offsets.
+///
+/// `script_offset` is the byte offset of the script content within the SFC file.
+/// `template_offset` is the byte offset of the template content within the SFC file.
+/// When these are provided, source mappings point to SFC-absolute positions.
+pub fn generate_virtual_ts_with_offsets(
+    summary: &Croquis,
+    script_content: Option<&str>,
+    template_ast: Option<&vize_relief::ast::RootNode<'_>>,
+    script_offset: u32,
+    template_offset: u32,
+) -> VirtualTsOutput {
     let mut ts = String::new();
+    let mut mappings: Vec<VizeMapping> = Vec::new();
 
     // Header
     ts.push_str("// ============================================\n");
@@ -200,6 +237,8 @@ pub fn generate_virtual_ts(
     if let Some(script) = script_content {
         let lines: Vec<&str> = script.lines().collect();
         let mut in_import = false;
+        // Track byte offset within script content for import mapping
+        let mut script_byte_offset: usize = 0;
 
         for (i, line) in lines.iter().enumerate() {
             let trimmed = line.trim();
@@ -207,21 +246,38 @@ pub fn generate_virtual_ts(
             if trimmed.starts_with("import ") {
                 in_import = true;
                 import_lines.push(i);
+                let gen_import_start = ts.len();
                 ts.push_str(line);
                 ts.push('\n');
+                let gen_import_end = ts.len();
+                let src_import_start = script_offset as usize + script_byte_offset;
+                let src_import_end = src_import_start + line.len();
+                mappings.push(VizeMapping {
+                    gen_range: gen_import_start..gen_import_end,
+                    src_range: src_import_start..src_import_end,
+                });
                 // Check if this is a single-line import (ends with ; or contains 'from')
                 if trimmed.ends_with(';') || trimmed.contains(" from ") {
                     in_import = false;
                 }
             } else if in_import {
                 import_lines.push(i);
+                let gen_import_start = ts.len();
                 ts.push_str(line);
                 ts.push('\n');
+                let gen_import_end = ts.len();
+                let src_import_start = script_offset as usize + script_byte_offset;
+                let src_import_end = src_import_start + line.len();
+                mappings.push(VizeMapping {
+                    gen_range: gen_import_start..gen_import_end,
+                    src_range: src_import_start..src_import_end,
+                });
                 // Check if this line ends the import (ends with ;)
                 if trimmed.ends_with(';') {
                     in_import = false;
                 }
             }
+            script_byte_offset += line.len() + 1; // +1 for newline
         }
     }
     ts.push('\n');
@@ -246,14 +302,30 @@ pub fn generate_virtual_ts(
         ts.push_str("  // User setup code\n");
         let script_gen_start = ts.len();
         let lines: Vec<&str> = script.lines().collect();
+        let mut src_byte_offset: usize = 0; // offset within script content
         for (i, line) in lines.iter().enumerate() {
             // Skip lines that are part of import statements
             if import_lines.contains(&i) {
+                src_byte_offset += line.len() + 1; // +1 for newline
                 continue;
             }
-            ts.push_str("  ");
+            let gen_line_start = ts.len();
+            ts.push_str("  "); // indentation (not in source)
+            let gen_content_start = ts.len();
             ts.push_str(line);
+            let gen_content_end = ts.len();
             ts.push('\n');
+            // Map the line content (excluding the "  " indent prefix)
+            if !line.is_empty() {
+                let src_line_start = script_offset as usize + src_byte_offset;
+                let src_line_end = src_line_start + line.len();
+                mappings.push(VizeMapping {
+                    gen_range: gen_content_start..gen_content_end,
+                    src_range: src_line_start..src_line_end,
+                });
+            }
+            let _ = gen_line_start; // suppress unused warning
+            src_byte_offset += line.len() + 1; // +1 for newline
         }
         let script_gen_end = ts.len();
         ts.push_str(&format!(
@@ -282,7 +354,7 @@ pub fn generate_virtual_ts(
         generate_props_variables(&mut ts, summary);
 
         // Generate scope closures
-        generate_scope_closures(&mut ts, summary, template_offset);
+        generate_scope_closures(&mut ts, &mut mappings, summary, template_offset);
 
         // Mark used components as referenced to avoid TS6133 "declared but never read"
         if !summary.used_components.is_empty() {
@@ -355,7 +427,7 @@ pub fn generate_virtual_ts(
     ts.push_str("};\n");
     ts.push_str("export default __vize_component__;\n");
 
-    ts
+    VirtualTsOutput { code: ts, mappings }
 }
 
 /// Generate Props type definition
@@ -445,34 +517,47 @@ fn generate_props_variables(ts: &mut String, summary: &Croquis) {
 /// ```
 fn generate_expression(
     ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
     expr: &vize_croquis::TemplateExpression,
     template_offset: u32,
     indent: &str,
 ) {
-    let src_start = template_offset + expr.start;
-    let src_end = template_offset + expr.end;
+    let src_start = (template_offset + expr.start) as usize;
+    let src_end = (template_offset + expr.end) as usize;
 
     if let Some(ref guard) = expr.vif_guard {
         // Wrap in if block for type narrowing
         ts.push_str(&format!("{}if ({}) {{\n", indent, guard));
+        let gen_expr_start = ts.len();
         ts.push_str(&format!(
             "{}  void ({}); // {}\n",
             indent,
             expr.content,
             expr.kind.as_str()
         ));
+        let gen_expr_end = ts.len();
+        mappings.push(VizeMapping {
+            gen_range: gen_expr_start..gen_expr_end,
+            src_range: src_start..src_end,
+        });
         ts.push_str(&format!(
             "{}  // @vize-map: expr -> {}:{}\n",
             indent, src_start, src_end
         ));
         ts.push_str(&format!("{}}}\n", indent));
     } else {
+        let gen_expr_start = ts.len();
         ts.push_str(&format!(
             "{}void ({}); // {}\n",
             indent,
             expr.content,
             expr.kind.as_str()
         ));
+        let gen_expr_end = ts.len();
+        mappings.push(VizeMapping {
+            gen_range: gen_expr_start..gen_expr_end,
+            src_range: src_start..src_end,
+        });
         ts.push_str(&format!(
             "{}// @vize-map: expr -> {}:{}\n",
             indent, src_start, src_end
@@ -480,8 +565,53 @@ fn generate_expression(
     }
 }
 
+/// Generate component prop value checks at the given indentation level.
+fn generate_component_prop_checks(
+    ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
+    usage: &ComponentUsage,
+    idx: usize,
+    template_offset: u32,
+    indent: &str,
+) {
+    let component_name = &usage.name;
+    for prop in &usage.props {
+        if prop.name.as_str() == "key" || prop.name.as_str() == "ref" {
+            continue;
+        }
+        if let Some(ref value) = prop.value {
+            if prop.is_dynamic {
+                let prop_src_start = (template_offset + prop.start) as usize;
+                let prop_src_end = (template_offset + prop.end) as usize;
+                ts.push_str(&format!(
+                    "{}// @vize-map: prop -> {}:{}\n",
+                    indent, prop_src_start, prop_src_end
+                ));
+
+                let safe_prop_name = prop.name.replace('-', "_");
+
+                let gen_prop_start = ts.len();
+                ts.push_str(&format!(
+                    "{}const __prop_{}_{}: __{}_{}_prop_{} = {};\n",
+                    indent, idx, safe_prop_name, component_name, idx, safe_prop_name, value
+                ));
+                let gen_prop_end = ts.len();
+                mappings.push(VizeMapping {
+                    gen_range: gen_prop_start..gen_prop_end,
+                    src_range: prop_src_start..prop_src_end,
+                });
+            }
+        }
+    }
+}
+
 /// Generate scope closures from Croquis scope chain
-fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: u32) {
+fn generate_scope_closures(
+    ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
+    summary: &Croquis,
+    template_offset: u32,
+) {
     use std::collections::HashMap;
 
     // Group expressions by scope_id
@@ -511,7 +641,7 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
         ) {
             if let Some(exprs) = expressions_by_scope.get(&scope_id) {
                 for expr in exprs {
-                    generate_expression(ts, expr, template_offset, "  ");
+                    generate_expression(ts, mappings, expr, template_offset, "  ");
                 }
             }
             generated_scopes.insert(scope_id);
@@ -564,7 +694,7 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                     // Generate expressions in this scope
                     if let Some(exprs) = expressions_by_scope.get(&scope_id) {
                         for expr in exprs {
-                            generate_expression(ts, expr, template_offset, "    ");
+                            generate_expression(ts, mappings, expr, template_offset, "    ");
                         }
                     }
 
@@ -585,7 +715,7 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                     // Generate expressions in this scope
                     if let Some(exprs) = expressions_by_scope.get(&scope_id) {
                         for expr in exprs {
-                            generate_expression(ts, expr, template_offset, "    ");
+                            generate_expression(ts, mappings, expr, template_offset, "    ");
                         }
                     }
 
@@ -644,9 +774,10 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                                     .chars()
                                     .all(|c| c.is_alphanumeric() || c == '_' || c == '$');
 
-                                let src_start = template_offset + expr.start;
-                                let src_end = template_offset + expr.end;
+                                let src_start = (template_offset + expr.start) as usize;
+                                let src_end = (template_offset + expr.end) as usize;
 
+                                let gen_start = ts.len();
                                 if data.has_implicit_event
                                     && is_simple_identifier
                                     && !content.is_empty()
@@ -661,6 +792,11 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                                         content
                                     ));
                                 }
+                                let gen_end = ts.len();
+                                mappings.push(VizeMapping {
+                                    gen_range: gen_start..gen_end,
+                                    src_range: src_start..src_end,
+                                });
                                 ts.push_str(&format!(
                                     "    // @vize-map: handler -> {}:{}\n",
                                     src_start, src_end
@@ -682,9 +818,10 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                                     .chars()
                                     .all(|c| c.is_alphanumeric() || c == '_' || c == '$');
 
-                                let src_start = template_offset + expr.start;
-                                let src_end = template_offset + expr.end;
+                                let src_start = (template_offset + expr.start) as usize;
+                                let src_end = (template_offset + expr.end) as usize;
 
+                                let gen_start = ts.len();
                                 if data.has_implicit_event
                                     && is_simple_identifier
                                     && !content.is_empty()
@@ -699,6 +836,11 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                                         content
                                     ));
                                 }
+                                let gen_end = ts.len();
+                                mappings.push(VizeMapping {
+                                    gen_range: gen_start..gen_end,
+                                    src_range: src_start..src_end,
+                                });
                                 ts.push_str(&format!(
                                     "    // @vize-map: handler -> {}:{}\n",
                                     src_start, src_end
@@ -714,7 +856,7 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                 // For other scopes (Template, ScriptSetup, etc.), just generate expressions
                 if let Some(exprs) = expressions_by_scope.get(&scope_id) {
                     for expr in exprs {
-                        generate_expression(ts, expr, template_offset, "  ");
+                        generate_expression(ts, mappings, expr, template_offset, "  ");
                     }
                 }
             }
@@ -730,8 +872,8 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
                 continue;
             }
 
-            let src_start = template_offset + undef.offset;
-            let src_end = src_start + undef.name.len() as u32;
+            let src_start = (template_offset + undef.offset) as usize;
+            let src_end = src_start + undef.name.len();
 
             let gen_start = ts.len();
             let expr_code = format!("  const __undef_{} = {};\n", undef.name, undef.name);
@@ -740,6 +882,10 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
             let gen_name_end = gen_name_start + undef.name.len();
 
             ts.push_str(&expr_code);
+            mappings.push(VizeMapping {
+                gen_range: gen_name_start..gen_name_end,
+                src_range: src_start..src_end,
+            });
             ts.push_str(&format!(
                 "  // @vize-map: {}:{} -> {}:{}\n",
                 gen_name_start, gen_name_end, src_start, src_end
@@ -747,65 +893,116 @@ fn generate_scope_closures(ts: &mut String, summary: &Croquis, template_offset: 
         }
     }
 
-    // Generate component props type checks
-    // Note: Props that use v-for variables are currently not checked
-    // because we'd need to generate these checks inside the v-for scope.
-    // TODO: Add scope-aware component prop checking
+    // Generate component props type checks (scope-aware)
+    // Type declarations are at template level, value checks are in their scope.
     if !summary.component_usages.is_empty() {
-        ts.push_str("\n  // Component props type checks\n");
+        // Group component usages by scope_id
+        let mut components_by_scope: HashMap<u32, Vec<(usize, &ComponentUsage)>> = HashMap::new();
+        for (idx, usage) in summary.component_usages.iter().enumerate() {
+            components_by_scope
+                .entry(usage.scope_id.as_u32())
+                .or_default()
+                .push((idx, usage));
+        }
+
+        // Emit type declarations for all components at template level
+        // (TypeScript type aliases cannot be inside function bodies)
+        ts.push_str("\n  // Component props type declarations\n");
         for (idx, usage) in summary.component_usages.iter().enumerate() {
             let component_name = &usage.name;
-            let src_start = template_offset + usage.start;
-            let src_end = template_offset + usage.end;
+            let src_start = (template_offset + usage.start) as usize;
+            let src_end = (template_offset + usage.end) as usize;
 
             ts.push_str(&format!(
                 "  // @vize-map: component -> {}:{}\n",
                 src_start, src_end
             ));
-            // Extract Props type from Vue component instance's $props
-            // Vue 3 components expose props via $props on the instance type
             ts.push_str(&format!(
                 "  type __{}_Props_{} = typeof {} extends {{ new (): {{ $props: infer P }} }} ? P : (typeof {} extends (props: infer P) => any ? P : {{}});\n",
                 component_name, idx, component_name, component_name
             ));
 
-            // Check each prop passed to the component
             for prop in &usage.props {
-                // Skip special Vue attributes that are not component props
                 if prop.name.as_str() == "key" || prop.name.as_str() == "ref" {
                     continue;
                 }
+                if prop.value.is_some() && prop.is_dynamic {
+                    let camel_prop_name = to_camel_case(prop.name.as_str());
+                    let safe_prop_name = prop.name.replace('-', "_");
+                    ts.push_str(&format!(
+                        "  type __{}_{}_prop_{} = __{}_Props_{} extends {{ '{}'?: infer T }} ? T : __{}_Props_{} extends {{ '{}': infer T }} ? T : unknown;\n",
+                        component_name, idx, safe_prop_name,
+                        component_name, idx, camel_prop_name,
+                        component_name, idx, camel_prop_name
+                    ));
+                }
+            }
+        }
 
-                if let Some(ref value) = prop.value {
-                    if prop.is_dynamic {
-                        // Dynamic prop: :propName="expression"
-                        // Extract expected type from component props and verify
-                        // Note: v-for variables may cause scope issues but will still be checked
-                        let prop_src_start = template_offset + prop.start;
-                        let prop_src_end = template_offset + prop.end;
-                        ts.push_str(&format!(
-                            "  // @vize-map: prop -> {}:{}\n",
-                            prop_src_start, prop_src_end
-                        ));
+        // Emit value checks for components NOT in v-for scopes at template level
+        let vfor_scope_ids: std::collections::HashSet<u32> = summary
+            .scopes
+            .iter()
+            .filter(|s| matches!(s.kind, ScopeKind::VFor))
+            .map(|s| s.id.as_u32())
+            .collect();
 
-                        // Convert prop name to camelCase for type lookup (Vue normalizes kebab-case)
-                        let camel_prop_name = to_camel_case(prop.name.as_str());
-                        let safe_prop_name = prop.name.replace('-', "_");
+        ts.push_str("\n  // Component props value checks (template scope)\n");
+        for (idx, usage) in summary.component_usages.iter().enumerate() {
+            if vfor_scope_ids.contains(&usage.scope_id.as_u32()) {
+                continue; // Will be emitted inside v-for scope
+            }
+            generate_component_prop_checks(ts, mappings, usage, idx, template_offset, "  ");
+        }
 
-                        // Extract expected type for this prop (handles both optional and required)
-                        ts.push_str(&format!(
-                            "  type __{}_{}_prop_{} = __{}_Props_{} extends {{ '{}'?: infer T }} ? T : __{}_Props_{} extends {{ '{}': infer T }} ? T : unknown;\n",
-                            component_name, idx, safe_prop_name,
-                            component_name, idx, camel_prop_name,
-                            component_name, idx, camel_prop_name
-                        ));
+        // Emit value checks for components in v-for scopes
+        // These are generated inside the respective forEach closures
+        for scope in summary.scopes.iter() {
+            if !matches!(scope.kind, ScopeKind::VFor) {
+                continue;
+            }
+            let scope_id = scope.id.as_u32();
+            if let Some(usages) = components_by_scope.get(&scope_id) {
+                if let ScopeData::VFor(data) = scope.data() {
+                    let is_simple_identifier =
+                        data.source.chars().all(|c| c.is_alphanumeric() || c == '_');
+                    let element_type = if is_simple_identifier {
+                        format!("typeof {}[number]", data.source)
+                    } else {
+                        "any".to_string()
+                    };
 
-                        // Check value against expected type
-                        ts.push_str(&format!(
-                            "  const __prop_{}_{}: __{}_{}_prop_{} = {};\n",
-                            idx, safe_prop_name, component_name, idx, safe_prop_name, value
-                        ));
+                    ts.push_str(&format!(
+                        "\n  // Component props in v-for scope: {} in {}\n",
+                        data.value_alias, data.source
+                    ));
+                    ts.push_str(&format!(
+                        "  ({}).forEach(({}: {}",
+                        data.source, data.value_alias, element_type
+                    ));
+                    if let Some(ref key) = data.key_alias {
+                        ts.push_str(&format!(", {}: number", key));
                     }
+                    if let Some(ref index) = data.index_alias {
+                        if data.key_alias.is_none() {
+                            ts.push_str(", _key: number");
+                        }
+                        ts.push_str(&format!(", {}: number", index));
+                    }
+                    ts.push_str(") => {\n");
+
+                    for &(idx, usage) in usages {
+                        generate_component_prop_checks(
+                            ts,
+                            mappings,
+                            usage,
+                            idx,
+                            template_offset,
+                            "    ",
+                        );
+                    }
+
+                    ts.push_str("  });\n");
                 }
             }
         }
@@ -896,5 +1093,213 @@ mod tests {
         // Unknown/custom events fallback to Event
         assert_eq!(get_dom_event_type("customEvent"), "Event");
         assert_eq!(get_dom_event_type("unknown"), "Event");
+    }
+
+    #[test]
+    fn test_vfor_destructuring_scope() {
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import { ref } from 'vue'
+const items = ref([{ id: 1, name: 'Hello' }])
+"#;
+        let template = r#"<ul>
+  <li v-for="{ id, name } in items" :key="id">
+    {{ id }}: {{ name }}
+  </li>
+</ul>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // v-for with destructuring should have a forEach
+        assert!(
+            output.code.contains(".forEach("),
+            "Should generate forEach for destructured v-for"
+        );
+    }
+
+    #[test]
+    fn test_nested_vif_velse_chain() {
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import { ref } from 'vue'
+const status = ref('loading')
+const message = ref('')
+"#;
+        let template = r#"<div>
+  <div v-if="status === 'loading'">Loading</div>
+  <div v-else-if="status === 'error'">{{ message }}</div>
+  <div v-else>Done</div>
+</div>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // Should contain expressions for both v-if and v-else-if conditions
+        assert!(
+            output.code.contains("status"),
+            "Should contain status expression"
+        );
+        assert!(
+            output.code.contains("message"),
+            "Should contain message expression"
+        );
+    }
+
+    #[test]
+    fn test_scoped_slot_expressions() {
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import MyList from './MyList.vue'
+const items = ['a', 'b']
+"#;
+        let template = r#"<MyList :items="items">
+  <template #default="{ item }">
+    {{ item }}
+  </template>
+</MyList>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // Should contain a v-slot scope closure
+        assert!(
+            output.code.contains("v-slot scope") || output.code.contains("slot"),
+            "Should generate v-slot scope closure"
+        );
+    }
+
+    #[test]
+    fn test_multiple_event_handlers() {
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import { ref } from 'vue'
+const count = ref(0)
+function handleClick() { count.value++ }
+function handleHover() {}
+"#;
+        let template = r#"<div>
+  <button @click="handleClick" @mouseenter="handleHover">{{ count }}</button>
+</div>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // Both handlers should appear
+        assert!(
+            output.code.contains("handleClick"),
+            "Should contain click handler"
+        );
+        assert!(
+            output.code.contains("handleHover"),
+            "Should contain hover handler"
+        );
+        // Event types should be correct
+        assert!(
+            output.code.contains("MouseEvent"),
+            "Click handler should use MouseEvent type"
+        );
+    }
+
+    #[test]
+    fn test_source_mappings_generated() {
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import { ref } from 'vue'
+const msg = ref('Hello')
+"#;
+        let template = r#"<div>{{ msg }}</div>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // Should have at least one mapping for the template expression
+        assert!(
+            !output.mappings.is_empty(),
+            "Should generate source mappings for template expressions"
+        );
+        // All mappings should have valid ranges
+        for mapping in &output.mappings {
+            assert!(
+                mapping.gen_range.start < mapping.gen_range.end,
+                "Generated range should be non-empty"
+            );
+            assert!(
+                mapping.src_range.start < mapping.src_range.end,
+                "Source range should be non-empty"
+            );
+        }
+    }
+
+    #[test]
+    fn test_vfor_component_props_in_scope() {
+        // Component inside v-for should have prop checks inside the forEach closure
+        use vize_croquis::{Analyzer, AnalyzerOptions};
+
+        let script = r#"import { ref } from 'vue'
+import TodoItem from './TodoItem.vue'
+
+const todos = ref([{ id: 1, text: 'Hello' }])
+"#;
+        let template = r#"<div>
+  <TodoItem v-for="todo in todos" :key="todo.id" :item="todo" />
+</div>"#;
+
+        let allocator = vize_carton::Bump::new();
+        let (root, _) = vize_armature::parse(&allocator, template);
+
+        let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
+        analyzer.analyze_script_setup(script);
+        analyzer.analyze_template(&root);
+        let summary = analyzer.finish();
+
+        let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
+
+        // The component prop check for `:item="todo"` should be inside a forEach
+        // closure so that `todo` is in scope
+        assert!(
+            output.code.contains(".forEach("),
+            "Should have a forEach for v-for component props"
+        );
+        // The prop value assignment should exist
+        assert!(
+            output.code.contains("__prop_") && output.code.contains("= todo"),
+            "Should check prop value `todo` inside forEach scope"
+        );
     }
 }

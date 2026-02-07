@@ -288,7 +288,7 @@ impl TsgoServer {
             Ok(result) => JsonRpcResponse {
                 jsonrpc: "2.0",
                 id,
-                result: Some(serde_json::to_value(result).unwrap()),
+                result: Some(serde_json::to_value(result).unwrap_or(serde_json::Value::Null)),
                 error: None,
             },
             Err(e) => JsonRpcResponse {
@@ -400,7 +400,10 @@ impl TsgoServer {
             self.lsp_client = Some(client);
         }
 
-        let client = self.lsp_client.as_mut().unwrap();
+        let client = self
+            .lsp_client
+            .as_mut()
+            .expect("lsp_client must be initialized above");
 
         // Create virtual file URI (file:///path/to/file.vue.ts)
         let virtual_uri = format!("file://{}.ts", uri);

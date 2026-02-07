@@ -67,6 +67,8 @@ struct JsonFileResult {
 struct GeneratedFile {
     original: String,
     virtual_ts: String,
+    source_map: Vec<vize_canon::virtual_ts::VizeMapping>,
+    original_content: String,
 }
 
 /// Server response for check method
@@ -103,6 +105,80 @@ struct JsonRpcError {
     #[allow(dead_code)]
     code: i64,
     message: String,
+}
+
+/// Convert a line/column position in the virtual TS to a line/column in the original SFC.
+///
+/// Steps:
+/// 1. Convert virtual TS line/col to byte offset in virtual TS
+/// 2. Find matching source mapping
+/// 3. Compute byte offset in original SFC
+/// 4. Convert SFC byte offset to line/col
+fn map_diagnostic_position(
+    virtual_ts: &str,
+    source_map: &[vize_canon::virtual_ts::VizeMapping],
+    original_content: &str,
+    vts_line: u32,
+    vts_character: u32,
+) -> (u32, u32) {
+    // Step 1: line/col -> byte offset in virtual TS
+    let vts_offset = line_col_to_offset(virtual_ts, vts_line, vts_character);
+
+    // Step 2: Find matching source mapping
+    for mapping in source_map {
+        if vts_offset >= mapping.gen_range.start && vts_offset < mapping.gen_range.end {
+            // Step 3: Compute corresponding offset in original SFC
+            let delta = vts_offset - mapping.gen_range.start;
+            let src_offset = mapping.src_range.start + delta;
+            // Clamp to source range
+            let src_offset = src_offset.min(mapping.src_range.end.saturating_sub(1));
+
+            // Step 4: Convert SFC offset to line/col (1-based)
+            let (line, col) = offset_to_line_col(original_content, src_offset);
+            return (line + 1, col + 1);
+        }
+    }
+
+    // Fallback: return virtual TS position (1-based)
+    (vts_line + 1, vts_character + 1)
+}
+
+/// Convert line/column (0-based) to byte offset in content.
+fn line_col_to_offset(content: &str, line: u32, col: u32) -> usize {
+    let mut current_line = 0u32;
+    let mut offset = 0usize;
+
+    for (i, ch) in content.char_indices() {
+        if current_line == line {
+            return i + col as usize;
+        }
+        if ch == '\n' {
+            current_line += 1;
+        }
+        offset = i + ch.len_utf8();
+    }
+
+    offset + col as usize
+}
+
+/// Convert byte offset to line/column (0-based) in content.
+fn offset_to_line_col(content: &str, offset: usize) -> (u32, u32) {
+    let mut line = 0u32;
+    let mut col = 0u32;
+
+    for (i, ch) in content.char_indices() {
+        if i >= offset {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            col = 0;
+        } else {
+            col += 1;
+        }
+    }
+
+    (line, col)
 }
 
 pub fn run(args: CheckArgs) {
@@ -322,7 +398,7 @@ fn run_direct(args: &CheckArgs) {
     use vize_atelier_core::parser::parse;
     use vize_atelier_sfc::{parse_sfc, SfcParseOptions};
     use vize_canon::lsp_client::TsgoLspClient;
-    use vize_canon::virtual_ts::generate_virtual_ts;
+    use vize_canon::virtual_ts::generate_virtual_ts_with_offsets;
     use vize_carton::Bump;
     use vize_croquis::{Analyzer, AnalyzerOptions};
 
@@ -349,6 +425,7 @@ fn run_direct(args: &CheckArgs) {
         .par_iter()
         .filter_map(|path| {
             let source = fs::read_to_string(path).ok()?;
+            let original_content = source.clone();
             // Use absolute path for proper file:// URI
             let abs_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
             let filename = abs_path.to_string_lossy().to_string();
@@ -361,15 +438,23 @@ fn run_direct(args: &CheckArgs) {
             let descriptor = parse_sfc(&source, parse_opts).ok()?;
 
             // Get script content (combine both script and script setup if both exist)
-            let script_content: Option<String> =
+            let (script_content, script_offset): (Option<String>, u32) =
                 match (descriptor.script.as_ref(), descriptor.script_setup.as_ref()) {
                     (Some(script), Some(script_setup)) => {
                         // Both exist: combine them (plain script first, then script setup)
-                        Some(format!("{}\n{}", script.content, script_setup.content))
+                        (
+                            Some(format!("{}\n{}", script.content, script_setup.content)),
+                            script.loc.start as u32,
+                        )
                     }
-                    (None, Some(script_setup)) => Some(script_setup.content.to_string()),
-                    (Some(script), None) => Some(script.content.to_string()),
-                    (None, None) => None,
+                    (None, Some(script_setup)) => (
+                        Some(script_setup.content.to_string()),
+                        script_setup.loc.start as u32,
+                    ),
+                    (Some(script), None) => {
+                        (Some(script.content.to_string()), script.loc.start as u32)
+                    }
+                    (None, None) => (None, 0),
                 };
             let script_content_ref = script_content.as_deref();
 
@@ -406,16 +491,19 @@ fn run_direct(args: &CheckArgs) {
             let summary = analyzer.finish();
 
             // Generate Virtual TS using canon's implementation
-            let virtual_ts = generate_virtual_ts(
+            let output = generate_virtual_ts_with_offsets(
                 &summary,
                 script_content_ref,
                 template_ast.as_ref(),
+                script_offset,
                 template_offset,
             );
 
             Some(GeneratedFile {
                 original: filename,
-                virtual_ts,
+                virtual_ts: output.code,
+                source_map: output.mappings,
+                original_content,
             })
         })
         .collect();
@@ -652,8 +740,14 @@ fn run_direct(args: &CheckArgs) {
                                     _ => String::new(),
                                 })
                                 .unwrap_or_default();
-                            let line = diag.range.start.line + 1;
-                            let col = diag.range.start.character + 1;
+                            // Map virtual TS position -> SFC position
+                            let (line, col) = map_diagnostic_position(
+                                &g.virtual_ts,
+                                &g.source_map,
+                                &g.original_content,
+                                diag.range.start.line,
+                                diag.range.start.character,
+                            );
                             file_diags.push(format!(
                                 "{}:{}:{}{} {}",
                                 severity, line, col, code_str, diag.message

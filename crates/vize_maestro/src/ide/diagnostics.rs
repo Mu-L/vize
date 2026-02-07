@@ -419,12 +419,13 @@ impl DiagnosticService {
         analyzer.analyze_template(&template_ast);
 
         let summary = analyzer.finish();
-        let code = generate_virtual_ts(
+        let output = generate_virtual_ts(
             &summary,
             Some(script_content),
             Some(&template_ast),
             template_offset,
         );
+        let code = output.code;
 
         // Count import lines in script content (these are moved to module scope)
         // Import lines are skipped from user setup code section

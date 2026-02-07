@@ -217,19 +217,21 @@ impl VirtualProject {
     ) -> Option<OriginalPosition> {
         let file = self.virtual_files.get(virtual_path)?;
 
-        // Convert line/column to offset
+        // Convert line/column to offset in virtual TS
         let virtual_offset = super::source_map::line_col_to_offset(&file.content, line, column)?;
 
         // Map through composite source map
         let (orig_offset, _, block_type) = file.source_map.get_original_position(virtual_offset)?;
 
-        // Convert back to line/column in original file
-        // For .vue files, we need the original content
-        // For now, return the offset as position (we'll improve this)
+        // Read original file content to convert offset to line/column
+        let original_content = std::fs::read_to_string(&file.original_path).ok()?;
+        let (orig_line, orig_col) =
+            super::source_map::offset_to_line_col(&original_content, orig_offset)?;
+
         Some(OriginalPosition {
             path: file.original_path.clone(),
-            line: orig_offset, // TODO: Convert to actual line
-            column: 0,
+            line: orig_line,
+            column: orig_col,
             block_type,
         })
     }
@@ -244,7 +246,46 @@ impl VirtualProject {
         // Find the virtual file for this original path
         for (virtual_path, file) in &self.virtual_files {
             if file.original_path == original_path {
-                // TODO: Implement reverse mapping
+                // Read original content to convert line/col to offset
+                let original_content = std::fs::read_to_string(&file.original_path).ok()?;
+                let sfc_offset =
+                    super::source_map::line_col_to_offset(&original_content, line, column)?;
+
+                // Determine block type heuristic: if the file has an SFC map, try Script first
+                if let Some(ref sfc_map) = file.source_map.sfc_map {
+                    // Try ScriptSetup first, then Script, then Template
+                    for block_type in [
+                        super::SfcBlockType::ScriptSetup,
+                        super::SfcBlockType::Script,
+                        super::SfcBlockType::Template,
+                    ] {
+                        if let Some(virtual_offset) =
+                            sfc_map.get_virtual_offset(sfc_offset, block_type)
+                        {
+                            // Apply import rewrite mapping
+                            let final_offset = file
+                                .source_map
+                                .import_map
+                                .get_virtual_offset(virtual_offset);
+                            // Convert virtual offset to line/col
+                            if let Some((vline, vcol)) =
+                                super::source_map::offset_to_line_col(&file.content, final_offset)
+                            {
+                                return Some((virtual_path.clone(), vline, vcol));
+                            }
+                        }
+                    }
+                }
+
+                // Fallback for .ts files: only import rewrite mapping
+                let final_offset = file.source_map.import_map.get_virtual_offset(sfc_offset);
+                if let Some((vline, vcol)) =
+                    super::source_map::offset_to_line_col(&file.content, final_offset)
+                {
+                    return Some((virtual_path.clone(), vline, vcol));
+                }
+
+                // Final fallback: pass through
                 return Some((virtual_path.clone(), line, column));
             }
         }
