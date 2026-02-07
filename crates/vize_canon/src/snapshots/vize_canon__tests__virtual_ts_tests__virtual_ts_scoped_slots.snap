@@ -39,14 +39,26 @@ function __setup() {
     const $slots: Record<string, (...args: any[]) => any> = {} as any;
     const $refs: Record<string, any> = {} as any;
     const $emit: (...args: any[]) => void = (() => {}) as any;
+    // Vue plugin globals (i18n, router, forms, etc.)
+    const $t: (...args: any[]) => string = (() => '') as any;
+    const $d: (...args: any[]) => string = (() => '') as any;
+    const $n: (...args: any[]) => string = (() => '') as any;
+    const $tm: (key: string) => any[] = (() => []) as any;
+    const $rt: (...args: any[]) => string = (() => '') as any;
+    const $te: (key: string, locale?: string) => boolean = (() => false) as any;
+    const $route: any = {} as any;
+    const $router: any = {} as any;
+    const $form: any = {} as any;
     // Mark template context as used
     void $attrs; void $slots; void $refs; void $emit;
+    void $t; void $d; void $n; void $tm; void $rt; void $te; void $route; void $router; void $form;
 
   void (items); // VBind
   // @vize-map: expr -> 161:166
 
   // v-slot scope: #default
   const __slot_default = (slotProps: any) => {
+    void slotProps;
     void (index); // Interpolation
     // @vize-map: expr -> 226:231
     void (item); // Interpolation
@@ -55,20 +67,21 @@ function __setup() {
 
   // v-slot scope: #header
   const __slot_header = (slotProps: any) => {
+    void slotProps;
     void (title); // Interpolation
     // @vize-map: expr -> 318:323
   };
 
   // Component props type declarations
   // @vize-map: component -> 145:168
-  type __MyList_Props_0 = typeof MyList extends { new (): { $props: infer P } } ? P : (typeof MyList extends (props: infer P) => any ? P : {});
+  type __MyList_Props_0 = typeof MyList extends { new (): { $props: infer __P } } ? __P : (typeof MyList extends (props: infer __P) => any ? __P : {});
   type __MyList_0_prop_items = __MyList_Props_0 extends { 'items'?: infer T } ? T : __MyList_Props_0 extends { 'items': infer T } ? T : unknown;
 
   // Component props value checks (template scope)
   // @vize-map: prop -> 153:166
   const __prop_0_items: __MyList_0_prop_items = items;
 
-  // Mark imported components as used
+  // Mark used components as referenced
   void MyList;
   })();
 }

@@ -693,15 +693,72 @@ fn run_direct(args: &CheckArgs) {
                         for diag in &diagnostics {
                             let code_num = diag.code.as_ref().and_then(|c| match c {
                                 serde_json::Value::Number(n) => n.as_u64(),
-                                serde_json::Value::String(s) => s.parse::<u64>().ok(),
+                                serde_json::Value::String(s) => {
+                                    // Handle both "2307" and "TS2307" formats
+                                    let stripped = s.strip_prefix("TS").unwrap_or(s);
+                                    stripped.parse::<u64>().ok()
+                                }
                                 _ => None,
                             });
 
-                            // Skip noise
-                            if matches!(code_num, Some(2307) | Some(2666))
-                                && diag.message.contains(".vue")
-                            {
+                            // Skip noise: module resolution errors (TS2307/TS2666)
+                            // In single-file mode, tsgo cannot resolve .vue imports,
+                            // path aliases (~/, ~~/, #imports, @/), or npm packages
+                            if matches!(code_num, Some(2307) | Some(2666)) {
                                 continue;
+                            }
+                            // Skip TS2552 ("Did you mean ...?") - always noise from TS2304 cascade
+                            if matches!(code_num, Some(2552)) {
+                                continue;
+                            }
+                            // Skip syntax/structural errors from virtual TS generation
+                            if matches!(
+                                code_num,
+                                Some(1005)  // ';' expected
+                                    | Some(1011)  // element access expression
+                                    | Some(1109)  // expression expected
+                                    | Some(1128)  // declaration or statement expected
+                                    | Some(1184)  // modifiers cannot appear here
+                                    | Some(1343)  // module declaration
+                                    | Some(1361)  // import type used as value
+                                    | Some(1434)  // unexpected keyword
+                                    | Some(2300)  // duplicate identifier (virtual TS)
+                                    | Some(2362)  // left-hand side of arithmetic
+                                    | Some(2448)  // block-scoped variable before declaration
+                                    | Some(2550)  // lib target too low
+                                    | Some(2614)  // module has no exported member (.vue)
+                                    | Some(2693)  // type used as value
+                                    | Some(2705)  // async requires Promise (ES5)
+                                    | Some(2712)  // dynamic import requires Promise (ES5)
+                            ) {
+                                continue;
+                            }
+                            // Skip TS2304 for virtual TS internal names, type-level leaks,
+                            // and generic type parameters that leak into value space
+                            if matches!(code_num, Some(2304)) {
+                                let is_internal = diag.message.contains("'__P'")
+                                    || diag.message.contains("'__A'")
+                                    || diag.message.contains("'infer'")
+                                    || diag.message.contains("'as'")
+                                    || diag.message.contains("'t_Props_")
+                                    || diag.message.contains("'Props'")
+                                    || diag.message.contains("'State'")
+                                    || diag.message.contains("'$field'");
+                                if is_internal {
+                                    continue;
+                                }
+                                // Filter generic type params (single uppercase letter)
+                                if let Some(name) = diag
+                                    .message
+                                    .split('\'')
+                                    .nth(1)
+                                {
+                                    if name.len() == 1
+                                        && name.chars().next().map_or(false, |c| c.is_ascii_uppercase())
+                                    {
+                                        continue;
+                                    }
+                                }
                             }
                             if matches!(code_num, Some(2300))
                                 && (diag.message.contains("component")
@@ -710,12 +767,14 @@ fn run_direct(args: &CheckArgs) {
                             {
                                 continue;
                             }
-                            if matches!(code_num, Some(6133) | Some(6196) | Some(2578))
-                                && (diag.message.contains("__")
-                                    || diag.message.contains("handler")
-                                    || diag.message.contains("@ts-expect-error")
-                                    || diag.message.contains("'$"))
-                            // Vue template globals
+                            // Skip unused variable warnings (TS6133/TS6196) in virtual TS
+                            // Script setup bindings may appear unused in virtual TS
+                            // even when they're used in template expressions
+                            if matches!(code_num, Some(6133) | Some(6196)) {
+                                continue;
+                            }
+                            if matches!(code_num, Some(2578))
+                                && diag.message.contains("@ts-expect-error")
                             {
                                 continue;
                             }

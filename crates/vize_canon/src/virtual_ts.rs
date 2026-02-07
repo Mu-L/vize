@@ -53,8 +53,19 @@ const VUE_TEMPLATE_CONTEXT: &str = r#"  // Vue instance context (available in te
   const $slots: Record<string, (...args: any[]) => any> = {} as any;
   const $refs: Record<string, any> = {} as any;
   const $emit: (...args: any[]) => void = (() => {}) as any;
+  // Vue plugin globals (i18n, router, forms, etc.)
+  const $t: (...args: any[]) => string = (() => '') as any;
+  const $d: (...args: any[]) => string = (() => '') as any;
+  const $n: (...args: any[]) => string = (() => '') as any;
+  const $tm: (key: string) => any[] = (() => []) as any;
+  const $rt: (...args: any[]) => string = (() => '') as any;
+  const $te: (key: string, locale?: string) => boolean = (() => false) as any;
+  const $route: any = {} as any;
+  const $router: any = {} as any;
+  const $form: any = {} as any;
   // Mark template context as used
-  void $attrs; void $slots; void $refs; void $emit;"#;
+  void $attrs; void $slots; void $refs; void $emit;
+  void $t; void $d; void $n; void $tm; void $rt; void $te; void $route; void $router; void $form;"#;
 
 /// Get the TypeScript event type for a DOM event name.
 /// Returns the specific event interface (MouseEvent, KeyboardEvent, etc.)
@@ -356,9 +367,32 @@ pub fn generate_virtual_ts_with_offsets(
         // Generate scope closures
         generate_scope_closures(&mut ts, &mut mappings, summary, template_offset);
 
-        // Mark used components as referenced to avoid TS6133 "declared but never read"
+        // Declare unresolved components (auto-imported, not in script bindings) as `any`
         if !summary.used_components.is_empty() {
-            ts.push_str("\n  // Mark imported components as used\n");
+            let mut has_unresolved = false;
+            for component in &summary.used_components {
+                let name = component.as_str();
+                // Skip if already declared via script bindings (import/const)
+                if summary.bindings.bindings.contains_key(name) {
+                    continue;
+                }
+                // Skip Vue built-in components
+                if vize_croquis::builtins::is_builtin_component(name) {
+                    continue;
+                }
+                if !has_unresolved {
+                    ts.push_str(
+                        "\n  // Auto-imported components (not in script bindings)\n",
+                    );
+                    has_unresolved = true;
+                }
+                ts.push_str(&format!(
+                    "  const {}: any = undefined as any;\n",
+                    name
+                ));
+            }
+
+            ts.push_str("\n  // Mark used components as referenced\n");
             for component in &summary.used_components {
                 ts.push_str(&format!("  void {};\n", component));
             }
@@ -493,14 +527,15 @@ fn generate_props_variables(ts: &mut String, summary: &Croquis) {
         ts.push_str("  // Props are available in template as variables\n");
         ts.push_str("  // Access via `propName` or `props.propName`\n");
         ts.push_str("  const props: Props = {} as Props;\n");
+        ts.push_str("  void props; // Mark as used to avoid TS6133\n");
 
         // Generate individual prop variables for direct access pattern {{ propName }}
-        // Note: If only props.propName is used, the individual variable will show as unused
         for prop in props {
             ts.push_str(&format!(
                 "  const {} = props[\"{}\"];\n",
                 prop.name, prop.name
             ));
+            ts.push_str(&format!("  void {};\n", prop.name));
         }
         ts.push('\n');
     }
@@ -711,6 +746,8 @@ fn generate_scope_closures(
                         "  const __slot_{} = ({}: any) => {{\n",
                         data.name, props_pattern
                     ));
+                    // Mark slot props as used to avoid TS6133
+                    ts.push_str(&format!("    void {};\n", props_pattern));
 
                     // Generate expressions in this scope
                     if let Some(exprs) = expressions_by_scope.get(&scope_id) {
@@ -745,20 +782,21 @@ fn generate_scope_closures(
                         };
 
                         // Generate type extraction for component event
+                        // Use __P/__A prefixed names to avoid collision with user generic params
                         ts.push_str(&format!(
-                            "  type __{}_{}_event = typeof {} extends {{ new (): {{ $props: infer P }} }}\n",
+                            "  type __{}_{}_event = typeof {} extends {{ new (): {{ $props: infer __P }} }}\n",
                             component_name, safe_event_name, component_name
                         ));
                         ts.push_str(&format!(
-                            "    ? P extends {{ {}?: (arg: infer A, ...rest: any[]) => any }} ? A : unknown\n",
+                            "    ? __P extends {{ {}?: (arg: infer __A, ...rest: any[]) => any }} ? __A : unknown\n",
                             prop_key
                         ));
                         ts.push_str(&format!(
-                            "    : typeof {} extends (props: infer P) => any\n",
+                            "    : typeof {} extends (props: infer __P) => any\n",
                             component_name
                         ));
                         ts.push_str(&format!(
-                            "      ? P extends {{ {}?: (arg: infer A, ...rest: any[]) => any }} ? A : unknown\n",
+                            "      ? __P extends {{ {}?: (arg: infer __A, ...rest: any[]) => any }} ? __A : unknown\n",
                             prop_key
                         ));
                         ts.push_str("      : unknown;\n");
@@ -865,10 +903,21 @@ fn generate_scope_closures(
 
     // Handle undefined references
     if !summary.undefined_refs.is_empty() {
+        // Collect type export names to exclude from undefined refs
+        let type_export_names: std::collections::HashSet<&str> = summary
+            .type_exports
+            .iter()
+            .map(|te| te.name.as_str())
+            .collect();
+
         ts.push_str("\n  // Undefined references from template:\n");
         let mut seen_names: std::collections::HashSet<&str> = std::collections::HashSet::new();
         for undef in &summary.undefined_refs {
             if !seen_names.insert(undef.name.as_str()) {
+                continue;
+            }
+            // Skip names that match type exports (these are type-level, not value-level)
+            if type_export_names.contains(undef.name.as_str()) {
                 continue;
             }
 
@@ -918,7 +967,7 @@ fn generate_scope_closures(
                 src_start, src_end
             ));
             ts.push_str(&format!(
-                "  type __{}_Props_{} = typeof {} extends {{ new (): {{ $props: infer P }} }} ? P : (typeof {} extends (props: infer P) => any ? P : {{}});\n",
+                "  type __{}_Props_{} = typeof {} extends {{ new (): {{ $props: infer __P }} }} ? __P : (typeof {} extends (props: infer __P) => any ? __P : {{}});\n",
                 component_name, idx, component_name, component_name
             ));
 
