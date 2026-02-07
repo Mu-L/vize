@@ -8,6 +8,7 @@ expression: virtual_ts
 // ============================================
 
 // ========== Module Scope (imports) ==========
+import { ref } from 'vue'
 
 // ========== Setup Scope ==========
 function __setup() {
@@ -26,13 +27,14 @@ function __setup() {
 
   // User setup code
   
-  interface Props {
-    title: string
-    count?: number
+  
+  interface Item {
+    id: number
+    name: string
   }
   
-  const props = defineProps<Props>()
-  // @vize-map: 1567:1671 -> 0:90
+  const items = ref<Item[]>([])
+  // @vize-map: 1593:1689 -> 0:106
 
   // ========== Template Scope (inherits from setup) ==========
   (function __template() {
@@ -44,18 +46,16 @@ function __setup() {
     // Mark template context as used
     void $attrs; void $slots; void $refs; void $emit;
 
-  // Props are available in template as variables
-  // Access via `propName` or `props.propName`
-  const props: Props = {} as Props;
 
-  void (props.title); // Interpolation
-  // @vize-map: expr -> 145:156
-  void (props.count); // VIf
-  // @vize-map: expr -> 176:187
-  if (props.count) {
-    void (props.count); // Interpolation
-    // @vize-map: expr -> 199:210
-  }
+  // v-for scope: id in items
+  (items).forEach((id: typeof items[number], name: number) => {
+    void (id); // VBind
+    // @vize-map: expr -> 203:205
+    void (id); // Interpolation
+    // @vize-map: expr -> 217:219
+    void (name); // Interpolation
+    // @vize-map: expr -> 227:231
+  });
   })();
 }
 
@@ -63,6 +63,7 @@ function __setup() {
 __setup();
 
 // ========== Exported Types ==========
+export type Props = {};
 
 export type Emits = {};
 export type Slots = {};

@@ -8,6 +8,7 @@ expression: virtual_ts
 // ============================================
 
 // ========== Module Scope (imports) ==========
+import { ref } from 'vue'
 
 // ========== Setup Scope ==========
 function __setup() {
@@ -26,13 +27,11 @@ function __setup() {
 
   // User setup code
   
-  interface Props {
-    title: string
-    count?: number
-  }
   
-  const props = defineProps<Props>()
-  // @vize-map: 1567:1671 -> 0:90
+  const text = ref('')
+  const checked = ref(false)
+  const selected = ref('option1')
+  // @vize-map: 1593:1685 -> 0:108
 
   // ========== Template Scope (inherits from setup) ==========
   (function __template() {
@@ -44,18 +43,12 @@ function __setup() {
     // Mark template context as used
     void $attrs; void $slots; void $refs; void $emit;
 
-  // Props are available in template as variables
-  // Access via `propName` or `props.propName`
-  const props: Props = {} as Props;
-
-  void (props.title); // Interpolation
-  // @vize-map: expr -> 145:156
-  void (props.count); // VIf
-  // @vize-map: expr -> 176:187
-  if (props.count) {
-    void (props.count); // Interpolation
-    // @vize-map: expr -> 199:210
-  }
+  void (text); // VModel
+  // @vize-map: expr -> 182:186
+  void (checked); // VModel
+  // @vize-map: expr -> 227:234
+  void (selected); // VModel
+  // @vize-map: expr -> 260:268
   })();
 }
 
@@ -63,6 +56,7 @@ function __setup() {
 __setup();
 
 // ========== Exported Types ==========
+export type Props = {};
 
 export type Emits = {};
 export type Slots = {};

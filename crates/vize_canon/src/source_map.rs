@@ -549,4 +549,43 @@ mod tests {
         assert!(hover_only.has(MappingFlags::DIAGNOSTICS));
         assert!(!hover_only.has(MappingFlags::COMPLETION));
     }
+
+    #[test]
+    fn test_source_map_empty() {
+        let map = SourceMap::new();
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+        assert_eq!(map.to_generated(0), None);
+        assert_eq!(map.to_source(0), None);
+    }
+
+    #[test]
+    fn test_source_range_to_generated() {
+        let mut map = SourceMap::with_capacity(1);
+        map.push_simple(10, 20, 100, 110);
+        map.build();
+
+        let gen = map.source_range_to_generated(Span::new(10, 20));
+        assert_eq!(gen, Some(Span::new(100, 110)));
+    }
+
+    #[test]
+    fn test_generated_range_to_source() {
+        let mut map = SourceMap::with_capacity(1);
+        map.push_simple(10, 20, 100, 110);
+        map.build();
+
+        let src = map.generated_range_to_source(Span::new(100, 110));
+        assert_eq!(src, Some(Span::new(10, 20)));
+    }
+
+    #[test]
+    fn test_offset_to_position_edge_cases() {
+        // Single line, no newlines
+        assert_eq!(offset_to_position("hello", 3), Position::new(0, 3));
+        // Empty string
+        assert_eq!(offset_to_position("", 0), Position::new(0, 0));
+        // Offset beyond end
+        assert_eq!(offset_to_position("ab", 10), Position::new(0, 2));
+    }
 }

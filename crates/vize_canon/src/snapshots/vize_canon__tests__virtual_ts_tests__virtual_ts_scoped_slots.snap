@@ -8,6 +8,8 @@ expression: virtual_ts
 // ============================================
 
 // ========== Module Scope (imports) ==========
+import { ref } from 'vue'
+import MyList from './MyList.vue'
 
 // ========== Setup Scope ==========
 function __setup() {
@@ -26,13 +28,9 @@ function __setup() {
 
   // User setup code
   
-  interface Props {
-    title: string
-    count?: number
-  }
   
-  const props = defineProps<Props>()
-  // @vize-map: 1567:1671 -> 0:90
+  const items = ref(['a', 'b', 'c'])
+  // @vize-map: 1627:1670 -> 0:97
 
   // ========== Template Scope (inherits from setup) ==========
   (function __template() {
@@ -44,18 +42,34 @@ function __setup() {
     // Mark template context as used
     void $attrs; void $slots; void $refs; void $emit;
 
-  // Props are available in template as variables
-  // Access via `propName` or `props.propName`
-  const props: Props = {} as Props;
+  void (items); // VBind
+  // @vize-map: expr -> 161:166
 
-  void (props.title); // Interpolation
-  // @vize-map: expr -> 145:156
-  void (props.count); // VIf
-  // @vize-map: expr -> 176:187
-  if (props.count) {
-    void (props.count); // Interpolation
-    // @vize-map: expr -> 199:210
-  }
+  // v-slot scope: #default
+  const __slot_default = (slotProps: any) => {
+    void (index); // Interpolation
+    // @vize-map: expr -> 226:231
+    void (item); // Interpolation
+    // @vize-map: expr -> 239:243
+  };
+
+  // v-slot scope: #header
+  const __slot_header = (slotProps: any) => {
+    void (title); // Interpolation
+    // @vize-map: expr -> 318:323
+  };
+
+  // Component props type declarations
+  // @vize-map: component -> 145:168
+  type __MyList_Props_0 = typeof MyList extends { new (): { $props: infer P } } ? P : (typeof MyList extends (props: infer P) => any ? P : {});
+  type __MyList_0_prop_items = __MyList_Props_0 extends { 'items'?: infer T } ? T : __MyList_Props_0 extends { 'items': infer T } ? T : unknown;
+
+  // Component props value checks (template scope)
+  // @vize-map: prop -> 153:166
+  const __prop_0_items: __MyList_0_prop_items = items;
+
+  // Mark imported components as used
+  void MyList;
   })();
 }
 
@@ -63,6 +77,7 @@ function __setup() {
 __setup();
 
 // ========== Exported Types ==========
+export type Props = {};
 
 export type Emits = {};
 export type Slots = {};

@@ -41,17 +41,12 @@ void $attrs; void $slots; void $refs; void $emit;
 "#;
 
 /// Virtual TypeScript generator.
-pub struct VirtualTsGenerator {
-    #[allow(dead_code)]
-    rewriter: ImportRewriter,
-}
+pub struct VirtualTsGenerator;
 
 impl VirtualTsGenerator {
     /// Create a new generator.
     pub fn new() -> Self {
-        Self {
-            rewriter: ImportRewriter::new(),
-        }
+        Self
     }
 
     /// Generate virtual TypeScript from SFC descriptor.
@@ -150,7 +145,7 @@ impl VirtualTsGenerator {
         VirtualTsResult { code, source_map }
     }
 
-    /// Emit imports with .vue -> .vue.ts rewrite.
+    /// Emit imports with .vue -> .vue.ts rewrite using OXC-based ImportRewriter.
     fn emit_imports(
         &self,
         code: &mut String,
@@ -158,47 +153,18 @@ impl VirtualTsGenerator {
         _source_map: &mut SfcSourceMap,
         _loc: &vize_atelier_sfc::BlockLocation,
     ) {
-        for line in script.lines() {
+        // Use ImportRewriter for AST-based import rewriting
+        let rewriter = ImportRewriter::new();
+        let rewrite_result = rewriter.rewrite(script, oxc_span::SourceType::ts());
+
+        // Extract import lines from the rewritten code
+        for line in rewrite_result.code.lines() {
             let trimmed = line.trim();
             if trimmed.starts_with("import ") {
-                // Rewrite .vue imports to .vue.ts
-                let rewritten = self.rewrite_import_line(trimmed);
                 code.push_str("  ");
-                code.push_str(&rewritten);
+                code.push_str(line);
                 code.push('\n');
             }
-        }
-    }
-
-    /// Rewrite a single import line.
-    fn rewrite_import_line(&self, line: &str) -> String {
-        // Simple string replacement for now
-        // TODO: Use proper parser for complex cases
-        if line.contains(".vue'") {
-            line.replace(".vue'", ".vue.ts'")
-        } else if line.contains(".vue\"") {
-            line.replace(".vue\"", ".vue.ts\"")
-        } else {
-            line.to_string()
-        }
-    }
-
-    /// Emit script content excluding imports (with indentation for function scope).
-    #[allow(dead_code)]
-    fn emit_script_content(&self, code: &mut String, script: &str) {
-        for line in script.lines() {
-            let trimmed = line.trim();
-            // Skip import statements (already emitted in module scope)
-            if trimmed.starts_with("import ") {
-                continue;
-            }
-            // Skip empty lines at the start
-            if code.ends_with("{\n") && trimmed.is_empty() {
-                continue;
-            }
-            code.push_str("  ");
-            code.push_str(line);
-            code.push('\n');
         }
     }
 
@@ -283,7 +249,7 @@ impl VirtualTsGenerator {
 
 impl Default for VirtualTsGenerator {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -320,16 +286,12 @@ const message = ref('Hello')
 
     #[test]
     fn test_rewrite_import_line() {
-        let generator = VirtualTsGenerator::new();
+        let rewriter = super::super::import_rewriter::ImportRewriter::new();
 
-        assert_eq!(
-            generator.rewrite_import_line("import App from './App.vue'"),
-            "import App from './App.vue.ts'"
-        );
+        let result = rewriter.rewrite("import App from './App.vue'", oxc_span::SourceType::ts());
+        assert_eq!(result.code, "import App from './App.vue.ts'");
 
-        assert_eq!(
-            generator.rewrite_import_line("import { ref } from 'vue'"),
-            "import { ref } from 'vue'"
-        );
+        let result = rewriter.rewrite("import { ref } from 'vue'", oxc_span::SourceType::ts());
+        assert_eq!(result.code, "import { ref } from 'vue'");
     }
 }
