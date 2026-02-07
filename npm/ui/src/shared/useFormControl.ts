@@ -1,4 +1,4 @@
-import { h, onMounted, ref, watch } from 'vue'
+import { h, onMounted, ref } from 'vue'
 
 export interface UseFormControlOptions {
   type?: string

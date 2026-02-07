@@ -108,10 +108,10 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (isHorizontal) {
     if (event.key === kbd.ARROW_LEFT) {
-      isRtl ? scrollNext() : scrollPrev()
+      if (isRtl) { scrollNext() } else { scrollPrev() }
       handled = true
     } else if (event.key === kbd.ARROW_RIGHT) {
-      isRtl ? scrollPrev() : scrollNext()
+      if (isRtl) { scrollPrev() } else { scrollNext() }
       handled = true
     }
   } else {

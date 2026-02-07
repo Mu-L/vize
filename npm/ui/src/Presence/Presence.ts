@@ -1,4 +1,4 @@
-import { computed, defineComponent, h, toRef, watch } from 'vue'
+import { defineComponent, toRef } from 'vue'
 import { usePresence } from './usePresence'
 
 export const Presence = defineComponent({

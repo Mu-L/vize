@@ -74,7 +74,7 @@ export function monotonePath(points: [number, number][]): string {
 
   // Monotone cubic Hermite interpolation (Fritsch-Carlson)
   const n = points.length
-  const tangents: number[] = new Array(n)
+  const tangents: number[] = Array.from({ length: n })
 
   // Compute slopes
   const deltas: number[] = []
