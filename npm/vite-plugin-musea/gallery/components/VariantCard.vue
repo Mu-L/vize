@@ -10,13 +10,23 @@ import MultiViewportPreview from './MultiViewportPreview.vue'
 const props = defineProps<{
   artPath: string
   variant: ArtVariant
+  componentName?: string
 }>()
 
 const copied = ref(false)
 
+function resolveSelfReferences(template: string): string {
+  if (!props.componentName) return template
+  return template
+    .replace(/<Self(\s|>|\/)/g, `<${props.componentName}$1`)
+    .replace(/<\/Self>/g, `</${props.componentName}>`)
+}
+
+const resolvedTemplate = computed(() => resolveSelfReferences(props.variant.template))
+
 async function copyTemplate() {
   try {
-    await navigator.clipboard.writeText(props.variant.template)
+    await navigator.clipboard.writeText(resolvedTemplate.value)
     copied.value = true
     setTimeout(() => { copied.value = false }, 2000)
   } catch {
@@ -168,7 +178,7 @@ watch(measureEnabled, (enabled) => {
       </div>
     </div>
 
-    <VariantSourceCode v-if="showSource" :code="variant.template" />
+    <VariantSourceCode v-if="showSource" :code="resolvedTemplate" />
   </div>
 </template>
 

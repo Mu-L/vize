@@ -115,6 +115,7 @@ watch(artPath, () => {
           :key="variant.name"
           :art-path="art.path"
           :variant="variant"
+          :component-name="art.metadata.title"
         />
       </div>
 
