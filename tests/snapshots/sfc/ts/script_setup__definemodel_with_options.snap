@@ -1,24 +1,26 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
 import { useModel as _useModel } from 'vue'
-import { defineComponent, PropType } from 'vue'
-import { openBlock as _openBlock, createElementBlock as _createElementBlock, withDirectives as _withDirectives, unref as _unref, vModelText as _vModelText } from "vue"
+import { defineComponent as _defineComponent } from 'vue'
+import { openBlock as _openBlock, createElementBlock as _createElementBlock, withDirectives as _withDirectives, vModelText as _vModelText } from "vue"
 
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   props: {
-    modelValue: { type: Number, default: 0 },
+    "modelValue": { type: Number, default: 0 },
+    "modelModifiers": {}
   },
   emits: ["update:modelValue"],
   setup(__props) {
 
 const count = _useModel(__props, "modelValue")
 
-return (_ctx, _cache) => {
-  return _withDirectives((_openBlock(), _createElementBlock("input", { "onUpdate:modelValue": $event => ((count.value) = $event), type: "number" }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [ [_vModelText, _unref(count)] ])
+return (_ctx: any,_cache: any) => {
+  return _withDirectives((_openBlock(), _createElementBlock("input", { "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event: any) => ((count).value = $event)), type: "number" }, null, 512 /* NEED_PATCH */)), [ [_vModelText, count.value] ])
 }
 }
 

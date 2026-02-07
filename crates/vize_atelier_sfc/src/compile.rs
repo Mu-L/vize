@@ -45,10 +45,20 @@ pub fn compile_sfc(
             .unwrap_or(false);
 
     // is_ts controls output format:
-    // - true: output TypeScript (preserve TypeScript syntax)
+    // - true: output TypeScript (preserve TypeScript syntax, wrap in defineComponent)
     // - false: output JavaScript (transpile TypeScript to JS)
-    // The CLI should set is_ts = true for preserve mode, false for downcompile mode
-    let is_ts = options.script.is_ts || options.template.is_ts;
+    // Auto-detect from descriptor's lang attributes when not explicitly set
+    let source_has_ts = descriptor
+        .script_setup
+        .as_ref()
+        .and_then(|s| s.lang.as_ref())
+        .is_some_and(|l| l == "ts" || l == "tsx")
+        || descriptor
+            .script
+            .as_ref()
+            .and_then(|s| s.lang.as_ref())
+            .is_some_and(|l| l == "ts" || l == "tsx");
+    let is_ts = options.script.is_ts || options.template.is_ts || source_has_ts;
 
     // Extract component name from filename
     let component_name = extract_component_name(filename);
@@ -225,7 +235,36 @@ pub fn compile_sfc(
     // Analyze script first to get bindings
     let mut ctx = ScriptCompileContext::new(&script_setup.content);
     ctx.analyze();
-    let script_bindings = ctx.bindings.clone();
+    let mut script_bindings = ctx.bindings.clone();
+
+    // Also register exported bindings from normal script (e.g., export const n = 1)
+    // These are accessible in the template without _ctx. prefix
+    if has_script {
+        let script = descriptor.script.as_ref().unwrap();
+        let normal_ctx = ScriptCompileContext::new(&script.content);
+        // Extract exported variable names from normal script
+        for line in script.content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("export const ") || trimmed.starts_with("export let ") {
+                let rest = if let Some(r) = trimmed.strip_prefix("export const ") {
+                    r
+                } else {
+                    trimmed.strip_prefix("export let ").unwrap()
+                };
+                // Extract variable name before = or : or whitespace
+                if let Some(name_end) = rest.find(|c: char| c == '=' || c == ':' || c.is_whitespace()) {
+                    let name = rest[..name_end].trim();
+                    if !name.is_empty() && !name.starts_with('{') && !name.starts_with('[') {
+                        script_bindings.bindings.insert(
+                            name.to_string(),
+                            BindingType::SetupConst,
+                        );
+                    }
+                }
+            }
+        }
+        drop(normal_ctx);
+    }
 
     // Compile template with bindings (if present) to get the render function
     let template_result = if let Some(template) = &descriptor.template {
@@ -263,10 +302,17 @@ pub fn compile_sfc(
     // 2. User imports
     // 3. Hoisted literal consts (module-level)
     // 4. export default { __name, props?, emits?, setup(__props) { ... return (_ctx, _cache) => { ... } } }
+    // Detect if the source script setup uses TypeScript
+    let source_is_ts = script_setup
+        .lang
+        .as_ref()
+        .is_some_and(|l| l == "ts" || l == "tsx");
+
     let script_result = compile_script_setup_inline(
         &script_setup.content,
         &component_name,
         is_ts,
+        source_is_ts,
         TemplateParts {
             imports: &template_imports,
             hoisted: &template_hoisted,
@@ -395,11 +441,22 @@ fn extract_normal_script_content(content: &str, source_is_ts: bool, output_is_ts
     // Collect spans of statements to skip (export default declarations)
     let mut skip_spans: Vec<(u32, u32)> = Vec::new();
 
+    // Collect spans to rewrite: (start, end, replacement)
+    let mut rewrites: Vec<(u32, u32, String)> = Vec::new();
+
     for stmt in program.body.iter() {
         match stmt {
-            // Skip export default declarations
-            Statement::ExportDefaultDeclaration(_) => {
-                skip_spans.push((stmt.span().start, stmt.span().end));
+            // Rewrite export default declarations to const __default__ = ...
+            Statement::ExportDefaultDeclaration(decl) => {
+                // Find the span of "export default" keyword portion
+                let stmt_start = stmt.span().start;
+                let stmt_end = stmt.span().end;
+                let stmt_text = &content[stmt_start as usize..stmt_end as usize];
+                // Replace "export default" with "const __default__ ="
+                let rewritten = stmt_text
+                    .replacen("export default", "const __default__ =", 1);
+                rewrites.push((stmt_start, stmt_end, rewritten));
+                let _ = decl; // suppress unused
             }
             // Skip named exports that include default: export { foo as default }
             Statement::ExportNamedDeclaration(decl) => {
@@ -415,9 +472,22 @@ fn extract_normal_script_content(content: &str, source_is_ts: bool, output_is_ts
         }
     }
 
-    // Build output by copying content, skipping the export default statements
+    // Build output by copying content, applying rewrites and skipping as needed
+    // Merge all modifications into a sorted list
+    let mut modifications: Vec<(u32, u32, Option<String>)> = Vec::new();
+    for (start, end, replacement) in rewrites {
+        modifications.push((start, end, Some(replacement)));
+    }
     for (start, end) in &skip_spans {
+        modifications.push((*start, *end, None));
+    }
+    modifications.sort_by_key(|m| m.0);
+
+    for (start, end, replacement) in &modifications {
         output.push_str(&content[last_end..*start as usize]);
+        if let Some(repl) = replacement {
+            output.push_str(repl);
+        }
         last_end = *end as usize;
     }
     if last_end < content.len() {

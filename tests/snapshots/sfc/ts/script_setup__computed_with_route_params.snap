@@ -1,15 +1,16 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
-import { defineComponent } from 'vue'
+import { defineComponent as _defineComponent } from 'vue'
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, toDisplayString as _toDisplayString } from "vue"
 
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   setup(__props) {
 
 const route = useRoute();
@@ -17,7 +18,7 @@ const studentId = computed(() =>
   route.params.studentId ? parseInt(route.params.studentId) : null
 );
 
-return (_ctx, _cache) => {
+return (_ctx: any,_cache: any) => {
   return (_openBlock(), _createElementBlock("div", null, _toDisplayString(studentId.value), 1 /* TEXT */))
 }
 }

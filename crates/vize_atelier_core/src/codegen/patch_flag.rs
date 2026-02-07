@@ -80,6 +80,7 @@ fn calculate_element_patch_info_inner(
     // Pre-allocate with small capacity - most elements have few dynamic props
     let mut dynamic_props: Vec<String> = Vec::with_capacity(4);
     let mut has_vshow = false;
+    let mut has_vmodel = false;
     let mut has_custom_directive = false;
     let mut has_ref = false;
 
@@ -280,6 +281,8 @@ fn calculate_element_patch_info_inner(
                     }
                 }
                 "model" => {
+                    // v-model on native elements needs NEED_PATCH
+                    has_vmodel = true;
                     // v-model with dynamic argument → FULL_PROPS
                     if let Some(arg) = &dir.arg {
                         match arg {
@@ -349,7 +352,7 @@ fn calculate_element_patch_info_inner(
     // (children already cause the element to be tracked for patching by the runtime)
     // This must come after TEXT flag check so we don't add NEED_PATCH when TEXT is about to be set
     let custom_dir_needs_patch = has_custom_directive && el.children.is_empty();
-    if (has_vshow || custom_dir_needs_patch || has_ref) && flag == 0 {
+    if (has_vshow || has_vmodel || custom_dir_needs_patch || has_ref) && flag == 0 {
         flag |= 512; // NEED_PATCH
     }
 

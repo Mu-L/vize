@@ -43,6 +43,7 @@ fn main() {
         ("vapor/edge-cases", CompilerMode::Vapor),
         ("sfc/basic", CompilerMode::Sfc),
         ("sfc/script-setup", CompilerMode::Sfc),
+        ("sfc/patches", CompilerMode::Sfc),
     ];
 
     println!("Vue Compiler Coverage Report");

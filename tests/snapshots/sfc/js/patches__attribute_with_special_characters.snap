@@ -1,14 +1,21 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 219
 expression: js_output
 ---
-import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue";
-const _hoisted_1 = { title: "Hello &quot;World&quot;" };
+import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
+
+
+const _hoisted_1 = { title: "Hello &quot;World&quot;" }
+
 export default {
-  __name: "test",
+  __name: 'test',
   setup(__props) {
-    return (_ctx, _cache) => {
-      return _openBlock(), _createElementBlock("div", _hoisted_1, "Content");
-    };
-  }
-};
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createElementBlock("div", _hoisted_1, "Content"))
+}
+}
+
+}

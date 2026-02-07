@@ -1,23 +1,20 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 219
 expression: js_output
 ---
-import { openBlock as _openBlock, createBlock as _createBlock, createElementVNode as _createElementVNode, toDisplayString as _toDisplayString, withCtx as _withCtx } from "vue";
-import DataTable from "./DataTable.vue";
+import { openBlock as _openBlock, createBlock as _createBlock, createElementVNode as _createElementVNode, toDisplayString as _toDisplayString, withCtx as _withCtx } from "vue"
+
+import DataTable from './DataTable.vue'
+
 export default {
-  __name: "test",
+  __name: 'test',
   setup(__props) {
-    return (_ctx, _cache) => {
-      return _openBlock(), _createBlock(DataTable, null, {
-        "item-header": _withCtx(({ item }) => [_createElementVNode(
-          "span",
-          null,
-          _toDisplayString(_ctx.item.title),
-          1
-          /* TEXT */
-)]),
-        _: 1
-      });
-    };
-  }
-};
+
+
+return (_ctx, _cache) => {
+  return (_openBlock(), _createBlock(DataTable, null, { "item-header": _withCtx(({ item }) => [ _createElementVNode("span", null, _toDisplayString(item.title), 1 /* TEXT */) ]), _: 1 /* STABLE */ }))
+}
+}
+
+}

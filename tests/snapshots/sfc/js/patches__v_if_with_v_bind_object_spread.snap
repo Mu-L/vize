@@ -1,23 +1,25 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 219
 expression: js_output
 ---
-import { openBlock as _openBlock, createBlock as _createBlock, createCommentVNode as _createCommentVNode, mergeProps as _mergeProps } from "vue";
-import { ref, computed } from "vue";
-import Button from "./Button.vue";
+import { openBlock as _openBlock, createBlock as _createBlock, createCommentVNode as _createCommentVNode, mergeProps as _mergeProps } from "vue"
+
+import { ref, computed } from 'vue'
+import Button from './Button.vue'
+
 export default {
-  __name: "test",
+  __name: 'test',
   setup(__props) {
-    const isActive = ref(true);
-    const buttonProps = computed(() => ({
-      disabled: false,
-      type: "primary"
-    }));
-    return (_ctx, _cache) => {
-      return isActive.value ? (_openBlock(), _createBlock(Button, _mergeProps(buttonProps.value, {
-        key: 0,
-        onClick: _ctx.handleClick
-      }))) : _createCommentVNode("v-if", true);
-    };
-  }
-};
+
+const isActive = ref(true)
+const buttonProps = computed(() => ({ disabled: false, type: 'primary' }))
+
+return (_ctx, _cache) => {
+  return (isActive.value)
+      ? (_openBlock(), _createBlock(Button, _mergeProps(buttonProps.value, { key: 0, onClick: _cache[0] || (_cache[0] = (...args) => (_ctx.handleClick && _ctx.handleClick(...args))) })))
+      : _createCommentVNode("v-if", true)
+}
+}
+
+}

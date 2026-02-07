@@ -130,11 +130,30 @@ fn is_runtime_safe_ts_type(ts_type: &str) -> bool {
     false
 }
 
+/// Check if PropType<T> assertion is needed for a given TS type and its JS constructor.
+/// Primitives (string→String, number→Number, boolean→Boolean) don't need PropType.
+/// Complex types (arrays, objects, functions, user-defined types) do.
+fn needs_prop_type_assertion(ts_type: &str, js_type: &str) -> bool {
+    let ts = ts_type.trim().to_lowercase();
+    // Simple primitive mappings don't need PropType
+    match ts.as_str() {
+        "string" | "number" | "boolean" | "symbol" | "bigint" => return false,
+        _ => {}
+    }
+    // If js_type is null, the type can't be represented at runtime - no PropType
+    if js_type == "null" {
+        return false;
+    }
+    // For complex types (Array, Object, Function, etc.), PropType is needed
+    true
+}
+
 /// Compile script setup with inline template (Vue's inline template mode)
 pub fn compile_script_setup_inline(
     content: &str,
     component_name: &str,
     is_ts: bool,
+    source_is_ts: bool,
     template: TemplateParts<'_>,
     normal_script_content: Option<&str>,
 ) -> Result<ScriptCompileResult, SfcError> {
@@ -174,21 +193,11 @@ pub fn compile_script_setup_inline(
         output.extend_from_slice(b"import { useModel as _useModel } from 'vue'\n");
     }
 
-    // defineComponent and PropType imports for TypeScript
+    // defineComponent import for TypeScript
     if is_ts {
-        // Check if we need PropType (when there are typed props)
-        let needs_prop_type = ctx
-            .macros
-            .define_props
-            .as_ref()
-            .is_some_and(|p| p.type_args.is_some() || !p.args.is_empty())
-            || !ctx.macros.define_models.is_empty();
-
-        if needs_prop_type {
-            output.extend_from_slice(b"import { defineComponent, PropType } from 'vue'\n");
-        } else {
-            output.extend_from_slice(b"import { defineComponent } from 'vue'\n");
-        }
+        output.extend_from_slice(
+            b"import { defineComponent as _defineComponent } from 'vue'\n",
+        );
     }
 
     // Template imports (Vue helpers)
@@ -201,6 +210,8 @@ pub fn compile_script_setup_inline(
     // Extract user imports
     let mut user_imports = Vec::new();
     let mut setup_lines = Vec::new();
+    // Collect TypeScript interfaces/types to preserve at module level (before export default)
+    let mut ts_declarations: Vec<String> = Vec::new();
 
     // Parse script content - extract imports and setup code
     let mut in_import = false;
@@ -434,8 +445,14 @@ pub fn compile_script_setup_inline(
             continue;
         }
 
-        // Handle TypeScript interface declarations (skip them)
+        // Handle TypeScript interface declarations (collect for TS output, skip for JS)
         if in_ts_interface {
+            if is_ts {
+                if let Some(last) = ts_declarations.last_mut() {
+                    last.push('\n');
+                    last.push_str(line);
+                }
+            }
             ts_interface_brace_depth += trimmed.matches('{').count() as i32;
             ts_interface_brace_depth -= trimmed.matches('}').count() as i32;
             if ts_interface_brace_depth <= 0 {
@@ -449,14 +466,23 @@ pub fn compile_script_setup_inline(
             in_ts_interface = true;
             ts_interface_brace_depth =
                 trimmed.matches('{').count() as i32 - trimmed.matches('}').count() as i32;
+            if is_ts {
+                ts_declarations.push(line.to_string());
+            }
             if ts_interface_brace_depth <= 0 {
                 in_ts_interface = false;
             }
             continue;
         }
 
-        // Handle TypeScript type declarations (skip them)
+        // Handle TypeScript type declarations (collect for TS output, skip for JS)
         if in_ts_type {
+            if is_ts {
+                if let Some(last) = ts_declarations.last_mut() {
+                    last.push('\n');
+                    last.push_str(line);
+                }
+            }
             // Track balanced brackets for complex types like: type X = { a: string } | { b: number }
             ts_type_depth += trimmed.matches('{').count() as i32;
             ts_type_depth -= trimmed.matches('}').count() as i32;
@@ -507,10 +533,21 @@ pub fn compile_script_setup_inline(
                             && !trimmed.ends_with('{')
                             && !trimmed.ends_with('=')))
                 {
-                    // Single line type, just skip
+                    // Single line type - collect for TS, skip for JS
+                    if is_ts {
+                        ts_declarations.push(line.to_string());
+                    }
                     continue;
                 }
+                if is_ts {
+                    ts_declarations.push(line.to_string());
+                }
                 in_ts_type = true;
+            } else {
+                // type without equals (e.g., `type X` on its own line) - rare but handle
+                if is_ts {
+                    ts_declarations.push(line.to_string());
+                }
             }
             continue;
         }
@@ -523,7 +560,14 @@ pub fn compile_script_setup_inline(
         }
     }
 
-    // User imports (with blank line after template imports)
+    // Template hoisted consts (e.g., const _hoisted_1 = { class: "..." })
+    // Must come BEFORE user imports to match Vue's output order
+    if !template.hoisted.is_empty() {
+        output.push(b'\n');
+        output.extend_from_slice(template.hoisted.as_bytes());
+    }
+
+    // User imports (after hoisted consts)
     for import in &user_imports {
         if let Some(processed) = process_import_for_types(import) {
             if !processed.is_empty() {
@@ -532,11 +576,25 @@ pub fn compile_script_setup_inline(
         }
     }
 
-    // Template hoisted consts (e.g., const _hoisted_1 = { class: "..." })
-    if !template.hoisted.is_empty() {
+    // Output TypeScript declarations (interfaces, types) after user imports, before export default
+    if !ts_declarations.is_empty() {
         output.push(b'\n');
-        output.extend_from_slice(template.hoisted.as_bytes());
+        for decl in &ts_declarations {
+            output.extend_from_slice(decl.as_bytes());
+            output.push(b'\n');
+        }
     }
+
+    // Normal script content goes AFTER imports/hoisted, BEFORE component definition
+    // This matches Vue's @vue/compiler-sfc output order
+    let has_default_export = if let Some(ref normal_script) = preserved_normal_script {
+        output.push(b'\n');
+        output.extend_from_slice(normal_script.as_bytes());
+        output.push(b'\n');
+        normal_script.contains("const __default__")
+    } else {
+        false
+    };
 
     // Collect props and emits definitions into a buffer (output later after hoisted consts)
     let mut props_emits_buf: Vec<u8> = Vec::new();
@@ -590,25 +648,20 @@ pub fn compile_script_setup_inline(
 
     if let Some(ref props_macro) = ctx.macros.define_props {
         if let Some(ref type_args) = props_macro.type_args {
-            let prop_types = extract_prop_types_from_type(type_args);
+            // Resolve type references (interface/type alias names) to their definitions
+            let resolved_type_args = resolve_type_args(type_args, &ctx.interfaces, &ctx.type_aliases);
+            let prop_types = extract_prop_types_from_type(&resolved_type_args);
             if !prop_types.is_empty() || !model_infos.is_empty() {
                 props_emits_buf.extend_from_slice(b"  props: {\n");
-                let mut sorted_props: Vec<_> = prop_types.iter().collect();
-                sorted_props.sort_by(|a, b| a.0.cmp(b.0));
-                for (name, prop_type) in sorted_props {
+                let total_items = prop_types.len() + model_infos.len();
+                let mut item_idx = 0;
+                for (name, prop_type) in &prop_types {
+                    item_idx += 1;
                     props_emits_buf.extend_from_slice(b"    ");
                     props_emits_buf.extend_from_slice(name.as_bytes());
                     props_emits_buf.extend_from_slice(b": { type: ");
                     props_emits_buf.extend_from_slice(prop_type.js_type.as_bytes());
-                    if is_ts {
-                        if let Some(ref ts_type) = prop_type.ts_type {
-                            if is_runtime_safe_ts_type(ts_type) {
-                                props_emits_buf.extend_from_slice(b" as PropType<");
-                                props_emits_buf.extend_from_slice(ts_type.as_bytes());
-                                props_emits_buf.push(b'>');
-                            }
-                        }
-                    }
+                    // Note: Vue's compiler-sfc does NOT add `as PropType<T>` in inline mode output
                     props_emits_buf.extend_from_slice(b", required: ");
                     props_emits_buf.extend_from_slice(if prop_type.optional {
                         b"false"
@@ -625,7 +678,7 @@ pub fn compile_script_setup_inline(
                     }
                     if !has_default {
                         if let Some(ref destructure) = ctx.macros.props_destructure {
-                            if let Some(binding) = destructure.bindings.get(name) {
+                            if let Some(binding) = destructure.bindings.get(name.as_str()) {
                                 if let Some(ref default_val) = binding.default {
                                     props_emits_buf.extend_from_slice(b", default: ");
                                     props_emits_buf.extend_from_slice(default_val.as_bytes());
@@ -633,18 +686,28 @@ pub fn compile_script_setup_inline(
                             }
                         }
                     }
-                    props_emits_buf.extend_from_slice(b" },\n");
+                    props_emits_buf.extend_from_slice(b" }");
+                    if item_idx < total_items {
+                        props_emits_buf.push(b',');
+                    }
+                    props_emits_buf.push(b'\n');
                 }
                 for (model_name, _, options) in &model_infos {
-                    props_emits_buf.extend_from_slice(b"    ");
+                    props_emits_buf.extend_from_slice(b"    \"");
                     props_emits_buf.extend_from_slice(model_name.as_bytes());
-                    props_emits_buf.extend_from_slice(b": ");
+                    props_emits_buf.extend_from_slice(b"\": ");
                     if let Some(opts) = options {
                         props_emits_buf.extend_from_slice(opts.as_bytes());
                     } else {
                         props_emits_buf.extend_from_slice(b"{}");
                     }
                     props_emits_buf.extend_from_slice(b",\n");
+                }
+                // Remove trailing comma from last prop
+                if props_emits_buf.ends_with(b",\n") {
+                    let len = props_emits_buf.len();
+                    props_emits_buf[len - 2] = b'\n';
+                    props_emits_buf.truncate(len - 1);
                 }
                 props_emits_buf.extend_from_slice(b"  },\n");
             }
@@ -681,15 +744,31 @@ pub fn compile_script_setup_inline(
     if !model_infos.is_empty() && ctx.macros.define_props.is_none() {
         props_emits_buf.extend_from_slice(b"  props: {\n");
         for (model_name, _binding_name, options) in &model_infos {
-            props_emits_buf.extend_from_slice(b"    ");
+            // Model value prop
+            props_emits_buf.extend_from_slice(b"    \"");
             props_emits_buf.extend_from_slice(model_name.as_bytes());
-            props_emits_buf.extend_from_slice(b": ");
+            props_emits_buf.extend_from_slice(b"\": ");
             if let Some(opts) = options {
                 props_emits_buf.extend_from_slice(opts.as_bytes());
             } else {
                 props_emits_buf.extend_from_slice(b"{}");
             }
             props_emits_buf.extend_from_slice(b",\n");
+            // Model modifiers prop: "modelModifiers" for default, "<name>Modifiers" for named
+            props_emits_buf.extend_from_slice(b"    \"");
+            if model_name == "modelValue" {
+                props_emits_buf.extend_from_slice(b"modelModifiers");
+            } else {
+                props_emits_buf.extend_from_slice(model_name.as_bytes());
+                props_emits_buf.extend_from_slice(b"Modifiers");
+            }
+            props_emits_buf.extend_from_slice(b"\": {},\n");
+        }
+        // Remove trailing comma from last prop
+        if props_emits_buf.ends_with(b",\n") {
+            let len = props_emits_buf.len();
+            props_emits_buf[len - 2] = b'\n';
+            props_emits_buf.truncate(len - 1);
         }
         props_emits_buf.extend_from_slice(b"  },\n");
     }
@@ -789,18 +868,17 @@ pub fn compile_script_setup_inline(
         let options_args = ctx.macros.define_options.as_ref().unwrap().args.trim();
         output.extend_from_slice(options_args.as_bytes());
         output.extend_from_slice(b", {\n");
+    } else if has_default_export {
+        // Normal script has export default that was rewritten to __default__
+        // Use Object.assign to merge with setup component
+        output.extend_from_slice(b"export default /*@__PURE__*/Object.assign(__default__, {\n");
     } else if is_ts {
-        // TypeScript: use defineComponent
-        output.extend_from_slice(b"export default defineComponent({\n");
+        // TypeScript: use _defineComponent with __PURE__ annotation
+        output.extend_from_slice(b"export default /*@__PURE__*/_defineComponent({\n");
     } else {
         output.extend_from_slice(b"export default {\n");
     }
-    // Use 'name' for defineComponent (TypeScript), '__name' for plain object (JavaScript)
-    if is_ts {
-        output.extend_from_slice(b"  name: '");
-    } else {
-        output.extend_from_slice(b"  __name: '");
-    }
+    output.extend_from_slice(b"  __name: '");
     output.extend_from_slice(component_name.as_bytes());
     output.extend_from_slice(b"',\n");
 
@@ -820,10 +898,27 @@ pub fn compile_script_setup_inline(
         }
     }
 
-    if setup_args.is_empty() {
-        output.extend_from_slice(b"  setup(__props) {\n");
+    // Add `: any` type annotation to __props when there are typed props in TypeScript mode
+    let has_typed_props = is_ts
+        && ctx
+            .macros
+            .define_props
+            .as_ref()
+            .is_some_and(|p| p.type_args.is_some() || !p.args.is_empty());
+    let props_param = if has_typed_props {
+        "__props: any"
     } else {
-        output.extend_from_slice(b"  setup(__props, { ");
+        "__props"
+    };
+
+    if setup_args.is_empty() {
+        output.extend_from_slice(b"  setup(");
+        output.extend_from_slice(props_param.as_bytes());
+        output.extend_from_slice(b") {\n");
+    } else {
+        output.extend_from_slice(b"  setup(");
+        output.extend_from_slice(props_param.as_bytes());
+        output.extend_from_slice(b", { ");
         output.extend_from_slice(setup_args.join(", ").as_bytes());
         output.extend_from_slice(b" }) {\n");
     }
@@ -877,7 +972,11 @@ pub fn compile_script_setup_inline(
     // Inline render function as return (blank line before)
     output.push(b'\n');
     if !template.render_body.is_empty() {
-        output.extend_from_slice(b"return (_ctx, _cache) => {\n");
+        if is_ts {
+            output.extend_from_slice(b"return (_ctx: any,_cache: any) => {\n");
+        } else {
+            output.extend_from_slice(b"return (_ctx, _cache) => {\n");
+        }
 
         // Output component/directive resolution statements (preamble)
         for line in template.preamble.lines() {
@@ -913,7 +1012,7 @@ pub fn compile_script_setup_inline(
 
     output.extend_from_slice(b"}\n");
     output.push(b'\n');
-    if has_options || is_ts {
+    if has_options || has_default_export || is_ts {
         // Close defineComponent() or Object.assign()
         output.extend_from_slice(b"})\n");
     } else {
@@ -923,32 +1022,21 @@ pub fn compile_script_setup_inline(
     // Convert arena Vec<u8> to String - SAFETY: we only push valid UTF-8
     let output_str = unsafe { String::from_utf8_unchecked(output.into_iter().collect()) };
 
-    let final_code = if is_ts {
-        // Preserve TypeScript output for downstream toolchains.
-        if let Some(normal_script) = preserved_normal_script {
-            let mut combined = String::with_capacity(normal_script.len() + output_str.len() + 2);
-            combined.push_str(&normal_script);
-            combined.push_str("\n\n");
-            combined.push_str(&output_str);
-            combined
-        } else {
-            output_str
+    // Normal script content is already embedded in the output buffer (after imports, before component def)
+    let final_code = if is_ts || !source_is_ts {
+        // Preserve output as-is when:
+        // - is_ts: output should be TypeScript (preserve for downstream toolchains)
+        // - !source_is_ts: source is already JavaScript, no TS to strip
+        //   (OXC codegen would reformat the code, breaking carefully crafted template output)
+        let mut code = output_str;
+        // Add TypeScript annotations to $event parameters in event handlers
+        if is_ts {
+            code = code.replace("$event => (", "($event: any) => (");
         }
+        code
     } else {
-        // Transform TypeScript to JavaScript
-        let transformed_code = transform_typescript_to_js(&output_str);
-        // Prepend preserved normal script content (also transformed)
-        if let Some(normal_script) = preserved_normal_script {
-            let transformed_normal = transform_typescript_to_js(&normal_script);
-            let mut combined =
-                String::with_capacity(transformed_normal.len() + transformed_code.len() + 2);
-            combined.push_str(&transformed_normal);
-            combined.push_str("\n\n");
-            combined.push_str(&transformed_code);
-            combined
-        } else {
-            transformed_code
-        }
+        // Source is TypeScript but output should be JavaScript - transform to strip TS syntax
+        transform_typescript_to_js(&output_str)
     };
 
     Ok(ScriptCompileResult {
@@ -974,4 +1062,80 @@ fn extract_const_name(line: &str) -> Option<String> {
         return None;
     }
     Some(name.to_string())
+}
+
+/// Resolve type args that may be interface/type alias references.
+/// For `defineProps<Props>()` where `Props` is an interface name, resolves to the interface body.
+/// For intersection types like `BaseProps & ExtendedProps`, merges all interface bodies.
+/// For inline types like `{ msg: string }`, returns as-is.
+fn resolve_type_args(
+    type_args: &str,
+    interfaces: &vize_carton::FxHashMap<String, String>,
+    type_aliases: &vize_carton::FxHashMap<String, String>,
+) -> String {
+    let content = type_args.trim();
+
+    // Already an inline object type
+    if content.starts_with('{') {
+        return content.to_string();
+    }
+
+    // Handle intersection types: BaseProps & ExtendedProps
+    if content.contains('&') {
+        let parts: Vec<&str> = content.split('&').collect();
+        let mut merged_props = Vec::new();
+        for part in parts {
+            let resolved = resolve_single_type_ref(part.trim(), interfaces, type_aliases);
+            if let Some(body) = resolved {
+                let body = body.trim();
+                let inner = if body.starts_with('{') && body.ends_with('}') {
+                    &body[1..body.len() - 1]
+                } else {
+                    body
+                };
+                let trimmed = inner.trim();
+                if !trimmed.is_empty() {
+                    merged_props.push(trimmed.to_string());
+                }
+            }
+        }
+        if !merged_props.is_empty() {
+            return format!("{{ {} }}", merged_props.join("; "));
+        }
+        return content.to_string();
+    }
+
+    // Single type reference
+    if let Some(body) = resolve_single_type_ref(content, interfaces, type_aliases) {
+        let body = body.trim();
+        if body.starts_with('{') {
+            return body.to_string();
+        }
+        return format!("{{ {} }}", body);
+    }
+
+    // Unresolvable - return as-is
+    content.to_string()
+}
+
+/// Resolve a single type name to its definition body.
+fn resolve_single_type_ref(
+    name: &str,
+    interfaces: &vize_carton::FxHashMap<String, String>,
+    type_aliases: &vize_carton::FxHashMap<String, String>,
+) -> Option<String> {
+    // Strip generic params: Props<T> -> Props
+    let base_name = if let Some(idx) = name.find('<') {
+        name[..idx].trim()
+    } else {
+        name.trim()
+    };
+
+    if let Some(body) = interfaces.get(base_name) {
+        return Some(body.clone());
+    }
+    if let Some(body) = type_aliases.get(base_name) {
+        return Some(body.clone());
+    }
+    None
 }

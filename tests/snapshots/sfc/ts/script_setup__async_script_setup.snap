@@ -1,18 +1,19 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
-import { defineComponent } from 'vue'
+import { defineComponent as _defineComponent } from 'vue'
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, toDisplayString as _toDisplayString, unref as _unref } from "vue"
 
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   setup(__props) {
 
 const data = await fetch('/api').then(r => r.json())
 
-return (_ctx, _cache) => {
+return (_ctx: any,_cache: any) => {
   return (_openBlock(), _createElementBlock("div", null, _toDisplayString(_unref(data)), 1 /* TEXT */))
 }
 }

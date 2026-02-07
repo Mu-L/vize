@@ -1,22 +1,23 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
-import { defineComponent, PropType } from 'vue'
+import { defineComponent as _defineComponent } from 'vue'
 import { Fragment as _Fragment, openBlock as _openBlock, createElementBlock as _createElementBlock, renderList as _renderList, toDisplayString as _toDisplayString } from "vue"
 
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   props: {
-    options: { type: Array, required: true },
-    value: { type: Object, required: true },
+    value: { type: null, required: true },
+    options: { type: Array, required: true }
   },
-  setup(__props) {
+  setup(__props: any) {
 
 
-return (_ctx, _cache) => {
-  return (_openBlock(), _createElementBlock("select", null, [ (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(__props.options, (opt) => { return (_openBlock(), _createElementBlock("option", { key: opt, value: opt }, _toDisplayString(opt), 1 /* TEXT */)) }), 128 /* KEYED_FRAGMENT */)) ]))
+return (_ctx: any,_cache: any) => {
+  return (_openBlock(), _createElementBlock("select", null, [ (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(__props.options, (opt) => { return (_openBlock(), _createElementBlock("option", { key: opt, value: opt }, _toDisplayString(opt), 9 /* TEXT, PROPS */, ["value"])) }), 128 /* KEYED_FRAGMENT */)) ]))
 }
 }
 

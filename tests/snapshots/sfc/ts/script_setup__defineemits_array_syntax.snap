@@ -1,13 +1,14 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
-import { defineComponent } from 'vue'
+import { defineComponent as _defineComponent } from 'vue'
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   emits: ["update", "change"],
   setup(__props, { emit: __emit }) {
 
@@ -16,7 +17,7 @@ function onClick() {
   emit('update', 1)
 }
 
-return (_ctx, _cache) => {
+return (_ctx: any,_cache: any) => {
   return (_openBlock(), _createElementBlock("button", { onClick: onClick }, "Click"))
 }
 }

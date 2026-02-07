@@ -1,21 +1,22 @@
 ---
 source: crates/vize_atelier_sfc/src/snapshot_tests.rs
+assertion_line: 150
 expression: ts_output
 ---
-import { defineComponent, PropType } from 'vue'
+import { defineComponent as _defineComponent } from 'vue'
 import { Fragment as _Fragment, openBlock as _openBlock, createElementBlock as _createElementBlock, renderList as _renderList, toDisplayString as _toDisplayString } from "vue"
 
 
-export default defineComponent({
-  name: 'test',
+export default /*@__PURE__*/_defineComponent({
+  __name: 'test',
   props: {
     items: { type: Array, required: true },
-    selected: { type: Object, required: true },
+    selected: { type: null, required: true }
   },
-  setup(__props) {
+  setup(__props: any) {
 
 
-return (_ctx, _cache) => {
+return (_ctx: any,_cache: any) => {
   return (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(__props.items, (item) => { return (_openBlock(), _createElementBlock("div", { key: String(item) }, _toDisplayString(item), 1 /* TEXT */)) }), 128 /* KEYED_FRAGMENT */))
 }
 }

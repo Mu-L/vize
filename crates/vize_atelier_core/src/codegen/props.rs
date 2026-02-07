@@ -340,10 +340,28 @@ fn generate_props_object_inner(
     let has_inline_handler = props.iter().any(|p| {
         if let PropNode::Directive(dir) = p {
             if dir.name == "on" {
-                // When cache_handlers is enabled, all handlers produce long expressions
-                // that need multiline formatting
+                // When cache_handlers is enabled, handlers produce long expressions
+                // that need multiline formatting (except setup-const which aren't cached)
                 if ctx.options.cache_handlers && dir.exp.is_some() {
-                    return true;
+                    let is_const = dir.exp.as_ref().is_some_and(|exp| {
+                        if let ExpressionNode::Simple(simple) = exp {
+                            if !simple.is_static {
+                                let content = simple.content.trim();
+                                if crate::transforms::is_simple_identifier(content) {
+                                    if let Some(ref metadata) = ctx.options.binding_metadata {
+                                        return matches!(
+                                            metadata.bindings.get(content),
+                                            Some(crate::options::BindingType::SetupConst)
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        false
+                    });
+                    if !is_const {
+                        return true;
+                    }
                 }
                 // Check for modifiers that will use withModifiers or withKeys (not event option modifiers)
                 let has_runtime_modifier = dir.modifiers.iter().any(|m| {
@@ -979,11 +997,29 @@ pub fn generate_directive_prop_with_static(
             let has_key_mods = !key_modifiers.is_empty();
 
             // Check if this handler needs caching
-            // When cache_handlers is true, ALL handlers are cached (including simple identifiers)
+            // When cache_handlers is true, handlers are cached UNLESS the handler is a
+            // setup-const binding (stable reference, no need for caching)
             // Pattern: _cache[n] || (_cache[n] = handler)
             // Simple identifiers get safety wrapper: (...args) => (_ctx.handler && _ctx.handler(...args))
             // Inline expressions get: $event => (expression)
-            let needs_cache = ctx.options.cache_handlers && dir.exp.is_some();
+            let is_const_handler = dir.exp.as_ref().is_some_and(|exp| {
+                if let ExpressionNode::Simple(simple) = exp {
+                    if !simple.is_static {
+                        let content = simple.content.trim();
+                        // Check if content is a simple identifier that's a setup-const binding
+                        if crate::transforms::is_simple_identifier(content) {
+                            if let Some(ref metadata) = ctx.options.binding_metadata {
+                                return matches!(
+                                    metadata.bindings.get(content),
+                                    Some(crate::options::BindingType::SetupConst)
+                                );
+                            }
+                        }
+                    }
+                }
+                false
+            });
+            let needs_cache = ctx.options.cache_handlers && dir.exp.is_some() && !is_const_handler;
 
             if needs_cache {
                 let cache_index = ctx.next_cache_index();
