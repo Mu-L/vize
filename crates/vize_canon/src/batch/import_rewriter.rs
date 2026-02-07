@@ -57,6 +57,18 @@ impl ImportSourceMap {
         }
         (virtual_offset as i32 - cumulative) as u32
     }
+
+    /// Get the virtual offset from an original offset.
+    pub fn get_virtual_offset(&self, original_offset: u32) -> u32 {
+        let mut cumulative: i32 = 0;
+        for adj in &self.adjustments {
+            if original_offset < adj.original_offset {
+                break;
+            }
+            cumulative += adj.adjustment;
+        }
+        (original_offset as i32 + cumulative) as u32
+    }
 }
 
 /// Import rewriter that transforms .vue imports to .vue.ts.

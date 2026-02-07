@@ -171,6 +171,7 @@ impl Analyzer {
                 events: SmallVec::new(),
                 slots: SmallVec::new(),
                 has_spread_attrs: false,
+                scope_id: crate::scope::ScopeId::ROOT, // Updated after scope entry
             })
         } else {
             None
@@ -340,6 +341,11 @@ impl Analyzer {
         } else {
             0
         };
+
+        // Capture scope_id for component usage after entering v-for/v-slot scopes
+        if let Some(ref mut usage) = component_usage {
+            usage.scope_id = self.summary.scopes.current_id();
+        }
 
         // Second pass: process other directives AFTER entering v-for/v-slot scopes
         // This ensures expressions like `:todo="todo"` in v-for are in the correct scope

@@ -185,4 +185,178 @@ const { x, y } = useMouse()
         let virtual_ts = generate_virtual_ts_from_sfc(source);
         insta::assert_snapshot!("virtual_ts_with_composables", virtual_ts);
     }
+
+    #[test]
+    fn snapshot_virtual_ts_v_for_destructuring() {
+        let source = r#"<script setup lang="ts">
+import { ref } from 'vue'
+
+interface Item {
+  id: number
+  name: string
+}
+
+const items = ref<Item[]>([])
+</script>
+
+<template>
+  <ul>
+    <li v-for="{ id, name } in items" :key="id">
+      {{ id }}: {{ name }}
+    </li>
+  </ul>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_v_for_destructuring", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_nested_v_if_v_else() {
+        let source = r#"<script setup lang="ts">
+import { ref } from 'vue'
+
+const status = ref<'loading' | 'error' | 'success'>('loading')
+const message = ref('')
+const data = ref<string[]>([])
+</script>
+
+<template>
+  <div>
+    <div v-if="status === 'loading'">Loading...</div>
+    <div v-else-if="status === 'error'">
+      Error: {{ message }}
+    </div>
+    <div v-else>
+      <p v-for="item in data" :key="item">{{ item }}</p>
+    </div>
+  </div>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_nested_v_if_v_else", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_scoped_slots() {
+        let source = r#"<script setup lang="ts">
+import { ref } from 'vue'
+import MyList from './MyList.vue'
+
+const items = ref(['a', 'b', 'c'])
+</script>
+
+<template>
+  <MyList :items="items">
+    <template #default="{ item, index }">
+      <span>{{ index }}: {{ item }}</span>
+    </template>
+    <template #header="{ title }">
+      <h1>{{ title }}</h1>
+    </template>
+  </MyList>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_scoped_slots", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_v_model() {
+        let source = r#"<script setup lang="ts">
+import { ref } from 'vue'
+
+const text = ref('')
+const checked = ref(false)
+const selected = ref('option1')
+</script>
+
+<template>
+  <div>
+    <input v-model="text" />
+    <input type="checkbox" v-model="checked" />
+    <select v-model="selected">
+      <option value="option1">Option 1</option>
+      <option value="option2">Option 2</option>
+    </select>
+  </div>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_v_model", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_template_refs() {
+        let source = r#"<script setup lang="ts">
+import { ref, useTemplateRef } from 'vue'
+
+const inputRef = ref<HTMLInputElement | null>(null)
+const buttonEl = useTemplateRef('btn')
+</script>
+
+<template>
+  <div>
+    <input ref="inputRef" />
+    <button ref="btn">Click</button>
+  </div>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_template_refs", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_generic_component() {
+        let source = r#"<script setup lang="ts" generic="T extends string | number">
+import { ref } from 'vue'
+
+const props = defineProps<{
+  items: T[]
+  selected?: T
+}>()
+
+const emit = defineEmits<{
+  (e: 'select', item: T): void
+}>()
+
+const activeItem = ref<T | null>(null)
+</script>
+
+<template>
+  <div>
+    <div v-for="item in props.items" :key="String(item)">
+      {{ item }}
+    </div>
+  </div>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_generic_component", virtual_ts);
+    }
+
+    #[test]
+    fn snapshot_virtual_ts_dynamic_component() {
+        let source = r#"<script setup lang="ts">
+import { ref, markRaw } from 'vue'
+import CompA from './CompA.vue'
+import CompB from './CompB.vue'
+
+const currentComponent = ref(markRaw(CompA))
+
+function switchComponent() {
+  currentComponent.value = currentComponent.value === CompA ? markRaw(CompB) : markRaw(CompA)
+}
+</script>
+
+<template>
+  <div>
+    <component :is="currentComponent" />
+    <button @click="switchComponent">Switch</button>
+  </div>
+</template>"#;
+
+        let virtual_ts = generate_virtual_ts_from_sfc(source);
+        insta::assert_snapshot!("virtual_ts_dynamic_component", virtual_ts);
+    }
 }

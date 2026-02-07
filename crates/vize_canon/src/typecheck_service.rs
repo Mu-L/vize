@@ -228,11 +228,23 @@ impl TypeCheckService {
                         .related_information
                         .unwrap_or_default()
                         .into_iter()
-                        .map(|r| SfcRelatedInfo {
-                            message: r.message,
-                            filename: Some(r.location.uri),
-                            start: 0, // TODO: map position
-                            end: 0,
+                        .map(|r| {
+                            // Map related info position from virtual TS to original SFC
+                            let (rel_start, rel_end) = map_position_to_sfc(
+                                &virtual_ts_output,
+                                r.location.range.start.line,
+                                r.location.range.start.character,
+                                r.location.range.end.line,
+                                r.location.range.end.character,
+                                script_offset,
+                                template_offset,
+                            );
+                            SfcRelatedInfo {
+                                message: r.message,
+                                filename: Some(r.location.uri),
+                                start: rel_start,
+                                end: rel_end,
+                            }
                         })
                         .collect(),
                 });

@@ -122,7 +122,6 @@ impl CompositeSourceMap {
 }
 
 /// Convert byte offset to line and column (0-based).
-#[allow(dead_code)]
 pub fn offset_to_line_col(content: &str, offset: u32) -> Option<(u32, u32)> {
     let offset = offset as usize;
     if offset > content.len() {

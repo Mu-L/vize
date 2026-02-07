@@ -142,6 +142,10 @@ pub struct Croquis {
 
     /// Element IDs found in template (for cross-file uniqueness checking)
     pub element_ids: Vec<ElementIdInfo>,
+
+    /// Definition spans for bindings (name -> (start, end) offset in script)
+    /// Used for Go-to-Definition support.
+    pub binding_spans: FxHashMap<CompactString, (u32, u32)>,
 }
 
 /// Information about element IDs in template (for cross-file uniqueness checking).
@@ -272,6 +276,8 @@ pub struct ComponentUsage {
     pub slots: SmallVec<[SlotUsage; 2]>,
     /// Whether v-bind="$attrs" or similar spread is used
     pub has_spread_attrs: bool,
+    /// The scope this component usage is in (for v-for prop checking)
+    pub scope_id: crate::scope::ScopeId,
 }
 
 /// A prop passed to a component in template.
