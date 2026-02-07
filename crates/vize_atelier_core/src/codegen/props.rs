@@ -125,11 +125,12 @@ pub fn generate_props(ctx: &mut CodegenContext, props: &[PropNode<'_>]) {
             }
 
             // Add other props as object (includes scope_id)
+            // Inside mergeProps, skip normalizeClass/normalizeStyle - mergeProps handles it
             if has_other {
                 if !first_merge_arg {
                     ctx.push(", ");
                 }
-                generate_props_object(ctx, props, true);
+                generate_props_object_inner(ctx, props, true, true);
             } else if let Some(ref sid) = scope_id {
                 // No other props but we have scope_id, add it as separate object
                 if !first_merge_arg {
@@ -217,6 +218,24 @@ fn generate_props_object(
     props: &[PropNode<'_>],
     skip_object_spreads: bool,
 ) {
+    generate_props_object_inner(ctx, props, skip_object_spreads, false);
+}
+
+/// Generate the props object with optional class/style normalization skipping.
+/// `inside_merge_props`: when true, skip normalizeClass/normalizeStyle wrappers
+/// because mergeProps handles normalization internally.
+fn generate_props_object_inner(
+    ctx: &mut CodegenContext,
+    props: &[PropNode<'_>],
+    skip_object_spreads: bool,
+    inside_merge_props: bool,
+) {
+    // When inside mergeProps, skip normalizeClass/normalizeStyle wrappers
+    let prev_skip = ctx.skip_normalize;
+    if inside_merge_props {
+        ctx.skip_normalize = true;
+    }
+
     // Clone scope_id to avoid borrow checker issues
     let scope_id = ctx.options.scope_id.clone();
 
@@ -496,6 +515,9 @@ fn generate_props_object(
     } else {
         ctx.push(" }");
     }
+
+    // Restore skip_normalize flag
+    ctx.skip_normalize = prev_skip;
 }
 
 /// Get the event key for a v-on directive (e.g., "onClick", "onKeyupEnter")
@@ -724,9 +746,12 @@ pub fn generate_directive_prop_with_static(
                         // For template literals, wrap with parens and prefix inner identifiers
                         if content.starts_with('`') {
                             ctx.push("(");
-                            // We need to prefix identifiers inside template literals
-                            // For now, output as-is since transform should handle this
-                            generate_simple_expression(ctx, exp);
+                            // Prefix identifiers inside template literals with _ctx.
+                            let prefixed =
+                                super::expression::generate_simple_expression_with_prefix(
+                                    ctx, content,
+                                );
+                            ctx.push(&prefixed);
                             ctx.push(")");
                         } else {
                             generate_simple_expression(ctx, exp);
@@ -773,7 +798,7 @@ pub fn generate_directive_prop_with_static(
                 }
             }
             if let Some(exp) = &dir.exp {
-                if is_class {
+                if is_class && !ctx.skip_normalize {
                     ctx.use_helper(RuntimeHelper::NormalizeClass);
                     ctx.push("_normalizeClass(");
                     // Merge static class if present
@@ -787,7 +812,7 @@ pub fn generate_directive_prop_with_static(
                         generate_expression(ctx, exp);
                     }
                     ctx.push(")");
-                } else if is_style {
+                } else if is_style && !ctx.skip_normalize {
                     ctx.use_helper(RuntimeHelper::NormalizeStyle);
                     ctx.push("_normalizeStyle(");
                     // Merge static style if present

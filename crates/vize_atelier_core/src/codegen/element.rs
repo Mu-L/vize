@@ -264,6 +264,27 @@ pub fn generate_custom_directives_closing(ctx: &mut CodegenContext, el: &Element
         ctx.push("]");
     }
 
+    // Also include v-show in the same withDirectives array if present
+    if has_vshow_directive(el) {
+        for prop in &el.props {
+            if let PropNode::Directive(dir) = prop {
+                if dir.name.as_str() == "show" {
+                    if let Some(exp) = &dir.exp {
+                        ctx.push(",");
+                        ctx.newline();
+                        ctx.push("  [");
+                        ctx.use_helper(RuntimeHelper::VShow);
+                        ctx.push(ctx.helper(RuntimeHelper::VShow));
+                        ctx.push(", ");
+                        generate_expression(ctx, exp);
+                        ctx.push("]");
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     ctx.newline();
     ctx.push("])");
 }

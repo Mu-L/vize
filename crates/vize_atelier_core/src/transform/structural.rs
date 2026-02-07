@@ -147,6 +147,18 @@ pub fn transform_v_if<'a>(
             other => other,
         };
 
+        // Process user_key expression for identifier prefixing (e.g., keyA -> _ctx.keyA)
+        if let Some(PropNode::Directive(ref mut dir)) = user_key {
+            if ctx.options.prefix_identifiers || ctx.options.is_ts {
+                if let Some(ref exp) = dir.exp {
+                    let processed = crate::transforms::transform_expression::process_expression(
+                        ctx, exp, false,
+                    );
+                    dir.exp = Some(processed);
+                }
+            }
+        }
+
         // Create branch with the taken element
         let mut branch_children = Vec::new_in(allocator);
         branch_children.push(taken_node);
@@ -255,6 +267,18 @@ pub fn transform_v_if<'a>(
                 }
                 other => other,
             };
+
+            // Process user_key expression for identifier prefixing
+            if let Some(PropNode::Directive(ref mut dir)) = user_key {
+                if ctx.options.prefix_identifiers || ctx.options.is_ts {
+                    if let Some(ref exp) = dir.exp {
+                        let processed = crate::transforms::transform_expression::process_expression(
+                            ctx, exp, false,
+                        );
+                        dir.exp = Some(processed);
+                    }
+                }
+            }
 
             // Check for key collision with existing branches (vuejs/core #13881)
             let has_key_collision = if let Some(ref new_key) = user_key {

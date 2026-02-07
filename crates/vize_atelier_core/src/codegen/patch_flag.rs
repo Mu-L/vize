@@ -317,11 +317,6 @@ fn calculate_element_patch_info_inner(
         }
     }
 
-    // Add NEED_PATCH for v-show, custom directives, or ref only if no other dynamic bindings exist
-    if (has_vshow || has_custom_directive || has_ref) && flag == 0 {
-        flag |= 512; // NEED_PATCH
-    }
-
     // Check for dynamic text children
     // TEXT flag should be set when children contain interpolations and only consist of text/interpolation
     // But skip if all interpolations reference only LiteralConst bindings (compile-time constants)
@@ -349,9 +344,15 @@ fn calculate_element_patch_info_inner(
         }
     }
 
-    // When FULL_PROPS is set, PROPS is redundant (FULL_PROPS covers all prop changes)
+    // Add NEED_PATCH for v-show, custom directives, or ref only if no other dynamic bindings exist
+    // This must come after TEXT flag check so we don't add NEED_PATCH when TEXT is about to be set
+    if (has_vshow || has_custom_directive || has_ref) && flag == 0 {
+        flag |= 512; // NEED_PATCH
+    }
+
+    // When FULL_PROPS is set, per-prop flags are redundant (FULL_PROPS covers all prop changes)
     if flag & 16 != 0 {
-        flag &= !8; // Remove PROPS
+        flag &= !(8 | 2 | 4); // Remove PROPS, CLASS, STYLE
     }
 
     let patch_flag = if flag > 0 { Some(flag) } else { None };
