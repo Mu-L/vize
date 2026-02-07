@@ -1107,23 +1107,14 @@ fn generate_scope_node(
             ts.push_str(") => {\n");
 
             // Generate expressions in this scope
-            if let Some(exprs) = expressions_by_scope.get(&scope_id) {
+            if let Some(exprs) = ctx.expressions_by_scope.get(&scope_id) {
                 for expr in exprs {
-                    generate_expression(ts, mappings, expr, template_offset, &inner_indent);
+                    generate_expression(ts, mappings, expr, ctx.template_offset, &inner_indent);
                 }
             }
 
             // Recursively generate child scopes inside this closure
-            generate_child_scopes(
-                ts,
-                mappings,
-                summary,
-                expressions_by_scope,
-                children_map,
-                scope_id,
-                template_offset,
-                &inner_indent,
-            );
+            generate_child_scopes(ts, mappings, ctx, scope_id, &inner_indent);
 
             ts.push_str(indent);
             ts.push_str("});\n");
@@ -1138,23 +1129,14 @@ fn generate_scope_node(
             ));
             ts.push_str(&format!("{}void {};\n", inner_indent, props_pattern));
 
-            if let Some(exprs) = expressions_by_scope.get(&scope_id) {
+            if let Some(exprs) = ctx.expressions_by_scope.get(&scope_id) {
                 for expr in exprs {
-                    generate_expression(ts, mappings, expr, template_offset, &inner_indent);
+                    generate_expression(ts, mappings, expr, ctx.template_offset, &inner_indent);
                 }
             }
 
             // Recursively generate child scopes inside this closure
-            generate_child_scopes(
-                ts,
-                mappings,
-                summary,
-                expressions_by_scope,
-                children_map,
-                scope_id,
-                template_offset,
-                &inner_indent,
-            );
+            generate_child_scopes(ts, mappings, ctx, scope_id, &inner_indent);
 
             ts.push_str(indent);
             ts.push_str("};\n");
@@ -1199,10 +1181,10 @@ fn generate_scope_node(
                 generate_event_handler_expressions(
                     ts,
                     mappings,
-                    expressions_by_scope,
+                    &ctx.expressions_by_scope,
                     scope_id,
                     data,
-                    template_offset,
+                    ctx.template_offset,
                     &inner_indent,
                 );
 
@@ -1214,10 +1196,10 @@ fn generate_scope_node(
                 generate_event_handler_expressions(
                     ts,
                     mappings,
-                    expressions_by_scope,
+                    &ctx.expressions_by_scope,
                     scope_id,
                     data,
-                    template_offset,
+                    ctx.template_offset,
                     &inner_indent,
                 );
 
@@ -1225,9 +1207,9 @@ fn generate_scope_node(
             }
         }
         _ => {
-            if let Some(exprs) = expressions_by_scope.get(&scope_id) {
+            if let Some(exprs) = ctx.expressions_by_scope.get(&scope_id) {
                 for expr in exprs {
-                    generate_expression(ts, mappings, expr, template_offset, indent);
+                    generate_expression(ts, mappings, expr, ctx.template_offset, indent);
                 }
             }
         }
