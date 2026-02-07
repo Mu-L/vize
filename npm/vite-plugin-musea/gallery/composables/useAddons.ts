@@ -12,6 +12,8 @@ export interface BackgroundPreset {
   pattern?: 'checkerboard'
 }
 
+export type GridDensity = 'compact' | 'comfortable' | 'spacious'
+
 export const VIEWPORT_PRESETS: ViewportPreset[] = [
   { name: 'Reset', width: '100%', height: '100%' },
   { name: 'iPhone SE', width: '375px', height: '667px' },
@@ -20,6 +22,12 @@ export const VIEWPORT_PRESETS: ViewportPreset[] = [
   { name: 'iPad Pro', width: '1024px', height: '1366px' },
   { name: 'Desktop', width: '1280px', height: '800px' },
   { name: 'Wide', width: '1920px', height: '1080px' },
+]
+
+export const MULTI_VIEWPORT_PRESETS: ViewportPreset[] = [
+  { name: 'Mobile', width: '375px', height: '667px' },
+  { name: 'Tablet', width: '768px', height: '1024px' },
+  { name: 'Desktop', width: '1280px', height: '800px' },
 ]
 
 export const BG_PRESETS: BackgroundPreset[] = [
@@ -36,6 +44,9 @@ const state = reactive({
   measureEnabled: false,
   viewport: VIEWPORT_PRESETS[0] as ViewportPreset,
   viewportRotated: false,
+  gridDensity: 'comfortable' as GridDensity,
+  multiViewportEnabled: false,
+  fullscreenVariant: null as { artPath: string; variantName: string } | null,
 })
 
 export function useAddons() {
@@ -84,6 +95,22 @@ export function useAddons() {
     return { width: vp.width, height: vp.height }
   }
 
+  function setGridDensity(density: GridDensity) {
+    state.gridDensity = density
+  }
+
+  function toggleMultiViewport() {
+    state.multiViewportEnabled = !state.multiViewportEnabled
+  }
+
+  function openFullscreen(artPath: string, variantName: string) {
+    state.fullscreenVariant = { artPath, variantName }
+  }
+
+  function closeFullscreen() {
+    state.fullscreenVariant = null
+  }
+
   return {
     ...toRefs(state),
     setBackground,
@@ -94,5 +121,9 @@ export function useAddons() {
     setViewport,
     rotateViewport,
     getEffectiveViewport,
+    setGridDensity,
+    toggleMultiViewport,
+    openFullscreen,
+    closeFullscreen,
   }
 }

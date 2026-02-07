@@ -1534,6 +1534,177 @@ export async function loadArts() {
 `;
 }
 
+// Addon initialization code injected into preview iframe modules.
+// Shared between generatePreviewModule and generatePreviewModuleWithProps.
+const MUSEA_ADDONS_INIT_CODE = `
+function __museaInitAddons(container) {
+  // === DOM event capture ===
+  const CAPTURE_EVENTS = ['click','dblclick','input','change','submit','focus','blur','keydown','keyup'];
+  for (const evt of CAPTURE_EVENTS) {
+    container.addEventListener(evt, (e) => {
+      const payload = {
+        name: evt,
+        target: e.target?.tagName,
+        timestamp: Date.now(),
+        source: 'dom'
+      };
+      if (e.target && 'value' in e.target) {
+        payload.value = e.target.value;
+      }
+      window.parent.postMessage({ type: 'musea:event', payload }, '*');
+    }, true);
+  }
+
+  // === Message handler for parent commands ===
+  let measureActive = false;
+  let measureOverlay = null;
+  let measureLabel = null;
+
+  function toggleStyleById(id, enabled, css) {
+    let el = document.getElementById(id);
+    if (enabled) {
+      if (!el) {
+        el = document.createElement('style');
+        el.id = id;
+        el.textContent = css;
+        document.head.appendChild(el);
+      }
+    } else {
+      if (el) el.remove();
+    }
+  }
+
+  function createMeasureOverlay() {
+    if (measureOverlay) return;
+    measureOverlay = document.createElement('div');
+    measureOverlay.id = 'musea-measure-overlay';
+    measureOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:99999;';
+    document.body.appendChild(measureOverlay);
+
+    measureLabel = document.createElement('div');
+    measureLabel.className = 'musea-measure-label';
+    measureLabel.style.cssText = 'position:fixed;background:#333;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;pointer-events:none;z-index:100000;display:none;';
+    document.body.appendChild(measureLabel);
+  }
+
+  function removeMeasureOverlay() {
+    if (measureOverlay) { measureOverlay.remove(); measureOverlay = null; }
+    if (measureLabel) { measureLabel.remove(); measureLabel = null; }
+  }
+
+  function onMeasureMouseMove(e) {
+    if (!measureActive || !measureOverlay) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || el === measureOverlay || el === measureLabel) return;
+
+    const rect = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const mt = parseFloat(cs.marginTop) || 0;
+    const mr = parseFloat(cs.marginRight) || 0;
+    const mb = parseFloat(cs.marginBottom) || 0;
+    const ml = parseFloat(cs.marginLeft) || 0;
+    const bt = parseFloat(cs.borderTopWidth) || 0;
+    const br = parseFloat(cs.borderRightWidth) || 0;
+    const bb = parseFloat(cs.borderBottomWidth) || 0;
+    const blw = parseFloat(cs.borderLeftWidth) || 0;
+    const pt = parseFloat(cs.paddingTop) || 0;
+    const pr = parseFloat(cs.paddingRight) || 0;
+    const pb = parseFloat(cs.paddingBottom) || 0;
+    const pl = parseFloat(cs.paddingLeft) || 0;
+
+    const cw = rect.width - blw - br - pl - pr;
+    const ch = rect.height - bt - bb - pt - pb;
+
+    measureOverlay.innerHTML = ''
+      // Margin
+      + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
+      + 'left:' + (rect.left - ml) + 'px;top:' + (rect.top - mt) + 'px;'
+      + 'width:' + (rect.width + ml + mr) + 'px;height:' + mt + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
+      + 'left:' + (rect.left - ml) + 'px;top:' + (rect.bottom) + 'px;'
+      + 'width:' + (rect.width + ml + mr) + 'px;height:' + mb + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
+      + 'left:' + (rect.left - ml) + 'px;top:' + rect.top + 'px;'
+      + 'width:' + ml + 'px;height:' + rect.height + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
+      + 'left:' + rect.right + 'px;top:' + rect.top + 'px;'
+      + 'width:' + mr + 'px;height:' + rect.height + 'px;"></div>'
+      // Border
+      + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
+      + 'left:' + rect.left + 'px;top:' + rect.top + 'px;'
+      + 'width:' + rect.width + 'px;height:' + bt + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
+      + 'left:' + rect.left + 'px;top:' + (rect.bottom - bb) + 'px;'
+      + 'width:' + rect.width + 'px;height:' + bb + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
+      + 'left:' + rect.left + 'px;top:' + (rect.top + bt) + 'px;'
+      + 'width:' + blw + 'px;height:' + (rect.height - bt - bb) + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
+      + 'left:' + (rect.right - br) + 'px;top:' + (rect.top + bt) + 'px;'
+      + 'width:' + br + 'px;height:' + (rect.height - bt - bb) + 'px;"></div>'
+      // Padding
+      + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
+      + 'left:' + (rect.left + blw) + 'px;top:' + (rect.top + bt) + 'px;'
+      + 'width:' + (rect.width - blw - br) + 'px;height:' + pt + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
+      + 'left:' + (rect.left + blw) + 'px;top:' + (rect.bottom - bb - pb) + 'px;'
+      + 'width:' + (rect.width - blw - br) + 'px;height:' + pb + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
+      + 'left:' + (rect.left + blw) + 'px;top:' + (rect.top + bt + pt) + 'px;'
+      + 'width:' + pl + 'px;height:' + (rect.height - bt - bb - pt - pb) + 'px;"></div>'
+      + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
+      + 'left:' + (rect.right - br - pr) + 'px;top:' + (rect.top + bt + pt) + 'px;'
+      + 'width:' + pr + 'px;height:' + (rect.height - bt - bb - pt - pb) + 'px;"></div>'
+      // Content
+      + '<div style="position:fixed;background:rgba(100,149,237,0.3);'
+      + 'left:' + (rect.left + blw + pl) + 'px;top:' + (rect.top + bt + pt) + 'px;'
+      + 'width:' + cw + 'px;height:' + ch + 'px;"></div>';
+
+    // Label
+    measureLabel.textContent = Math.round(rect.width) + ' x ' + Math.round(rect.height);
+    measureLabel.style.display = 'block';
+    measureLabel.style.left = (rect.right + 8) + 'px';
+    measureLabel.style.top = rect.top + 'px';
+  }
+
+  window.addEventListener('message', (e) => {
+    if (!e.data?.type?.startsWith('musea:')) return;
+    const { type, payload } = e.data;
+    switch (type) {
+      case 'musea:set-background': {
+        if (payload.pattern === 'checkerboard') {
+          document.body.style.background = '';
+          document.body.classList.add('musea-bg-checkerboard');
+        } else {
+          document.body.classList.remove('musea-bg-checkerboard');
+          document.body.style.background = payload.color || '';
+        }
+        break;
+      }
+      case 'musea:toggle-outline': {
+        toggleStyleById('musea-outline', payload.enabled,
+          '* { outline: 1px solid rgba(255, 0, 0, 0.3) !important; }');
+        break;
+      }
+      case 'musea:toggle-measure': {
+        measureActive = payload.enabled;
+        if (measureActive) {
+          createMeasureOverlay();
+          document.addEventListener('mousemove', onMeasureMouseMove);
+        } else {
+          document.removeEventListener('mousemove', onMeasureMouseMove);
+          removeMeasureOverlay();
+        }
+        break;
+      }
+    }
+  });
+
+  // Notify parent that iframe is ready
+  window.parent.postMessage({ type: 'musea:ready', payload: {} }, '*');
+}
+`;
+
 function generatePreviewModule(
   art: ArtFileInfo,
   variantComponentName: string,
@@ -1547,6 +1718,8 @@ import { createApp } from 'vue';
 import * as artModule from '${artModuleId}';
 
 const container = document.getElementById('app');
+
+${MUSEA_ADDONS_INIT_CODE}
 
 async function mount() {
   try {
@@ -1564,172 +1737,7 @@ async function mount() {
     app.mount(container);
 
     console.log('[musea-preview] Mounted variant: ${escapedVariantName}');
-
-    // === Musea Addons: DOM event capture ===
-    const CAPTURE_EVENTS = ['click','dblclick','input','change','submit','focus','blur','keydown','keyup'];
-    for (const evt of CAPTURE_EVENTS) {
-      container.addEventListener(evt, (e) => {
-        const payload = {
-          name: evt,
-          target: e.target?.tagName,
-          timestamp: Date.now(),
-          source: 'dom'
-        };
-        if (e.target && 'value' in e.target) {
-          payload.value = e.target.value;
-        }
-        window.parent.postMessage({ type: 'musea:event', payload }, '*');
-      }, true);
-    }
-
-    // === Musea Addons: Message handler for parent commands ===
-    let measureActive = false;
-    let measureOverlay = null;
-    let measureLabel = null;
-
-    function toggleStyleById(id, enabled, css) {
-      let el = document.getElementById(id);
-      if (enabled) {
-        if (!el) {
-          el = document.createElement('style');
-          el.id = id;
-          el.textContent = css;
-          document.head.appendChild(el);
-        }
-      } else {
-        if (el) el.remove();
-      }
-    }
-
-    function createMeasureOverlay() {
-      if (measureOverlay) return;
-      measureOverlay = document.createElement('div');
-      measureOverlay.id = 'musea-measure-overlay';
-      measureOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:99999;';
-      document.body.appendChild(measureOverlay);
-
-      measureLabel = document.createElement('div');
-      measureLabel.className = 'musea-measure-label';
-      measureLabel.style.cssText = 'position:fixed;background:#333;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px;pointer-events:none;z-index:100000;display:none;';
-      document.body.appendChild(measureLabel);
-    }
-
-    function removeMeasureOverlay() {
-      if (measureOverlay) { measureOverlay.remove(); measureOverlay = null; }
-      if (measureLabel) { measureLabel.remove(); measureLabel = null; }
-    }
-
-    function onMeasureMouseMove(e) {
-      if (!measureActive || !measureOverlay) return;
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || el === measureOverlay || el === measureLabel) return;
-
-      const rect = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
-      const mt = parseFloat(cs.marginTop) || 0;
-      const mr = parseFloat(cs.marginRight) || 0;
-      const mb = parseFloat(cs.marginBottom) || 0;
-      const ml = parseFloat(cs.marginLeft) || 0;
-      const bt = parseFloat(cs.borderTopWidth) || 0;
-      const br = parseFloat(cs.borderRightWidth) || 0;
-      const bb = parseFloat(cs.borderBottomWidth) || 0;
-      const blw = parseFloat(cs.borderLeftWidth) || 0;
-      const pt = parseFloat(cs.paddingTop) || 0;
-      const pr = parseFloat(cs.paddingRight) || 0;
-      const pb = parseFloat(cs.paddingBottom) || 0;
-      const pl = parseFloat(cs.paddingLeft) || 0;
-
-      const cw = rect.width - blw - br - pl - pr;
-      const ch = rect.height - bt - bb - pt - pb;
-
-      measureOverlay.innerHTML = ''
-        // Margin
-        + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
-        + 'left:' + (rect.left - ml) + 'px;top:' + (rect.top - mt) + 'px;'
-        + 'width:' + (rect.width + ml + mr) + 'px;height:' + mt + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
-        + 'left:' + (rect.left - ml) + 'px;top:' + (rect.bottom) + 'px;'
-        + 'width:' + (rect.width + ml + mr) + 'px;height:' + mb + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
-        + 'left:' + (rect.left - ml) + 'px;top:' + rect.top + 'px;'
-        + 'width:' + ml + 'px;height:' + rect.height + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,165,0,0.3);'
-        + 'left:' + rect.right + 'px;top:' + rect.top + 'px;'
-        + 'width:' + mr + 'px;height:' + rect.height + 'px;"></div>'
-        // Border
-        + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
-        + 'left:' + rect.left + 'px;top:' + rect.top + 'px;'
-        + 'width:' + rect.width + 'px;height:' + bt + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
-        + 'left:' + rect.left + 'px;top:' + (rect.bottom - bb) + 'px;'
-        + 'width:' + rect.width + 'px;height:' + bb + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
-        + 'left:' + rect.left + 'px;top:' + (rect.top + bt) + 'px;'
-        + 'width:' + blw + 'px;height:' + (rect.height - bt - bb) + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(255,255,0,0.3);'
-        + 'left:' + (rect.right - br) + 'px;top:' + (rect.top + bt) + 'px;'
-        + 'width:' + br + 'px;height:' + (rect.height - bt - bb) + 'px;"></div>'
-        // Padding
-        + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
-        + 'left:' + (rect.left + blw) + 'px;top:' + (rect.top + bt) + 'px;'
-        + 'width:' + (rect.width - blw - br) + 'px;height:' + pt + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
-        + 'left:' + (rect.left + blw) + 'px;top:' + (rect.bottom - bb - pb) + 'px;'
-        + 'width:' + (rect.width - blw - br) + 'px;height:' + pb + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
-        + 'left:' + (rect.left + blw) + 'px;top:' + (rect.top + bt + pt) + 'px;'
-        + 'width:' + pl + 'px;height:' + (rect.height - bt - bb - pt - pb) + 'px;"></div>'
-        + '<div style="position:fixed;background:rgba(144,238,144,0.3);'
-        + 'left:' + (rect.right - br - pr) + 'px;top:' + (rect.top + bt + pt) + 'px;'
-        + 'width:' + pr + 'px;height:' + (rect.height - bt - bb - pt - pb) + 'px;"></div>'
-        // Content
-        + '<div style="position:fixed;background:rgba(100,149,237,0.3);'
-        + 'left:' + (rect.left + blw + pl) + 'px;top:' + (rect.top + bt + pt) + 'px;'
-        + 'width:' + cw + 'px;height:' + ch + 'px;"></div>';
-
-      // Label
-      measureLabel.textContent = Math.round(rect.width) + ' x ' + Math.round(rect.height);
-      measureLabel.style.display = 'block';
-      measureLabel.style.left = (rect.right + 8) + 'px';
-      measureLabel.style.top = rect.top + 'px';
-    }
-
-    window.addEventListener('message', (e) => {
-      if (!e.data?.type?.startsWith('musea:')) return;
-      const { type, payload } = e.data;
-      switch (type) {
-        case 'musea:set-background': {
-          if (payload.pattern === 'checkerboard') {
-            document.body.style.background = '';
-            document.body.classList.add('musea-bg-checkerboard');
-          } else {
-            document.body.classList.remove('musea-bg-checkerboard');
-            document.body.style.background = payload.color || '';
-          }
-          break;
-        }
-        case 'musea:toggle-outline': {
-          toggleStyleById('musea-outline', payload.enabled,
-            '* { outline: 1px solid rgba(255, 0, 0, 0.3) !important; }');
-          break;
-        }
-        case 'musea:toggle-measure': {
-          measureActive = payload.enabled;
-          if (measureActive) {
-            createMeasureOverlay();
-            document.addEventListener('mousemove', onMeasureMouseMove);
-          } else {
-            document.removeEventListener('mousemove', onMeasureMouseMove);
-            removeMeasureOverlay();
-          }
-          break;
-        }
-      }
-    });
-
-    // Notify parent that iframe is ready
-    window.parent.postMessage({ type: 'musea:ready', payload: {} }, '*');
-
+    __museaInitAddons(container);
   } catch (error) {
     console.error('[musea-preview] Failed to mount:', error);
     container.innerHTML = \`
@@ -1874,6 +1882,8 @@ import * as artModule from '${artModuleId}';
 const container = document.getElementById('app');
 const propsOverride = ${propsJson};
 
+${MUSEA_ADDONS_INIT_CODE}
+
 async function mount() {
   try {
     const VariantComponent = artModule['${variantComponentName}'];
@@ -1892,6 +1902,7 @@ async function mount() {
     container.className = 'musea-variant';
     app.mount(container);
     console.log('[musea-preview] Mounted variant: ${escapedVariantName} with props override');
+    __museaInitAddons(container);
   } catch (error) {
     console.error('[musea-preview] Failed to mount:', error);
     container.innerHTML = '<div class="musea-error"><div class="musea-error-title">Failed to render</div><div>' + error.message + '</div></div>';

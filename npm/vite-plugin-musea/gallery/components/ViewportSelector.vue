@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAddons, VIEWPORT_PRESETS } from '../composables/useAddons'
 
 const { viewport, viewportRotated, setViewport, rotateViewport } = useAddons()
 const showDropdown = ref(false)
+const selectorRef = ref<HTMLElement | null>(null)
 
 function selectPreset(preset: typeof VIEWPORT_PRESETS[number]) {
   setViewport(preset)
   showDropdown.value = false
 }
+
+function onClickOutside(e: MouseEvent) {
+  if (selectorRef.value && !selectorRef.value.contains(e.target as Node)) {
+    showDropdown.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onClickOutside))
+onUnmounted(() => document.removeEventListener('click', onClickOutside))
 </script>
 
 <template>
-  <div class="viewport-selector">
+  <div ref="selectorRef" class="viewport-selector">
     <button
       class="viewport-btn"
       :class="{ active: viewport.width !== '100%' }"

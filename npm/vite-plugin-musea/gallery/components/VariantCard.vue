@@ -4,6 +4,8 @@ import type { ArtVariant } from '../../src/types.js'
 import { getPreviewUrl } from '../api'
 import { useAddons } from '../composables/useAddons'
 import { sendMessage } from '../composables/usePostMessage'
+import VariantSourceCode from './VariantSourceCode.vue'
+import MultiViewportPreview from './MultiViewportPreview.vue'
 
 const props = defineProps<{
   artPath: string
@@ -14,12 +16,15 @@ const previewUrl = computed(() => getPreviewUrl(props.artPath, props.variant.nam
 
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 const iframeReady = ref(false)
+const showSource = ref(false)
 
 const {
   outlineEnabled,
   measureEnabled,
+  multiViewportEnabled,
   getEffectiveBackground,
   getEffectiveViewport,
+  openFullscreen,
 } = useAddons()
 
 const viewportStyle = computed(() => {
@@ -90,12 +95,39 @@ watch(measureEnabled, (enabled) => {
         @load="onIframeLoad"
       />
     </div>
+
+    <MultiViewportPreview
+      v-if="multiViewportEnabled"
+      :art-path="artPath"
+      :variant-name="variant.name"
+    />
+
     <div class="variant-info">
       <div class="variant-left">
         <span class="variant-name">{{ variant.name }}</span>
         <span v-if="variant.isDefault" class="variant-badge">Default</span>
       </div>
       <div class="variant-actions">
+        <button
+          class="variant-action-btn"
+          title="View source"
+          :class="{ active: showSource }"
+          @click="showSource = !showSource"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+        </button>
+        <button
+          class="variant-action-btn"
+          title="Fullscreen"
+          @click="openFullscreen(artPath, variant.name)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
+        </button>
         <button
           class="variant-action-btn"
           title="Open in new tab"
@@ -109,6 +141,8 @@ watch(measureEnabled, (enabled) => {
         </button>
       </div>
     </div>
+
+    <VariantSourceCode v-if="showSource" :code="variant.template" />
   </div>
 </template>
 
@@ -212,6 +246,11 @@ const window = globalThis.window
 .variant-action-btn:hover {
   background: var(--musea-bg-elevated);
   color: var(--musea-text);
+}
+
+.variant-action-btn.active {
+  color: var(--musea-accent);
+  background: var(--musea-accent-subtle);
 }
 
 .variant-action-btn svg {

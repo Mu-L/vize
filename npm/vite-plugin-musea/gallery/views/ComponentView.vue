@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useArts } from '../composables/useArts'
 import { useActions } from '../composables/useActions'
+import { useAddons } from '../composables/useAddons'
 import VariantCard from '../components/VariantCard.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import PropsPanel from '../components/PropsPanel.vue'
@@ -10,12 +11,17 @@ import DocumentationPanel from '../components/DocumentationPanel.vue'
 import A11yBadge from '../components/A11yBadge.vue'
 import AddonToolbar from '../components/AddonToolbar.vue'
 import ActionsPanel from '../components/ActionsPanel.vue'
+import FullscreenPreview from '../components/FullscreenPreview.vue'
 
 const route = useRoute()
 const { getArt, load } = useArts()
-const { init: initActions } = useActions()
+const { events, init: initActions, clear: clearActions } = useActions()
+const { gridDensity } = useAddons()
 
 const activeTab = ref<'variants' | 'props' | 'docs' | 'a11y' | 'actions'>('variants')
+const actionCount = computed(() => events.value.length)
+
+const gridClass = computed(() => `gallery-grid density-${gridDensity.value}`)
 
 const artPath = computed(() => route.params.path as string)
 const art = computed(() => getArt(artPath.value))
@@ -27,6 +33,7 @@ onMounted(() => {
 
 watch(artPath, () => {
   activeTab.value = 'variants'
+  clearActions()
 })
 </script>
 
@@ -104,11 +111,12 @@ watch(artPath, () => {
         @click="activeTab = 'actions'"
       >
         Actions
+        <span v-if="actionCount > 0" class="action-count-badge">{{ actionCount > 99 ? '99+' : actionCount }}</span>
       </button>
     </div>
 
     <div class="component-content">
-      <div v-if="activeTab === 'variants'" class="gallery-grid">
+      <div v-if="activeTab === 'variants'" :class="gridClass">
         <VariantCard
           v-for="variant in art.variants"
           :key="variant.name"
@@ -135,6 +143,8 @@ watch(artPath, () => {
 
       <ActionsPanel v-if="activeTab === 'actions'" />
     </div>
+
+    <FullscreenPreview />
   </div>
 
   <div v-else class="component-not-found">
@@ -233,10 +243,39 @@ watch(artPath, () => {
   border-bottom-color: var(--musea-accent);
 }
 
+.action-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.375rem;
+  border-radius: 9px;
+  background: var(--musea-accent);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .gallery-grid {
   display: grid;
+  gap: 1.25rem;
+}
+
+.gallery-grid.density-compact {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.gallery-grid.density-comfortable {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.25rem;
+}
+
+.gallery-grid.density-spacious {
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  gap: 1.75rem;
 }
 
 .a11y-placeholder {
