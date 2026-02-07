@@ -326,10 +326,7 @@ pub fn generate_virtual_ts_with_offsets(
                 }
             }
             // --- Export re-export extraction: `export { ... } from "..."` ---
-            else if !in_type_decl
-                && !in_export_block
-                && trimmed.starts_with("export {")
-            {
+            else if !in_type_decl && !in_export_block && trimmed.starts_with("export {") {
                 emit_module_line!(i, line, ts, mappings, script_offset, script_byte_offset);
                 if !trimmed.ends_with(';') {
                     in_export_block = true;
