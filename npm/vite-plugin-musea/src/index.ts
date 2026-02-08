@@ -693,6 +693,26 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           console.log(`[musea] Removed: ${path.relative(config.root, file)}`);
         }
       });
+
+      // Print Musea gallery URL after server starts
+      return () => {
+        devServer.httpServer?.once("listening", () => {
+          const address = devServer.httpServer?.address();
+          if (address && typeof address === "object") {
+            const protocol = devServer.config.server.https ? "https" : "http";
+            const rawHost = address.address;
+            // Normalize IPv6/IPv4 localhost addresses to "localhost"
+            const host = rawHost === "::" || rawHost === "::1" || rawHost === "0.0.0.0" || rawHost === "127.0.0.1"
+              ? "localhost"
+              : rawHost;
+            const port = address.port;
+            const url = `${protocol}://${host}:${port}${basePath}`;
+
+            console.log();
+            console.log(`  \x1b[36m➜\x1b[0m  \x1b[1mMusea Gallery:\x1b[0m \x1b[36m${url}\x1b[0m`);
+          }
+        });
+      };
     },
 
     async buildStart() {

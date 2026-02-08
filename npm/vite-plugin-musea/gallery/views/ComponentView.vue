@@ -4,7 +4,9 @@ import { useRoute } from 'vue-router'
 import { useArts } from '../composables/useArts'
 import { useActions } from '../composables/useActions'
 import { useAddons } from '../composables/useAddons'
+import { useEventCapture } from '../composables/useEventCapture'
 import VariantCard from '../components/VariantCard.vue'
+import VariantTabs from '../components/VariantTabs.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import PropsPanel from '../components/PropsPanel.vue'
 import DocumentationPanel from '../components/DocumentationPanel.vue'
@@ -17,15 +19,39 @@ const route = useRoute()
 const { getArt, load } = useArts()
 const { events, init: initActions, clear: clearActions } = useActions()
 const { gridDensity } = useAddons()
+const { setCurrentVariant } = useEventCapture()
 
 const activeTab = ref<'variants' | 'props' | 'docs' | 'a11y'>('variants')
 const actionCount = computed(() => events.value.length)
 const actionsExpanded = ref(false)
 
+// Currently selected variant name
+const selectedVariantName = ref<string>('')
+
 const gridClass = computed(() => `gallery-grid density-${gridDensity.value}`)
 
 const artPath = computed(() => route.params.path as string)
 const art = computed(() => getArt(artPath.value))
+
+// Get the currently selected variant
+const selectedVariant = computed(() => {
+  if (!art.value) return null
+  return art.value.variants.find(v => v.name === selectedVariantName.value) || art.value.variants[0]
+})
+
+// Initialize selected variant when art changes
+watch(art, (newArt) => {
+  if (newArt) {
+    const defaultVariant = newArt.variants.find(v => v.isDefault) || newArt.variants[0]
+    selectedVariantName.value = defaultVariant?.name || ''
+    setCurrentVariant(selectedVariantName.value)
+  }
+}, { immediate: true })
+
+// Update event capture when variant changes
+watch(selectedVariantName, (name) => {
+  setCurrentVariant(name)
+})
 
 onMounted(() => {
   load()
@@ -36,6 +62,10 @@ watch(artPath, () => {
   activeTab.value = 'variants'
   clearActions()
 })
+
+const handleVariantSelect = (variantName: string) => {
+  selectedVariantName.value = variantName
+}
 </script>
 
 <template>
@@ -109,14 +139,22 @@ watch(artPath, () => {
     </div>
 
     <div class="component-content">
-      <div v-if="activeTab === 'variants'" :class="gridClass">
-        <VariantCard
-          v-for="variant in art.variants"
-          :key="variant.name"
-          :art-path="art.path"
-          :variant="variant"
-          :component-name="art.metadata.title"
+      <!-- Variants Tab: Show variant tabs + single preview -->
+      <div v-if="activeTab === 'variants'" class="variants-view">
+        <VariantTabs
+          :variants="art.variants"
+          :selected-variant="selectedVariantName"
+          @select="handleVariantSelect"
         />
+        <div class="variant-preview-area">
+          <VariantCard
+            v-if="selectedVariant"
+            :key="selectedVariant.name"
+            :art-path="art.path"
+            :variant="selectedVariant"
+            :component-name="art.metadata.title"
+          />
+        </div>
       </div>
 
       <PropsPanel
@@ -164,13 +202,16 @@ watch(artPath, () => {
 
 <style scoped>
 .component-view {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1rem 1.5rem;
+  overflow: hidden;
 }
 
 .component-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .component-title-row {
@@ -181,15 +222,15 @@ watch(artPath, () => {
 }
 
 .component-title {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
 .component-description {
   color: var(--musea-text-muted);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   max-width: 600px;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .component-meta {
@@ -224,7 +265,14 @@ watch(artPath, () => {
   display: flex;
   gap: 0.25rem;
   border-bottom: 1px solid var(--musea-border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.component-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .tab-btn {
@@ -266,6 +314,24 @@ watch(artPath, () => {
   line-height: 1;
 }
 
+.variants-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.variant-preview-area {
+  flex: 1;
+}
+
+.variant-preview-area :deep(.variant-card) {
+  height: 100%;
+}
+
+.variant-preview-area :deep(.variant-preview) {
+  min-height: 200px;
+}
+
 .gallery-grid {
   display: grid;
   gap: 1.25rem;
@@ -304,10 +370,13 @@ watch(artPath, () => {
 }
 
 .actions-footer {
-  margin-top: 1.5rem;
-  border: 1px solid var(--musea-border);
-  border-radius: var(--musea-radius-md);
-  overflow: hidden;
+  flex-shrink: 0;
+  border-top: 1px solid var(--musea-border);
+  background: var(--musea-bg-secondary);
+}
+
+.actions-footer.expanded {
+  flex: 0 0 auto;
 }
 
 .actions-footer-toggle {
@@ -315,11 +384,11 @@ watch(artPath, () => {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.625rem 1rem;
-  background: var(--musea-bg-secondary);
+  padding: 0.5rem 1rem;
+  background: transparent;
   border: none;
   color: var(--musea-text-muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--musea-transition);
@@ -332,7 +401,7 @@ watch(artPath, () => {
 
 .actions-footer-content {
   border-top: 1px solid var(--musea-border);
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
 }
 

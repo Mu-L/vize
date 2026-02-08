@@ -3,12 +3,17 @@ import vize from '@vizejs/vite-plugin'
 import { musea } from '@vizejs/vite-plugin-musea'
 
 export default defineConfig({
+  base: process.env.CI ? '/musea-examples/' : '/',
   plugins: [
     vize(),
     musea({
       include: ['src/**/*.vue'],
-      basePath: '/__musea__',
+      basePath: process.env.CI ? '/musea-examples/__musea__' : '/__musea__',
       inlineArt: true,
     }),
   ],
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
 })
