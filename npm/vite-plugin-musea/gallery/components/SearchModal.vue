@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { mdiMagnify, mdiHistory, mdiPalette, mdiDiamond } from '@mdi/js'
 import type { ArtFileInfo } from '../../src/types.js'
+import MdiIcon from './MdiIcon.vue'
 
 const props = defineProps<{
   arts: ArtFileInfo[]
@@ -201,10 +203,7 @@ onUnmounted(() => {
         <div class="search-modal" @keydown="handleKeydown">
           <!-- Search Input -->
           <div class="search-input-wrapper">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <MdiIcon class="search-icon" :path="mdiMagnify" :size="20" />
             <input
               ref="searchInput"
               v-model="query"
@@ -227,8 +226,8 @@ onUnmounted(() => {
                 @mouseenter="selectedIndex = index"
               >
                 <div class="result-icon">
-                  <template v-if="result.matchType === 'variant'">◆</template>
-                  <template v-else>🎨</template>
+                  <MdiIcon v-if="result.matchType === 'variant'" :path="mdiDiamond" :size="16" />
+                  <MdiIcon v-else :path="mdiPalette" :size="16" />
                 </div>
                 <div class="result-content">
                   <div class="result-title">
@@ -260,10 +259,7 @@ onUnmounted(() => {
                 class="search-history-item"
                 @click="selectFromHistory(term)"
               >
-                <svg class="history-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="1 4 1 10 7 10" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
+                <MdiIcon class="history-icon" :path="mdiHistory" :size="14" />
                 {{ term }}
               </div>
             </template>

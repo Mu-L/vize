@@ -160,6 +160,9 @@ importers:
         specifier: ^7.0.0
         version: 7.0.0
     devDependencies:
+      '@mdi/js':
+        specifier: ^7.4.47
+        version: 7.4.47
       '@types/node':
         specifier: ^22.14.0
         version: 22.19.3

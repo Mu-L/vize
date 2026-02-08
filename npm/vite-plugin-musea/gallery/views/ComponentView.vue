@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { mdiViewGrid, mdiFolder, mdiChevronUp, mdiChevronDown } from '@mdi/js'
 import { useArts } from '../composables/useArts'
 import { useActions } from '../composables/useActions'
 import { useAddons } from '../composables/useAddons'
 import { useEventCapture } from '../composables/useEventCapture'
+import MdiIcon from '../components/MdiIcon.vue'
 import VariantCard from '../components/VariantCard.vue'
 import VariantTabs from '../components/VariantTabs.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -19,7 +21,7 @@ import FullscreenPreview from '../components/FullscreenPreview.vue'
 
 const route = useRoute()
 const { getArt, load } = useArts()
-const { events, init: initActions, clear: clearActions } = useActions()
+const { events, init: initActions, clear: clearActions, setCurrentVariant: setActionsVariant } = useActions()
 const { gridDensity } = useAddons()
 const { setCurrentVariant } = useEventCapture()
 
@@ -47,12 +49,14 @@ watch(art, (newArt) => {
     const defaultVariant = newArt.variants.find(v => v.isDefault) || newArt.variants[0]
     selectedVariantName.value = defaultVariant?.name || ''
     setCurrentVariant(selectedVariantName.value)
+    setActionsVariant(selectedVariantName.value)
   }
 }, { immediate: true })
 
 // Update event capture when variant changes
 watch(selectedVariantName, (name) => {
   setCurrentVariant(name)
+  setActionsVariant(name)
 })
 
 onMounted(() => {
@@ -82,18 +86,11 @@ const handleVariantSelect = (variantName: string) => {
       </p>
       <div class="component-meta">
         <span class="meta-tag">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-          </svg>
+          <MdiIcon :path="mdiViewGrid" :size="12" />
           {{ art.variants.length }} variant{{ art.variants.length !== 1 ? 's' : '' }}
         </span>
         <span v-if="art.metadata.category" class="meta-tag">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
+          <MdiIcon :path="mdiFolder" :size="12" />
           {{ art.metadata.category }}
         </span>
         <span
@@ -193,9 +190,7 @@ const handleVariantSelect = (variantName: string) => {
     <!-- Actions Footer Panel -->
     <div class="actions-footer" :class="{ expanded: actionsExpanded }">
       <button class="actions-footer-toggle" @click="actionsExpanded = !actionsExpanded">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-          <polyline :points="actionsExpanded ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
-        </svg>
+        <MdiIcon :path="actionsExpanded ? mdiChevronUp : mdiChevronDown" :size="14" />
         Actions
         <span v-if="actionCount > 0" class="action-count-badge">{{ actionCount > 99 ? '99+' : actionCount }}</span>
       </button>
@@ -216,93 +211,85 @@ const handleVariantSelect = (variantName: string) => {
 
 <style scoped>
 .component-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 0.125rem 0.5rem;
-  overflow: hidden;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
 }
 
 .component-header {
-  margin-bottom: 0.125rem;
-  flex-shrink: 0;
+  margin-bottom: 1.5rem;
 }
 
 .component-title-row {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .component-title {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .component-description {
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.9375rem;
   max-width: 600px;
-  margin-bottom: 0;
-  line-height: 1.3;
+  margin-bottom: 0.75rem;
 }
 
 .component-meta {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 0.125rem;
 }
 
 .meta-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.125rem;
-  padding: 0 0.25rem;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
   background: var(--musea-bg-secondary);
   border: 1px solid var(--musea-border);
-  border-radius: 2px;
-  font-size: 0.5625rem;
+  border-radius: var(--musea-radius-sm);
+  font-size: 0.75rem;
   color: var(--musea-text-muted);
 }
 
 .meta-tag svg {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 .component-view :deep(.addon-toolbar) {
-  margin-bottom: 0.125rem;
+  margin-bottom: 1rem;
 }
 
 .component-tabs {
   display: flex;
-  gap: 0;
+  gap: 0.25rem;
   border-bottom: 1px solid var(--musea-border);
-  margin-bottom: 0.125rem;
-  flex-shrink: 0;
+  margin-bottom: 1.5rem;
 }
 
 .component-content {
-  flex: 1;
-  overflow-y: auto;
   min-height: 0;
 }
 
 .tab-btn {
   display: flex;
   align-items: center;
-  gap: 0.125rem;
+  gap: 0.5rem;
   background: none;
   border: none;
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  padding: 0.25rem 0.375rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
-  border-bottom: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   transition: all var(--musea-transition);
 }
 
@@ -319,13 +306,13 @@ const handleVariantSelect = (variantName: string) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 0.25rem;
-  border-radius: 7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.375rem;
+  border-radius: 9px;
   background: var(--musea-accent);
   color: #fff;
-  font-size: 0.5rem;
+  font-size: 0.625rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -333,63 +320,50 @@ const handleVariantSelect = (variantName: string) => {
 .variants-view {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  height: 100%;
+  gap: 1rem;
 }
 
 .variant-preview-area {
-  flex: 1;
   min-height: 0;
-}
-
-.variant-preview-area :deep(.variant-card) {
-  height: 100%;
-}
-
-.variant-preview-area :deep(.variant-preview) {
-  min-height: 80px;
 }
 
 .gallery-grid {
   display: grid;
-  gap: 0.5rem;
+  gap: 1.25rem;
 }
 
 .gallery-grid.density-compact {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.5rem;
-}
-
-.gallery-grid.density-comfortable {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 0.75rem;
 }
 
+.gallery-grid.density-comfortable {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
 .gallery-grid.density-spacious {
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  gap: 1.75rem;
 }
 
 .actions-footer {
-  flex-shrink: 0;
-  border-top: 1px solid var(--musea-border);
-  background: var(--musea-bg-secondary);
-}
-
-.actions-footer.expanded {
-  flex: 0 0 auto;
+  margin-top: 1.5rem;
+  border: 1px solid var(--musea-border);
+  border-radius: var(--musea-radius-md);
+  overflow: hidden;
 }
 
 .actions-footer-toggle {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   width: 100%;
-  padding: 0.25rem 0.5rem;
-  background: transparent;
+  padding: 0.625rem 1rem;
+  background: var(--musea-bg-secondary);
   border: none;
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--musea-transition);
@@ -402,7 +376,7 @@ const handleVariantSelect = (variantName: string) => {
 
 .actions-footer-content {
   border-top: 1px solid var(--musea-border);
-  max-height: 180px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -411,22 +385,19 @@ const handleVariantSelect = (variantName: string) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  min-height: 400px;
   text-align: center;
   color: var(--musea-text-muted);
-  font-size: 0.75rem;
 }
 
 .component-not-found h2 {
   color: var(--musea-text);
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
 }
 
 .back-link {
-  margin-top: 0.5rem;
+  margin-top: 1rem;
   color: var(--musea-accent);
   text-decoration: underline;
-  font-size: 0.75rem;
 }
 </style>

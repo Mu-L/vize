@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { mdiChevronDown } from '@mdi/js'
 import type { CapturedEvent } from '../composables/useEventCapture'
+import MdiIcon from './MdiIcon.vue'
 
 const props = defineProps<{
   events: CapturedEvent[]
@@ -98,7 +100,7 @@ const getRawValueClass = (value: unknown): string => {
     <div class="event-header">
       <div class="header-left">
         <button class="collapse-btn" @click="toggleCollapse" :title="isCollapsed ? 'Expand' : 'Collapse'">
-          <span :class="['collapse-icon', { 'collapse-icon--collapsed': isCollapsed }]">▼</span>
+          <MdiIcon :class="['collapse-icon', { 'collapse-icon--collapsed': isCollapsed }]" :path="mdiChevronDown" :size="14" />
         </button>
         <span class="header-title">Events</span>
         <span v-if="currentVariantId" class="current-variant-badge">{{ currentVariantId }}</span>

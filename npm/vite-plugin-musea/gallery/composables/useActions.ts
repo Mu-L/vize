@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useMessageListener } from './usePostMessage'
 
 export interface RawEventData {
@@ -47,9 +47,11 @@ export interface ActionEvent {
   timestamp: number
   source: 'dom' | 'vue'
   rawEvent?: RawEventData
+  variantName?: string
 }
 
 const events = ref<ActionEvent[]>([])
+const currentVariant = ref<string>('')
 
 export function useActions() {
   function init() {
@@ -67,9 +69,21 @@ export function useActions() {
     events.value = []
   }
 
+  function setCurrentVariant(variantName: string) {
+    currentVariant.value = variantName
+  }
+
+  const filteredEvents = computed(() => {
+    if (!currentVariant.value) return events.value
+    return events.value.filter(e => e.variantName === currentVariant.value)
+  })
+
   return {
-    events,
+    events: filteredEvents,
+    allEvents: events,
+    currentVariant,
     init,
     clear,
+    setCurrentVariant,
   }
 }

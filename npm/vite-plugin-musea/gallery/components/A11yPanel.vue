@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { mdiPlay, mdiLoading, mdiCheckCircle, mdiOpenInNew, mdiChevronDown, mdiChevronUp } from '@mdi/js'
 import { useA11y, type A11yViolation, type A11yResult } from '../composables/useA11y'
 import { getPreviewUrl } from '../api'
+import MdiIcon from './MdiIcon.vue'
 
 const props = defineProps<{
   artPath: string
@@ -83,12 +85,8 @@ const summary = computed(() => {
         :disabled="isRunning || !iframeReady"
         @click="runTest"
       >
-        <svg v-if="isRunning" class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-          <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12" />
-        </svg>
-        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
+        <MdiIcon v-if="isRunning" class="spin" :path="mdiLoading" :size="14" />
+        <MdiIcon v-else :path="mdiPlay" :size="14" />
         {{ isRunning ? 'Running...' : 'Run Test' }}
       </button>
     </div>
@@ -132,10 +130,7 @@ const summary = computed(() => {
         </div>
 
         <div v-if="result.violations.length === 0" class="a11y-success">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
+          <MdiIcon :path="mdiCheckCircle" :size="24" />
           <span>No accessibility violations found</span>
         </div>
 
@@ -152,19 +147,17 @@ const summary = computed(() => {
               </span>
               <span class="a11y-rule-id">{{ violation.id }}</span>
               <span class="a11y-node-count">{{ violation.nodes.length }} element(s)</span>
-              <svg class="a11y-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <polyline :points="expandedViolation === violation.id ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
-              </svg>
+              <MdiIcon
+                class="a11y-expand-icon"
+                :path="expandedViolation === violation.id ? mdiChevronUp : mdiChevronDown"
+                :size="14"
+              />
             </div>
             <div v-if="expandedViolation === violation.id" class="a11y-violation-detail">
               <p class="a11y-description">{{ violation.description }}</p>
               <a :href="violation.helpUrl" target="_blank" class="a11y-help-link">
                 Learn more
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
+                <MdiIcon :path="mdiOpenInNew" :size="12" />
               </a>
               <div class="a11y-nodes">
                 <div v-for="(node, i) in violation.nodes" :key="i" class="a11y-node">

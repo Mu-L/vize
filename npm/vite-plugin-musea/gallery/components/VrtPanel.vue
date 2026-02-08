@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { mdiPlay, mdiLoading, mdiImageOutline } from '@mdi/js'
 import { runVrt } from '../api'
+import MdiIcon from './MdiIcon.vue'
 
 const props = defineProps<{
   artPath: string
@@ -86,14 +88,8 @@ function getStatusColor(result: VrtResult): string {
           :disabled="isRunning"
           @click="runTest"
         >
-          <svg v-if="isRunning" class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12" />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
+          <MdiIcon v-if="isRunning" class="spin" :path="mdiLoading" :size="14" />
+          <MdiIcon v-else :path="mdiImageOutline" :size="14" />
           {{ isRunning ? 'Running...' : 'Run VRT' }}
         </button>
       </div>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { mdiHome, mdiPalette, mdiCheckCircleOutline, mdiChevronRight } from '@mdi/js'
 import type { ArtFileInfo } from '../../src/types.js'
+import MdiIcon from './MdiIcon.vue'
 
 const props = defineProps<{
   arts: ArtFileInfo[]
@@ -54,10 +56,7 @@ function selectArt(art: ArtFileInfo) {
         class="sidebar-home-link"
         :class="{ active: route.name === 'home' }"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
-        </svg>
+        <MdiIcon :path="mdiHome" :size="16" />
         Home
       </router-link>
 
@@ -66,18 +65,17 @@ function selectArt(art: ArtFileInfo) {
         class="sidebar-home-link"
         :class="{ active: route.name === 'tokens' }"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="5" />
-          <line x1="12" y1="1" x2="12" y2="3" />
-          <line x1="12" y1="21" x2="12" y2="23" />
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-          <line x1="1" y1="12" x2="3" y2="12" />
-          <line x1="21" y1="12" x2="23" y2="12" />
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-        </svg>
+        <MdiIcon :path="mdiPalette" :size="16" />
         Design Tokens
+      </router-link>
+
+      <router-link
+        :to="{ name: 'tests' }"
+        class="sidebar-home-link"
+        :class="{ active: route.name === 'tests' }"
+      >
+        <MdiIcon :path="mdiCheckCircleOutline" :size="16" />
+        Test Summary
       </router-link>
     </div>
 
@@ -91,9 +89,7 @@ function selectArt(art: ArtFileInfo) {
         :class="{ 'category-header--expanded': isCategoryExpanded(category) }"
         @click="toggleCategory(category)"
       >
-        <svg class="category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        <MdiIcon class="category-icon" :path="mdiChevronRight" :size="16" />
         <span class="category-label">{{ category }}</span>
         <span class="category-count">{{ items.length }}</span>
       </div>
@@ -123,14 +119,10 @@ function selectArt(art: ArtFileInfo) {
   border-right: 1px solid var(--musea-border);
   overflow-y: auto;
   overflow-x: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .sidebar-section {
-  padding: 0.25rem 0.375rem;
-  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
 }
 
 .sidebar-section + .sidebar-section {
@@ -140,19 +132,14 @@ function selectArt(art: ArtFileInfo) {
 .sidebar-home-link {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.375rem;
-  border-radius: 2px;
-  font-size: 0.625rem;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--musea-radius-sm);
+  font-size: 0.8125rem;
   color: var(--musea-text-secondary);
   cursor: pointer;
   transition: all var(--musea-transition);
   text-decoration: none;
-}
-
-.sidebar-home-link svg {
-  width: 10px;
-  height: 10px;
 }
 
 .sidebar-home-link:hover {
@@ -168,16 +155,16 @@ function selectArt(art: ArtFileInfo) {
 .category-header {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.375rem;
-  font-size: 0.5625rem;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--musea-text-muted);
   cursor: pointer;
   user-select: none;
-  border-radius: 2px;
+  border-radius: var(--musea-radius-sm);
   transition: background var(--musea-transition);
 }
 
@@ -186,9 +173,9 @@ function selectArt(art: ArtFileInfo) {
 }
 
 .category-icon {
-  width: 10px;
-  height: 10px;
-  transition: transform 0.15s ease;
+  width: 16px;
+  height: 16px;
+  transition: transform var(--musea-transition);
   flex-shrink: 0;
 }
 
@@ -205,27 +192,28 @@ function selectArt(art: ArtFileInfo) {
 }
 
 .category-count {
-  flex-shrink: 0;
+  margin-left: auto;
   background: var(--musea-bg-tertiary);
-  padding: 0 0.25rem;
-  border-radius: 2px;
-  font-size: 0.5rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.625rem;
 }
 
 .art-list {
   list-style: none;
   margin: 0;
+  margin-top: 0.25rem;
   padding: 0;
 }
 
 .art-item {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.1875rem 0.375rem 0.1875rem 1rem;
-  border-radius: 2px;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem 0.375rem 2.25rem;
+  border-radius: var(--musea-radius-sm);
   cursor: pointer;
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
   color: var(--musea-text-secondary);
   transition: all var(--musea-transition);
   position: relative;
@@ -234,11 +222,11 @@ function selectArt(art: ArtFileInfo) {
 .art-item::before {
   content: '';
   position: absolute;
-  left: 0.5rem;
+  left: 1.25rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 3px;
-  height: 3px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--musea-border);
   transition: background var(--musea-transition);
@@ -271,13 +259,10 @@ function selectArt(art: ArtFileInfo) {
 }
 
 .art-variant-count {
-  flex-shrink: 0;
-  font-size: 0.5rem;
+  margin-left: auto;
+  font-size: 0.6875rem;
   color: var(--musea-text-muted);
-  background: var(--musea-bg-tertiary);
-  padding: 0 0.25rem;
-  border-radius: 6px;
-  opacity: 0.7;
+  opacity: 0;
   transition: opacity var(--musea-transition);
 }
 
@@ -285,16 +270,10 @@ function selectArt(art: ArtFileInfo) {
   opacity: 1;
 }
 
-.art-item.active .art-variant-count {
-  background: var(--musea-accent);
-  color: white;
-  opacity: 1;
-}
-
 .sidebar-empty {
-  padding: 1rem 0.5rem;
+  padding: 2rem 1rem;
   text-align: center;
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
 }
 </style>

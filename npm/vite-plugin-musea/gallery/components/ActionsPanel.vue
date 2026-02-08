@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { mdiChevronUp, mdiChevronDown } from '@mdi/js'
 import { useActions, type ActionEvent } from '../composables/useActions'
+import MdiIcon from './MdiIcon.vue'
 
 const { events, clear } = useActions()
 const expandedIndex = ref<number | null>(null)
@@ -50,9 +52,11 @@ function formatRawEvent(event: ActionEvent): string {
           <span class="action-time">{{ formatTime(event.timestamp) }}</span>
           <span class="action-type" :class="event.source">{{ event.name }}</span>
           <span v-if="event.target" class="action-target">{{ event.target }}</span>
-          <svg class="action-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline :points="expandedIndex === index ? '18 15 12 9 6 15' : '6 9 12 15 18 9'" />
-          </svg>
+          <MdiIcon
+            class="action-expand-icon"
+            :path="expandedIndex === index ? mdiChevronUp : mdiChevronDown"
+            :size="12"
+          />
         </div>
         <div v-if="expandedIndex === index" class="action-detail">
           <pre class="action-raw">{{ formatRawEvent(event) }}</pre>

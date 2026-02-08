@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { mdiMagnify } from '@mdi/js'
 import { useArts } from '../composables/useArts'
 import { useSearch } from '../composables/useSearch'
 import SearchBar from './SearchBar.vue'
 import Sidebar from './Sidebar.vue'
 import SearchModal from './SearchModal.vue'
+import MdiIcon from './MdiIcon.vue'
 
 const router = useRouter()
 const { arts, load } = useArts()
@@ -75,10 +77,7 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
 
       <div class="header-center">
         <button class="search-trigger" @click="searchModalOpen = true">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <MdiIcon class="search-icon" :path="mdiMagnify" :size="16" />
           <span>Search components...</span>
           <kbd>⌘K</kbd>
         </button>
@@ -115,68 +114,66 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
 .header {
   background: var(--musea-bg-secondary);
   border-bottom: 1px solid var(--musea-border);
-  padding: 0 0.75rem;
-  height: 32px;
+  padding: 0 1.5rem;
+  height: var(--musea-header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
   position: sticky;
   top: 0;
   z-index: 100;
-  flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.5rem;
 }
 
 .header-center {
   flex: 1;
   display: flex;
   justify-content: center;
-  max-width: 300px;
+  max-width: 400px;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
+  gap: 0.5rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--musea-accent);
   text-decoration: none;
 }
 
 .logo-svg {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
 }
 
 .header-subtitle {
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  padding-left: 0.75rem;
+  padding-left: 1.5rem;
   border-left: 1px solid var(--musea-border);
 }
 
 .search-trigger {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   width: 100%;
-  padding: 0.25rem 0.5rem;
+  padding: 0.5rem 0.75rem;
   background: var(--musea-bg-tertiary);
   border: 1px solid var(--musea-border);
-  border-radius: 4px;
+  border-radius: var(--musea-radius-md);
   color: var(--musea-text-muted);
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--musea-transition);
 }
 
 .search-trigger:hover {
@@ -185,8 +182,8 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
 }
 
 .search-icon {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -196,12 +193,12 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
 }
 
 .search-trigger kbd {
-  padding: 0 0.25rem;
+  padding: 0.125rem 0.375rem;
   background: var(--musea-bg-primary);
   border: 1px solid var(--musea-border);
-  border-radius: 2px;
-  font-size: 0.5625rem;
-  font-family: inherit;
+  border-radius: var(--musea-radius-sm);
+  font-size: 0.75rem;
+  font-family: var(--musea-font-mono);
 }
 
 .main {
@@ -209,7 +206,7 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
   grid-template-columns: var(--musea-sidebar-width) 1fr;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 32px);
+  height: calc(100vh - var(--musea-header-height));
 }
 
 .main > :first-child {
@@ -221,7 +218,7 @@ const handleSearchSelect = (art: { path: string }, variantName?: string) => {
 .content {
   background: var(--musea-bg-primary);
   overflow-y: auto;
-  height: 100%;
+  height: calc(100vh - var(--musea-header-height));
 }
 
 @media (max-width: 768px) {

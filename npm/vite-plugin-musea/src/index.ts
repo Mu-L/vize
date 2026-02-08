@@ -1809,9 +1809,10 @@ export async function loadArts() {
 // Addon initialization code injected into preview iframe modules.
 // Shared between generatePreviewModule and generatePreviewModuleWithProps.
 const MUSEA_ADDONS_INIT_CODE = `
-function __museaInitAddons(container) {
+function __museaInitAddons(container, variantName) {
   // === DOM event capture ===
-  const CAPTURE_EVENTS = ['click','dblclick','input','change','submit','focus','blur','keydown','keyup','mousedown','mouseup','mousemove','mouseenter','mouseleave','wheel','contextmenu','pointerdown','pointerup','pointermove'];
+  // Note: mousemove, mouseenter, mouseleave, pointermove are excluded as they are too noisy
+  const CAPTURE_EVENTS = ['click','dblclick','input','change','submit','focus','blur','keydown','keyup','mousedown','mouseup','wheel','contextmenu','pointerdown','pointerup'];
   for (const evt of CAPTURE_EVENTS) {
     container.addEventListener(evt, (e) => {
       // Extract raw event properties
@@ -1869,7 +1870,8 @@ function __museaInitAddons(container) {
         target: e.target?.tagName,
         timestamp: Date.now(),
         source: 'dom',
-        rawEvent
+        rawEvent,
+        variantName
       };
       if (e.target && 'value' in e.target) {
         payload.value = e.target.value;
@@ -2049,12 +2051,11 @@ function __museaInitAddons(container) {
                 document.head.appendChild(script);
               });
             }
-            // Run axe-core on the document
-            const results = await window.axe.run(document, {
-              runOnly: {
-                type: 'tag',
-                values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice']
-              }
+            // Run axe-core on the .musea-variant container only (not the full document)
+            const context = document.querySelector('.musea-variant') || document;
+            const results = await window.axe.run(context, {
+              // Run all rules without restrictions for comprehensive testing
+              resultTypes: ['violations', 'incomplete', 'passes']
             });
             window.parent.postMessage({
               type: 'musea:a11y-result',
@@ -2146,7 +2147,7 @@ async function mount() {
     currentApp = app;
 
     console.log('[musea-preview] Mounted variant: ${escapedVariantName}');
-    __museaInitAddons(container);
+    __museaInitAddons(container, '${escapedVariantName}');
 
     // Override set-props to remount with raw component + props
     if (RawComponent) {
@@ -2361,7 +2362,7 @@ async function mount() {
     container.className = 'musea-variant';
     app.mount(container);
     console.log('[musea-preview] Mounted variant: ${escapedVariantName} with props override');
-    __museaInitAddons(container);
+    __museaInitAddons(container, '${escapedVariantName}');
   } catch (error) {
     console.error('[musea-preview] Failed to mount:', error);
     container.innerHTML = '<div class="musea-error"><div class="musea-error-title">Failed to render</div><div>' + error.message + '</div></div>';
