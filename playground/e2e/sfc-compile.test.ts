@@ -144,8 +144,8 @@ const user: User = { name: 'test', age: 25 }
 `
       const result = wasm!.compileSfc(sfc, {})
       expect(result.script?.code).toBeDefined()
-      // TypeScript is preserved in output (matching Vue's behavior - bundler strips TS)
-      expect(result.script?.code).toContain('interface User')
+      // TypeScript interfaces are stripped in JS output mode (is_ts not set)
+      expect(result.script?.code).not.toContain('interface User')
     })
 
     it('should handle type aliases', () => {
@@ -161,8 +161,8 @@ const status: Status = 'active'
 `
       const result = wasm!.compileSfc(sfc, {})
       expect(result.script?.code).toBeDefined()
-      // TypeScript is preserved in output (matching Vue's behavior - bundler strips TS)
-      expect(result.script?.code).toContain('type Status')
+      // TypeScript type aliases are stripped in JS output mode (is_ts not set)
+      expect(result.script?.code).not.toContain('type Status')
     })
   })
 

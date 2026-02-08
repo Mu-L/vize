@@ -44,11 +44,9 @@ pub fn compile_sfc(
             .map(|s| s.attrs.contains_key("vapor"))
             .unwrap_or(false);
 
-    // is_ts controls output format:
-    // - true: output TypeScript (preserve TypeScript syntax, wrap in defineComponent)
-    // - false: output JavaScript (transpile TypeScript to JS)
-    // Auto-detect from descriptor's lang attributes when not explicitly set
-    let source_has_ts = descriptor
+    // source_has_ts: whether source uses TypeScript (detected from lang="ts")
+    // Used for: parsing source as TS, preserving TS declarations, resolving type references
+    let _source_has_ts = descriptor
         .script_setup
         .as_ref()
         .and_then(|s| s.lang.as_ref())
@@ -58,7 +56,11 @@ pub fn compile_sfc(
             .as_ref()
             .and_then(|s| s.lang.as_ref())
             .is_some_and(|l| l == "ts" || l == "tsx");
-    let is_ts = options.script.is_ts || options.template.is_ts || source_has_ts;
+    // is_ts controls output format:
+    // - true: output TypeScript (add `: any` annotations, defineComponent wrapper)
+    // - false: output JavaScript (no type annotations)
+    // Only set by explicit options, NOT auto-detected from source lang
+    let is_ts = options.script.is_ts || options.template.is_ts;
 
     // Extract component name from filename
     let component_name = extract_component_name(filename);
@@ -693,7 +695,7 @@ const output = ref(null);
 
     #[test]
     fn test_typescript_preserved_in_event_handler() {
-        // When source has lang="ts", TypeScript is preserved in the output
+        // When is_ts=true, TypeScript is preserved in the output
         // (matching Vue's @vue/compiler-sfc behavior - TS stripping is the bundler's job)
         let source = r#"<script setup lang="ts">
 type PresetKey = 'a' | 'b'
@@ -708,7 +710,13 @@ function handlePresetChange(key: PresetKey) {}
 
         let descriptor =
             parse_sfc(source, SfcParseOptions::default()).expect("Failed to parse SFC");
-        let opts = SfcCompileOptions::default();
+        let opts = SfcCompileOptions {
+            script: ScriptCompileOptions {
+                is_ts: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let result = compile_sfc(&descriptor, opts).expect("Failed to compile SFC");
 
         // Print output for debugging
@@ -736,7 +744,7 @@ function handlePresetChange(key: PresetKey) {}
 
     #[test]
     fn test_typescript_function_types_preserved() {
-        // When source has lang="ts", TypeScript is preserved in the output
+        // When is_ts=true, TypeScript is preserved in the output
         // (matching Vue's @vue/compiler-sfc behavior - TS stripping is the bundler's job)
         let source = r#"<script setup lang="ts">
 interface Item {
@@ -764,7 +772,13 @@ function processData(data: Record<string, unknown>): void {
 
         let descriptor =
             parse_sfc(source, SfcParseOptions::default()).expect("Failed to parse SFC");
-        let opts = SfcCompileOptions::default();
+        let opts = SfcCompileOptions {
+            script: ScriptCompileOptions {
+                is_ts: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let result = compile_sfc(&descriptor, opts).expect("Failed to compile SFC");
 
         eprintln!("TypeScript function types output:\n{}", result.code);
@@ -1079,7 +1093,7 @@ const title = defineModel('title')
 
     #[test]
     fn test_non_script_setup_typescript_preserved() {
-        // Non-script-setup SFC with lang="ts" preserves TypeScript in the output
+        // Non-script-setup SFC with is_ts=true preserves TypeScript in the output
         // (matching Vue's @vue/compiler-sfc behavior - TS stripping is the bundler's job)
         let source = r#"<script lang="ts">
 interface Props {
@@ -1107,15 +1121,21 @@ export default {
         let descriptor =
             parse_sfc(source, SfcParseOptions::default()).expect("Failed to parse SFC");
 
-        let opts = SfcCompileOptions::default();
+        let opts = SfcCompileOptions {
+            script: ScriptCompileOptions {
+                is_ts: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let result = compile_sfc(&descriptor, opts).expect("Failed to compile SFC");
 
         eprintln!("=== Non-script-setup TS output ===\n{}", result.code);
 
-        // TypeScript should be preserved when source has lang="ts"
+        // TypeScript should be preserved when is_ts=true
         assert!(
             result.code.contains("interface Props") || result.code.contains(": Props"),
-            "Should preserve TypeScript with lang='ts'. Got:\n{}",
+            "Should preserve TypeScript with is_ts=true. Got:\n{}",
             result.code
         );
 
