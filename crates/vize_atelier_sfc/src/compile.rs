@@ -79,8 +79,15 @@ pub fn compile_sfc(
         let mut dom_opts = template_opts.compiler_options.take().unwrap_or_default();
         dom_opts.hoist_static = true;
         template_opts.compiler_options = Some(dom_opts);
-        let template_result =
-            compile_template_block(template, &template_opts, &scope_id, has_scoped, is_ts, None, None);
+        let template_result = compile_template_block(
+            template,
+            &template_opts,
+            &scope_id,
+            has_scoped,
+            is_ts,
+            None,
+            None,
+        );
 
         match template_result {
             Ok(template_code) => {
@@ -249,10 +256,7 @@ pub fn compile_sfc(
     //    Croquis can't resolve interface references, so we take Props from the legacy analyzer
     for (name, bt) in &ctx.bindings.bindings {
         if matches!(bt, BindingType::Props | BindingType::PropsAliased) {
-            script_bindings
-                .bindings
-                .entry(name.clone())
-                .or_insert(*bt);
+            script_bindings.bindings.entry(name.clone()).or_insert(*bt);
         }
     }
 
@@ -554,17 +558,14 @@ fn extract_normal_script_content(content: &str, source_is_ts: bool, output_is_ts
 }
 
 /// Convert Croquis BindingMetadata (CompactString keys) to legacy BindingMetadata (String keys)
-fn croquis_to_legacy_bindings(
-    src: &vize_croquis::analysis::BindingMetadata,
-) -> BindingMetadata {
+fn croquis_to_legacy_bindings(src: &vize_croquis::analysis::BindingMetadata) -> BindingMetadata {
     let mut dst = BindingMetadata::default();
     dst.is_script_setup = src.is_script_setup;
     for (name, bt) in src.iter() {
         dst.bindings.insert(name.to_string(), bt);
     }
     for (local, key) in &src.props_aliases {
-        dst.props_aliases
-            .insert(local.to_string(), key.to_string());
+        dst.props_aliases.insert(local.to_string(), key.to_string());
     }
     dst
 }

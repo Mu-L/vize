@@ -43,10 +43,7 @@ pub fn process_call_expression(
         _ => return None,
     };
 
-    let macro_kind = match MacroKind::from_name(callee_name) {
-        Some(kind) => kind,
-        None => return None,
-    };
+    let macro_kind = MacroKind::from_name(callee_name)?;
 
     let span = call.span;
 
@@ -309,7 +306,10 @@ pub fn detect_reactivity_call(
         "toRefs" => Some((ReactiveKind::ToRefs, BindingType::SetupRef)),
         "customRef" => Some((ReactiveKind::Ref, BindingType::SetupRef)),
         "readonly" => Some((ReactiveKind::Readonly, BindingType::SetupReactiveConst)),
-        "shallowReadonly" => Some((ReactiveKind::ShallowReadonly, BindingType::SetupReactiveConst)),
+        "shallowReadonly" => Some((
+            ReactiveKind::ShallowReadonly,
+            BindingType::SetupReactiveConst,
+        )),
         _ => None,
     }
 }
