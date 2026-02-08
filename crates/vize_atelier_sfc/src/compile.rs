@@ -236,13 +236,25 @@ pub fn compile_sfc(
         None
     };
 
-    // Analyze script first to get bindings
+    // 1. Croquis parser: rich analysis with ReactivityTracker
+    let croquis = crate::script::analyze_script_setup_to_summary(&script_setup.content);
+    let mut script_bindings = croquis_to_legacy_bindings(&croquis.bindings);
+
+    // 2. ScriptCompileContext: needed for macro span info and TypeScript type resolution
+    //    (Croquis doesn't resolve type references like `defineProps<Props>()`)
     let mut ctx = ScriptCompileContext::new(&script_setup.content);
     ctx.analyze();
-    let mut script_bindings = ctx.bindings.clone();
 
-    // Generate Croquis from the already-analyzed context (no additional OXC parse)
-    let croquis = ctx.to_analysis_summary();
+    // 3. Merge Props bindings from ScriptCompileContext (type resolution fallback)
+    //    Croquis can't resolve interface references, so we take Props from the legacy analyzer
+    for (name, bt) in &ctx.bindings.bindings {
+        if matches!(bt, BindingType::Props | BindingType::PropsAliased) {
+            script_bindings
+                .bindings
+                .entry(name.clone())
+                .or_insert(*bt);
+        }
+    }
 
     // Also register exported bindings from normal script (e.g., export const n = 1)
     // These are accessible in the template without _ctx. prefix
@@ -539,6 +551,22 @@ fn extract_normal_script_content(content: &str, source_is_ts: bool, output_is_ts
     }
 
     extracted
+}
+
+/// Convert Croquis BindingMetadata (CompactString keys) to legacy BindingMetadata (String keys)
+fn croquis_to_legacy_bindings(
+    src: &vize_croquis::analysis::BindingMetadata,
+) -> BindingMetadata {
+    let mut dst = BindingMetadata::default();
+    dst.is_script_setup = src.is_script_setup;
+    for (name, bt) in src.iter() {
+        dst.bindings.insert(name.to_string(), bt);
+    }
+    for (local, key) in &src.props_aliases {
+        dst.props_aliases
+            .insert(local.to_string(), key.to_string());
+    }
+    dst
 }
 
 #[cfg(test)]

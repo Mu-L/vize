@@ -20,6 +20,8 @@ use crate::ScopeBinding;
 use vize_carton::CompactString;
 use vize_relief::BindingType;
 
+use crate::macros::MacroKind;
+use crate::reactivity::ReactiveKind;
 use super::extract::{
     check_ref_value_extraction, detect_reactivity_call, detect_setup_context_violation,
     extract_argument_source, extract_call_expression, extract_provide_key,
@@ -135,11 +137,18 @@ pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, s
                         .binding_spans
                         .insert(CompactString::new(name), (local_span.start, local_span.end));
 
-                    // Add binding to external module scope
+                    // Determine binding type based on specifier kind:
+                    // - Named imports (ImportSpecifier) → SetupMaybeRef (could be ref/reactive)
+                    // - Default/Namespace imports → SetupConst
                     let binding_type = if is_type_only || is_type_spec {
                         BindingType::ExternalModule
                     } else {
-                        BindingType::SetupConst
+                        match spec {
+                            oxc_ast::ast::ImportDeclarationSpecifier::ImportSpecifier(_) => {
+                                BindingType::SetupMaybeRef
+                            }
+                            _ => BindingType::SetupConst, // default/namespace
+                        }
                     };
                     result.scopes.add_binding(
                         CompactString::new(name),
@@ -148,7 +157,7 @@ pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, s
 
                     // Only add to bindings if not type-only
                     if !is_type_only && !is_type_spec {
-                        result.bindings.add(name, BindingType::SetupConst);
+                        result.bindings.add(name, binding_type);
                     }
                 }
             }
@@ -254,9 +263,23 @@ fn process_variable_declarator(
             let call_extracted =
                 if let Some(call) = declarator.init.as_ref().and_then(extract_call_expression) {
                     // Check for macro calls (defineProps, defineEmits, etc.)
-                    if process_call_expression(result, call, source) {
-                        // Macro was processed, add binding
-                        let binding_type = get_binding_type_from_kind(kind);
+                    if let Some(macro_kind) = process_call_expression(result, call, source) {
+                        // Assign binding type based on macro kind
+                        let binding_type = match macro_kind {
+                            MacroKind::DefineProps | MacroKind::WithDefaults => {
+                                BindingType::SetupReactiveConst
+                            }
+                            MacroKind::DefineModel => BindingType::SetupRef,
+                            _ => get_binding_type_from_kind(kind),
+                        };
+                        // defineModel returns a ref, register in reactivity tracker
+                        if macro_kind == MacroKind::DefineModel {
+                            result.reactivity.register(
+                                CompactString::new(name),
+                                ReactiveKind::Ref,
+                                0,
+                            );
+                        }
                         result.bindings.add(name, binding_type);
                         // Walk into the call's callback arguments to track nested scopes
                         walk_call_arguments(result, call, source);
@@ -372,8 +395,22 @@ fn process_variable_declarator(
                 }
             }
 
-            // Regular binding
-            let binding_type = get_binding_type_from_kind(kind);
+            // Regular binding - for const, detect literal/function expressions
+            let binding_type = if kind == VariableDeclarationKind::Const {
+                if let Some(init) = &declarator.init {
+                    if is_literal_expression(init) {
+                        BindingType::LiteralConst
+                    } else if is_function_expression(init) {
+                        BindingType::SetupConst
+                    } else {
+                        BindingType::SetupMaybeRef
+                    }
+                } else {
+                    BindingType::SetupConst
+                }
+            } else {
+                get_binding_type_from_kind(kind)
+            };
             result.bindings.add(name, binding_type);
         }
 
@@ -645,4 +682,30 @@ fn get_binding_pattern_name(kind: &BindingPatternKind<'_>) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// Check if an expression is a literal value (number, string, boolean, null, template literal
+/// without expressions, or unary minus on a numeric literal)
+fn is_literal_expression(expr: &Expression<'_>) -> bool {
+    match expr {
+        Expression::StringLiteral(_)
+        | Expression::NumericLiteral(_)
+        | Expression::BooleanLiteral(_)
+        | Expression::NullLiteral(_)
+        | Expression::BigIntLiteral(_) => true,
+        Expression::TemplateLiteral(tpl) => tpl.expressions.is_empty(),
+        Expression::UnaryExpression(unary) => {
+            unary.operator == oxc_ast::ast::UnaryOperator::UnaryNegation
+                && matches!(unary.argument, Expression::NumericLiteral(_))
+        }
+        _ => false,
+    }
+}
+
+/// Check if an expression is a function expression (arrow function or function expression)
+fn is_function_expression(expr: &Expression<'_>) -> bool {
+    matches!(
+        expr,
+        Expression::ArrowFunctionExpression(_) | Expression::FunctionExpression(_)
+    )
 }
