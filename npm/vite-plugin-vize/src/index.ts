@@ -338,6 +338,12 @@ export function vize(options: VizeOptions = {}): Plugin {
         return id;
       }
 
+      // Skip subpath imports (e.g., #imports/entry) - these are handled by
+      // framework-specific plugins (like Nuxt) and should not be resolved by vize
+      if (id.startsWith("#")) {
+        return null;
+      }
+
       // If importer is a virtual module, resolve imports against the real path
       if (importer?.startsWith(VIRTUAL_PREFIX)) {
         const realImporter = virtualToReal.get(importer) ?? importer.slice(VIRTUAL_PREFIX.length);
