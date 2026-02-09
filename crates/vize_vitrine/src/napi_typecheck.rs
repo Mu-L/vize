@@ -15,6 +15,12 @@ pub struct TypeCheckOptionsNapi {
     pub check_props: Option<bool>,
     pub check_emits: Option<bool>,
     pub check_template_bindings: Option<bool>,
+    pub check_reactivity: Option<bool>,
+    pub check_setup_context: Option<bool>,
+    pub check_invalid_exports: Option<bool>,
+    pub check_vfor_keys: Option<bool>,
+    pub check_fallthrough_attrs: Option<bool>,
+    pub check_unused_template_vars: Option<bool>,
 }
 
 /// Related location for diagnostic (NAPI)
@@ -48,6 +54,21 @@ pub struct TypeCheckResultNapi {
     pub analysis_time_ms: Option<f64>,
 }
 
+/// Apply NAPI options to TypeCheckOptions.
+fn apply_napi_options(opts: &TypeCheckOptionsNapi, check_opts: &mut TypeCheckOptions) {
+    check_opts.strict = opts.strict.unwrap_or(false);
+    check_opts.include_virtual_ts = opts.include_virtual_ts.unwrap_or(false);
+    check_opts.check_props = opts.check_props.unwrap_or(true);
+    check_opts.check_emits = opts.check_emits.unwrap_or(true);
+    check_opts.check_template_bindings = opts.check_template_bindings.unwrap_or(true);
+    check_opts.check_reactivity = opts.check_reactivity.unwrap_or(true);
+    check_opts.check_setup_context = opts.check_setup_context.unwrap_or(true);
+    check_opts.check_invalid_exports = opts.check_invalid_exports.unwrap_or(true);
+    check_opts.check_vfor_keys = opts.check_vfor_keys.unwrap_or(true);
+    check_opts.check_fallthrough_attrs = opts.check_fallthrough_attrs.unwrap_or(true);
+    check_opts.check_unused_template_vars = opts.check_unused_template_vars.unwrap_or(false);
+}
+
 /// Perform type checking on a Vue SFC
 ///
 /// This performs AST-based type analysis without requiring a TypeScript compiler.
@@ -61,11 +82,7 @@ pub fn type_check_napi(
 
     let mut check_opts =
         TypeCheckOptions::new(opts.filename.unwrap_or_else(|| "anonymous.vue".to_string()));
-    check_opts.strict = opts.strict.unwrap_or(false);
-    check_opts.include_virtual_ts = opts.include_virtual_ts.unwrap_or(false);
-    check_opts.check_props = opts.check_props.unwrap_or(true);
-    check_opts.check_emits = opts.check_emits.unwrap_or(true);
-    check_opts.check_template_bindings = opts.check_template_bindings.unwrap_or(true);
+    apply_napi_options(&opts, &mut check_opts);
 
     let result = type_check_sfc(&source, &check_opts);
 
@@ -143,6 +160,36 @@ pub fn get_type_check_capabilities_napi() -> TypeCheckCapabilitiesNapi {
                 description: "Detects undefined template bindings".to_string(),
                 severity: "error".to_string(),
             },
+            TypeCheckCapabilityNapi {
+                name: "reactivity-loss".to_string(),
+                description: "Detects patterns that lose reactivity (destructuring, spreading, reassigning)".to_string(),
+                severity: "warning".to_string(),
+            },
+            TypeCheckCapabilityNapi {
+                name: "setup-context-violation".to_string(),
+                description: "Detects Vue APIs called outside setup context (CSRP, memory leaks)".to_string(),
+                severity: "warning/error".to_string(),
+            },
+            TypeCheckCapabilityNapi {
+                name: "invalid-export".to_string(),
+                description: "Detects invalid value exports from <script setup>".to_string(),
+                severity: "error".to_string(),
+            },
+            TypeCheckCapabilityNapi {
+                name: "vfor-missing-key".to_string(),
+                description: "Detects v-for directives without :key binding".to_string(),
+                severity: "warning".to_string(),
+            },
+            TypeCheckCapabilityNapi {
+                name: "fallthrough-attrs".to_string(),
+                description: "Detects multi-root components that may lose fallthrough attributes".to_string(),
+                severity: "warning".to_string(),
+            },
+            TypeCheckCapabilityNapi {
+                name: "unused-template-var".to_string(),
+                description: "Detects unused variables in v-for/v-slot (opt-in)".to_string(),
+                severity: "info".to_string(),
+            },
         ],
         notes: vec![
             "For full TypeScript type checking, use the CLI with tsgo integration".to_string(),
@@ -218,11 +265,8 @@ pub fn type_check_batch_napi(
             .to_string();
 
         let mut check_opts = TypeCheckOptions::new(filename);
-        check_opts.strict = opts.strict.unwrap_or(false);
+        apply_napi_options(&opts, &mut check_opts);
         check_opts.include_virtual_ts = false; // Don't generate virtual TS for batch
-        check_opts.check_props = opts.check_props.unwrap_or(true);
-        check_opts.check_emits = opts.check_emits.unwrap_or(true);
-        check_opts.check_template_bindings = opts.check_template_bindings.unwrap_or(true);
 
         let result = type_check_sfc(&source, &check_opts);
 
