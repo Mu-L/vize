@@ -202,6 +202,7 @@ provideFormRootContext({
     :data-submitting="isSubmitting ? '' : undefined"
     :data-valid="isValid ? '' : undefined"
     :data-invalid="!isValid ? '' : undefined"
+    data-vize-form
     @submit="handleSubmit"
   >
     <slot />

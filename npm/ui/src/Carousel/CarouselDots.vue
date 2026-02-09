@@ -25,6 +25,7 @@ const dots = computed(() =>
     :as="as"
     :as-child="asChild"
     role="tablist"
+    data-vize-carousel-dots
   >
     <slot :dots="dots" />
   </Primitive>

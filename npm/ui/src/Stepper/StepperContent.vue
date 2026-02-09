@@ -23,6 +23,7 @@ const isActive = computed(() => itemContext.state.value === 'active')
     role="tabpanel"
     :aria-labelledby="itemContext.triggerId"
     :data-state="itemContext.state.value"
+    data-vize-stepper-content
     :style="forceMount && !isActive ? { display: 'none' } : undefined"
   >
     <slot :state="itemContext.state.value" />

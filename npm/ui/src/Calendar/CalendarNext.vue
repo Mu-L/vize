@@ -30,7 +30,7 @@ function handleClick() {
     aria-label="Next month"
     :data-disabled="isDisabled ? '' : undefined"
     :disabled="isDisabled || undefined"
-    data-calendar-next
+    data-vize-calendar-next
     @click="handleClick"
   >
     <slot />

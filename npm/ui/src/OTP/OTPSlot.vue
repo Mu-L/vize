@@ -34,6 +34,7 @@ const isFilled = computed(() => !!rawChar.value)
     :data-filled="isFilled ? '' : undefined"
     :data-focused="isActive ? '' : undefined"
     :data-active="isActive ? '' : undefined"
+    data-vize-otp-slot
   >
     <slot :char="char" :has-fake-caret="hasFakeCaret" :is-active="isActive" />
     <template v-if="!$slots.default">

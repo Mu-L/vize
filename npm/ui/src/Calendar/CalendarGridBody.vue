@@ -13,7 +13,7 @@ const { as = 'tbody', asChild = false } = defineProps<CalendarGridBodyProps>()
   <Primitive
     :as="as"
     :as-child="asChild"
-    data-calendar-grid-body
+    data-vize-calendar-grid-body
   >
     <slot />
   </Primitive>

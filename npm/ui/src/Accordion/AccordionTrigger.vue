@@ -52,6 +52,7 @@ function handleKeydown(event: KeyboardEvent) {
     :data-disabled="itemContext.disabled.value ? '' : undefined"
     :data-orientation="rootContext.orientation"
     data-vize-collection-item
+    data-vize-accordion-trigger
     @click="handleClick"
     @keydown="handleKeydown"
   >

@@ -21,6 +21,7 @@ const isPresent = computed(() => context.state.value === true || context.state.v
     :as-child="asChild"
     :data-state="context.state.value === 'indeterminate' ? 'indeterminate' : context.state.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-checkbox-indicator
   >
     <slot />
   </Primitive>

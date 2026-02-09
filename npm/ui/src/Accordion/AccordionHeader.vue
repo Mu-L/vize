@@ -21,6 +21,7 @@ const itemContext = injectAccordionItemContext('AccordionHeader')
     :data-state="itemContext.open.value ? 'open' : 'closed'"
     :data-disabled="itemContext.disabled.value ? '' : undefined"
     :data-orientation="rootContext.orientation"
+    data-vize-accordion-header
   >
     <slot />
   </Primitive>

@@ -23,6 +23,7 @@ function onClick() {
     type="button"
     :disabled="context.disabled || undefined"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-file-uploader-trigger
     @click="onClick"
   >
     <slot />

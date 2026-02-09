@@ -27,6 +27,7 @@ function handleBlur() {
     :aria-invalid="fieldContext.isInvalid.value || undefined"
     :disabled="rootContext.disabled || undefined"
     :data-invalid="fieldContext.isInvalid.value ? '' : undefined"
+    data-vize-form-control
     @blur="handleBlur"
   >
     <slot />

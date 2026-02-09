@@ -44,6 +44,7 @@ provideAccordionItemContext({
     :data-state="open ? 'open' : 'closed'"
     :data-disabled="isDisabled ? '' : undefined"
     :data-orientation="rootContext.orientation"
+    data-vize-accordion-item
   >
     <slot :open="open" />
   </Primitive>

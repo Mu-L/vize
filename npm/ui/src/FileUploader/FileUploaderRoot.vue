@@ -142,6 +142,7 @@ provideFileUploaderRootContext({
     :as="as"
     :as-child="asChild"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-file-uploader
   >
     <slot :files="files" :is-dragging="isDragging" :open-file-picker="openFilePicker" />
     <input

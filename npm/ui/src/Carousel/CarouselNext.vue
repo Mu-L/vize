@@ -28,6 +28,7 @@ function handleClick() {
     aria-label="Next slide"
     :disabled="isDisabled || undefined"
     :data-disabled="isDisabled ? '' : undefined"
+    data-vize-carousel-next
     @click="handleClick"
   >
     <slot />

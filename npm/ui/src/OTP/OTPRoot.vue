@@ -193,6 +193,7 @@ provideOTPRootContext({
     aria-label="One-time password"
     :data-complete="isFilled ? '' : undefined"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-otp
     style="position: relative;"
     @click="onRootClick"
   >

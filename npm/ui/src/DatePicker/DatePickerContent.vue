@@ -61,7 +61,7 @@ onBeforeUnmount(() => {
       aria-modal="true"
       aria-label="Calendar"
       :data-state="context.open.value ? 'open' : 'closed'"
-      data-datepicker-content
+      data-vize-datepicker-content
     >
       <slot />
     </Primitive>

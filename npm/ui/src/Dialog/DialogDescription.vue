@@ -17,6 +17,7 @@ const context = injectDialogRootContext('DialogDescription')
     :id="context.descriptionId"
     :as="as"
     :as-child="asChild"
+    data-vize-dialog-description
   >
     <slot />
   </Primitive>

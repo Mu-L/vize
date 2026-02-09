@@ -24,7 +24,7 @@ const isDisabled = computed(() => context.isDateDisabled(date))
     :aria-selected="isSelected || undefined"
     :aria-disabled="isDisabled || undefined"
     :data-disabled="isDisabled ? '' : undefined"
-    data-calendar-cell
+    data-vize-calendar-cell
   >
     <slot />
   </Primitive>

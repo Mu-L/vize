@@ -266,6 +266,7 @@ provideCalendarRootContext({
     role="application"
     :data-disabled="disabled ? '' : undefined"
     :data-readonly="readonlyProp ? '' : undefined"
+    data-vize-calendar
     :dir="direction"
     @keydown="handleKeydown"
   >

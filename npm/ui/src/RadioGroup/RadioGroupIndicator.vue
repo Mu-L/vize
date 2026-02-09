@@ -19,6 +19,7 @@ const context = injectRadioGroupItemContext('RadioGroupIndicator')
     :as-child="asChild"
     :data-state="context.checked.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-radio-group-indicator
   >
     <slot />
   </Primitive>

@@ -90,7 +90,7 @@ function handleUnmountAutoFocus(event: Event) {
         :data-state="context.open.value ? 'open' : 'closed'"
         :data-side="side"
         :data-align="align"
-        data-popover-content
+        data-vize-popover-content
         :style="{
           '--vize-popover-content-transform-origin': 'var(--vize-popover-content-transform-origin)',
           '--vize-popover-content-available-width': 'var(--vize-popover-content-available-width)',

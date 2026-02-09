@@ -17,6 +17,7 @@ const itemContext = injectStepperItemContext('StepperIndicator')
     :as="as"
     :as-child="asChild"
     :data-state="itemContext.state.value"
+    data-vize-stepper-indicator
   >
     <slot :step="itemContext.step" :state="itemContext.state.value">
       {{ itemContext.step }}

@@ -32,6 +32,7 @@ function toggle() {
     :disabled="disabled || undefined"
     :data-state="pressed ? 'on' : 'off'"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-toggle
     @click="toggle"
   >
     <slot :pressed="pressed" />

@@ -43,7 +43,7 @@ const skeletonStyle = computed(() => {
     :as-child="asChild"
     aria-busy="true"
     aria-hidden="true"
-    data-skeleton
+    data-vize-skeleton
     :data-loading="loading ? '' : undefined"
     :data-animated="animated ? '' : undefined"
     :style="skeletonStyle"

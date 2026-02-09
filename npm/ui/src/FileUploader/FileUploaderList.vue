@@ -17,6 +17,7 @@ const context = injectFileUploaderRootContext('FileUploaderList')
     :as="as"
     :as-child="asChild"
     role="list"
+    data-vize-file-uploader-list
   >
     <slot :files="context.files.value" />
   </Primitive>

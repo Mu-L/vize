@@ -1,0 +1,65 @@
+:where([data-vize-carousel]) {
+  position: relative;
+  font-family: var(--vize-font);
+  color: var(--vize-fg);
+}
+
+:where([data-vize-carousel-viewport]) {
+  overflow: hidden;
+}
+
+:where([data-vize-carousel-slide]) {
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+:where([data-vize-carousel-prev]),
+:where([data-vize-carousel-next]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: var(--vize-bg);
+  border: 1px solid var(--vize-border);
+  border-radius: var(--vize-radius-full);
+  cursor: pointer;
+  color: var(--vize-fg);
+  transition: background var(--vize-duration) var(--vize-easing);
+}
+
+:where([data-vize-carousel-prev]:hover),
+:where([data-vize-carousel-next]:hover) {
+  background: var(--vize-surface);
+}
+
+:where([data-vize-carousel-prev][data-disabled]),
+:where([data-vize-carousel-next][data-disabled]) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:where([data-vize-carousel-dots]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vize-space-2);
+  padding: var(--vize-space-2);
+}
+
+:where([data-vize-carousel-dot]) {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid var(--vize-border);
+  border-radius: var(--vize-radius-full);
+  background: var(--vize-bg);
+  cursor: pointer;
+  transition: background var(--vize-duration) var(--vize-easing);
+}
+
+:where([data-vize-carousel-dot][data-state="active"]) {
+  background: var(--vize-fg);
+  border-color: var(--vize-fg);
+}

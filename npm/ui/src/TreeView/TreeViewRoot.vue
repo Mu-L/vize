@@ -275,6 +275,7 @@ provideTreeViewRootContext({
     role="tree"
     :aria-multiselectable="multiple || selectionMode === 'multiple' || undefined"
     data-orientation="vertical"
+    data-vize-tree-view
     @keydown="handleKeydown"
   >
     <slot />

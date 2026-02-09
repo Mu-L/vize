@@ -51,7 +51,7 @@ function handleBlur() {
     :as-child="asChild"
     :aria-describedby="context.open.value ? context.contentId : undefined"
     :data-state="dataState"
-    data-tooltip-trigger
+    data-vize-tooltip-trigger
     @pointerenter="handlePointerEnter"
     @pointerleave="handlePointerLeave"
     @focus="handleFocus"

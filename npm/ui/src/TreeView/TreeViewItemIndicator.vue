@@ -22,6 +22,7 @@ const shouldRender = computed(() => !itemContext.isLeaf.value)
     :as-child="asChild"
     aria-hidden="true"
     :data-state="itemContext.isExpanded.value ? 'open' : 'closed'"
+    data-vize-tree-view-item-indicator
   >
     <slot />
   </Primitive>

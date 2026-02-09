@@ -13,10 +13,11 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./css": "./dist/index.css"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && cp -r src/css dist/css",
     "dev": "tsdown --watch",
     "musea": "vite dev",
     "lint": "oxlint --deny-warnings --type-aware --tsconfig tsconfig.json",

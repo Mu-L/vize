@@ -36,7 +36,7 @@ function handleClick() {
     :data-state="context.open.value ? 'open' : 'closed'"
     :data-disabled="context.disabled ? '' : undefined"
     :disabled="context.disabled || undefined"
-    data-datepicker-trigger
+    data-vize-datepicker-trigger
     @click="handleClick"
   >
     <slot />

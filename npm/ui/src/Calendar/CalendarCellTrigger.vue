@@ -67,7 +67,7 @@ function setRef(el: any) {
     :data-unavailable="isUnavailable ? '' : undefined"
     :data-outside-month="isOutsideMonth ? '' : undefined"
     :data-focused="isFocused ? '' : undefined"
-    data-calendar-cell-trigger
+    data-vize-calendar-cell-trigger
     @click="handleClick"
   >
     <slot :selected="isSelected" :disabled="isDisabled" :today="isTodayDate">

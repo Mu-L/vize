@@ -27,6 +27,7 @@ function handleClick() {
     :as-child="asChild"
     :data-state="itemContext.isSelected.value ? 'selected' : 'unselected'"
     :data-disabled="itemContext.disabled ? '' : undefined"
+    data-vize-tree-view-item-trigger
     @click="handleClick"
   >
     <slot />

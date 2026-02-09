@@ -28,6 +28,7 @@ function handleClick() {
     :aria-selected="isActive"
     :aria-label="`Go to slide ${index + 1}`"
     :data-state="isActive ? 'active' : 'inactive'"
+    data-vize-carousel-dot
     @click="handleClick"
   >
     <slot />

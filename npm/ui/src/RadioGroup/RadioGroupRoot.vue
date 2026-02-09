@@ -62,6 +62,7 @@ provideRadioGroupRootContext({
     :aria-orientation="orientation"
     :data-orientation="orientation"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-radio-group
     :dir="direction"
     @keydown="handleKeydown"
   >

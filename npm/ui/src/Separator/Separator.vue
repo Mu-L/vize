@@ -20,6 +20,7 @@ const role = computed(() => decorative ? 'none' : 'separator')
     :role="role"
     :aria-orientation="ariaOrientation"
     :data-orientation="orientation"
+    data-vize-separator
   >
     <slot />
   </Primitive>

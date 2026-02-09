@@ -13,7 +13,7 @@ const { as = 'div', asChild = false } = defineProps<CalendarHeaderProps>()
   <Primitive
     :as="as"
     :as-child="asChild"
-    data-calendar-header
+    data-vize-calendar-header
   >
     <slot />
   </Primitive>

@@ -76,6 +76,7 @@ onBeforeUnmount(() => {
     :data-state="itemContext.open.value ? 'open' : 'closed'"
     :data-disabled="itemContext.disabled.value ? '' : undefined"
     :data-orientation="rootContext.orientation"
+    data-vize-accordion-content
     :style="{
       '--vize-collapsible-content-height': `${contentHeight}px`,
       '--vize-collapsible-content-width': `${contentWidth}px`,

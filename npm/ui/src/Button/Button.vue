@@ -22,6 +22,7 @@ const isNativeButton = computed(() => as === 'button')
     :aria-disabled="!isNativeButton && disabled ? true : undefined"
     :tabindex="!isNativeButton && !disabled ? 0 : undefined"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-button
   >
     <slot />
   </Primitive>

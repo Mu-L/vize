@@ -50,6 +50,7 @@ provideSwitchRootContext({ checked, disabled })
     :disabled="disabled || undefined"
     :data-state="dataState"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-switch
     @click="toggle"
   >
     <slot :checked="checked" />

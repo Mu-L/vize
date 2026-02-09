@@ -21,6 +21,7 @@ const file = computed(() => context.files.value[index])
     :as-child="asChild"
     role="listitem"
     :data-index="index"
+    data-vize-file-uploader-item
   >
     <slot :file="file" :index="index" />
   </Primitive>

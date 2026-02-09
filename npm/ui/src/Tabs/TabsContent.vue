@@ -37,6 +37,7 @@ function handleRef(el: any) {
     :hidden="!isPresent ? true : undefined"
     :data-state="isSelected ? 'active' : 'inactive'"
     :data-orientation="rootContext.orientation"
+    data-vize-tabs-content
     @animationstart="onAnimationStart"
     @animationend="onAnimationEnd"
   >

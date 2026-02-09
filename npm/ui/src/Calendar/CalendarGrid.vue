@@ -27,7 +27,7 @@ const ariaLabel = computed(() => {
     :as-child="asChild"
     role="grid"
     :aria-label="ariaLabel"
-    data-calendar-grid
+    data-vize-calendar-grid
   >
     <slot />
   </Primitive>

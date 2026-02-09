@@ -35,6 +35,7 @@ provideCollapsibleRootContext({ contentId, open, disabled, toggle })
     :as-child="asChild"
     :data-state="open ? 'open' : 'closed'"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-collapsible
   >
     <slot :open="open" />
   </Primitive>

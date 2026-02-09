@@ -24,6 +24,7 @@ function onClick() {
     aria-label="Remove file"
     :disabled="context.disabled || undefined"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-file-uploader-item-delete
     @click="onClick"
   >
     <slot />

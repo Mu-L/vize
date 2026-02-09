@@ -67,6 +67,7 @@ provideTreeViewItemContext({
     :data-expanded="isExpanded ? '' : undefined"
     :data-disabled="isDisabled ? '' : undefined"
     :data-value="value"
+    data-vize-tree-view-item
     @focus="rootContext.setFocused(value)"
   >
     <slot

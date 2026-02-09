@@ -36,7 +36,7 @@ const headingText = computed(() => {
     aria-live="polite"
     role="heading"
     aria-level="2"
-    data-calendar-heading
+    data-vize-calendar-heading
   >
     <slot :heading="headingText">
       {{ headingText }}

@@ -52,6 +52,7 @@ provideTabsRootContext({
     :as="as"
     :as-child="asChild"
     :data-orientation="orientation"
+    data-vize-tabs
   >
     <slot />
   </Primitive>

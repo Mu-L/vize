@@ -20,7 +20,7 @@ const context = injectPopoverRootContext('PopoverArrow')
     :height="height"
     :viewBox="`0 0 ${width} ${height}`"
     fill="none"
-    data-popover-arrow
+    data-vize-popover-arrow
   >
     <slot>
       <polygon :points="`0,${height} ${width / 2},0 ${width},${height}`" fill="currentColor" />

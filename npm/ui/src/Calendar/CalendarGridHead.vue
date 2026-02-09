@@ -14,7 +14,7 @@ const { as = 'thead', asChild = false } = defineProps<CalendarGridHeadProps>()
     :as="as"
     :as-child="asChild"
     aria-hidden="true"
-    data-calendar-grid-head
+    data-vize-calendar-grid-head
   >
     <slot />
   </Primitive>

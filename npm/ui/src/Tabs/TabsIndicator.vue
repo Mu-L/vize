@@ -95,6 +95,7 @@ const indicatorStyle = computed(() => ({
     :as="as"
     :as-child="asChild"
     :style="indicatorStyle"
+    data-vize-tabs-indicator
   >
     <slot />
   </Primitive>

@@ -74,7 +74,7 @@ function handlePointerLeave() {
       :data-state="context.open.value ? 'open' : 'closed'"
       :data-side="side"
       :data-align="align"
-      data-tooltip-content
+      data-vize-tooltip-content
       :style="{
         '--vize-tooltip-content-transform-origin': 'var(--vize-tooltip-content-transform-origin)',
         '--vize-tooltip-content-available-width': 'var(--vize-tooltip-content-available-width)',

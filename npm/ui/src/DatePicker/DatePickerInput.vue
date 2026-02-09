@@ -34,7 +34,7 @@ const placeholderText = computed(() => placeholder ?? 'Select a date')
     :data-disabled="context.disabled ? '' : undefined"
     :data-state="context.open.value ? 'open' : 'closed'"
     :disabled="context.disabled || undefined"
-    data-datepicker-input
+    data-vize-datepicker-input
   >
     <slot :display-value="displayValue" />
   </Primitive>

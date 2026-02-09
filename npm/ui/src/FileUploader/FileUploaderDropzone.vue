@@ -62,6 +62,7 @@ function onDrop(event: DragEvent) {
     role="presentation"
     :data-dragging="context.isDragging.value ? '' : undefined"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-file-uploader-dropzone
     @dragenter="onDragEnter"
     @dragover="onDragOver"
     @dragleave="onDragLeave"

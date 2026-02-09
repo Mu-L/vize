@@ -37,6 +37,7 @@ const hasError = computed(() => displayMessage.value !== undefined)
     role="alert"
     aria-live="polite"
     :data-invalid="hasError ? '' : undefined"
+    data-vize-form-message
   >
     <slot :message="displayMessage">
       {{ displayMessage }}

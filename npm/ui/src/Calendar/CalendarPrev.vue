@@ -31,7 +31,7 @@ function handleClick() {
     aria-label="Previous month"
     :data-disabled="isDisabled ? '' : undefined"
     :disabled="isDisabled || undefined"
-    data-calendar-prev
+    data-vize-calendar-prev
     @click="handleClick"
   >
     <slot />

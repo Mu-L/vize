@@ -18,6 +18,7 @@ const fieldContext = injectFormFieldContext('FormLabel')
     :as-child="asChild"
     :for="fieldContext.controlId"
     :data-invalid="fieldContext.isInvalid.value ? '' : undefined"
+    data-vize-form-label
   >
     <slot />
   </Primitive>

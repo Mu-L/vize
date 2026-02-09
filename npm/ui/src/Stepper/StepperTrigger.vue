@@ -35,6 +35,7 @@ function handleClick() {
     :disabled="isDisabled || undefined"
     :data-state="itemContext.state.value"
     :data-disabled="isDisabled ? '' : undefined"
+    data-vize-stepper-trigger
     @click="handleClick"
   >
     <slot />

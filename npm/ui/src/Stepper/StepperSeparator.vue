@@ -25,6 +25,7 @@ const separatorState = computed(() => {
     role="separator"
     :data-state="separatorState"
     :data-orientation="rootContext.orientation"
+    data-vize-stepper-separator
   >
     <slot />
   </Primitive>

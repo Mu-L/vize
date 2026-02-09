@@ -22,6 +22,7 @@ const liveText = computed(() =>
     :as="as"
     :as-child="asChild"
     :data-orientation="rootContext.orientation"
+    data-vize-carousel-viewport
     aria-live="polite"
     style="overflow: hidden"
   >

@@ -80,6 +80,7 @@ provideStepperRootContext({
     role="group"
     aria-label="Progress"
     :data-orientation="orientation"
+    data-vize-stepper
   >
     <slot
       :current-step="currentStep"

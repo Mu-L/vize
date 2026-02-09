@@ -72,6 +72,7 @@ onBeforeUnmount(() => {
     :hidden="!isPresent ? true : undefined"
     :data-state="context.open.value ? 'open' : 'closed'"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-collapsible-content
     :style="{
       '--vize-collapsible-content-height': `${contentHeight}px`,
       '--vize-collapsible-content-width': `${contentWidth}px`,

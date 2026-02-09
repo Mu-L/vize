@@ -29,7 +29,7 @@ function handleRef(el: any) {
     :as-child="asChild"
     :hidden="!isPresent ? true : undefined"
     :data-state="context.open.value ? 'open' : 'closed'"
-    data-dialog-overlay
+    data-vize-dialog-overlay
     @animationstart="onAnimationStart"
     @animationend="onAnimationEnd"
   >

@@ -38,6 +38,7 @@ const label = computed(() =>
     :aria-label="label"
     :data-active="isActive ? '' : undefined"
     :data-index="slideIndex"
+    data-vize-carousel-slide
   >
     <slot />
   </Primitive>

@@ -23,6 +23,7 @@ const isDisabled = computed(() => disabled || rootContext.isSubmitting.value)
     :disabled="isDisabled || undefined"
     :data-submitting="rootContext.isSubmitting.value ? '' : undefined"
     :data-disabled="isDisabled ? '' : undefined"
+    data-vize-form-submit
   >
     <slot />
   </Primitive>

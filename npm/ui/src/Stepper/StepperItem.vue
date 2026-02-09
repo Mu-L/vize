@@ -43,6 +43,7 @@ provideStepperItemContext({
     :as-child="asChild"
     :data-state="state"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-stepper-item
     :aria-current="state === 'active' ? 'step' : undefined"
   >
     <slot :state="state" :step="step" />

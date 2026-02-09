@@ -23,6 +23,7 @@ onMounted(() => {
     :as="as"
     :as-child="asChild"
     role="group"
+    data-vize-tree-view-group
   >
     <slot />
   </Primitive>

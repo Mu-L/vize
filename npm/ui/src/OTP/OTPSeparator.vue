@@ -14,6 +14,7 @@ const { as = 'span', asChild = false } = defineProps<OTPSeparatorProps>()
     :as="as"
     :as-child="asChild"
     role="separator"
+    data-vize-otp-separator
   >
     <slot />
   </Primitive>

@@ -22,6 +22,7 @@ const context = injectCollapsibleRootContext('CollapsibleTrigger')
     :disabled="context.disabled || undefined"
     :data-state="context.open.value ? 'open' : 'closed'"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-collapsible-trigger
     @click="context.toggle()"
   >
     <slot />

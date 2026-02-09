@@ -48,6 +48,7 @@ function handleKeydown(event: KeyboardEvent) {
     role="tablist"
     :aria-orientation="rootContext.orientation"
     :data-orientation="rootContext.orientation"
+    data-vize-tabs-list
     @keydown="handleKeydown"
   >
     <slot />

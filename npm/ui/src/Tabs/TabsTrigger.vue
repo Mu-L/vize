@@ -55,6 +55,7 @@ function handleFocus() {
     :data-orientation="rootContext.orientation"
     :data-value="value"
     data-vize-collection-item
+    data-vize-tabs-trigger
     @click="handleClick"
     @keydown="handleKeydown"
     @focus="handleFocus"

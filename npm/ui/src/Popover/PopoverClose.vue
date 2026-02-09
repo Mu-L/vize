@@ -21,6 +21,7 @@ function handleClick() {
     :as="as"
     :as-child="asChild"
     type="button"
+    data-vize-popover-close
     @click="handleClick"
   >
     <slot />

@@ -18,6 +18,7 @@ const context = injectSwitchRootContext('SwitchThumb')
     :as-child="asChild"
     :data-state="context.checked.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"
+    data-vize-switch-thumb
   >
     <slot />
   </Primitive>

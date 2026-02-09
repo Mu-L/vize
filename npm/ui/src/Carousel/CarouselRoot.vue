@@ -160,6 +160,7 @@ provideCarouselRootContext({
     role="region"
     aria-roledescription="carousel"
     :data-orientation="orientation"
+    data-vize-carousel
     :dir="direction"
     @keydown="handleKeydown"
   >

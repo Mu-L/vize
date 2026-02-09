@@ -32,6 +32,7 @@ function handleClick() {
     :aria-expanded="context.open.value"
     :aria-controls="context.contentId"
     :data-state="context.open.value ? 'open' : 'closed'"
+    data-vize-popover-trigger
     @click="handleClick"
   >
     <slot />

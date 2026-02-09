@@ -50,6 +50,7 @@ provideRadioGroupItemContext({
     :data-state="dataState"
     :data-disabled="isDisabled ? '' : undefined"
     data-vize-collection-item
+    data-vize-radio-group-item
     @click="handleClick"
   >
     <slot />

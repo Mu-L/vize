@@ -21,6 +21,7 @@ function handleClick() {
     :as="as"
     :as-child="asChild"
     type="button"
+    data-vize-dialog-close
     @click="handleClick"
   >
     <slot />

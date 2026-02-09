@@ -53,6 +53,7 @@ provideCheckboxRootContext({ state, disabled })
     :disabled="disabled || undefined"
     :data-state="dataState"
     :data-disabled="disabled ? '' : undefined"
+    data-vize-checkbox
     @click="toggle"
   >
     <slot :checked="state" />

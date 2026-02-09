@@ -28,22 +28,35 @@ const emit = defineEmits<{
 
 const direction = useDirection(computed(() => dirProp))
 
-const internalSingle = ref<string | undefined>(
-  type === 'single'
-    ? (defaultValue as string | undefined)
-    : undefined,
-)
-const internalMultiple = ref<string[]>(
-  type === 'multiple'
-    ? (defaultValue as string[] ?? [])
-    : [],
-)
+// NOTE: Avoid TypeScript `as` casts in this file.
+// The native Vue compiler confuses the `as` keyword with the `as` prop.
 
-const currentValue = computed<string | string[]>(() => {
+function toSingleDefault(v: AccordionRootProps['defaultValue']): string | undefined {
+  return v != null ? String(v) : undefined
+}
+
+function toMultipleDefault(v: AccordionRootProps['defaultValue']): string[] {
+  if (v == null) return []
+  return Array.isArray(v) ? v : [String(v)]
+}
+
+const singleInit: string | undefined = type === 'single' ? toSingleDefault(defaultValue) : undefined
+const internalSingle = ref(singleInit)
+
+const multipleInit: string[] = type === 'multiple' ? toMultipleDefault(defaultValue) : []
+const internalMultiple = ref(multipleInit)
+
+const currentValue = computed(() => {
   if (type === 'single') {
-    return modelValue !== undefined ? (modelValue as string) : (internalSingle.value ?? '')
+    if (modelValue !== undefined) {
+      return String(modelValue)
+    }
+    return internalSingle.value ?? ''
   } else {
-    return modelValue !== undefined ? (modelValue as string[]) : internalMultiple.value
+    if (modelValue !== undefined) {
+      return Array.isArray(modelValue) ? modelValue : []
+    }
+    return internalMultiple.value
   }
 })
 
@@ -51,12 +64,12 @@ function changeValue(itemValue: string) {
   if (disabled) return
 
   if (type === 'single') {
-    const current = currentValue.value as string
+    const current = String(currentValue.value)
     const next = current === itemValue && collapsible ? '' : itemValue
     internalSingle.value = next || undefined
     emit('update:modelValue', next)
   } else {
-    const current = currentValue.value as string[]
+    const current = Array.isArray(currentValue.value) ? currentValue.value : []
     const next = current.includes(itemValue)
       ? current.filter(v => v !== itemValue)
       : [...current, itemValue]
@@ -65,7 +78,8 @@ function changeValue(itemValue: string) {
   }
 }
 
-const parentRef = ref<HTMLElement>()
+const parentElement: HTMLElement | undefined = undefined
+const parentRef = ref(parentElement)
 
 provideAccordionRootContext({
   type,
@@ -85,6 +99,7 @@ provideAccordionRootContext({
     :as="as"
     :as-child="asChild"
     :data-orientation="orientation"
+    data-vize-accordion
   >
     <slot />
   </Primitive>

@@ -90,7 +90,7 @@ function handleUnmountAutoFocus(event: Event) {
         :aria-labelledby="context.titleId"
         :hidden="!isPresent ? true : undefined"
         :data-state="context.open.value ? 'open' : 'closed'"
-        data-dialog-content
+        data-vize-dialog-content
         @animationstart="onAnimationStart"
         @animationend="onAnimationEnd"
       >
