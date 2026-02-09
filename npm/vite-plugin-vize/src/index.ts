@@ -338,12 +338,6 @@ export function vize(options: VizeOptions = {}): Plugin {
         return id;
       }
 
-      // Skip subpath imports (e.g., #imports/entry) - these are handled by
-      // framework-specific plugins (like Nuxt) and should not be resolved by vize
-      if (id.startsWith("#")) {
-        return null;
-      }
-
       // If importer is a virtual module, resolve imports against the real path
       if (importer?.startsWith(VIRTUAL_PREFIX)) {
         const realImporter = virtualToReal.get(importer) ?? importer.slice(VIRTUAL_PREFIX.length);
@@ -353,6 +347,18 @@ export function vize(options: VizeOptions = {}): Plugin {
           : realImporter;
 
         logger.log(`resolveId from virtual: id=${id}, cleanImporter=${cleanImporter}`);
+
+        // Subpath imports (e.g., #imports/entry from Nuxt) must be resolved
+        // with the real file path so framework plugins see the correct context.
+        // Without this, Vite 8's builtin resolver tries to resolve against
+        // the virtual module path and fails.
+        if (id.startsWith("#")) {
+          try {
+            return await this.resolve(id, cleanImporter, { skipSelf: true });
+          } catch {
+            return null;
+          }
+        }
 
         // For non-vue files, resolve relative to the real importer
         if (!id.endsWith(".vue")) {
