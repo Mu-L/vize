@@ -145,10 +145,16 @@ const tierLabel = computed(() => {
     <button
       v-if="usageCount > 0"
       class="usage-badge"
-      title="View component usage"
+      :class="{ 'usage-badge--warn': token.$tier === 'primitive' }"
+      :title="token.$tier === 'primitive' ? 'Primitive token used directly — consider using a semantic token' : 'View component usage'"
       @click.stop="emit('showUsage')"
     >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg v-if="token.$tier === 'primitive'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+      <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </svg>
@@ -323,9 +329,19 @@ const tierLabel = computed(() => {
   flex-shrink: 0;
 }
 
+.usage-badge--warn {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+}
+
 .usage-badge:hover {
   border-color: var(--musea-accent);
   color: var(--musea-accent);
+}
+
+.usage-badge--warn:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
 }
 
 .token-actions {
