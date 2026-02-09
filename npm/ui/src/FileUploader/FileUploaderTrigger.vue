@@ -18,7 +18,7 @@ function onClick() {
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     :disabled="context.disabled || undefined"

@@ -5,7 +5,6 @@ export type { TabsTriggerProps } from './types'
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Primitive } from '../Primitive'
-import { useId } from '../shared'
 import { injectTabsRootContext } from './types'
 import type { TabsTriggerProps } from './types'
 
@@ -13,8 +12,8 @@ const { as = 'button', asChild = false, value, disabled = false } = defineProps<
 
 const rootContext = injectTabsRootContext('TabsTrigger')
 
-const triggerId = useId()
-const panelId = useId()
+const triggerId = rootContext.baseId.concat('-trigger-', value)
+const panelId = rootContext.baseId.concat('-panel-', value)
 
 const isSelected = computed(() => rootContext.modelValue.value === value)
 
@@ -42,12 +41,12 @@ function handleFocus() {
 <template>
   <Primitive
     :id="triggerId"
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     role="tab"
     :aria-selected="isSelected"
-    :aria-controls="`${panelId}-panel-${value}`"
+    :aria-controls="panelId"
     :tabindex="isSelected ? 0 : -1"
     :disabled="disabled || undefined"
     :data-state="isSelected ? 'active' : 'inactive'"

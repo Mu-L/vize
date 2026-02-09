@@ -20,6 +20,7 @@ export interface TabsRootContext {
   activationMode: ActivationMode
   changeValue: (value: string) => void
   parentRef: Ref<HTMLElement | undefined>
+  baseId: string
 }
 
 const _tabsRootContext = createContext<TabsRootContext>('TabsRoot')

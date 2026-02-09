@@ -28,7 +28,7 @@ function handleClick() {
 <template>
   <Primitive
     :id="itemContext.triggerId"
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     :aria-label="`Step ${itemContext.step}`"

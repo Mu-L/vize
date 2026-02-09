@@ -31,7 +31,7 @@ const hasError = computed(() => displayMessage.value !== undefined)
 <template>
   <Primitive
     v-if="hasError"
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :id="fieldContext.messageId"
     role="alert"

@@ -14,7 +14,7 @@ const context = injectCollapsibleRootContext('CollapsibleTrigger')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     :aria-controls="context.contentId"

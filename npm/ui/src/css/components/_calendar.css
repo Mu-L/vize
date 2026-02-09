@@ -63,7 +63,7 @@
 :where([data-vize-calendar-grid-head-cell]) {
   font-size: var(--vize-text-sm);
   font-weight: 500;
-  color: var(--vize-muted);
+  color: var(--vize-fg);
   text-align: center;
   padding: var(--vize-space-1) var(--vize-space-2) var(--vize-space-2);
 }
@@ -108,8 +108,7 @@
 }
 
 :where([data-vize-calendar-cell-trigger][data-outside-month]) {
-  color: var(--vize-muted);
-  opacity: 0.4;
+  color: #767676;
 }
 
 :where([data-vize-calendar-cell-trigger][data-disabled]) {

@@ -15,7 +15,7 @@ const context = injectRadioGroupItemContext('RadioGroupIndicator')
 <template>
   <Primitive
     v-if="context.checked.value"
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :data-state="context.checked.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"

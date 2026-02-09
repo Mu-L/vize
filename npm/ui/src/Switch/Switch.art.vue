@@ -4,19 +4,19 @@ import { SwitchRoot, SwitchThumb } from './index'
 
 <art title="Switch" component="./SwitchRoot.vue" category="Forms" status="ready" tags="switch,toggle,form">
   <variant name="Default" default>
-    <SwitchRoot>
+    <SwitchRoot aria-label="Enable notifications">
       <SwitchThumb />
     </SwitchRoot>
   </variant>
 
   <variant name="Checked">
-    <SwitchRoot :default-value="true">
+    <SwitchRoot :default-value="true" aria-label="Enable notifications">
       <SwitchThumb />
     </SwitchRoot>
   </variant>
 
   <variant name="Disabled">
-    <SwitchRoot disabled>
+    <SwitchRoot disabled aria-label="Enable notifications">
       <SwitchThumb />
     </SwitchRoot>
   </variant>

@@ -10,7 +10,7 @@ const { as = 'label', asChild = false, for: htmlFor } = defineProps<LabelProps>(
 </script>
 
 <template>
-  <Primitive :as="as" :as-child="asChild" :for="htmlFor" data-vize-label @mousedown.prevent>
+  <Primitive :as="as || 'label'" :as-child="asChild" :for="htmlFor" data-vize-label @mousedown.prevent>
     <slot />
   </Primitive>
 </template>

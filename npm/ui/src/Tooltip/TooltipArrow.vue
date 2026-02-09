@@ -14,7 +14,7 @@ const context = injectTooltipRootContext('TooltipArrow')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'svg'"
     :as-child="asChild"
     :width="width"
     :height="height"

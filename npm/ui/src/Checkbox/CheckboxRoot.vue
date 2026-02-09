@@ -1,10 +1,11 @@
 <script lang="ts">
 export type { CheckedState, CheckboxRootProps } from './types'
 export { injectCheckboxRootContext, provideCheckboxRootContext } from './types'
+export default { inheritAttrs: false }
 </script>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, useAttrs } from 'vue'
 import { Primitive } from '../Primitive'
 import { useFormControl } from '../shared'
 import type { CheckboxRootProps, CheckedState } from './types'
@@ -15,7 +16,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: CheckedState]
 }>()
 
-const internal = ref<CheckedState>(defaultValue)
+const initState: CheckedState = defaultValue ?? false
+const internal = ref<CheckedState>(initState)
 const state = computed<CheckedState>(() => modelValue !== undefined ? modelValue : internal.value)
 
 function toggle() {
@@ -39,12 +41,20 @@ const { BubbleInput } = useFormControl(() => ({
   required,
 }))
 
+const rootAttrs = useAttrs()
+function getAriaLabel(): string | undefined {
+  const v = rootAttrs['aria-label']
+  if (typeof v === 'string') return v
+  return undefined
+}
+
 provideCheckboxRootContext({ state, disabled })
 </script>
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
+    :aria-label="getAriaLabel()"
     :as-child="asChild"
     type="button"
     role="checkbox"

@@ -11,7 +11,7 @@ const { as = 'tbody', asChild = false } = defineProps<CalendarGridBodyProps>()
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'tbody'"
     :as-child="asChild"
     data-vize-calendar-grid-body
   >

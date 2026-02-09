@@ -6,7 +6,6 @@ export type { TabsContentProps } from './types'
 import { computed, toRef } from 'vue'
 import { Primitive } from '../Primitive'
 import { usePresence } from '../Presence'
-import { useId } from '../shared'
 import { injectTabsRootContext } from './types'
 import type { TabsContentProps } from './types'
 
@@ -14,7 +13,8 @@ const { as = 'div', asChild = false, value, forceMount = false } = defineProps<T
 
 const rootContext = injectTabsRootContext('TabsContent')
 
-const triggerId = useId()
+const triggerId = rootContext.baseId.concat('-trigger-', value)
+const panelId = rootContext.baseId.concat('-panel-', value)
 const isSelected = computed(() => rootContext.modelValue.value === value)
 const present = computed(() => forceMount || isSelected.value)
 const { isPresent, ref: presenceRef, onAnimationStart, onAnimationEnd } = usePresence(toRef(present))
@@ -27,7 +27,7 @@ function handleRef(el: any) {
 <template>
   <Primitive
     v-if="isPresent"
-    :id="`${triggerId}-panel-${value}`"
+    :id="panelId"
     :ref="handleRef"
     :as="as"
     :as-child="asChild"

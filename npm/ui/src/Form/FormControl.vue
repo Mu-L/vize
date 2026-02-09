@@ -19,7 +19,7 @@ function handleBlur() {
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'input'"
     :as-child="asChild"
     :id="fieldContext.controlId"
     :name="fieldContext.name"

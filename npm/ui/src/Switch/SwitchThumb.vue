@@ -14,7 +14,7 @@ const context = injectSwitchRootContext('SwitchThumb')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :data-state="context.checked.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"

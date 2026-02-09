@@ -156,8 +156,8 @@ provideVirtualScrollContext({
     :as="componentAs"
     :as-child="componentAsChild"
     :tabindex="0"
-    role="list"
-    :aria-rowcount="itemList.length"
+    role="region"
+    :aria-label="'Virtual scroll (' + itemList.length + ' items)'"
     :style="{
       overflow: 'auto',
       position: 'relative',

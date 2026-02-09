@@ -27,7 +27,7 @@ function handleClick() {
 <template>
   <Primitive
     :ref="setTriggerRef"
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     aria-haspopup="dialog"

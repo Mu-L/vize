@@ -14,7 +14,7 @@ const isNativeButton = computed(() => as === 'button')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     :type="isNativeButton ? 'button' : undefined"
     :role="!isNativeButton ? 'button' : undefined"

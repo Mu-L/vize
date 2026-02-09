@@ -11,7 +11,7 @@ const { as = 'span', asChild = false } = defineProps<OTPSeparatorProps>()
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     role="separator"
     data-vize-otp-separator

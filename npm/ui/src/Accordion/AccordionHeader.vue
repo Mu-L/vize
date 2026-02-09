@@ -16,7 +16,7 @@ const itemContext = injectAccordionItemContext('AccordionHeader')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'h3'"
     :as-child="asChild"
     :data-state="itemContext.open.value ? 'open' : 'closed'"
     :data-disabled="itemContext.disabled.value ? '' : undefined"

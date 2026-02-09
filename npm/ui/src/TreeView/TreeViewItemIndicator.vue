@@ -18,7 +18,7 @@ const shouldRender = computed(() => !itemContext.isLeaf.value)
 <template>
   <Primitive
     v-if="shouldRender"
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     aria-hidden="true"
     :data-state="itemContext.isExpanded.value ? 'open' : 'closed'"

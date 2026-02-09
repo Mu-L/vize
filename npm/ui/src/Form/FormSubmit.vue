@@ -17,7 +17,7 @@ const isDisabled = computed(() => disabled || rootContext.isSubmitting.value)
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="submit"
     :disabled="isDisabled || undefined"

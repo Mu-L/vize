@@ -41,7 +41,7 @@ provideRadioGroupItemContext({
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     role="radio"

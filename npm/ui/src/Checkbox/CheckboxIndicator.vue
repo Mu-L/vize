@@ -17,7 +17,7 @@ const isPresent = computed(() => context.state.value === true || context.state.v
 <template>
   <Primitive
     v-if="isPresent"
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :data-state="context.state.value === 'indeterminate' ? 'indeterminate' : context.state.value ? 'checked' : 'unchecked'"
     :data-disabled="context.disabled ? '' : undefined"

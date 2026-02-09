@@ -14,7 +14,7 @@ const fieldContext = injectFormFieldContext('FormLabel')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'label'"
     :as-child="asChild"
     :for="fieldContext.controlId"
     :data-invalid="fieldContext.isInvalid.value ? '' : undefined"

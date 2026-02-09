@@ -1,10 +1,11 @@
 <script lang="ts">
 export type { SwitchRootProps } from './types'
 export { injectSwitchRootContext, provideSwitchRootContext } from './types'
+export default { inheritAttrs: false }
 </script>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, useAttrs } from 'vue'
 import { Primitive } from '../Primitive'
 import { useFormControl } from '../shared'
 import type { SwitchRootProps } from './types'
@@ -15,7 +16,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
-const internal = ref(defaultValue)
+const initChecked: boolean = defaultValue ?? false
+const internal = ref(initChecked)
 const checked = computed(() => modelValue !== undefined ? modelValue : internal.value)
 
 function toggle() {
@@ -36,12 +38,20 @@ const { BubbleInput } = useFormControl(() => ({
   required,
 }))
 
+const rootAttrs = useAttrs()
+function getAriaLabel(): string | undefined {
+  const v = rootAttrs['aria-label']
+  if (typeof v === 'string') return v
+  return undefined
+}
+
 provideSwitchRootContext({ checked, disabled })
 </script>
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
+    :aria-label="getAriaLabel()"
     :as-child="asChild"
     type="button"
     role="switch"

@@ -25,7 +25,7 @@ function toggle() {
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     :aria-pressed="pressed"

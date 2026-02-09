@@ -100,6 +100,7 @@ provideGraphRootContext({
     :height="resolvedHeight"
     :viewBox="'0 0 ' + resolvedWidth + ' ' + resolvedHeight"
     role="img"
+    :aria-label="(attr('ariaLabel') ?? attr('aria-label') ?? 'Chart') as string"
     preserveAspectRatio="xMidYMid meet"
   >
     <slot

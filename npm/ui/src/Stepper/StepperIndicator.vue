@@ -14,7 +14,7 @@ const itemContext = injectStepperItemContext('StepperIndicator')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :data-state="itemContext.state.value"
     data-vize-stepper-indicator

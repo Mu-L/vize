@@ -23,7 +23,7 @@ const ariaLabel = computed(() => {
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'table'"
     :as-child="asChild"
     role="grid"
     :aria-label="ariaLabel"

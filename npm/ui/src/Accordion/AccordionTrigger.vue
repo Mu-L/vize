@@ -41,7 +41,7 @@ function handleKeydown(event: KeyboardEvent) {
 <template>
   <Primitive
     :id="itemContext.triggerId"
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     :aria-expanded="itemContext.open.value"

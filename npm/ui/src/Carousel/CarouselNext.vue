@@ -22,7 +22,7 @@ function handleClick() {
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     type="button"
     aria-label="Next slide"

@@ -30,7 +30,6 @@ const itemStyle = computed(() => ({
     :as="as"
     :as-child="asChild"
     role="listitem"
-    :aria-rowindex="virtualItem.index + 1"
     :style="itemStyle"
   >
     <slot />

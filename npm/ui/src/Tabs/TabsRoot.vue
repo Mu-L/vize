@@ -6,7 +6,7 @@ export { injectTabsRootContext, provideTabsRootContext } from './types'
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Primitive } from '../Primitive'
-import { useDirection } from '../shared'
+import { useDirection, useId } from '../shared'
 import type { TabsRootProps } from './types'
 import { provideTabsRootContext } from './types'
 
@@ -25,6 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const direction = useDirection(computed(() => dirProp))
+const baseId = useId()
 
 const internal = ref(defaultValue)
 const currentValue = computed(() => modelValue !== undefined ? modelValue : internal.value)
@@ -43,6 +44,7 @@ provideTabsRootContext({
   activationMode,
   changeValue,
   parentRef,
+  baseId,
 })
 </script>
 

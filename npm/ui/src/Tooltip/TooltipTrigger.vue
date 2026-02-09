@@ -47,7 +47,7 @@ function handleBlur() {
 <template>
   <Primitive
     :ref="setTriggerRef"
-    :as="as"
+    :as="as || 'button'"
     :as-child="asChild"
     :aria-describedby="context.open.value ? context.contentId : undefined"
     :data-state="dataState"

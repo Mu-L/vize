@@ -11,7 +11,7 @@ const { as = 'th', asChild = false } = defineProps<CalendarGridHeadCellProps>()
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'th'"
     :as-child="asChild"
     scope="col"
     data-vize-calendar-grid-head-cell

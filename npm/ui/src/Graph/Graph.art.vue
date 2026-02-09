@@ -10,6 +10,7 @@ import { GraphRoot, GraphLine, GraphBar, GraphArea, GraphAxis, GraphGrid, GraphD
       :height="200"
       x-accessor="x"
       y-accessor="y"
+      aria-label="Line chart"
     >
       <GraphGrid />
       <GraphAxis position="bottom" />
@@ -25,6 +26,7 @@ import { GraphRoot, GraphLine, GraphBar, GraphArea, GraphAxis, GraphGrid, GraphD
       :height="200"
       x-accessor="x"
       y-accessor="y"
+      aria-label="Bar chart"
     >
       <GraphGrid />
       <GraphAxis position="bottom" />
@@ -40,6 +42,7 @@ import { GraphRoot, GraphLine, GraphBar, GraphArea, GraphAxis, GraphGrid, GraphD
       :height="200"
       x-accessor="x"
       y-accessor="y"
+      aria-label="Area chart"
     >
       <GraphGrid />
       <GraphAxis position="bottom" />
@@ -56,6 +59,7 @@ import { GraphRoot, GraphLine, GraphBar, GraphArea, GraphAxis, GraphGrid, GraphD
       :height="200"
       x-accessor="x"
       y-accessor="y"
+      aria-label="Line chart with dots"
     >
       <GraphGrid />
       <GraphAxis position="bottom" />

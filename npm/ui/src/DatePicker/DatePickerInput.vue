@@ -23,7 +23,7 @@ const placeholderText = computed(() => placeholder ?? 'Select a date')
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'input'"
     :as-child="asChild"
     type="text"
     readonly

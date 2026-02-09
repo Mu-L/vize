@@ -11,7 +11,7 @@ const { as = 'span', asChild = false } = defineProps<VisuallyHiddenProps>()
 
 <template>
   <Primitive
-    :as="as"
+    :as="as || 'span'"
     :as-child="asChild"
     :style="{
       position: 'absolute',
