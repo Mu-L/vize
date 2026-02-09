@@ -64,6 +64,14 @@ import {
   parseTokens,
   generateTokensHtml,
   generateTokensMarkdown,
+  buildTokenMap,
+  resolveReferences,
+  readRawTokenFile,
+  writeRawTokenFile,
+  setTokenAtPath,
+  deleteTokenAtPath,
+  validateSemanticReference,
+  findDependentTokens,
   type DesignToken,
   type TokenCategory,
   type StyleDictionaryConfig,
@@ -75,6 +83,8 @@ export {
   parseTokens,
   generateTokensHtml,
   generateTokensMarkdown,
+  buildTokenMap,
+  resolveReferences,
   type DesignToken,
   type TokenCategory,
   type StyleDictionaryConfig,
@@ -464,18 +474,184 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         // GET /api/tokens - Get design tokens
         if (req.url === "/tokens" && req.method === "GET") {
           if (!tokensPath) {
-            sendJson({ categories: [] });
+            sendJson({ categories: [], tokenMap: {}, meta: { filePath: "", tokenCount: 0, primitiveCount: 0, semanticCount: 0 } });
             return;
           }
 
           try {
             const absoluteTokensPath = path.resolve(config.root, tokensPath);
             const categories = await parseTokens(absoluteTokensPath);
-            sendJson({ categories });
+            const tokenMap = buildTokenMap(categories);
+            resolveReferences(categories, tokenMap);
+            // Rebuild tokenMap after resolving to include resolved values
+            const resolvedTokenMap = buildTokenMap(categories);
+            let primitiveCount = 0;
+            let semanticCount = 0;
+            for (const token of Object.values(resolvedTokenMap)) {
+              if (token.$tier === "semantic") semanticCount++;
+              else primitiveCount++;
+            }
+            sendJson({
+              categories,
+              tokenMap: resolvedTokenMap,
+              meta: {
+                filePath: absoluteTokensPath,
+                tokenCount: Object.keys(resolvedTokenMap).length,
+                primitiveCount,
+                semanticCount,
+              },
+            });
           } catch (e) {
             console.error("[musea] Failed to load tokens:", e);
-            sendJson({ categories: [], error: String(e) });
+            sendJson({ categories: [], tokenMap: {}, error: String(e) });
           }
+          return;
+        }
+
+        // POST /api/tokens - Create a new token
+        if (req.url === "/tokens" && req.method === "POST") {
+          if (!tokensPath) {
+            sendError("No tokens path configured", 400);
+            return;
+          }
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", async () => {
+            try {
+              const { path: dotPath, token } = JSON.parse(body) as {
+                path: string;
+                token: Omit<DesignToken, "$resolvedValue">;
+              };
+              if (!dotPath || !token || token.value === undefined) {
+                sendError("Missing required fields: path, token.value", 400);
+                return;
+              }
+              const absoluteTokensPath = path.resolve(config.root, tokensPath);
+              const rawData = await readRawTokenFile(absoluteTokensPath);
+
+              // Check path uniqueness
+              const currentCategories = await parseTokens(absoluteTokensPath);
+              const currentMap = buildTokenMap(currentCategories);
+              if (currentMap[dotPath]) {
+                sendError(`Token already exists at path "${dotPath}"`, 409);
+                return;
+              }
+
+              // Validate semantic reference
+              if (token.$reference) {
+                const validation = validateSemanticReference(currentMap, token.$reference, dotPath);
+                if (!validation.valid) {
+                  sendError(validation.error!, 400);
+                  return;
+                }
+                token.value = `{${token.$reference}}`;
+                token.$tier = "semantic";
+              }
+
+              setTokenAtPath(rawData, dotPath, token);
+              await writeRawTokenFile(absoluteTokensPath, rawData);
+
+              // Re-parse and return updated data
+              const categories = await parseTokens(absoluteTokensPath);
+              const tokenMap = buildTokenMap(categories);
+              resolveReferences(categories, tokenMap);
+              const resolvedTokenMap = buildTokenMap(categories);
+              sendJson({ categories, tokenMap: resolvedTokenMap }, 201);
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+          });
+          return;
+        }
+
+        // PUT /api/tokens - Update an existing token
+        if (req.url === "/tokens" && req.method === "PUT") {
+          if (!tokensPath) {
+            sendError("No tokens path configured", 400);
+            return;
+          }
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", async () => {
+            try {
+              const { path: dotPath, token } = JSON.parse(body) as {
+                path: string;
+                token: Omit<DesignToken, "$resolvedValue">;
+              };
+              if (!dotPath || !token || token.value === undefined) {
+                sendError("Missing required fields: path, token.value", 400);
+                return;
+              }
+              const absoluteTokensPath = path.resolve(config.root, tokensPath);
+
+              // Validate semantic reference
+              if (token.$reference) {
+                const currentCategories = await parseTokens(absoluteTokensPath);
+                const currentMap = buildTokenMap(currentCategories);
+                const validation = validateSemanticReference(currentMap, token.$reference, dotPath);
+                if (!validation.valid) {
+                  sendError(validation.error!, 400);
+                  return;
+                }
+                token.value = `{${token.$reference}}`;
+                token.$tier = "semantic";
+              }
+
+              const rawData = await readRawTokenFile(absoluteTokensPath);
+              setTokenAtPath(rawData, dotPath, token);
+              await writeRawTokenFile(absoluteTokensPath, rawData);
+
+              const categories = await parseTokens(absoluteTokensPath);
+              const tokenMap = buildTokenMap(categories);
+              resolveReferences(categories, tokenMap);
+              const resolvedTokenMap = buildTokenMap(categories);
+              sendJson({ categories, tokenMap: resolvedTokenMap });
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+          });
+          return;
+        }
+
+        // DELETE /api/tokens - Delete a token
+        if (req.url === "/tokens" && req.method === "DELETE") {
+          if (!tokensPath) {
+            sendError("No tokens path configured", 400);
+            return;
+          }
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", async () => {
+            try {
+              const { path: dotPath } = JSON.parse(body) as { path: string };
+              if (!dotPath) {
+                sendError("Missing required field: path", 400);
+                return;
+              }
+              const absoluteTokensPath = path.resolve(config.root, tokensPath);
+
+              // Check for dependent tokens
+              const currentCategories = await parseTokens(absoluteTokensPath);
+              const currentMap = buildTokenMap(currentCategories);
+              const dependents = findDependentTokens(currentMap, dotPath);
+
+              const rawData = await readRawTokenFile(absoluteTokensPath);
+              const deleted = deleteTokenAtPath(rawData, dotPath);
+              if (!deleted) {
+                sendError(`Token not found at path "${dotPath}"`, 404);
+                return;
+              }
+              await writeRawTokenFile(absoluteTokensPath, rawData);
+
+              const categories = await parseTokens(absoluteTokensPath);
+              const tokenMap = buildTokenMap(categories);
+              resolveReferences(categories, tokenMap);
+              const resolvedTokenMap = buildTokenMap(categories);
+              sendJson({ categories, tokenMap: resolvedTokenMap, dependentsWarning: dependents.length > 0 ? dependents : undefined });
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+          });
           return;
         }
 
