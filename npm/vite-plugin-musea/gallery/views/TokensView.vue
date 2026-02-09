@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { DesignToken } from '../api'
+import type { DesignToken, TokenUsageEntry } from '../api'
 import { useTokens } from '../composables/useTokens'
+import { useTokenUsage } from '../composables/useTokenUsage'
 import TokenCategorySection from '../components/tokens/TokenCategorySection.vue'
 import TokenFormModal from '../components/tokens/TokenFormModal.vue'
 import TokenDeleteConfirm from '../components/tokens/TokenDeleteConfirm.vue'
+import TokenUsageModal from '../components/tokens/TokenUsageModal.vue'
+import SourceEditModal from '../components/tokens/SourceEditModal.vue'
 
 const {
   loading,
@@ -20,6 +23,24 @@ const {
   editToken,
   removeToken,
 } = useTokens()
+
+const {
+  usageMap,
+  load: loadUsage,
+  reload: reloadUsage,
+  getUsage,
+} = useTokenUsage()
+
+// Usage modal state
+const showUsageModal = ref(false)
+const usageTokenPath = ref('')
+const usageTokenData = ref<DesignToken | undefined>()
+const usageEntries = ref<TokenUsageEntry[]>([])
+
+// Source editor modal state
+const showSourceEditor = ref(false)
+const sourceEditorArtPath = ref('')
+const sourceEditorArtTitle = ref('')
 
 // Modal state
 const showFormModal = ref(false)
@@ -42,6 +63,7 @@ const tabs = [
 
 onMounted(() => {
   load()
+  loadUsage()
 })
 
 function openCreateModal() {
@@ -93,6 +115,26 @@ async function handleDeleteConfirm() {
   } catch (e) {
     console.error('[musea] Token delete error:', e)
   }
+}
+
+function openUsageModal(tokenPath: string) {
+  usageTokenPath.value = tokenPath
+  usageTokenData.value = tokenMap.value[tokenPath]
+  usageEntries.value = getUsage(tokenPath)
+  showUsageModal.value = true
+}
+
+function openSourceEditor(artPath: string) {
+  // Find art title from usage entries
+  const entry = usageEntries.value.find(e => e.artPath === artPath)
+  sourceEditorArtPath.value = artPath
+  sourceEditorArtTitle.value = entry?.artTitle ?? artPath.split('/').pop() ?? artPath
+  showUsageModal.value = false
+  showSourceEditor.value = true
+}
+
+async function handleSourceSaved() {
+  await reloadUsage()
 }
 </script>
 
@@ -178,8 +220,10 @@ async function handleDeleteConfirm() {
         :key="cat.name"
         :category="cat"
         :level="2"
+        :usage-map="usageMap"
         @edit="openEditModal"
         @delete="openDeleteConfirm"
+        @show-usage="openUsageModal"
       />
     </template>
 
@@ -201,6 +245,23 @@ async function handleDeleteConfirm() {
       :dependents="deleteDependents"
       @close="showDeleteConfirm = false"
       @confirm="handleDeleteConfirm"
+    />
+
+    <TokenUsageModal
+      :is-open="showUsageModal"
+      :token-path="usageTokenPath"
+      :token="usageTokenData"
+      :usages="usageEntries"
+      @close="showUsageModal = false"
+      @edit-source="openSourceEditor"
+    />
+
+    <SourceEditModal
+      :is-open="showSourceEditor"
+      :art-path="sourceEditorArtPath"
+      :art-title="sourceEditorArtTitle"
+      @close="showSourceEditor = false"
+      @saved="handleSourceSaved"
     />
   </div>
 </template>

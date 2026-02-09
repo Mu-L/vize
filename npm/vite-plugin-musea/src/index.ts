@@ -72,10 +72,12 @@ import {
   deleteTokenAtPath,
   validateSemanticReference,
   findDependentTokens,
+  scanTokenUsage,
   type DesignToken,
   type TokenCategory,
   type StyleDictionaryConfig,
   type StyleDictionaryOutput,
+  type TokenUsageMap,
 } from "./style-dictionary.js";
 
 export {
@@ -85,10 +87,12 @@ export {
   generateTokensMarkdown,
   buildTokenMap,
   resolveReferences,
+  scanTokenUsage,
   type DesignToken,
   type TokenCategory,
   type StyleDictionaryConfig,
   type StyleDictionaryOutput,
+  type TokenUsageMap,
 };
 
 export { MuseaA11yRunner, type A11ySummary } from "./a11y.js";
@@ -471,6 +475,28 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           return;
         }
 
+        // GET /api/tokens/usage - Get token usage across art files
+        if (req.url === "/tokens/usage" && req.method === "GET") {
+          if (!tokensPath) {
+            sendJson({});
+            return;
+          }
+
+          try {
+            const absoluteTokensPath = path.resolve(config.root, tokensPath);
+            const categories = await parseTokens(absoluteTokensPath);
+            const tokenMap = buildTokenMap(categories);
+            resolveReferences(categories, tokenMap);
+            const resolvedTokenMap = buildTokenMap(categories);
+            const usage: TokenUsageMap = scanTokenUsage(artFiles, resolvedTokenMap);
+            sendJson(usage);
+          } catch (e) {
+            console.error("[musea] Failed to scan token usage:", e);
+            sendJson({});
+          }
+          return;
+        }
+
         // GET /api/tokens - Get design tokens
         if (req.url === "/tokens" && req.method === "GET") {
           if (!tokensPath) {
@@ -655,15 +681,68 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           return;
         }
 
+        // PUT /api/arts/:path/source - Update art file source
+        if (req.url?.startsWith("/arts/") && req.method === "PUT") {
+          const rest = req.url.slice(6);
+          const sourceMatch = rest.match(/^(.+)\/source$/);
+          if (sourceMatch) {
+            const artPath = decodeURIComponent(sourceMatch[1]);
+            const art = artFiles.get(artPath);
+            if (!art) {
+              sendError("Art not found", 404);
+              return;
+            }
+
+            let body = "";
+            req.on("data", (chunk: string) => { body += chunk; });
+            req.on("end", async () => {
+              try {
+                const { source } = JSON.parse(body) as { source: string };
+                if (typeof source !== "string") {
+                  sendError("Missing required field: source", 400);
+                  return;
+                }
+                await fs.promises.writeFile(artPath, source, "utf-8");
+                await processArtFile(artPath);
+                sendJson({ success: true });
+              } catch (e) {
+                sendError(e instanceof Error ? e.message : String(e));
+              }
+            });
+            return;
+          }
+          next();
+          return;
+        }
+
         // Arts sub-routes: /api/arts/:encodedPath/...
         if (req.url?.startsWith("/arts/") && req.method === "GET") {
           const rest = req.url.slice(6); // after "/arts/"
 
           // Check for sub-resource patterns
+          const sourceMatch = rest.match(/^(.+)\/source$/);
           const paletteMatch = rest.match(/^(.+)\/palette$/);
           const analysisMatch = rest.match(/^(.+)\/analysis$/);
           const docsMatch = rest.match(/^(.+)\/docs$/);
           const a11yMatch = rest.match(/^(.+)\/variants\/([^/]+)\/a11y$/);
+
+          if (sourceMatch) {
+            // GET /api/arts/:path/source
+            const artPath = decodeURIComponent(sourceMatch[1]);
+            const art = artFiles.get(artPath);
+            if (!art) {
+              sendError("Art not found", 404);
+              return;
+            }
+
+            try {
+              const source = await fs.promises.readFile(artPath, "utf-8");
+              sendJson({ source, path: artPath });
+            } catch (e) {
+              sendError(e instanceof Error ? e.message : String(e));
+            }
+            return;
+          }
 
           if (paletteMatch) {
             // GET /api/arts/:path/palette

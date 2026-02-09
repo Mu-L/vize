@@ -4,15 +4,19 @@ import type { DesignToken } from '../../api'
 import SpacingPreview from './SpacingPreview.vue'
 import TypographyPreview from './TypographyPreview.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   name: string
   token: DesignToken
   categoryPath?: string
-}>()
+  usageCount?: number
+}>(), {
+  usageCount: 0,
+})
 
 const emit = defineEmits<{
   edit: []
   delete: []
+  showUsage: []
 }>()
 
 const isColor = computed(() => {
@@ -137,6 +141,19 @@ const tierLabel = computed(() => {
       </div>
       <div v-if="token.description" class="token-desc">{{ token.description }}</div>
     </div>
+
+    <button
+      v-if="usageCount > 0"
+      class="usage-badge"
+      title="View component usage"
+      @click.stop="emit('showUsage')"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      {{ usageCount }}
+    </button>
 
     <div class="token-actions">
       <button class="action-btn" title="Edit" @click.stop="emit('edit')">
@@ -287,6 +304,28 @@ const tierLabel = computed(() => {
   color: var(--musea-text-muted);
   font-size: 0.75rem;
   margin-top: 0.25rem;
+}
+
+.usage-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--musea-border);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--musea-text-muted);
+  font-size: 0.6875rem;
+  font-family: var(--musea-font-mono);
+  cursor: pointer;
+  transition: border-color var(--musea-transition), color var(--musea-transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.usage-badge:hover {
+  border-color: var(--musea-accent);
+  color: var(--musea-accent);
 }
 
 .token-actions {

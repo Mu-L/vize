@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import type { TokenCategory, DesignToken } from '../../api'
+import type { TokenCategory, DesignToken, TokenUsageMap } from '../../api'
 import TokenCard from './TokenCard.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   category: TokenCategory
   level?: number
   parentPath?: string
-}>()
+  usageMap?: TokenUsageMap
+}>(), {
+  usageMap: () => ({}),
+})
 
 const emit = defineEmits<{
   edit: [path: string, token: DesignToken]
   delete: [path: string, token: DesignToken]
+  showUsage: [tokenPath: string]
 }>()
 
 const headingLevel = Math.min((props.level ?? 2), 6)
@@ -22,6 +26,13 @@ function getCategoryPath(): string {
 
 function getTokenPath(name: string): string {
   return `${getCategoryPath()}.${name}`
+}
+
+function getUsageCount(name: string): number {
+  const tokenPath = getTokenPath(name)
+  const entries = props.usageMap[tokenPath]
+  if (!entries) return 0
+  return entries.reduce((sum, entry) => sum + entry.matches.length, 0)
 }
 </script>
 
@@ -38,8 +49,10 @@ function getTokenPath(name: string): string {
         :name="String(name)"
         :token="token"
         :category-path="getCategoryPath()"
+        :usage-count="getUsageCount(String(name))"
         @edit="emit('edit', getTokenPath(String(name)), token)"
         @delete="emit('delete', getTokenPath(String(name)), token)"
+        @show-usage="emit('showUsage', getTokenPath(String(name)))"
       />
     </div>
 
@@ -50,8 +63,10 @@ function getTokenPath(name: string): string {
         :category="sub"
         :level="(level ?? 2) + 1"
         :parent-path="getCategoryPath()"
+        :usage-map="usageMap"
         @edit="(path, token) => emit('edit', path, token)"
         @delete="(path, token) => emit('delete', path, token)"
+        @show-usage="(tokenPath) => emit('showUsage', tokenPath)"
       />
     </template>
   </div>

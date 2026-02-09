@@ -201,6 +201,48 @@ export async function deleteToken(tokenPath: string): Promise<TokenMutationRespo
   return res.json() as Promise<TokenMutationResponse>
 }
 
+// Token usage types
+export interface TokenUsageMatch {
+  line: number
+  lineContent: string
+  property: string
+}
+
+export interface TokenUsageEntry {
+  artPath: string
+  artTitle: string
+  artCategory?: string
+  matches: TokenUsageMatch[]
+}
+
+export type TokenUsageMap = Record<string, TokenUsageEntry[]>
+
+export interface ArtSourceResponse {
+  source: string
+  path: string
+}
+
+export async function fetchTokenUsage(): Promise<TokenUsageMap> {
+  return fetchJson<TokenUsageMap>('/api/tokens/usage')
+}
+
+export async function fetchArtSource(artPath: string): Promise<ArtSourceResponse> {
+  return fetchJson<ArtSourceResponse>(`/api/arts/${encodeURIComponent(artPath)}/source`)
+}
+
+export async function updateArtSource(artPath: string, source: string): Promise<{ success: boolean }> {
+  const res = await fetch(basePath + `/api/arts/${encodeURIComponent(artPath)}/source`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  })
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.error || `API error: ${res.status}`)
+  }
+  return res.json() as Promise<{ success: boolean }>
+}
+
 export async function runVrt(artPath?: string, updateSnapshots?: boolean): Promise<VrtApiResponse> {
   const res = await fetch(basePath + '/api/run-vrt', {
     method: 'POST',
