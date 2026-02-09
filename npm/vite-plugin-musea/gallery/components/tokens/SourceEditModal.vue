@@ -7,6 +7,7 @@ const props = defineProps<{
   isOpen: boolean
   artPath: string
   artTitle: string
+  tokenPaths?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -74,6 +75,7 @@ async function handleSave() {
               v-model="source"
               language="html"
               height="500px"
+              :completion-items="tokenPaths"
             />
             <p v-if="error" class="editor-error">{{ error }}</p>
           </div>
@@ -97,7 +99,8 @@ async function handleSave() {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -260,6 +260,7 @@ async function handleSourceSaved() {
       :is-open="showSourceEditor"
       :art-path="sourceEditorArtPath"
       :art-title="sourceEditorArtTitle"
+      :token-paths="existingPaths"
       @close="showSourceEditor = false"
       @saved="handleSourceSaved"
     />
