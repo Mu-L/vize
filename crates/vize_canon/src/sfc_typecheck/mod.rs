@@ -46,8 +46,7 @@ use vize_carton::Bump;
 
 use checks::{
     check_emits_typing, check_fallthrough_attrs, check_invalid_exports, check_props_typing,
-    check_reactivity, check_setup_context, check_template_bindings, check_unused_template_vars,
-    check_vfor_keys,
+    check_reactivity, check_setup_context, check_template_bindings,
 };
 use virtual_ts::generate_virtual_ts_with_scopes;
 
@@ -157,12 +156,8 @@ pub struct SfcTypeCheckOptions {
     pub check_setup_context: bool,
     /// Whether to check invalid exports in `<script setup>`
     pub check_invalid_exports: bool,
-    /// Whether to check v-for missing :key
-    pub check_vfor_keys: bool,
     /// Whether to check fallthrough attrs with multi-root
     pub check_fallthrough_attrs: bool,
-    /// Whether to check unused template variables (opt-in, default off)
-    pub check_unused_template_vars: bool,
     /// Strict mode - report more potential issues
     pub strict: bool,
 }
@@ -179,9 +174,7 @@ impl SfcTypeCheckOptions {
             check_reactivity: true,
             check_setup_context: true,
             check_invalid_exports: true,
-            check_vfor_keys: true,
             check_fallthrough_attrs: true,
-            check_unused_template_vars: false, // opt-in
             strict: false,
         }
     }
@@ -307,19 +300,9 @@ pub fn type_check_sfc(source: &str, options: &SfcTypeCheckOptions) -> SfcTypeChe
         check_invalid_exports(&summary, script_offset, &mut result);
     }
 
-    // Check v-for missing :key
-    if options.check_vfor_keys {
-        check_vfor_keys(&summary, template_offset, &mut result, options.strict);
-    }
-
     // Check fallthrough attrs
     if options.check_fallthrough_attrs {
         check_fallthrough_attrs(&summary, &mut result, options.strict);
-    }
-
-    // Check unused template variables
-    if options.check_unused_template_vars {
-        check_unused_template_vars(&summary, template_offset, &mut result, options.strict);
     }
 
     // Generate virtual TypeScript with scope information if requested
@@ -891,61 +874,6 @@ export const foo = 'bar'
         assert!(!has_invalid, "Should not check when disabled");
     }
 
-    // ========== v-for Key Tests ==========
-
-    #[test]
-    fn test_check_vfor_missing_key() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="item in items">{{ item }}</div>
-</template>"#;
-        let options = SfcTypeCheckOptions::new("test.vue");
-        let result = type_check_sfc(source, &options);
-        let has_vfor_key = result
-            .diagnostics
-            .iter()
-            .any(|d| d.code.as_deref() == Some("vfor-missing-key"));
-        assert!(has_vfor_key, "Should detect missing :key in v-for");
-    }
-
-    #[test]
-    fn test_check_vfor_with_key_ok() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="item in items" :key="item">{{ item }}</div>
-</template>"#;
-        let options = SfcTypeCheckOptions::new("test.vue");
-        let result = type_check_sfc(source, &options);
-        let has_vfor_key = result
-            .diagnostics
-            .iter()
-            .any(|d| d.code.as_deref() == Some("vfor-missing-key"));
-        assert!(!has_vfor_key, "Should not report when :key is present");
-    }
-
-    #[test]
-    fn test_check_vfor_missing_key_strict() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="item in items">{{ item }}</div>
-</template>"#;
-        let options = SfcTypeCheckOptions::new("test.vue").strict();
-        let result = type_check_sfc(source, &options);
-        let has_error = result.diagnostics.iter().any(|d| {
-            d.code.as_deref() == Some("vfor-missing-key") && d.severity == SfcTypeSeverity::Error
-        });
-        assert!(has_error, "Strict mode should report as Error");
-    }
-
     // ========== Fallthrough Attrs Tests ==========
 
     #[test]
@@ -1000,72 +928,4 @@ const msg = 'hello'
         assert!(has_error, "Strict mode should report as Error");
     }
 
-    // ========== Unused Template Vars Tests ==========
-
-    #[test]
-    fn test_check_unused_template_vars_disabled_by_default() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="(item, index) in items" :key="item">{{ item }}</div>
-</template>"#;
-        let options = SfcTypeCheckOptions::new("test.vue");
-        let result = type_check_sfc(source, &options);
-        let has_unused = result
-            .diagnostics
-            .iter()
-            .any(|d| d.code.as_deref() == Some("unused-template-var"));
-        assert!(!has_unused, "Should not check when disabled by default");
-    }
-
-    #[test]
-    fn test_check_unused_template_vars_opt_in() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="(item, index) in items" :key="item">{{ item }}</div>
-</template>"#;
-        let mut options = SfcTypeCheckOptions::new("test.vue");
-        options.check_unused_template_vars = true;
-        let result = type_check_sfc(source, &options);
-        let has_unused = result
-            .diagnostics
-            .iter()
-            .any(|d| d.code.as_deref() == Some("unused-template-var"));
-        // Note: detection depends on croquis scope analysis tracking usage correctly
-        // If index is truly unused, this should detect it
-        // This test validates the opt-in wiring works
-        assert!(
-            has_unused || !has_unused,
-            "Check should run without panicking when opt-in enabled"
-        );
-    }
-
-    #[test]
-    fn test_check_unused_template_vars_strict_severity() {
-        let source = r#"<script setup>
-import { ref } from 'vue'
-const items = ref([1, 2, 3])
-</script>
-<template>
-  <div v-for="(item, index) in items" :key="item">{{ item }}</div>
-</template>"#;
-        let mut options = SfcTypeCheckOptions::new("test.vue").strict();
-        options.check_unused_template_vars = true;
-        let result = type_check_sfc(source, &options);
-        // In strict mode, unused template vars should be Warning (not Info)
-        for d in &result.diagnostics {
-            if d.code.as_deref() == Some("unused-template-var") {
-                assert_eq!(
-                    d.severity,
-                    SfcTypeSeverity::Warning,
-                    "Strict mode should report as Warning"
-                );
-            }
-        }
-    }
 }

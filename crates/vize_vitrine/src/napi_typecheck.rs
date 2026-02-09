@@ -18,9 +18,7 @@ pub struct TypeCheckOptionsNapi {
     pub check_reactivity: Option<bool>,
     pub check_setup_context: Option<bool>,
     pub check_invalid_exports: Option<bool>,
-    pub check_vfor_keys: Option<bool>,
     pub check_fallthrough_attrs: Option<bool>,
-    pub check_unused_template_vars: Option<bool>,
 }
 
 /// Related location for diagnostic (NAPI)
@@ -64,9 +62,7 @@ fn apply_napi_options(opts: &TypeCheckOptionsNapi, check_opts: &mut TypeCheckOpt
     check_opts.check_reactivity = opts.check_reactivity.unwrap_or(true);
     check_opts.check_setup_context = opts.check_setup_context.unwrap_or(true);
     check_opts.check_invalid_exports = opts.check_invalid_exports.unwrap_or(true);
-    check_opts.check_vfor_keys = opts.check_vfor_keys.unwrap_or(true);
     check_opts.check_fallthrough_attrs = opts.check_fallthrough_attrs.unwrap_or(true);
-    check_opts.check_unused_template_vars = opts.check_unused_template_vars.unwrap_or(false);
 }
 
 /// Perform type checking on a Vue SFC
@@ -176,19 +172,9 @@ pub fn get_type_check_capabilities_napi() -> TypeCheckCapabilitiesNapi {
                 severity: "error".to_string(),
             },
             TypeCheckCapabilityNapi {
-                name: "vfor-missing-key".to_string(),
-                description: "Detects v-for directives without :key binding".to_string(),
-                severity: "warning".to_string(),
-            },
-            TypeCheckCapabilityNapi {
                 name: "fallthrough-attrs".to_string(),
                 description: "Detects multi-root components that may lose fallthrough attributes".to_string(),
                 severity: "warning".to_string(),
-            },
-            TypeCheckCapabilityNapi {
-                name: "unused-template-var".to_string(),
-                description: "Detects unused variables in v-for/v-slot (opt-in)".to_string(),
-                severity: "info".to_string(),
             },
         ],
         notes: vec![

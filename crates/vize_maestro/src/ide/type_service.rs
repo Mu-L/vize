@@ -44,12 +44,8 @@ pub struct LspTypeCheckOptions {
     pub check_setup_context: bool,
     /// Check invalid exports in `<script setup>`
     pub check_invalid_exports: bool,
-    /// Check v-for missing :key
-    pub check_vfor_keys: bool,
     /// Check fallthrough attrs with multi-root
     pub check_fallthrough_attrs: bool,
-    /// Check unused template variables (opt-in)
-    pub check_unused_template_vars: bool,
 }
 
 impl Default for LspTypeCheckOptions {
@@ -62,9 +58,7 @@ impl Default for LspTypeCheckOptions {
             check_reactivity: true,
             check_setup_context: true,
             check_invalid_exports: true,
-            check_vfor_keys: true,
             check_fallthrough_attrs: true,
-            check_unused_template_vars: false,
         }
     }
 }
@@ -100,9 +94,7 @@ impl TypeService {
             check_reactivity: lsp_options.check_reactivity,
             check_setup_context: lsp_options.check_setup_context,
             check_invalid_exports: lsp_options.check_invalid_exports,
-            check_vfor_keys: lsp_options.check_vfor_keys,
             check_fallthrough_attrs: lsp_options.check_fallthrough_attrs,
-            check_unused_template_vars: lsp_options.check_unused_template_vars,
             include_virtual_ts: false,
         };
 

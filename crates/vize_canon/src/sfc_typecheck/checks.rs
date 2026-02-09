@@ -3,7 +3,6 @@
 use super::{SfcTypeCheckResult, SfcTypeDiagnostic, SfcTypeSeverity};
 use vize_croquis::reactivity::ReactivityLossKind;
 use vize_croquis::setup_context::ViolationSeverity;
-use vize_croquis::{ScopeData, ScopeKind};
 
 /// Check props typing.
 pub fn check_props_typing(
@@ -293,41 +292,6 @@ pub fn check_invalid_exports(
     }
 }
 
-/// Check for v-for directives missing `:key`.
-pub fn check_vfor_keys(
-    summary: &vize_croquis::Croquis,
-    template_offset: u32,
-    result: &mut SfcTypeCheckResult,
-    strict: bool,
-) {
-    let severity = if strict {
-        SfcTypeSeverity::Error
-    } else {
-        SfcTypeSeverity::Warning
-    };
-
-    for scope in summary.scopes.iter() {
-        if scope.kind != ScopeKind::VFor {
-            continue;
-        }
-        if let ScopeData::VFor(ref data) = *scope.data() {
-            if data.key_expression.is_none() {
-                result.add_diagnostic(SfcTypeDiagnostic {
-                    severity,
-                    message: format!("v-for on '{}' is missing a :key binding", data.source),
-                    start: scope.span.start + template_offset,
-                    end: scope.span.end + template_offset,
-                    code: Some("vfor-missing-key".to_string()),
-                    help: Some(
-                        "Add a :key binding to help Vue track items efficiently".to_string(),
-                    ),
-                    related: Vec::new(),
-                });
-            }
-        }
-    }
-}
-
 /// Check for fallthrough attrs issues with multi-root components.
 pub fn check_fallthrough_attrs(
     summary: &vize_croquis::Croquis,
@@ -357,56 +321,3 @@ pub fn check_fallthrough_attrs(
     });
 }
 
-/// Check for unused template variables (v-for / v-slot).
-pub fn check_unused_template_vars(
-    summary: &vize_croquis::Croquis,
-    template_offset: u32,
-    result: &mut SfcTypeCheckResult,
-    strict: bool,
-) {
-    let severity = if strict {
-        SfcTypeSeverity::Warning
-    } else {
-        SfcTypeSeverity::Info
-    };
-
-    for unused in summary.unused_template_vars() {
-        let context_label = match &unused.context {
-            vize_croquis::UnusedVarContext::VForValue => "v-for value",
-            vize_croquis::UnusedVarContext::VForKey => "v-for key",
-            vize_croquis::UnusedVarContext::VForIndex => "v-for index",
-            vize_croquis::UnusedVarContext::VSlot { slot_name } => {
-                // Return early to include slot_name in message
-                result.add_diagnostic(SfcTypeDiagnostic {
-                    severity,
-                    message: format!(
-                        "Unused variable '{}' in v-slot '{}'",
-                        unused.name, slot_name
-                    ),
-                    start: unused.offset + template_offset,
-                    end: unused.offset + template_offset + unused.name.len() as u32,
-                    code: Some("unused-template-var".to_string()),
-                    help: Some(format!(
-                        "Remove '{}' or prefix with _ to indicate intentionally unused",
-                        unused.name
-                    )),
-                    related: Vec::new(),
-                });
-                continue;
-            }
-        };
-
-        result.add_diagnostic(SfcTypeDiagnostic {
-            severity,
-            message: format!("Unused variable '{}' in {}", unused.name, context_label),
-            start: unused.offset + template_offset,
-            end: unused.offset + template_offset + unused.name.len() as u32,
-            code: Some("unused-template-var".to_string()),
-            help: Some(format!(
-                "Remove '{}' or prefix with _ to indicate intentionally unused",
-                unused.name
-            )),
-            related: Vec::new(),
-        });
-    }
-}
