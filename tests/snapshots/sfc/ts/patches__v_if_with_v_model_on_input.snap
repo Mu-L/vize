@@ -18,7 +18,6 @@ return (_ctx: any,_cache: any) => {
   return (show.value)
       ? (_openBlock(), _createElementBlock("input", {
         key: 0,
-        ,
         "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event: any) => ((text).value = $event))
       }))
       : _createCommentVNode("v-if", true)
