@@ -214,10 +214,8 @@ fn generate_hoists(ctx: &CodegenContext, root: &RootNode<'_>) -> String {
 /// Since generate_hoists() takes &CodegenContext (immutable), helpers used in hoisted
 /// VNodes are not tracked via use_helper(). This function pre-scans hoists to collect them.
 fn collect_hoist_helpers(root: &RootNode<'_>, helpers: &mut Vec<RuntimeHelper>) {
-    for hoist in &root.hoists {
-        if let Some(node) = hoist {
-            collect_helpers_from_js_child_node(node, helpers);
-        }
+    for node in root.hoists.iter().flatten() {
+        collect_helpers_from_js_child_node(node, helpers);
     }
 }
 
@@ -260,13 +258,10 @@ fn collect_helpers_from_vnode_call(vnode: &VNodeCall<'_>, helpers: &mut Vec<Runt
 }
 
 fn collect_helpers_from_props(props: &PropsExpression<'_>, helpers: &mut Vec<RuntimeHelper>) {
-    match props {
-        PropsExpression::Object(obj) => {
-            for prop in &obj.properties {
-                collect_helpers_from_js_child_node(&prop.value, helpers);
-            }
+    if let PropsExpression::Object(obj) = props {
+        for prop in &obj.properties {
+            collect_helpers_from_js_child_node(&prop.value, helpers);
         }
-        _ => {}
     }
 }
 
