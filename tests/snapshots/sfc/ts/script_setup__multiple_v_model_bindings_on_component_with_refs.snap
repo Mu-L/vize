@@ -5,8 +5,8 @@ expression: ts_output
 import { defineComponent as _defineComponent } from 'vue'
 import { openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
-import { ref } from 'vue';
-import Dialog from './Dialog.vue';
+import { ref } from 'vue'
+import Dialog from './Dialog.vue'
 
 export default /*@__PURE__*/_defineComponent({
   __name: 'test',

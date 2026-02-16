@@ -9,7 +9,7 @@ import { Fragment as _Fragment, openBlock as _openBlock, createElementBlock as _
 const _hoisted_1 = /*#__PURE__*/ _createElementVNode("h4", null, "AST")
 const _hoisted_2 = /*#__PURE__*/ _createElementVNode("h4", null, "Helpers")
 const _hoisted_3 = /*#__PURE__*/ _createElementVNode("h4", null, "SFC")
-import { ref, computed } from 'vue';
+import { ref, computed } from 'vue'
 
 export default /*@__PURE__*/_defineComponent({
   __name: 'test',

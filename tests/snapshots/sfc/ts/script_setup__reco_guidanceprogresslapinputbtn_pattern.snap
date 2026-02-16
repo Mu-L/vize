@@ -5,7 +5,7 @@ expression: ts_output
 import { defineComponent as _defineComponent, type PropType } from 'vue'
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, toDisplayString as _toDisplayString, normalizeClass as _normalizeClass, withModifiers as _withModifiers } from "vue"
 
-import { computed } from 'vue';
+import { computed } from 'vue'
 
 interface GuidanceProgressFormInput {
   progressLap: number;
