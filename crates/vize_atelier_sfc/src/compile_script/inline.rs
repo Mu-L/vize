@@ -343,7 +343,10 @@ pub fn compile_script_setup_inline(
             // Handle side-effect imports without semicolons (e.g., import '@/css/reset.scss')
             // These have no 'from' clause and are always single-line
             if !trimmed.contains(" from ") && (trimmed.contains('\'') || trimmed.contains('"')) {
-                user_imports.push(format!("{}\n", line));
+                let mut imp = String::with_capacity(line.len() + 1);
+                imp.push_str(line);
+                imp.push('\n');
+                user_imports.push(imp);
                 continue;
             }
             in_import = true;
@@ -1124,7 +1127,12 @@ fn resolve_type_args(
             }
         }
         if !merged_props.is_empty() {
-            return format!("{{ {} }}", merged_props.join("; "));
+            let joined = merged_props.join("; ");
+            let mut result = String::with_capacity(joined.len() + 4);
+            result.push_str("{ ");
+            result.push_str(&joined);
+            result.push_str(" }");
+            return result;
         }
         return content.to_string();
     }
@@ -1135,7 +1143,11 @@ fn resolve_type_args(
         if body.starts_with('{') {
             return body.to_string();
         }
-        return format!("{{ {} }}", body);
+        let mut result = String::with_capacity(body.len() + 4);
+        result.push_str("{ ");
+        result.push_str(body);
+        result.push_str(" }");
+        return result;
     }
 
     // Unresolvable - return as-is
