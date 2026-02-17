@@ -2886,9 +2886,7 @@ async function remountWithProps(Component) {
         if (slotsOverride.default) {
           slotFns.default = () => h('span', { innerHTML: slotsOverride.default });
         }
-        return h('div', { class: 'musea-variant' }, [
-          h(Component, { ...propsOverride }, slotFns)
-        ]);
+        return h(Component, { ...propsOverride }, slotFns);
       };
     }
   });
@@ -3051,8 +3049,9 @@ export const variants = ${JSON.stringify(art.variants)};
       .replace(/`/g, "\\`")
       .replace(/\$/g, "\\$");
 
-    // Wrap template with the variant container
-    const fullTemplate = `<div class="musea-variant" data-variant="${variant.name}">${escapedTemplate}</div>`;
+    // Wrap template with the variant container (no .musea-variant class — the
+    // outer mount container already carries it; duplicating causes double padding)
+    const fullTemplate = `<div data-variant="${variant.name}">${escapedTemplate}</div>`;
 
     const components = componentName ? `  components: { ${componentName} },\n` : "";
 
@@ -3225,9 +3224,6 @@ function generatePreviewHtml(
       background: #ffffff;
     }
     .musea-variant {
-      padding: 1.5rem;
-      align-items: center;
-      justify-content: center;
       min-height: 100vh;
     }
     .musea-error {
