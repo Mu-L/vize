@@ -189,7 +189,9 @@ function extractSubcategories(obj: Record<string, unknown>): TokenCategory[] | u
 function isTokenValue(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
-  return "value" in obj && (typeof obj.value === "string" || typeof obj.value === "number");
+  // Support both "value" and DTCG "$value" formats
+  return ("value" in obj && (typeof obj.value === "string" || typeof obj.value === "number"))
+    || ("$value" in obj && (typeof obj.$value === "string" || typeof obj.$value === "number"));
 }
 
 /**
@@ -197,8 +199,8 @@ function isTokenValue(value: unknown): boolean {
  */
 function normalizeToken(raw: Record<string, unknown>): DesignToken {
   const token: DesignToken = {
-    value: raw.value as string | number,
-    type: raw.type as string | undefined,
+    value: (raw.value ?? raw.$value) as string | number,
+    type: (raw.type ?? raw.$type) as string | undefined,
     description: raw.description as string | undefined,
     attributes: raw.attributes as Record<string, unknown> | undefined,
   };

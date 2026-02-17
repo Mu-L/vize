@@ -97,6 +97,28 @@ export interface MuseaOptions {
    * - `MuseaTheme[]` — multiple custom themes (first is default, user can switch)
    */
   theme?: "dark" | "light" | "system" | MuseaTheme | MuseaTheme[];
+
+  /**
+   * CSS files to inject into component preview iframes.
+   * Useful for loading global styles (custom properties, resets, fonts, etc.)
+   * that components depend on.
+   *
+   * Paths are resolved relative to the project root.
+   * @example ['app/assets/styles/main.css']
+   */
+  previewCss?: string[];
+
+  /**
+   * Path to a module that exports a default setup function for preview iframes.
+   * The function receives the Vue `App` instance and can install plugins
+   * (e.g. vue-i18n, vue-router) before the component is mounted.
+   *
+   * Signature: `(app: App) => void | Promise<void>`
+   *
+   * Path is resolved relative to the project root.
+   * @example 'musea.preview.ts'
+   */
+  previewSetup?: string;
 }
 
 /**

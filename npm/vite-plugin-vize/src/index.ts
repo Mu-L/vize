@@ -334,19 +334,6 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         optimizeDeps: {
           include: ["vue"],
           exclude: ["virtual:vize-styles"],
-          esbuildOptions: {
-            plugins: [
-              {
-                name: "vize-externalize-vue",
-                setup(build) {
-                  build.onResolve({ filter: /\.vue$/ }, (args) => ({
-                    path: args.path,
-                    external: true,
-                  }));
-                },
-              },
-            ],
-          },
           rolldownOptions: {
             external: [/\.vue$/],
           },

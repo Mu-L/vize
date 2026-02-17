@@ -210,6 +210,86 @@ function loadNative(): NativeBinding {
 }
 
 /**
+ * JS-based fallback for SFC analysis when native `analyzeSfc` is not available.
+ * Uses regex parsing to extract props and emits from Vue SFC source.
+ */
+function analyzeSfcFallback(
+  source: string,
+  _options?: { filename?: string },
+): { props: Array<{ name: string; type: string; required: boolean; default_value?: unknown }>; emits: string[] } {
+  try {
+    const props: Array<{ name: string; type: string; required: boolean; default_value?: unknown }> = [];
+    const emits: string[] = [];
+
+    // Extract the <script setup> block
+    const scriptSetupMatch = source.match(/<script\s+[^>]*setup[^>]*>([\s\S]*?)<\/script>/);
+    if (!scriptSetupMatch) {
+      // Try regular <script> block
+      const scriptMatch = source.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+      if (!scriptMatch) return { props: [], emits: [] };
+    }
+    const scriptContent = scriptSetupMatch?.[1] || "";
+
+    // Extract defineProps type parameter
+    // Handles: defineProps<{ ... }>()  and  defineProps<{ ... }>
+    const propsMatch = scriptContent.match(/defineProps\s*<\s*\{([\s\S]*?)\}>\s*\(/);
+    const propsMatch2 = scriptContent.match(/defineProps\s*<\s*\{([\s\S]*?)\}>/);
+    const propsBody = propsMatch?.[1] || propsMatch2?.[1];
+
+    if (propsBody) {
+      // Parse each prop line: name?: Type;  or  name: Type;
+      // Handle multiline JSDoc comments before props
+      const lines = propsBody.split("\n");
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i].trim();
+        // Skip JSDoc comments
+        if (line.startsWith("/**") || line.startsWith("*") || line.startsWith("*/")) {
+          i++;
+          continue;
+        }
+
+        // Match prop definition: name?: Type  or  name: Type
+        const propMatch = line.match(/^(\w+)(\?)?:\s*(.+?)(?:;?\s*)$/);
+        if (propMatch) {
+          const name = propMatch[1];
+          const optional = !!propMatch[2];
+          let type = propMatch[3].replace(/;$/, "").trim();
+
+          // Check for default value in destructured defineProps
+          const defaultPattern = new RegExp(`\\b${name}\\s*=\\s*([^,}\\n]+)`);
+          const defaultMatch = scriptContent.match(defaultPattern);
+          const defaultValue = defaultMatch ? defaultMatch[1].trim() : undefined;
+
+          props.push({
+            name,
+            type,
+            required: !optional && defaultValue === undefined,
+            ...(defaultValue !== undefined ? { default_value: defaultValue } : {}),
+          });
+        }
+        i++;
+      }
+    }
+
+    // Extract defineEmits
+    const emitsMatch = scriptContent.match(/defineEmits\s*<\s*\{([\s\S]*?)\}>/);
+    if (emitsMatch) {
+      const emitsBody = emitsMatch[1];
+      const emitRegex = /(\w+)\s*:/g;
+      let match;
+      while ((match = emitRegex.exec(emitsBody)) !== null) {
+        emits.push(match[1]);
+      }
+    }
+
+    return { props, emits };
+  } catch {
+    return { props: [], emits: [] };
+  }
+}
+
+/**
  * Build the theme config object from plugin options for runtime injection.
  */
 function buildThemeConfig(
@@ -249,10 +329,14 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
   let inlineArt = options.inlineArt ?? false;
   const tokensPath = options.tokensPath;
   const themeConfig = buildThemeConfig(options.theme);
+  const previewCss = options.previewCss ?? [];
+  const previewSetup = options.previewSetup;
 
   let config: ResolvedConfig;
   let server: ViteDevServer | null = null;
   const artFiles = new Map<string, ArtFileInfo>();
+  let resolvedPreviewCss: string[] = [];
+  let resolvedPreviewSetup: string | null = null;
 
   // Main plugin
   const mainPlugin: Plugin = {
@@ -285,6 +369,18 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         if (options.storybookCompat === undefined && mc.storybookCompat !== undefined)
           storybookCompat = mc.storybookCompat;
         if (options.inlineArt === undefined && mc.inlineArt !== undefined) inlineArt = mc.inlineArt;
+      }
+
+      // Resolve previewCss paths to absolute paths
+      resolvedPreviewCss = previewCss.map((cssPath) =>
+        path.isAbsolute(cssPath) ? cssPath : path.resolve(resolvedConfig.root, cssPath),
+      );
+
+      // Resolve previewSetup path
+      if (previewSetup) {
+        resolvedPreviewSetup = path.isAbsolute(previewSetup)
+          ? previewSetup
+          : path.resolve(resolvedConfig.root, previewSetup);
       }
     },
 
@@ -320,8 +416,8 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
               "</head>",
               `<script>window.__MUSEA_BASE_PATH__='${basePath}';${themeScript}</script></head>`,
             );
-            // Transform through Vite for HMR
-            html = await devServer.transformIndexHtml(basePath + url, html);
+            // NOTE: Don't use transformIndexHtml here - it rewrites asset paths
+            // (e.g. prepending /_nuxt/) which breaks the pre-built gallery assets.
             res.setHeader("Content-Type", "text/html");
             res.end(html);
             return;
@@ -394,7 +490,7 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         }
 
         const variantComponentName = toPascalCase(variant.name);
-        const moduleCode = generatePreviewModule(art, variantComponentName, variant.name);
+        const moduleCode = generatePreviewModule(art, variantComponentName, variant.name, resolvedPreviewCss, resolvedPreviewSetup);
 
         // Transform the module through Vite to resolve imports
         try {
@@ -443,12 +539,11 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           return;
         }
 
-        const rawHtml = generatePreviewHtml(art, variant, basePath);
-        // Transform HTML through Vite to properly resolve module imports
-        const html = await devServer.transformIndexHtml(
-          `${basePath}/preview?art=${encodeURIComponent(artPath)}&variant=${encodeURIComponent(variantName)}`,
-          rawHtml,
-        );
+        const html = generatePreviewHtml(art, variant, basePath, config.base);
+        // NOTE: Don't use transformIndexHtml here - it creates html-proxy modules
+        // for inline scripts, but the URL contains query params which causes
+        // malformed proxy URLs (double '?'). Instead, /@vite/client is injected
+        // directly in generatePreviewHtml for HMR support.
         res.setHeader("Content-Type", "text/html");
         res.end(html);
       });
@@ -792,18 +887,86 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
             try {
               const source = await fs.promises.readFile(artPath, "utf-8");
               const binding = loadNative();
+              let palette: { title: string; controls: Array<{ name: string; control: string; default_value?: unknown; description?: string; required: boolean; options: Array<{ label: string; value: unknown }>; range?: { min: number; max: number; step?: number }; group?: string }>; groups: string[]; json: string; typescript: string };
               if (binding.generateArtPalette) {
-                const palette = binding.generateArtPalette(source, { filename: artPath });
-                sendJson(palette);
+                palette = binding.generateArtPalette(source, { filename: artPath });
               } else {
-                sendJson({
+                palette = {
                   title: art.metadata.title,
                   controls: [],
                   groups: [],
                   json: "{}",
                   typescript: "",
-                });
+                };
               }
+
+              // If the native palette returned no controls, try JS-based SFC analysis
+              if (palette.controls.length === 0 && art.metadata.component) {
+                const resolvedComponentPath = path.isAbsolute(art.metadata.component)
+                  ? art.metadata.component
+                  : path.resolve(path.dirname(artPath), art.metadata.component);
+                try {
+                  const componentSource = await fs.promises.readFile(resolvedComponentPath, "utf-8");
+                  const analysis = binding.analyzeSfc
+                    ? binding.analyzeSfc(componentSource, { filename: resolvedComponentPath })
+                    : analyzeSfcFallback(componentSource, { filename: resolvedComponentPath });
+
+                  if (analysis.props.length > 0) {
+                    palette.controls = analysis.props.map((prop) => {
+                      let control = "text";
+                      if (prop.type === "boolean") control = "boolean";
+                      else if (prop.type === "number") control = "number";
+                      else if (prop.type.includes("|") && !prop.type.includes("=>")) {
+                        // Union type like "button" | "submit" | "reset" -> select
+                        control = "select";
+                      }
+
+                      const options: Array<{ label: string; value: unknown }> = [];
+                      if (control === "select") {
+                        // Extract union type options
+                        const optionMatches = prop.type.match(/"([^"]+)"/g);
+                        if (optionMatches) {
+                          for (const opt of optionMatches) {
+                            const val = opt.replace(/"/g, "");
+                            options.push({ label: val, value: val });
+                          }
+                        }
+                      }
+
+                      return {
+                        name: prop.name,
+                        control,
+                        default_value: prop.default_value !== undefined ? (
+                          prop.default_value === "true" ? true :
+                          prop.default_value === "false" ? false :
+                          typeof prop.default_value === "string" && prop.default_value.startsWith('"') ? prop.default_value.replace(/^"|"$/g, "") :
+                          prop.default_value
+                        ) : undefined,
+                        description: undefined,
+                        required: prop.required,
+                        options,
+                        range: undefined,
+                        group: undefined,
+                      };
+                    });
+
+                    // Regenerate json and typescript
+                    palette.json = JSON.stringify({ title: palette.title, controls: palette.controls }, null, 2);
+                    palette.typescript = `export interface ${palette.title}Props {\n${
+                      palette.controls.map((c) => `  ${c.name}${c.required ? "" : "?"}: ${
+                        c.control === "boolean" ? "boolean" :
+                        c.control === "number" ? "number" :
+                        c.control === "select" ? c.options.map((o) => `"${String(o.value)}"`).join(" | ") :
+                        "string"
+                      };`).join("\n")
+                    }\n}\n`;
+                  }
+                } catch {
+                  // Ignore errors reading component file
+                }
+              }
+
+              sendJson(palette);
             } catch (e) {
               sendError(e instanceof Error ? e.message : String(e));
             }
@@ -837,7 +1000,8 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
                   const analysis = binding.analyzeSfc(source, { filename: resolvedComponentPath });
                   sendJson(analysis);
                 } else {
-                  sendJson({ props: [], emits: [] });
+                  const analysis = analyzeSfcFallback(source, { filename: resolvedComponentPath });
+                  sendJson(analysis);
                 }
               } else {
                 sendJson({ props: [], emits: [] });
@@ -952,6 +1116,8 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
                 variantComponentName,
                 variant.name,
                 propsOverride,
+                resolvedPreviewCss,
+                resolvedPreviewSetup,
               );
               res.setHeader("Content-Type", "application/javascript");
               res.end(moduleCode);
@@ -1134,23 +1300,25 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         return "\0musea-preview:" + id.slice("virtual:musea-preview:".length);
       }
       // Handle virtual:musea-art: prefix for preview modules
+      // Append ?musea-virtual to prevent other plugins (e.g. unplugin-vue-i18n)
+      // from treating .vue-ending virtual IDs as Vue SFC files
       if (id.startsWith("virtual:musea-art:")) {
         const artPath = id.slice("virtual:musea-art:".length);
         if (artFiles.has(artPath)) {
-          return "\0musea-art:" + artPath;
+          return "\0musea-art:" + artPath + "?musea-virtual";
         }
       }
       if (id.endsWith(".art.vue")) {
         const resolved = path.resolve(config.root, id);
         if (artFiles.has(resolved)) {
-          return VIRTUAL_MUSEA_PREFIX + resolved;
+          return VIRTUAL_MUSEA_PREFIX + resolved + "?musea-virtual";
         }
       }
       // Inline art: resolve .vue files that have <art> blocks
       if (inlineArt && id.endsWith(".vue") && !id.endsWith(".art.vue")) {
         const resolved = path.resolve(config.root, id);
         if (artFiles.has(resolved)) {
-          return VIRTUAL_MUSEA_PREFIX + resolved;
+          return VIRTUAL_MUSEA_PREFIX + resolved + "?musea-virtual";
         }
       }
       return null;
@@ -1173,20 +1341,20 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           const art = artFiles.get(artPath);
           if (art) {
             const variantComponentName = toPascalCase(variantName);
-            return generatePreviewModule(art, variantComponentName, variantName);
+            return generatePreviewModule(art, variantComponentName, variantName, resolvedPreviewCss, resolvedPreviewSetup);
           }
         }
       }
       // Handle \0musea-art: prefix for preview modules
       if (id.startsWith("\0musea-art:")) {
-        const artPath = id.slice("\0musea-art:".length);
+        const artPath = id.slice("\0musea-art:".length).replace(/\?musea-virtual$/, "");
         const art = artFiles.get(artPath);
         if (art) {
           return generateArtModule(art, artPath);
         }
       }
       if (id.startsWith(VIRTUAL_MUSEA_PREFIX)) {
-        const realPath = id.slice(VIRTUAL_MUSEA_PREFIX.length);
+        const realPath = id.slice(VIRTUAL_MUSEA_PREFIX.length).replace(/\?musea-virtual$/, "");
         const art = artFiles.get(realPath);
         if (art) {
           return generateArtModule(art, realPath);
@@ -1201,7 +1369,7 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         await processArtFile(file);
 
         // Invalidate virtual modules
-        const virtualId = VIRTUAL_MUSEA_PREFIX + file;
+        const virtualId = VIRTUAL_MUSEA_PREFIX + file + "?musea-virtual";
         const modules = server?.moduleGraph.getModulesByFile(virtualId);
         if (modules) {
           return [...modules];
@@ -2399,11 +2567,18 @@ function generatePreviewModule(
   art: ArtFileInfo,
   variantComponentName: string,
   variantName: string,
+  cssImports: string[] = [],
+  previewSetup: string | null = null,
 ): string {
   const artModuleId = `virtual:musea-art:${art.path}`;
   const escapedVariantName = escapeTemplate(variantName);
+  const cssImportStatements = cssImports.map((cssPath) => `import '${cssPath}';`).join("\n");
+  const setupImport = previewSetup ? `import __museaPreviewSetup from '${previewSetup}';` : "";
+  const setupCall = previewSetup ? "await __museaPreviewSetup(app);" : "";
 
   return `
+${cssImportStatements}
+${setupImport}
 import { createApp, reactive, h } from 'vue';
 import * as artModule from '${artModuleId}';
 
@@ -2439,6 +2614,7 @@ async function mount() {
 
     // Create and mount the app
     const app = createApp(VariantComponent);
+    ${setupCall}
     container.innerHTML = '';
     container.className = 'musea-variant';
     app.mount(container);
@@ -2473,7 +2649,7 @@ async function mount() {
   }
 }
 
-function remountWithProps(Component) {
+async function remountWithProps(Component) {
   if (currentApp) {
     currentApp.unmount();
   }
@@ -2490,6 +2666,7 @@ function remountWithProps(Component) {
       };
     }
   });
+  ${setupCall}
   container.innerHTML = '';
   app.mount(container);
   currentApp = app;
@@ -2628,12 +2805,19 @@ function generatePreviewModuleWithProps(
   variantComponentName: string,
   variantName: string,
   propsOverride: Record<string, unknown>,
+  cssImports: string[] = [],
+  previewSetup: string | null = null,
 ): string {
   const artModuleId = `virtual:musea-art:${art.path}`;
   const escapedVariantName = escapeTemplate(variantName);
   const propsJson = JSON.stringify(propsOverride);
+  const cssImportStatements = cssImports.map((cssPath) => `import '${cssPath}';`).join("\n");
+  const setupImport = previewSetup ? `import __museaPreviewSetup from '${previewSetup}';` : "";
+  const setupCall = previewSetup ? "await __museaPreviewSetup(app);" : "";
 
   return `
+${cssImportStatements}
+${setupImport}
 import { createApp, h } from 'vue';
 import * as artModule from '${artModuleId}';
 
@@ -2656,6 +2840,7 @@ async function mount() {
     };
 
     const app = createApp(WrappedComponent);
+    ${setupCall}
     container.innerHTML = '';
     container.className = 'musea-variant';
     app.mount(container);
@@ -2671,11 +2856,12 @@ mount();
 `;
 }
 
-function generatePreviewHtml(art: ArtFileInfo, variant: ArtVariant, _basePath: string): string {
-  // Use virtual module import instead of HTTP endpoint.
-  // This is more robust in Nuxt/framework contexts where Vite's Connect
-  // middleware may not be directly accessible for custom endpoints.
-  const importSpecifier = JSON.stringify(`virtual:musea-preview:${art.path}:${variant.name}`);
+function generatePreviewHtml(art: ArtFileInfo, variant: ArtVariant, _basePath: string, viteBase?: string): string {
+  // Use preview-module HTTP endpoint instead of virtual module import.
+  // Virtual module imports in inline scripts require transformIndexHtml,
+  // which creates malformed html-proxy URLs when the page URL has query params.
+  const previewModuleUrl = `${_basePath}/preview-module?art=${encodeURIComponent(art.path)}&variant=${encodeURIComponent(variant.name)}`;
+  const base = (viteBase || "/").replace(/\/$/, "");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2683,6 +2869,7 @@ function generatePreviewHtml(art: ArtFileInfo, variant: ArtVariant, _basePath: s
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(art.metadata.title)} - ${escapeHtml(variant.name)}</title>
+  <script type="module" src="${base}/@vite/client"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -2771,13 +2958,7 @@ function generatePreviewHtml(art: ArtFileInfo, variant: ArtVariant, _basePath: s
       Loading component...
     </div>
   </div>
-  <script type="module">
-  import(${importSpecifier}).catch(function(e) {
-    console.error('[musea-preview] Failed to load module:', e);
-    var c = document.getElementById('app');
-    if (c) c.innerHTML = '<div class="musea-error"><div class="musea-error-title">Failed to load preview module</div><div>' + e.message + '</div></div>';
-  });
-  </script>
+  <script type="module" src="${previewModuleUrl}"></script>
 </body>
 </html>`;
 }

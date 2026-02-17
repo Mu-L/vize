@@ -129,7 +129,10 @@ pub fn compile_script_setup_inline(
             let line_no_arrow = trimmed.replace("=>", "");
             macro_angle_depth += line_no_arrow.matches('<').count() as i32;
             macro_angle_depth -= line_no_arrow.matches('>').count() as i32;
-            if macro_angle_depth <= 0 && (trimmed.contains("()") || trimmed.ends_with(')')) {
+            let trimmed_no_semi_m = trimmed.trim_end_matches(';');
+            if macro_angle_depth <= 0
+                && (trimmed_no_semi_m.contains("()") || trimmed_no_semi_m.ends_with(')'))
+            {
                 in_macro_call = false;
             }
             continue;
@@ -162,7 +165,10 @@ pub fn compile_script_setup_inline(
             let line_no_arrow = trimmed.replace("=>", "");
             macro_angle_depth += line_no_arrow.matches('<').count() as i32;
             macro_angle_depth -= line_no_arrow.matches('>').count() as i32;
-            if macro_angle_depth <= 0 && (trimmed.ends_with("()") || trimmed.ends_with(')')) {
+            let trimmed_no_semi_w = trimmed.trim_end_matches(';');
+            if macro_angle_depth <= 0
+                && (trimmed_no_semi_w.ends_with("()") || trimmed_no_semi_w.ends_with(')'))
+            {
                 waiting_for_macro_close = false;
                 destructure_buffer.clear();
             }
@@ -183,7 +189,11 @@ pub fn compile_script_setup_inline(
             if brace_depth <= 0 && macro_angle_depth <= 0 {
                 let is_props_macro = destructure_buffer.contains("defineProps")
                     || destructure_buffer.contains("withDefaults");
-                if is_props_macro && !trimmed.ends_with("()") && !trimmed.ends_with(')') {
+                let trimmed_no_semi = trimmed.trim_end_matches(';');
+                if is_props_macro
+                    && !trimmed_no_semi.ends_with("()")
+                    && !trimmed_no_semi.ends_with(')')
+                {
                     waiting_for_macro_close = true;
                     continue;
                 }
@@ -235,8 +245,9 @@ pub fn compile_script_setup_inline(
             || trimmed.starts_with("var {"))
             && (trimmed.contains("defineProps<") || trimmed.contains("withDefaults("))
         {
-            // Check if it's complete on a single line
-            if !trimmed.ends_with("()") && !trimmed.ends_with(')') {
+            // Check if it's complete on a single line (strip trailing semicolons)
+            let trimmed_no_semi_d = trimmed.trim_end_matches(';');
+            if !trimmed_no_semi_d.ends_with("()") && !trimmed_no_semi_d.ends_with(')') {
                 // Multi-line: wait for completion
                 in_destructure = true;
                 destructure_buffer = line.to_string() + "\n";
