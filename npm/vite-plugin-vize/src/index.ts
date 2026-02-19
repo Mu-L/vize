@@ -8,7 +8,7 @@ import { glob } from "tinyglobby";
 import type { VizeConfig, ConfigEnv, UserConfigExport, LoadConfigOptions } from "./types.js";
 import type { VizeOptions, CompiledModule } from "./types.js";
 import { compileFile, compileBatch } from "./compiler.js";
-import { createFilter, generateOutput } from "./utils.js";
+import { createFilter, generateOutput, resolveCssImports, type CssAliasRule } from "./utils.js";
 import { detectHmrUpdateType, type HmrUpdateType } from "./hmr.js";
 
 export type { VizeOptions, CompiledModule, VizeConfig, LoadConfigOptions };
@@ -233,6 +233,26 @@ function createLogger(debug: boolean) {
   };
 }
 
+/**
+ * Apply Vite define replacements to code.
+ * Replaces keys like `import.meta.vfFeatures.photoSection` with their values.
+ * Uses word-boundary-aware matching to avoid replacing inside strings or partial matches.
+ */
+function applyDefineReplacements(code: string, defines: Record<string, string>): string {
+  // Sort keys longest-first to prevent partial matches (e.g., "import.meta.env" before "import.meta")
+  const sortedKeys = Object.keys(defines).sort((a, b) => b.length - a.length);
+  let result = code;
+  for (const key of sortedKeys) {
+    if (!result.includes(key)) continue;
+    // Build a regex that matches the key not preceded/followed by word chars or dots
+    // This prevents matching inside strings or longer identifiers
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(escaped + "(?![\\w$.])", "g");
+    result = result.replace(re, defines[key]);
+  }
+  return result;
+}
+
 export function vize(options: VizeOptions = {}): Plugin[] {
   const cache = new Map<string, CompiledModule>();
   // Collected CSS for production extraction
@@ -246,7 +266,9 @@ export function vize(options: VizeOptions = {}): Plugin[] {
   let ignorePatterns: string[];
   let mergedOptions: VizeOptions;
   let dynamicImportAliasRules: DynamicImportAliasRule[] = [];
+  let cssAliasRules: CssAliasRule[] = [];
   let extractCss = false;
+  let viteDefine: Record<string, string> = {};
 
   const logger = createLogger(options.debug ?? false);
 
@@ -280,7 +302,10 @@ export function vize(options: VizeOptions = {}): Plugin[] {
     if (isProduction) {
       for (const fileResult of result.results) {
         if (fileResult.css) {
-          collectedCss.set(fileResult.path, fileResult.css);
+          collectedCss.set(
+            fileResult.path,
+            resolveCssImports(fileResult.css, fileResult.path, cssAliasRules),
+          );
         }
       }
     }
@@ -346,6 +371,20 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       isProduction = options.isProduction ?? resolvedConfig.isProduction;
       extractCss = isProduction;
 
+      // Capture Vite define values for applying to virtual modules.
+      // Vite's built-in define plugin may not process \0-prefixed virtual modules,
+      // so we apply replacements ourselves in the transform hook.
+      viteDefine = {};
+      if (resolvedConfig.define) {
+        for (const [key, value] of Object.entries(resolvedConfig.define)) {
+          if (typeof value === "string") {
+            viteDefine[key] = value;
+          } else {
+            viteDefine[key] = JSON.stringify(value);
+          }
+        }
+      }
+
       const configEnv: ConfigEnv = {
         mode: resolvedConfig.mode,
         command: resolvedConfig.command === "build" ? "build" : "serve",
@@ -391,6 +430,17 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       }
       // Prefer longer alias keys first (e.g. "@@" before "@")
       dynamicImportAliasRules.sort((a, b) => b.fromPrefix.length - a.fromPrefix.length);
+
+      // Build CSS alias rules for @import resolution (use filesystem paths, not browser paths)
+      cssAliasRules = [];
+      for (const alias of resolvedConfig.resolve.alias) {
+        if (typeof alias.find !== "string" || typeof alias.replacement !== "string") {
+          continue;
+        }
+        cssAliasRules.push({ find: alias.find, replacement: alias.replacement });
+      }
+      // Prefer longer alias keys first
+      cssAliasRules.sort((a, b) => b.find.length - a.find.length);
 
       filter = createFilter(mergedOptions.include, mergedOptions.exclude);
       scanPatterns = mergedOptions.scanPatterns ?? ["**/*.vue"];
@@ -633,7 +683,7 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         const realPath = isVizeVirtual(filename) ? fromVirtualId(filename) : filename;
         const compiled = cache.get(realPath);
         if (compiled?.css) {
-          return compiled.css;
+          return resolveCssImports(compiled.css, realPath, cssAliasRules);
         }
         return "";
       }
@@ -659,6 +709,13 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         }
 
         if (compiled) {
+          // Resolve CSS @import and @custom-media before embedding
+          if (compiled.css) {
+            compiled = {
+              ...compiled,
+              css: resolveCssImports(compiled.css, realPath, cssAliasRules),
+            };
+          }
           const output = rewriteStaticAssetUrls(
             rewriteDynamicTemplateImports(
               generateOutput(compiled, {
@@ -706,7 +763,7 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       return null;
     },
 
-    // Strip TypeScript from compiled .vue output
+    // Strip TypeScript from compiled .vue output and apply define replacements
     async transform(code: string, id: string): Promise<TransformResult | null> {
       if (isVizeVirtual(id)) {
         const realPath = fromVirtualId(id);
@@ -714,7 +771,13 @@ export function vize(options: VizeOptions = {}): Plugin[] {
           const result = await transformWithOxc(code, realPath, {
             lang: "ts",
           });
-          return { code: result.code, map: result.map as TransformResult["map"] };
+          // Apply Vite define replacements (e.g., import.meta.vfFeatures.*)
+          // because Vite's built-in define plugin may skip \0-prefixed virtual modules.
+          let transformed = result.code;
+          if (Object.keys(viteDefine).length > 0) {
+            transformed = applyDefineReplacements(transformed, viteDefine);
+          }
+          return { code: transformed, map: result.map as TransformResult["map"] };
         } catch (e: unknown) {
           logger.error(`transformWithOxc failed for ${realPath}:`, e);
           const dumpPath = `/tmp/vize-oxc-error-${path.basename(realPath)}.ts`;
@@ -765,7 +828,7 @@ export function vize(options: VizeOptions = {}): Plugin[] {
               data: {
                 id: newCompiled.scopeId,
                 type: "style-only",
-                css: newCompiled.css,
+                css: resolveCssImports(newCompiled.css, file, cssAliasRules),
               },
             });
             return [];

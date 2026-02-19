@@ -7,7 +7,7 @@
 #[cfg(feature = "native")]
 use lightningcss::printer::PrinterOptions;
 #[cfg(feature = "native")]
-use lightningcss::stylesheet::{ParserOptions, StyleSheet};
+use lightningcss::stylesheet::{ParserFlags, ParserOptions, StyleSheet};
 #[cfg(feature = "native")]
 use lightningcss::targets::{Browsers, Targets};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,10 @@ pub struct CssCompileOptions {
     /// Filename for error reporting
     #[serde(default)]
     pub filename: Option<String>,
+
+    /// Whether to enable custom media query resolution
+    #[serde(default)]
+    pub custom_media: bool,
 }
 
 /// Browser targets for CSS autoprefixing
@@ -148,7 +152,8 @@ pub fn compile_css(css: &str, options: &CssCompileOptions) -> CssCompileResult {
         .unwrap_or_default();
 
     // Parse and process CSS
-    let (code, errors) = compile_css_internal(scoped_css, filename, options.minify, targets);
+    let (code, errors) =
+        compile_css_internal(scoped_css, filename, options.minify, targets, options.custom_media);
 
     CssCompileResult {
         code,
@@ -194,9 +199,15 @@ fn compile_css_internal(
     filename: &str,
     minify: bool,
     targets: Targets,
+    custom_media: bool,
 ) -> (String, Vec<String>) {
+    let mut flags = ParserFlags::NESTING | ParserFlags::DEEP_SELECTOR_COMBINATOR;
+    if custom_media {
+        flags |= ParserFlags::CUSTOM_MEDIA;
+    }
     let parser_options = ParserOptions {
         filename: filename.to_string(),
+        flags,
         ..Default::default()
     };
 
@@ -372,7 +383,7 @@ fn apply_scoped_css<'a>(bump: &'a Bump, css: &str, scope_id: &str) -> &'a str {
                     in_string = false;
                 }
             }
-            if !in_selector {
+            if !in_selector && !in_at_rule {
                 output.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes());
             }
             continue;
@@ -382,7 +393,7 @@ fn apply_scoped_css<'a>(bump: &'a Bump, css: &str, scope_id: &str) -> &'a str {
             '"' | '\'' => {
                 in_string = true;
                 string_char = c as u8;
-                if !in_selector {
+                if !in_selector && !in_at_rule {
                     output.push(c as u8);
                 }
             }
@@ -390,37 +401,69 @@ fn apply_scoped_css<'a>(bump: &'a Bump, css: &str, scope_id: &str) -> &'a str {
                 if let Some(&(_, '*')) = chars.peek() {
                     chars.next();
                     in_comment = true;
-                } else if !in_selector {
+                } else if !in_selector && !in_at_rule {
                     output.push(b'/');
                 }
             }
-            '@' => {
+            '@' if in_selector => {
                 in_at_rule = true;
+                in_selector = false;
                 // Look ahead to detect @keyframes (including vendor prefixes)
                 let remaining = &css[i + 1..];
                 pending_keyframes = remaining.starts_with("keyframes")
                     || remaining.starts_with("-webkit-keyframes")
                     || remaining.starts_with("-moz-keyframes")
                     || remaining.starts_with("-o-keyframes");
+                // Don't output '@' — the entire at-rule header will be flushed
+                // from the buffer when we encounter '{' or ';'
+            }
+            '@' => {
+                // @ in non-selector context (e.g., CSS nesting @media inside a rule)
                 output.push(b'@');
+            }
+            ';' if in_at_rule => {
+                // Statement at-rule (e.g., @import, @charset, @namespace)
+                // Flush the entire at-rule including the semicolon
+                let stmt = &css_bytes[last_selector_end..=i];
+                let stmt_str = unsafe { std::str::from_utf8_unchecked(stmt) }.trim();
+                output.extend_from_slice(stmt_str.as_bytes());
+                output.push(b'\n');
+                in_at_rule = false;
+                in_selector = true;
+                pending_keyframes = false;
+                last_selector_end = i + 1;
             }
             '{' => {
                 brace_depth += 1;
                 if in_at_rule {
                     in_at_rule = false;
+                    // Flush the buffered at-rule header (e.g., "@media (--mobile)")
+                    let at_rule_header = &css_bytes[last_selector_end..i];
+                    let at_rule_str =
+                        unsafe { std::str::from_utf8_unchecked(at_rule_header) }.trim();
+                    output.extend_from_slice(at_rule_str.as_bytes());
+                    output.push(b'{');
                     if pending_keyframes {
                         saved_at_rule_depth = Some(at_rule_depth);
                         keyframes_brace_depth = Some(brace_depth);
                         pending_keyframes = false;
                     }
                     at_rule_depth = brace_depth;
-                    output.push(b'{');
+                    in_selector = true;
+                    last_selector_end = i + 1;
                 } else if keyframes_brace_depth.is_some_and(|d| brace_depth > d) {
-                    // Inside @keyframes: stops (from/to/0%/100%) are not selectors
+                    // Inside @keyframes: output the stop name (from/to/0%/100%)
+                    let kf_part = &css_bytes[last_selector_end..i];
+                    let kf_str =
+                        unsafe { std::str::from_utf8_unchecked(kf_part) }.trim();
+                    output.extend_from_slice(kf_str.as_bytes());
+                    output.push(b'{');
                     in_selector = false;
                     last_selector_end = i + 1;
-                    output.push(b'{');
-                } else if in_selector && (brace_depth == 1 || brace_depth > at_rule_depth) {
+                } else if in_selector
+                    && (brace_depth == 1
+                        || (at_rule_depth > 0 && brace_depth > at_rule_depth))
+                {
                     // End of selector, apply scope
                     let selector_bytes = &css_bytes[last_selector_end..i];
                     let selector_str =
@@ -443,16 +486,18 @@ fn apply_scoped_css<'a>(bump: &'a Bump, css: &str, scope_id: &str) -> &'a str {
                         at_rule_depth = saved;
                     }
                 }
-                if brace_depth == 0 || (at_rule_depth > 0 && brace_depth == at_rule_depth - 1) {
+                if brace_depth == 0 {
                     in_selector = true;
                     last_selector_end = i + 1;
-                    if brace_depth < at_rule_depth {
-                        at_rule_depth = 0;
-                    }
+                    at_rule_depth = 0;
+                } else if at_rule_depth > 0 && brace_depth >= at_rule_depth {
+                    // Inside at-rule, back to selector mode for next rule
+                    in_selector = true;
+                    last_selector_end = i + 1;
                 }
             }
-            _ if in_selector => {
-                // Still building selector, don't output yet
+            _ if in_selector || in_at_rule => {
+                // Still building selector or at-rule header, don't output yet
             }
             _ => {
                 output.extend_from_slice(c.encode_utf8(&mut [0; 4]).as_bytes());
@@ -820,6 +865,63 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_scoped_css_at_media() {
+        let bump = Bump::new();
+        // Root-level @media with selectors inside
+        let css = ".foo { color: red; }\n@media (max-width: 768px) { .foo { color: blue; } }";
+        let result = apply_scoped_css(&bump, css, "data-v-123");
+        println!("@media result: {}", result);
+        assert!(
+            result.contains("@media (max-width: 768px)"),
+            "Expected @media query preserved in: {}",
+            result
+        );
+        // Both .foo selectors should be scoped
+        assert_eq!(
+            result.matches("[data-v-123]").count(),
+            2,
+            "Expected 2 scope attributes in: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_apply_scoped_css_at_media_custom_media() {
+        let bump = Bump::new();
+        // @media with custom media queries (like --mobile)
+        let css = ".a { color: red; }\n@media (--mobile) { .a { font-size: 12px; } }";
+        let result = apply_scoped_css(&bump, css, "data-v-abc");
+        println!("Custom media result: {}", result);
+        assert!(
+            result.contains("@media (--mobile)"),
+            "Expected @media (--mobile) preserved in: {}",
+            result
+        );
+        assert_eq!(
+            result.matches("[data-v-abc]").count(),
+            2,
+            "Expected 2 scope attributes in: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_apply_scoped_css_multiple_selectors_in_media() {
+        let bump = Bump::new();
+        // Multiple selectors inside @media
+        let css = "@media (--mobile) { .a { color: red; } .b { color: blue; } }";
+        let result = apply_scoped_css(&bump, css, "data-v-xyz");
+        println!("Multi selector result: {}", result);
+        assert!(result.contains("@media (--mobile)"));
+        assert_eq!(
+            result.matches("[data-v-xyz]").count(),
+            2,
+            "Expected 2 scope attributes in: {}",
+            result
+        );
+    }
+
+    #[test]
     fn test_apply_scoped_css_with_quoted_string() {
         let bump = Bump::new();
         // Test the raw scoping function without LightningCSS
@@ -832,5 +934,49 @@ mod tests {
             result
         );
         assert!(result.contains("monospace"));
+    }
+
+    #[test]
+    fn test_apply_scoped_css_at_import() {
+        let bump = Bump::new();
+        // @import should be preserved and not treated as a block at-rule
+        let css = "@import \"~/assets/styles/custom-media-query.css\";\n\nfooter { width: 100%; }";
+        let result = apply_scoped_css(&bump, css, "data-v-123");
+        println!("@import result: {}", result);
+        assert!(
+            result.contains("@import \"~/assets/styles/custom-media-query.css\";"),
+            "Expected @import preserved in: {}",
+            result
+        );
+        assert!(
+            result.contains("footer[data-v-123]"),
+            "Expected footer scoped in: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_apply_scoped_css_at_import_with_nested_css() {
+        let bump = Bump::new();
+        // @import followed by CSS nesting with @media
+        let css = "@import \"custom.css\";\n\nfooter {\n  width: 100%;\n  @media (--mobile) {\n    padding: 1rem;\n  }\n}";
+        let result = apply_scoped_css(&bump, css, "data-v-abc");
+        println!("@import + nesting result: {}", result);
+        assert!(
+            result.contains("@import \"custom.css\";"),
+            "Expected @import preserved in: {}",
+            result
+        );
+        assert!(
+            result.contains("footer[data-v-abc]"),
+            "Expected footer scoped in: {}",
+            result
+        );
+        // Nested @media should be inside the scoped footer block
+        assert!(
+            result.contains("@media (--mobile)"),
+            "Expected nested @media preserved in: {}",
+            result
+        );
     }
 }
