@@ -235,8 +235,7 @@ impl ScriptCompileContext {
                             }
                             oxc_ast::ast::Declaration::TSTypeAliasDeclaration(type_alias) => {
                                 let name = type_alias.id.name.to_string();
-                                let type_start =
-                                    type_alias.type_annotation.span().start as usize;
+                                let type_start = type_alias.type_annotation.span().start as usize;
                                 let type_end = type_alias.type_annotation.span().end as usize;
                                 let type_body = source[type_start..type_end].to_string();
                                 self.type_aliases.insert(name, type_body);

@@ -173,31 +173,28 @@ export function resolveCssImports(
 
   // Phase 4: Resolve url() references with alias prefixes
   if (isDev) {
-    result = result.replace(
-      /url\(\s*(["']?)([^"')]+)\1\s*\)/g,
-      (_match, quote, urlPath) => {
-        const trimmed = urlPath.trim();
-        // Skip data: URLs, absolute http(s) URLs, and already-resolved paths
-        if (
-          trimmed.startsWith("data:") ||
-          trimmed.startsWith("http://") ||
-          trimmed.startsWith("https://") ||
-          trimmed.startsWith("/@fs/")
-        ) {
-          return _match;
-        }
-        const resolved = resolveCssPath(trimmed, importer, aliasRules);
-        if (resolved && fs.existsSync(resolved)) {
-          const normalized = resolved.replace(/\\/g, "/");
-          // In Nuxt, Vite is mounted under a base path (e.g., /_nuxt/),
-          // so /@fs/ URLs must be prefixed with the base to reach Vite's middleware.
-          const base = devUrlBase ?? "/";
-          const prefix = base.endsWith("/") ? base : base + "/";
-          return `url("${prefix}@fs${normalized}")`;
-        }
+    result = result.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, (_match, quote, urlPath) => {
+      const trimmed = urlPath.trim();
+      // Skip data: URLs, absolute http(s) URLs, and already-resolved paths
+      if (
+        trimmed.startsWith("data:") ||
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("/@fs/")
+      ) {
         return _match;
-      },
-    );
+      }
+      const resolved = resolveCssPath(trimmed, importer, aliasRules);
+      if (resolved && fs.existsSync(resolved)) {
+        const normalized = resolved.replace(/\\/g, "/");
+        // In Nuxt, Vite is mounted under a base path (e.g., /_nuxt/),
+        // so /@fs/ URLs must be prefixed with the base to reach Vite's middleware.
+        const base = devUrlBase ?? "/";
+        const prefix = base.endsWith("/") ? base : base + "/";
+        return `url("${prefix}@fs${normalized}")`;
+      }
+      return _match;
+    });
   }
 
   // Phase 5: Unwrap Vue scoped CSS pseudo-selectors (:deep, :slotted, :global)
