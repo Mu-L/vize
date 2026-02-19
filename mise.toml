@@ -21,8 +21,9 @@ pnpm install
 # =============================================================================
 
 [tasks.build]
-description = "Build all (native + wasm)"
+description = "Build all (native + wasm + npm packages)"
 depends = ["build:native", "build:wasm"]
+run = "pnpm -r --filter='!./examples/*' --filter='!./playground' --filter='!./npm/vite-plugin-vize/example' --filter='!./npm/fresco/examples/*' build"
 
 [tasks."build:native"]
 alias = "bn"
