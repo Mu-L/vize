@@ -117,29 +117,37 @@ async function main() {
 
 async function extractTarGz(archivePath, destDir, binaryName) {
   const { execSync } = await import("child_process");
-  execSync(`tar -xzf "${archivePath}" -C "${destDir}"`, { stdio: "inherit" });
+  const { mkdtempSync, copyFileSync, rmSync } = await import("fs");
+  const { tmpdir } = await import("os");
 
-  // The archive contains a 'vize' binary directly
-  // If not in place, move it
-  const extractedPath = join(destDir, "vize");
+  // Extract to a temp directory to avoid overwriting the bin/vize wrapper script
+  // (the archive contains a binary also named 'vize')
+  const tempDir = mkdtempSync(join(tmpdir(), "vize-"));
+  execSync(`tar -xzf "${archivePath}" -C "${tempDir}"`, { stdio: "inherit" });
+
+  const extractedPath = join(tempDir, "vize");
   const targetPath = join(destDir, binaryName);
-  if (extractedPath !== targetPath && existsSync(extractedPath)) {
-    const { renameSync } = await import("fs");
-    renameSync(extractedPath, targetPath);
+  if (existsSync(extractedPath)) {
+    copyFileSync(extractedPath, targetPath);
   }
+  rmSync(tempDir, { recursive: true });
 }
 
 async function extractZip(archivePath, destDir, binaryName) {
   const { execSync } = await import("child_process");
-  execSync(`unzip -o "${archivePath}" -d "${destDir}"`, { stdio: "inherit" });
+  const { mkdtempSync, copyFileSync, rmSync } = await import("fs");
+  const { tmpdir } = await import("os");
 
-  // Rename extracted binary to match expected name
-  const extractedPath = join(destDir, "vize.exe");
+  // Extract to a temp directory to avoid overwriting files in bin/
+  const tempDir = mkdtempSync(join(tmpdir(), "vize-"));
+  execSync(`unzip -o "${archivePath}" -d "${tempDir}"`, { stdio: "inherit" });
+
+  const extractedPath = join(tempDir, "vize.exe");
   const targetPath = join(destDir, binaryName);
-  if (extractedPath !== targetPath && existsSync(extractedPath)) {
-    const { renameSync } = await import("fs");
-    renameSync(extractedPath, targetPath);
+  if (existsSync(extractedPath)) {
+    copyFileSync(extractedPath, targetPath);
   }
+  rmSync(tempDir, { recursive: true });
 }
 
 void main();
