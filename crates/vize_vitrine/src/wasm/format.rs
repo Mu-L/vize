@@ -185,5 +185,6 @@ pub(crate) fn parse_css_options(options: JsValue) -> CssCompileOptions {
         source_map,
         targets,
         filename,
+        custom_media: false,
     }
 }

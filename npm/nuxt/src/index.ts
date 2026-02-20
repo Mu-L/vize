@@ -55,7 +55,16 @@ export default defineNuxtModule<VizeNuxtOptions>({
     // via Nuxt's own Vite plugins. Adding nuxtMusea globally would shadow
     // Nuxt's #imports resolution and break the app.
     if (options.musea !== false) {
+      const museaBasePath = options.musea && typeof options.musea === "object" && "basePath" in options.musea
+        ? (options.musea as Record<string, unknown>).basePath as string
+        : "/__musea__";
       nuxt.options.vite.plugins.push(...musea(options.musea || {}));
+
+      // Print Musea Gallery URL after dev server starts
+      nuxt.hook("listen", (_server: unknown, listener: { url: string }) => {
+        const url = listener.url?.replace(/\/$/, "") || "http://localhost:3000";
+        console.log(`  \x1b[36m➜\x1b[0m  \x1b[1mMusea Gallery:\x1b[0m \x1b[36m${url}${museaBasePath}\x1b[0m`);
+      });
     }
   },
 });
