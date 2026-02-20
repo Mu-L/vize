@@ -8,7 +8,7 @@ import { glob } from "tinyglobby";
 import type { VizeConfig, ConfigEnv, UserConfigExport, LoadConfigOptions } from "./types.js";
 import type { VizeOptions, CompiledModule } from "./types.js";
 import { compileFile, compileBatch } from "./compiler.js";
-import { createFilter, generateOutput } from "./utils.js";
+import { createFilter, generateOutput, resolveCssImports, type CssAliasRule } from "./utils.js";
 import { detectHmrUpdateType, type HmrUpdateType } from "./hmr.js";
 
 export type { VizeOptions, CompiledModule, VizeConfig, LoadConfigOptions };
@@ -233,6 +233,52 @@ function createLogger(debug: boolean) {
   };
 }
 
+/**
+ * Built-in Vite/Vue/Nuxt define keys that are handled by Vite's own transform pipeline.
+ * These must NOT be replaced by the vize plugin because:
+ * 1. Nuxt runs both client and server Vite builds, each with different values
+ *    (e.g., import.meta.server = true on server, false on client).
+ * 2. Vite's import.meta transform already handles these correctly per-environment.
+ */
+const BUILTIN_DEFINE_PREFIXES = [
+  "import.meta.server",
+  "import.meta.client",
+  "import.meta.dev",
+  "import.meta.test",
+  "import.meta.prerender",
+  "import.meta.env",
+  "import.meta.hot",
+  "__VUE_",
+  "__NUXT_",
+  "process.env",
+];
+
+function isBuiltinDefine(key: string): boolean {
+  return BUILTIN_DEFINE_PREFIXES.some(
+    (prefix) => key === prefix || key.startsWith(prefix + ".") || key.startsWith(prefix + "_"),
+  );
+}
+
+/**
+ * Apply Vite define replacements to code.
+ * Replaces keys like `import.meta.vfFeatures.photoSection` with their values.
+ * Uses word-boundary-aware matching to avoid replacing inside strings or partial matches.
+ */
+function applyDefineReplacements(code: string, defines: Record<string, string>): string {
+  // Sort keys longest-first to prevent partial matches (e.g., "import.meta.env" before "import.meta")
+  const sortedKeys = Object.keys(defines).sort((a, b) => b.length - a.length);
+  let result = code;
+  for (const key of sortedKeys) {
+    if (!result.includes(key)) continue;
+    // Build a regex that matches the key not preceded/followed by word chars or dots
+    // This prevents matching inside strings or longer identifiers
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(escaped + "(?![\\w$.])", "g");
+    result = result.replace(re, defines[key]);
+  }
+  return result;
+}
+
 export function vize(options: VizeOptions = {}): Plugin[] {
   const cache = new Map<string, CompiledModule>();
   // Collected CSS for production extraction
@@ -240,13 +286,21 @@ export function vize(options: VizeOptions = {}): Plugin[] {
 
   let isProduction: boolean;
   let root: string;
+  let clientViteBase = "/";
+  let serverViteBase = "/";
   let server: ViteDevServer | null = null;
   let filter: (id: string) => boolean;
   let scanPatterns: string[];
   let ignorePatterns: string[];
   let mergedOptions: VizeOptions;
   let dynamicImportAliasRules: DynamicImportAliasRule[] = [];
+  let cssAliasRules: CssAliasRule[] = [];
   let extractCss = false;
+  // Per-environment define maps: Nuxt shares the same plugin instance for
+  // both client and server Vite builds. The server build adds defines like
+  // `document: "undefined"` that must NOT leak into client transforms.
+  let clientViteDefine: Record<string, string> = {};
+  let serverViteDefine: Record<string, string> = {};
 
   const logger = createLogger(options.debug ?? false);
 
@@ -280,7 +334,10 @@ export function vize(options: VizeOptions = {}): Plugin[] {
     if (isProduction) {
       for (const fileResult of result.results) {
         if (fileResult.css) {
-          collectedCss.set(fileResult.path, fileResult.css);
+          collectedCss.set(
+            fileResult.path,
+            resolveCssImports(fileResult.css, fileResult.path, cssAliasRules, false),
+          );
         }
       }
     }
@@ -334,19 +391,6 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         optimizeDeps: {
           include: ["vue"],
           exclude: ["virtual:vize-styles"],
-          esbuildOptions: {
-            plugins: [
-              {
-                name: "vize-externalize-vue",
-                setup(build) {
-                  build.onResolve({ filter: /\.vue$/ }, (args) => ({
-                    path: args.path,
-                    external: true,
-                  }));
-                },
-              },
-            ],
-          },
           rolldownOptions: {
             external: [/\.vue$/],
           },
@@ -357,7 +401,38 @@ export function vize(options: VizeOptions = {}): Plugin[] {
     async configResolved(resolvedConfig: ResolvedConfig) {
       root = options.root ?? resolvedConfig.root;
       isProduction = options.isProduction ?? resolvedConfig.isProduction;
+      const isSsrBuild = !!resolvedConfig.build?.ssr;
+      if (isSsrBuild) {
+        serverViteBase = resolvedConfig.base ?? "/";
+      } else {
+        clientViteBase = resolvedConfig.base ?? "/";
+      }
       extractCss = isProduction;
+
+      // Capture custom Vite define values for applying to virtual modules.
+      // Vite's built-in define plugin may not process \0-prefixed virtual modules,
+      // so we apply replacements ourselves in the transform hook.
+      // IMPORTANT: Nuxt shares the same plugin instance for client and server builds,
+      // each calling configResolved with environment-specific defines. We must store
+      // them separately to avoid the server's `document: "undefined"` leaking into
+      // client transforms, or the client's `import.meta.server: false` into server ones.
+      const isSsr = !!resolvedConfig.build?.ssr;
+      const envDefine: Record<string, string> = {};
+      if (resolvedConfig.define) {
+        for (const [key, value] of Object.entries(resolvedConfig.define)) {
+          if (isBuiltinDefine(key)) continue;
+          if (typeof value === "string") {
+            envDefine[key] = value;
+          } else {
+            envDefine[key] = JSON.stringify(value);
+          }
+        }
+      }
+      if (isSsr) {
+        serverViteDefine = envDefine;
+      } else {
+        clientViteDefine = envDefine;
+      }
 
       const configEnv: ConfigEnv = {
         mode: resolvedConfig.mode,
@@ -404,6 +479,17 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       }
       // Prefer longer alias keys first (e.g. "@@" before "@")
       dynamicImportAliasRules.sort((a, b) => b.fromPrefix.length - a.fromPrefix.length);
+
+      // Build CSS alias rules for @import resolution (use filesystem paths, not browser paths)
+      cssAliasRules = [];
+      for (const alias of resolvedConfig.resolve.alias) {
+        if (typeof alias.find !== "string" || typeof alias.replacement !== "string") {
+          continue;
+        }
+        cssAliasRules.push({ find: alias.find, replacement: alias.replacement });
+      }
+      // Prefer longer alias keys first
+      cssAliasRules.sort((a, b) => b.find.length - a.find.length);
 
       filter = createFilter(mergedOptions.include, mergedOptions.exclude);
       scanPatterns = mergedOptions.scanPatterns ?? ["**/*.vue"];
@@ -633,7 +719,12 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       return null;
     },
 
-    load(id: string) {
+    load(id: string, loadOptions?: { ssr?: boolean }) {
+      // Pick the correct viteBase for URL resolution based on the build environment.
+      // Nuxt shares the same plugin instance for client and server Vite builds,
+      // each with a different base (e.g., /_nuxt/ for client, / for server).
+      const currentBase = loadOptions?.ssr ? serverViteBase : clientViteBase;
+
       // Handle virtual CSS module for production extraction
       if (id === RESOLVED_CSS_MODULE) {
         const allCss = Array.from(collectedCss.values()).join("\n\n");
@@ -646,7 +737,13 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         const realPath = isVizeVirtual(filename) ? fromVirtualId(filename) : filename;
         const compiled = cache.get(realPath);
         if (compiled?.css) {
-          return compiled.css;
+          return resolveCssImports(
+            compiled.css,
+            realPath,
+            cssAliasRules,
+            server !== null,
+            currentBase,
+          );
         }
         return "";
       }
@@ -672,6 +769,19 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         }
 
         if (compiled) {
+          // Resolve CSS @import and @custom-media before embedding
+          if (compiled.css) {
+            compiled = {
+              ...compiled,
+              css: resolveCssImports(
+                compiled.css,
+                realPath,
+                cssAliasRules,
+                server !== null,
+                currentBase,
+              ),
+            };
+          }
           const output = rewriteStaticAssetUrls(
             rewriteDynamicTemplateImports(
               generateOutput(compiled, {
@@ -719,15 +829,29 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       return null;
     },
 
-    // Strip TypeScript from compiled .vue output
-    async transform(code: string, id: string): Promise<TransformResult | null> {
+    // Strip TypeScript from compiled .vue output and apply define replacements
+    async transform(
+      code: string,
+      id: string,
+      options?: { ssr?: boolean },
+    ): Promise<TransformResult | null> {
       if (isVizeVirtual(id)) {
         const realPath = fromVirtualId(id);
         try {
           const result = await transformWithOxc(code, realPath, {
             lang: "ts",
           });
-          return { code: result.code, map: result.map as TransformResult["map"] };
+          // Apply Vite define replacements (e.g., import.meta.vfFeatures.*)
+          // because Vite's built-in define plugin may skip \0-prefixed virtual modules.
+          // Use the correct per-environment defines to avoid server-only defines
+          // (like `document: "undefined"`) leaking into client code.
+          const defines = options?.ssr ? serverViteDefine : clientViteDefine;
+          let transformed = result.code;
+          if (Object.keys(defines).length > 0) {
+            transformed = applyDefineReplacements(transformed, defines);
+          }
+
+          return { code: transformed, map: result.map as TransformResult["map"] };
         } catch (e: unknown) {
           logger.error(`transformWithOxc failed for ${realPath}:`, e);
           const dumpPath = `/tmp/vize-oxc-error-${path.basename(realPath)}.ts`;
@@ -778,7 +902,7 @@ export function vize(options: VizeOptions = {}): Plugin[] {
               data: {
                 id: newCompiled.scopeId,
                 type: "style-only",
-                css: newCompiled.css,
+                css: resolveCssImports(newCompiled.css, file, cssAliasRules, true, clientViteBase),
               },
             });
             return [];

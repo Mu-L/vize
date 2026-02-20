@@ -148,6 +148,17 @@ pub fn apply_scoped_css(css: &str, scope_id: &str) -> String {
                     || css_remaining.starts_with("-moz-keyframes")
                     || css_remaining.starts_with("-o-keyframes");
             }
+            ';' if in_at_rule => {
+                // Statement at-rule (e.g., @import, @charset, @namespace)
+                // Flush the entire at-rule including the semicolon
+                let stmt = &current[last_selector_end..];
+                output.push_str(stmt.trim());
+                output.push('\n');
+                in_at_rule = false;
+                in_selector = true;
+                pending_keyframes = false;
+                last_selector_end = current.len();
+            }
             _ if in_selector || in_at_rule => {
                 // Still building selector or at-rule header
             }
@@ -464,6 +475,90 @@ mod tests {
         assert!(
             !result.contains("100%[data-v-123]"),
             "Should not scope '100%' keyframe stop. Got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_nested_css_media_passthrough() {
+        // CSS nesting: @media (--mobile) inside a selector should pass through
+        let css = "#pages-store {\n  display: grid;\n  row-gap: 1.5rem;\n  @media (--mobile) {\n    row-gap: 1rem;\n  }\n  h1 {\n    padding: 7.5rem 0;\n    @media (--mobile) {\n      padding: 2.5rem 0.75rem;\n    }\n  }\n}";
+        let result = apply_scoped_css(css, "data-v-123");
+        println!("Nested @media result:\n{}", result);
+        // Should NOT produce corrupted output like @media (--mobile){}{}
+        assert!(
+            !result.contains("@media (--mobile){}"),
+            "Should not produce empty @media block. Got:\n{}",
+            result
+        );
+        // The @media blocks should be preserved inside the scoped parent
+        assert!(
+            result.contains("@media (--mobile)"),
+            "Should preserve @media (--mobile). Got:\n{}",
+            result
+        );
+        // The parent selector should be scoped
+        assert!(
+            result.contains("#pages-store[data-v-123]"),
+            "Should scope the parent selector. Got:\n{}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_root_level_media_with_custom_query() {
+        // Root-level @media with custom media query
+        let css = ".foo { color: red; }\n@media (--mobile) { .foo { font-size: 12px; } }";
+        let result = apply_scoped_css(css, "data-v-abc");
+        println!("Root @media result:\n{}", result);
+        assert!(
+            result.contains("@media (--mobile)"),
+            "Should preserve @media (--mobile). Got:\n{}",
+            result
+        );
+        assert_eq!(
+            result.matches("[data-v-abc]").count(),
+            2,
+            "Should have 2 scope attributes (one for each .foo). Got:\n{}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_apply_scoped_css_at_import() {
+        let css = "@import \"~/assets/styles/custom-media-query.css\";\n\nfooter { width: 100%; }";
+        let result = apply_scoped_css(css, "data-v-123");
+        println!("@import result: {}", result);
+        assert!(
+            result.contains("@import \"~/assets/styles/custom-media-query.css\";"),
+            "Expected @import preserved in: {}",
+            result
+        );
+        assert!(
+            result.contains("footer[data-v-123]"),
+            "Expected footer scoped in: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_apply_scoped_css_at_import_with_nested_css() {
+        let css = "@import \"custom.css\";\n\nfooter {\n  width: 100%;\n  @media (--mobile) {\n    padding: 1rem;\n  }\n}";
+        let result = apply_scoped_css(css, "data-v-abc");
+        println!("@import + nesting result: {}", result);
+        assert!(
+            result.contains("@import \"custom.css\";"),
+            "Expected @import preserved in: {}",
+            result
+        );
+        assert!(
+            result.contains("footer[data-v-abc]"),
+            "Expected footer scoped in: {}",
+            result
+        );
+        assert!(
+            result.contains("@media (--mobile)"),
+            "Expected nested @media preserved in: {}",
             result
         );
     }

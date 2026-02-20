@@ -187,16 +187,16 @@ const handleVariantSelect = (variantName: string) => {
       />
     </div>
 
-    <!-- Actions Footer Panel -->
+    <!-- Actions Footer Panel (sticky bottom) -->
     <div class="actions-footer" :class="{ expanded: actionsExpanded }">
-      <button class="actions-footer-toggle" @click="actionsExpanded = !actionsExpanded">
-        <MdiIcon :path="actionsExpanded ? mdiChevronUp : mdiChevronDown" :size="14" />
-        Actions
-        <span v-if="actionCount > 0" class="action-count-badge">{{ actionCount > 99 ? '99+' : actionCount }}</span>
-      </button>
       <div v-if="actionsExpanded" class="actions-footer-content">
         <ActionsPanel />
       </div>
+      <button class="actions-footer-toggle" @click="actionsExpanded = !actionsExpanded">
+        <MdiIcon :path="actionsExpanded ? mdiChevronDown : mdiChevronUp" :size="14" />
+        Actions
+        <span v-if="actionCount > 0" class="action-count-badge">{{ actionCount > 99 ? '99+' : actionCount }}</span>
+      </button>
     </div>
 
     <FullscreenPreview />
@@ -348,10 +348,12 @@ const handleVariantSelect = (variantName: string) => {
 }
 
 .actions-footer {
-  margin-top: 1.5rem;
-  border: 1px solid var(--musea-border);
-  border-radius: var(--musea-radius-md);
-  overflow: hidden;
+  position: sticky;
+  bottom: 0;
+  margin: 0 -2rem -2rem;
+  background: var(--musea-bg-primary);
+  border-top: 1px solid var(--musea-border);
+  z-index: 10;
 }
 
 .actions-footer-toggle {
@@ -375,7 +377,7 @@ const handleVariantSelect = (variantName: string) => {
 }
 
 .actions-footer-content {
-  border-top: 1px solid var(--musea-border);
+  border-bottom: 1px solid var(--musea-border);
   max-height: 300px;
   overflow-y: auto;
 }
