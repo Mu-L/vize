@@ -417,7 +417,8 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
           url === "/" ||
           url === "/index.html" ||
           url.startsWith("/tokens") ||
-          url.startsWith("/component/")
+          url.startsWith("/component/") ||
+          url.startsWith("/tests")
         ) {
           // Try serving built SPA first
           const galleryDistDir = path.resolve(
@@ -482,6 +483,21 @@ export function musea(options: MuseaOptions = {}): Plugin[] {
         }
 
         next();
+      });
+
+      // Serve axe-core locally from node_modules (avoids CDN dependency per iframe)
+      devServer.middlewares.use(`${basePath}/vendor/axe-core.min.js`, async (_req, res, _next) => {
+        try {
+          const require = createRequire(import.meta.url);
+          const axeCorePath = require.resolve("axe-core/axe.min.js");
+          const content = await fs.promises.readFile(axeCorePath, "utf-8");
+          res.setHeader("Content-Type", "application/javascript");
+          res.setHeader("Cache-Control", "public, max-age=86400");
+          res.end(content);
+        } catch {
+          res.statusCode = 404;
+          res.end("axe-core not installed");
+        }
       });
 
       // Preview module route - serves the JavaScript module for a specific variant
@@ -2632,11 +2648,11 @@ function __museaInitAddons(container, variantName) {
         // Run axe-core a11y test
         (async () => {
           try {
-            // Dynamically load axe-core from CDN if not already loaded
+            // Dynamically load axe-core from local vendor route if not already loaded
             if (!window.axe) {
               const script = document.createElement('script');
-              script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js';
-              script.crossOrigin = 'anonymous';
+              const _basePath = location.pathname.replace(/\\/preview$/, '');
+              script.src = _basePath + '/vendor/axe-core.min.js';
               await new Promise((resolve, reject) => {
                 script.onload = resolve;
                 script.onerror = reject;

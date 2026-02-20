@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import { useMessageListener, sendMessage } from './usePostMessage'
 
 export interface A11yNode {
@@ -68,6 +68,30 @@ export function useA11y() {
     return results.value.get(key)
   }
 
+  function runA11yAsync(iframe: HTMLIFrameElement, key: string): Promise<A11yResult> {
+    return new Promise<A11yResult>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        stop()
+        const newSet = new Set(runningKeys.value)
+        newSet.delete(key)
+        runningKeys.value = newSet
+        reject(new Error('A11y test timed out after 30s'))
+      }, 30000)
+
+      const stop = watch(results, (newResults) => {
+        const result = newResults.get(key)
+        if (result) {
+          clearTimeout(timeout)
+          stop()
+          resolve(result)
+        }
+      })
+
+      // Trigger the test (reuses existing runA11y logic)
+      runA11y(iframe, key)
+    })
+  }
+
   function clearResults() {
     results.value = new Map()
   }
@@ -77,6 +101,7 @@ export function useA11y() {
     runningKeys,
     init,
     runA11y,
+    runA11yAsync,
     isKeyRunning,
     getResult,
     clearResults,
