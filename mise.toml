@@ -333,7 +333,7 @@ for dir in npm/cli-*/; do
   pkg=$(node -p "require('./${dir}package.json').name")
   echo "Publishing $pkg@$VERSION..."
   cd "$dir"
-  npm publish --access public $TAG
+  pnpm publish --access public --no-git-checks $TAG
   cd ../..
 done
 
