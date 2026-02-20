@@ -190,8 +190,10 @@ function isTokenValue(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   // Support both "value" and DTCG "$value" formats
-  return ("value" in obj && (typeof obj.value === "string" || typeof obj.value === "number"))
-    || ("$value" in obj && (typeof obj.$value === "string" || typeof obj.$value === "number"));
+  return (
+    ("value" in obj && (typeof obj.value === "string" || typeof obj.value === "number")) ||
+    ("$value" in obj && (typeof obj.$value === "string" || typeof obj.$value === "number"))
+  );
 }
 
 /**
@@ -235,9 +237,7 @@ export function buildTokenMap(
   const map: Record<string, DesignToken> = {};
 
   for (const cat of categories) {
-    const catKey = cat.name
-      .toLowerCase()
-      .replace(/\s+/g, "-");
+    const catKey = cat.name.toLowerCase().replace(/\s+/g, "-");
     const catPath = [...prefix, catKey];
 
     for (const [name, token] of Object.entries(cat.tokens)) {
@@ -274,10 +274,7 @@ export function resolveReferences(
   }
 }
 
-function resolveTokenReference(
-  token: DesignToken,
-  tokenMap: Record<string, DesignToken>,
-): void {
+function resolveTokenReference(token: DesignToken, tokenMap: Record<string, DesignToken>): void {
   if (typeof token.value === "string") {
     const match = token.value.match(REFERENCE_PATTERN);
     if (match) {
@@ -314,9 +311,7 @@ function resolveValue(
 /**
  * Read raw JSON token file.
  */
-export async function readRawTokenFile(
-  tokensPath: string,
-): Promise<Record<string, unknown>> {
+export async function readRawTokenFile(tokensPath: string): Promise<Record<string, unknown>> {
   const content = await fs.promises.readFile(tokensPath, "utf-8");
   return JSON.parse(content) as Record<string, unknown>;
 }
@@ -365,10 +360,7 @@ export function setTokenAtPath(
 /**
  * Delete a token at a dot-separated path, cleaning empty parents.
  */
-export function deleteTokenAtPath(
-  data: Record<string, unknown>,
-  dotPath: string,
-): boolean {
+export function deleteTokenAtPath(data: Record<string, unknown>, dotPath: string): boolean {
   const parts = dotPath.split(".");
   const parents: Array<{ obj: Record<string, unknown>; key: string }> = [];
   let current: Record<string, unknown> = data;
@@ -710,9 +702,7 @@ export function normalizeTokenValue(value: string | number): string {
   const shortHex = v.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])([0-9a-f])?$/);
   if (shortHex) {
     const [, r, g, b, a] = shortHex;
-    v = a
-      ? `#${r}${r}${g}${g}${b}${b}${a}${a}`
-      : `#${r}${r}${g}${g}${b}${b}`;
+    v = a ? `#${r}${r}${g}${g}${b}${b}${a}${a}` : `#${r}${r}${g}${g}${b}${b}`;
   }
 
   // Add leading zero: `.5rem` → `0.5rem`

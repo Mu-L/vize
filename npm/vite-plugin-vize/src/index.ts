@@ -737,7 +737,13 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         const realPath = isVizeVirtual(filename) ? fromVirtualId(filename) : filename;
         const compiled = cache.get(realPath);
         if (compiled?.css) {
-          return resolveCssImports(compiled.css, realPath, cssAliasRules, server !== null, currentBase);
+          return resolveCssImports(
+            compiled.css,
+            realPath,
+            cssAliasRules,
+            server !== null,
+            currentBase,
+          );
         }
         return "";
       }
@@ -767,7 +773,13 @@ export function vize(options: VizeOptions = {}): Plugin[] {
           if (compiled.css) {
             compiled = {
               ...compiled,
-              css: resolveCssImports(compiled.css, realPath, cssAliasRules, server !== null, currentBase),
+              css: resolveCssImports(
+                compiled.css,
+                realPath,
+                cssAliasRules,
+                server !== null,
+                currentBase,
+              ),
             };
           }
           const output = rewriteStaticAssetUrls(
@@ -818,7 +830,11 @@ export function vize(options: VizeOptions = {}): Plugin[] {
     },
 
     // Strip TypeScript from compiled .vue output and apply define replacements
-    async transform(code: string, id: string, options?: { ssr?: boolean }): Promise<TransformResult | null> {
+    async transform(
+      code: string,
+      id: string,
+      options?: { ssr?: boolean },
+    ): Promise<TransformResult | null> {
       if (isVizeVirtual(id)) {
         const realPath = fromVirtualId(id);
         try {
@@ -833,30 +849,6 @@ export function vize(options: VizeOptions = {}): Plugin[] {
           let transformed = result.code;
           if (Object.keys(defines).length > 0) {
             transformed = applyDefineReplacements(transformed, defines);
-          }
-
-          // Auto-import components: replace _resolveComponent("X") with static imports
-          const autoImportModule = mergedOptions.autoImportComponents;
-          if (autoImportModule && transformed.includes("_resolveComponent(")) {
-            const componentNames = new Set<string>();
-            const resolveRe = /_resolveComponent\("([^"]+)"\)/g;
-            let m: RegExpExecArray | null;
-            while ((m = resolveRe.exec(transformed)) !== null) {
-              componentNames.add(m[1]);
-            }
-            if (componentNames.size > 0) {
-              const imports: string[] = [];
-              for (const name of componentNames) {
-                const varName = `__vize_auto_${name.replace(/[^a-zA-Z0-9_]/g, "_")}`;
-                imports.push(`import { ${name} as ${varName} } from ${JSON.stringify(autoImportModule)};`);
-                const nameEscaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                transformed = transformed.replace(
-                  new RegExp(`_resolveComponent\\("${nameEscaped}"\\)`, "g"),
-                  varName,
-                );
-              }
-              transformed = imports.join("\n") + "\n" + transformed;
-            }
           }
 
           return { code: transformed, map: result.map as TransformResult["map"] };

@@ -152,8 +152,13 @@ pub fn compile_css(css: &str, options: &CssCompileOptions) -> CssCompileResult {
         .unwrap_or_default();
 
     // Parse and process CSS
-    let (code, errors) =
-        compile_css_internal(scoped_css, filename, options.minify, targets, options.custom_media);
+    let (code, errors) = compile_css_internal(
+        scoped_css,
+        filename,
+        options.minify,
+        targets,
+        options.custom_media,
+    );
 
     CssCompileResult {
         code,
@@ -454,15 +459,13 @@ fn apply_scoped_css<'a>(bump: &'a Bump, css: &str, scope_id: &str) -> &'a str {
                 } else if keyframes_brace_depth.is_some_and(|d| brace_depth > d) {
                     // Inside @keyframes: output the stop name (from/to/0%/100%)
                     let kf_part = &css_bytes[last_selector_end..i];
-                    let kf_str =
-                        unsafe { std::str::from_utf8_unchecked(kf_part) }.trim();
+                    let kf_str = unsafe { std::str::from_utf8_unchecked(kf_part) }.trim();
                     output.extend_from_slice(kf_str.as_bytes());
                     output.push(b'{');
                     in_selector = false;
                     last_selector_end = i + 1;
                 } else if in_selector
-                    && (brace_depth == 1
-                        || (at_rule_depth > 0 && brace_depth > at_rule_depth))
+                    && (brace_depth == 1 || (at_rule_depth > 0 && brace_depth > at_rule_depth))
                 {
                     // End of selector, apply scope
                     let selector_bytes = &css_bytes[last_selector_end..i];
