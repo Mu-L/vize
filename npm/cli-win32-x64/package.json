@@ -1,6 +1,6 @@
 {
   "name": "@vizejs/cli-win32-x64",
-  "version": "0.0.1-alpha.113",
+  "version": "0.0.1-alpha.114",
   "description": "Vize CLI binary for win32-x64",
   "os": [
     "win32"
