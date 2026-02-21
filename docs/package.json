@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite build && vite preview",
-    "build": "vite build",
+    "build": "playwright install chromium && vite build",
     "preview": "vite preview"
   },
   "devDependencies": {
     "@ox-content/vite-plugin": "0.6.0",
     "@vizejs/vite-plugin": "workspace:*",
+    "playwright": "^1.52.0",
     "three": "^0.183.1",
     "vite": "8.0.0-beta.15",
     "vue": "^3.4.0"

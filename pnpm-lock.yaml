@@ -44,6 +44,9 @@ importers:
       '@vizejs/vite-plugin':
         specifier: workspace:*
         version: link:../npm/vite-plugin-vize
+      playwright:
+        specifier: ^1.52.0
+        version: 1.57.0
       three:
         specifier: ^0.183.1
         version: 0.183.1
