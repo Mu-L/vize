@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, shallowRef } from "vue";
+import { ref, watch, onMounted, onUnmounted, shallowRef, inject, type ComputedRef } from "vue";
 import * as monaco from "monaco-editor";
 
 export interface Diagnostic {
@@ -24,6 +24,7 @@ const props = defineProps<{
   diagnostics?: Diagnostic[];
   scopes?: ScopeDecoration[];
   readOnly?: boolean;
+  theme?: "dark" | "light";
 }>();
 
 const emit = defineEmits<{
@@ -32,6 +33,8 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const editorInstance = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme", undefined as any);
+const resolvedTheme = () => _injectedTheme?.value ?? props.theme ?? "light";
 let isConfigured = false;
 
 function configureMonaco() {
@@ -186,31 +189,64 @@ function configureMonaco() {
     base: "vs-dark",
     inherit: true,
     rules: [
-      { token: "keyword", foreground: "e07048" },
-      { token: "keyword.control.vue", foreground: "f08060", fontStyle: "bold" },
-      { token: "support.function.vue", foreground: "e07048" },
-      { token: "attribute.name.vue", foreground: "e07048" },
-      { token: "variable", foreground: "d0d4dc" },
-      { token: "tag", foreground: "e07048" },
-      { token: "attribute.name", foreground: "9ca3b0" },
-      { token: "attribute.value", foreground: "d0d4dc" },
-      { token: "string", foreground: "d0d4dc" },
-      { token: "number", foreground: "f08060" },
-      { token: "comment", foreground: "6b7280" },
-      { token: "delimiter.bracket", foreground: "9ca3b0" },
-      { token: "identifier", foreground: "f0f2f5" },
+      { token: "keyword", foreground: "D4BA92" },
+      { token: "keyword.control.vue", foreground: "E2CBA6", fontStyle: "bold" },
+      { token: "support.function.vue", foreground: "D4BA92" },
+      { token: "attribute.name.vue", foreground: "D0BA9E" },
+      { token: "variable", foreground: "E6E2D6" },
+      { token: "tag", foreground: "D0BA9E" },
+      { token: "attribute.name", foreground: "9C9488" },
+      { token: "attribute.value", foreground: "A8B5A0" },
+      { token: "string", foreground: "A8B5A0" },
+      { token: "number", foreground: "DABA8C" },
+      { token: "comment", foreground: "6B6560" },
+      { token: "delimiter.bracket", foreground: "8A8478" },
+      { token: "identifier", foreground: "E6E2D6" },
     ],
     colors: {
-      "editor.background": "#1a1b21",
-      "editor.foreground": "#f0f2f5",
-      "editor.lineHighlightBackground": "#252830",
-      "editor.selectionBackground": "#e0704840",
-      "editorCursor.foreground": "#e07048",
-      "editorLineNumber.foreground": "#6b7280",
-      "editorLineNumber.activeForeground": "#9ca3b0",
-      "editorIndentGuide.background": "#252830",
-      "editorIndentGuide.activeBackground": "#e0704840",
-      "editor.inactiveSelectionBackground": "#e0704820",
+      "editor.background": "#1a1a1a",
+      "editor.foreground": "#E6E2D6",
+      "editor.lineHighlightBackground": "#242424",
+      "editor.selectionBackground": "#E6E2D630",
+      "editorCursor.foreground": "#E6E2D6",
+      "editorLineNumber.foreground": "#5a5850",
+      "editorLineNumber.activeForeground": "#8a8880",
+      "editorIndentGuide.background": "#242424",
+      "editorIndentGuide.activeBackground": "#E6E2D620",
+      "editor.inactiveSelectionBackground": "#E6E2D615",
+    },
+  });
+
+  // Define light theme
+  monaco.editor.defineTheme("vue-light", {
+    base: "vs",
+    inherit: true,
+    rules: [
+      { token: "keyword", foreground: "73603E" },
+      { token: "keyword.control.vue", foreground: "655232", fontStyle: "bold" },
+      { token: "support.function.vue", foreground: "73603E" },
+      { token: "attribute.name.vue", foreground: "65573E" },
+      { token: "variable", foreground: "121212" },
+      { token: "tag", foreground: "65573E" },
+      { token: "attribute.name", foreground: "6B6050" },
+      { token: "attribute.value", foreground: "5A6B50" },
+      { token: "string", foreground: "5A6B50" },
+      { token: "number", foreground: "735C2E" },
+      { token: "comment", foreground: "9A9590" },
+      { token: "delimiter.bracket", foreground: "6B6560" },
+      { token: "identifier", foreground: "121212" },
+    ],
+    colors: {
+      "editor.background": "#ddd9cd",
+      "editor.foreground": "#121212",
+      "editor.lineHighlightBackground": "#d4d0c4",
+      "editor.selectionBackground": "#12121220",
+      "editorCursor.foreground": "#121212",
+      "editorLineNumber.foreground": "#9a9590",
+      "editorLineNumber.activeForeground": "#6b6b6b",
+      "editorIndentGuide.background": "#c8c4b8",
+      "editorIndentGuide.activeBackground": "#12121220",
+      "editor.inactiveSelectionBackground": "#12121210",
     },
   });
 }
@@ -261,7 +297,7 @@ onMounted(() => {
   editorInstance.value = monaco.editor.create(containerRef.value, {
     value: props.modelValue,
     language: props.language,
-    theme: "vue-dark",
+    theme: resolvedTheme() === "light" ? "vue-light" : "vue-dark",
     fontSize: 14,
     fontFamily: "'JetBrains Mono', monospace",
     minimap: { enabled: false },
@@ -373,6 +409,15 @@ watch(
   (newValue) => {
     if (editorInstance.value && editorInstance.value.getValue() !== newValue) {
       editorInstance.value.setValue(newValue);
+    }
+  },
+);
+
+watch(
+  () => _injectedTheme?.value ?? props.theme,
+  (newTheme) => {
+    if (editorInstance.value) {
+      monaco.editor.setTheme(newTheme === "light" ? "vue-light" : "vue-dark");
     }
   },
 );

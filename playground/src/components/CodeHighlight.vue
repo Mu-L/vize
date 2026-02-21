@@ -1,42 +1,75 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from "vue";
+import { ref, watch, onMounted, computed, inject, type ComputedRef } from "vue";
 import { createHighlighter, type Highlighter, type ThemeRegistration } from "shiki";
 
 const props = defineProps<{
   code: string;
   language: "javascript" | "json" | "css" | "html" | "typescript";
   showLineNumbers?: boolean;
+  theme?: "dark" | "light";
 }>();
 
-// Custom theme matching project's Rust/Metal design
-const vizeTheme: ThemeRegistration = {
+// Custom themes — warm earthy tones matching brand
+const vizeDarkTheme: ThemeRegistration = {
   name: "vize-dark",
   type: "dark",
   colors: {
-    "editor.background": "#1a1b21",
-    "editor.foreground": "#f0f2f5",
+    "editor.background": "#1a1a1a",
+    "editor.foreground": "#E6E2D6",
   },
   tokenColors: [
-    { scope: ["keyword", "storage.type", "storage.modifier"], settings: { foreground: "#e07048" } },
-    { scope: ["entity.name.function", "support.function"], settings: { foreground: "#f08060" } },
+    { scope: ["keyword", "storage.type", "storage.modifier"], settings: { foreground: "#D4BA92" } },
+    { scope: ["entity.name.function", "support.function"], settings: { foreground: "#E2CBA6" } },
     {
       scope: ["entity.name.tag", "punctuation.definition.tag"],
-      settings: { foreground: "#e07048" },
+      settings: { foreground: "#D0BA9E" },
     },
-    { scope: ["entity.other.attribute-name"], settings: { foreground: "#9ca3b0" } },
-    { scope: ["string", "string.quoted"], settings: { foreground: "#d0d4dc" } },
-    { scope: ["constant.numeric", "constant.language"], settings: { foreground: "#f08060" } },
-    { scope: ["variable", "variable.other"], settings: { foreground: "#f0f2f5" } },
-    { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: "#4b5563" } },
-    { scope: ["punctuation", "meta.brace"], settings: { foreground: "#9ca3b0" } },
-    { scope: ["entity.name.type", "support.type"], settings: { foreground: "#d0d4dc" } },
+    { scope: ["entity.other.attribute-name"], settings: { foreground: "#9C9488" } },
+    { scope: ["string", "string.quoted"], settings: { foreground: "#A8B5A0" } },
+    { scope: ["constant.numeric", "constant.language"], settings: { foreground: "#DABA8C" } },
+    { scope: ["variable", "variable.other"], settings: { foreground: "#E6E2D6" } },
+    { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: "#6B6560" } },
+    { scope: ["punctuation", "meta.brace"], settings: { foreground: "#8A8478" } },
+    { scope: ["entity.name.type", "support.type"], settings: { foreground: "#B8ADA0" } },
     {
       scope: ["meta.property-name", "support.type.property-name"],
-      settings: { foreground: "#e07048" },
+      settings: { foreground: "#D0BA9E" },
     },
     {
       scope: ["meta.property-value", "support.constant.property-value"],
-      settings: { foreground: "#d0d4dc" },
+      settings: { foreground: "#A8B5A0" },
+    },
+  ],
+};
+
+const vizeLightTheme: ThemeRegistration = {
+  name: "vize-light",
+  type: "light",
+  colors: {
+    "editor.background": "#ddd9cd",
+    "editor.foreground": "#121212",
+  },
+  tokenColors: [
+    { scope: ["keyword", "storage.type", "storage.modifier"], settings: { foreground: "#73603E" } },
+    { scope: ["entity.name.function", "support.function"], settings: { foreground: "#655232" } },
+    {
+      scope: ["entity.name.tag", "punctuation.definition.tag"],
+      settings: { foreground: "#65573E" },
+    },
+    { scope: ["entity.other.attribute-name"], settings: { foreground: "#6B6050" } },
+    { scope: ["string", "string.quoted"], settings: { foreground: "#5A6B50" } },
+    { scope: ["constant.numeric", "constant.language"], settings: { foreground: "#735C2E" } },
+    { scope: ["variable", "variable.other"], settings: { foreground: "#121212" } },
+    { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: "#9A9590" } },
+    { scope: ["punctuation", "meta.brace"], settings: { foreground: "#6B6560" } },
+    { scope: ["entity.name.type", "support.type"], settings: { foreground: "#6B5F50" } },
+    {
+      scope: ["meta.property-name", "support.type.property-name"],
+      settings: { foreground: "#65573E" },
+    },
+    {
+      scope: ["meta.property-value", "support.constant.property-value"],
+      settings: { foreground: "#4A5F3E" },
     },
   ],
 };
@@ -47,7 +80,7 @@ let highlighter: Highlighter | null = null;
 async function initHighlighter() {
   if (!highlighter) {
     highlighter = await createHighlighter({
-      themes: [vizeTheme],
+      themes: [vizeDarkTheme, vizeLightTheme],
       langs: ["javascript", "json", "css", "html", "typescript"],
     });
   }
@@ -56,29 +89,36 @@ async function initHighlighter() {
 
 async function highlight() {
   const hl = await initHighlighter();
-  const tokens = hl.codeToTokens(props.code, {
-    lang: props.language,
-    theme: "vize-dark",
-  });
 
-  let lines = tokens.tokens;
+  // Tokenize with both themes so CSS can switch colors without JS re-render
+  const darkTokens = hl.codeToTokens(props.code, { lang: props.language, theme: "vize-dark" });
+  const lightTokens = hl.codeToTokens(props.code, { lang: props.language, theme: "vize-light" });
+
+  let darkLines = darkTokens.tokens;
+  let lightLines = lightTokens.tokens;
+
   // Remove trailing empty line if present
-  if (lines.length > 0 && lines[lines.length - 1].length === 0) {
-    lines = lines.slice(0, -1);
+  if (darkLines.length > 0 && darkLines[darkLines.length - 1].length === 0) {
+    darkLines = darkLines.slice(0, -1);
+  }
+  if (lightLines.length > 0 && lightLines[lightLines.length - 1].length === 0) {
+    lightLines = lightLines.slice(0, -1);
   }
 
-  // Build HTML for each line
-  highlightedLines.value = lines.map((lineTokens) => {
+  // Build HTML with both theme colors as CSS custom properties
+  highlightedLines.value = darkLines.map((lineTokens, lineIdx) => {
     if (lineTokens.length === 0) {
       return "&nbsp;";
     }
     return lineTokens
-      .map((token) => {
+      .map((token, tokenIdx) => {
         const escaped = token.content
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
-        return `<span style="color:${token.color}">${escaped}</span>`;
+        const darkColor = token.color;
+        const lightColor = lightLines[lineIdx]?.[tokenIdx]?.color ?? token.color;
+        return `<span style="--d:${darkColor};--l:${lightColor}">${escaped}</span>`;
       })
       .join("");
   });
@@ -114,7 +154,7 @@ watch(() => [props.code, props.language], highlight);
   line-height: 20px;
   border-radius: 4px;
   overflow: auto;
-  background: #1a1b21;
+  background: var(--bg-secondary);
 }
 
 .line-numbers {
@@ -122,8 +162,8 @@ watch(() => [props.code, props.language], highlight);
   flex-direction: column;
   padding-top: 12px;
   padding-bottom: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border-color);
   user-select: none;
   flex-shrink: 0;
   position: sticky;
@@ -134,7 +174,7 @@ watch(() => [props.code, props.language], highlight);
   display: block;
   padding: 0 12px;
   text-align: right;
-  color: #71717a;
+  color: var(--text-muted);
   line-height: 20px;
   height: 20px;
   box-sizing: border-box;
@@ -157,6 +197,14 @@ watch(() => [props.code, props.language], highlight);
 }
 
 .code-line :deep(span) {
+  color: var(--l);
   line-height: inherit;
+}
+</style>
+
+<!-- Unscoped: theme switching via body[data-theme] -->
+<style>
+body[data-theme="dark"] .code-highlight .code-line span {
+  color: var(--d);
 }
 </style>

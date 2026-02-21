@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted, nextTick, getCurrentInstance } from "vue";
+import {
+  ref,
+  watch,
+  computed,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  getCurrentInstance,
+  inject,
+  type ComputedRef,
+} from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import type { Diagnostic } from "./MonacoEditor.vue";
 import type {
@@ -15,6 +25,8 @@ import { mdiCodeTags, mdiChartTimelineVariant, mdiCheck, mdiCloseCircle, mdiAler
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 
 const source = ref(ANALYSIS_PRESET);
 const analysisResult = ref<CroquisResult | null>(null);
@@ -558,6 +570,7 @@ function getScopeColorClass(kind: string): string {
           language="vue"
           :scopes="editorScopes"
           :diagnostics="monacoDiagnostics"
+          :theme="theme"
         />
       </div>
     </div>
@@ -898,8 +911,8 @@ function getScopeColorClass(kind: string): string {
 .perf-badge {
   font-size: 0.625rem;
   padding: 0.125rem 0.375rem;
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
   border-radius: 3px;
   font-family: "JetBrains Mono", monospace;
 }
@@ -986,8 +999,8 @@ function getScopeColorClass(kind: string): string {
 .tab-badge {
   font-size: 0.625rem;
   padding: 0.0625rem 0.3125rem;
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
   border-radius: 8px;
   min-width: 1rem;
   text-align: center;
@@ -1008,8 +1021,8 @@ function getScopeColorClass(kind: string): string {
 
 /* Error State */
 .error-panel {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
   border-radius: 6px;
   overflow: hidden;
   margin: 1rem;
@@ -1017,8 +1030,8 @@ function getScopeColorClass(kind: string): string {
 
 .error-header {
   padding: 0.5rem 0.75rem;
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -1026,7 +1039,7 @@ function getScopeColorClass(kind: string): string {
 .error-content {
   padding: 0.75rem;
   font-size: 0.75rem;
-  color: #fca5a5;
+  color: var(--color-error);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1050,7 +1063,7 @@ function getScopeColorClass(kind: string): string {
   justify-content: center;
   gap: 0.5rem;
   padding: 2rem;
-  color: #4ade80;
+  color: var(--color-success);
   font-size: 0.875rem;
 }
 
@@ -1137,8 +1150,8 @@ function getScopeColorClass(kind: string): string {
 
 .macro-type {
   font-size: 0.75rem;
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.1);
+  color: var(--color-info);
+  background: var(--color-info-bg);
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
 }
@@ -1166,13 +1179,13 @@ function getScopeColorClass(kind: string): string {
 }
 
 .css-badge.scoped {
-  background: rgba(167, 139, 250, 0.2);
-  color: #a78bfa;
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
 }
 
 .css-badge.vbind {
-  background: rgba(45, 212, 191, 0.2);
-  color: #2dd4bf;
+  background: var(--color-teal-bg);
+  color: var(--color-teal);
 }
 
 /* Export sections */
@@ -1191,11 +1204,11 @@ function getScopeColorClass(kind: string): string {
 }
 
 .export-item.valid {
-  background: rgba(34, 197, 94, 0.08);
+  background: var(--color-success-bg);
 }
 
 .export-item.invalid {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--color-error-bg);
 }
 
 .export-kind {
@@ -1223,13 +1236,13 @@ function getScopeColorClass(kind: string): string {
 }
 
 .export-badge.hoisted {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .export-badge.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .badge {
@@ -1241,13 +1254,13 @@ function getScopeColorClass(kind: string): string {
 }
 
 .badge.hoisted {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .badge.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 /* Bindings Tab */
@@ -1353,7 +1366,7 @@ function getScopeColorClass(kind: string): string {
 
 .needs-value {
   font-size: 0.625rem;
-  color: #4ade80;
+  color: var(--color-success);
   opacity: 0.7;
 }
 
@@ -1369,7 +1382,7 @@ function getScopeColorClass(kind: string): string {
 }
 
 .binding-type {
-  color: #60a5fa;
+  color: var(--color-info);
 }
 
 .binding-flags {
@@ -1386,8 +1399,8 @@ function getScopeColorClass(kind: string): string {
 }
 
 .flag.active {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .flag.inactive {
@@ -1397,8 +1410,8 @@ function getScopeColorClass(kind: string): string {
 }
 
 .flag.setup {
-  background: rgba(147, 112, 219, 0.15);
-  color: #9370db;
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
 }
 
 .refs {
@@ -1637,11 +1650,11 @@ function getScopeColorClass(kind: string): string {
 
 .vir-notice {
   padding: 0.5rem 0.75rem;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: var(--color-notice-bg);
+  border: 1px solid var(--color-notice-border);
   border-top: none;
   font-size: 0.6875rem;
-  color: #fbbf24;
+  color: var(--color-notice);
   line-height: 1.4;
 }
 
@@ -1716,7 +1729,7 @@ function getScopeColorClass(kind: string): string {
 }
 
 .vir-macro {
-  color: #a78bfa;
+  color: var(--color-purple);
 }
 
 .vir-type {
@@ -1754,7 +1767,7 @@ function getScopeColorClass(kind: string): string {
 }
 
 .vir-line-diagnostic .vir-diagnostic {
-  color: #f87171;
+  color: var(--color-error);
 }
 
 .vir-keyword {
@@ -1784,7 +1797,7 @@ function getScopeColorClass(kind: string): string {
 }
 
 .vir-line-diagnostic {
-  background: rgba(248, 113, 113, 0.05);
+  background: var(--color-error-bg);
 }
 
 /* Diagnostics Tab */
@@ -1814,10 +1827,10 @@ function getScopeColorClass(kind: string): string {
 }
 
 .severity-error .severity-icon {
-  color: #ef4444;
+  color: var(--color-error);
 }
 .severity-warning .severity-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .diagnostic-message {

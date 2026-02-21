@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, shallowRef } from "vue";
+import { ref, computed, watch, onMounted, shallowRef, provide } from "vue";
 import MonacoEditor from "./components/MonacoEditor.vue";
 import CodeHighlight from "./components/CodeHighlight.vue";
 import MuseaPlayground from "./components/MuseaPlayground.vue";
@@ -25,6 +25,15 @@ import * as parserEstree from "prettier/plugins/estree";
 import * as parserTypescript from "prettier/plugins/typescript";
 import * as parserCss from "prettier/plugins/postcss";
 import ts from "typescript";
+
+// Theme toggle
+const isDark = ref(false);
+const currentTheme = computed<"dark" | "light">(() => (isDark.value ? "dark" : "light"));
+provide("theme", currentTheme);
+function toggleTheme() {
+  isDark.value = !isDark.value;
+  document.body.dataset.theme = isDark.value ? "dark" : "";
+}
 
 // Main tab for switching between Atelier, Patina, Canon, Croquis, CrossFile, Musea, and Glyph
 type MainTab = "atelier" | "patina" | "canon" | "croquis" | "cross-file" | "musea" | "glyph";
@@ -604,31 +613,9 @@ onMounted(async () => {
       <div class="logo">
         <div class="logo-icon">
           <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="20%">
-                <stop offset="0%" stop-color="#E6E9F0" />
-                <stop offset="50%" stop-color="#7B8494" />
-                <stop offset="100%" stop-color="#A34828" />
-              </linearGradient>
-              <linearGradient id="gradient-dark" x1="0%" y1="0%" x2="100%" y2="30%">
-                <stop offset="0%" stop-color="#B8BDC9" />
-                <stop offset="60%" stop-color="#525A6B" />
-                <stop offset="100%" stop-color="#7D341B" />
-              </linearGradient>
-            </defs>
             <g transform="translate(15, 10) skewX(-15)">
-              <path
-                d="M 65 0 L 40 60 L 70 20 L 65 0 Z"
-                fill="url(#gradient-dark)"
-                stroke="#3E4654"
-                stroke-width="0.5"
-              />
-              <path
-                d="M 20 0 L 40 60 L 53 13 L 20 0 Z"
-                fill="url(#gradient)"
-                stroke-width="0.5"
-                stroke-opacity="0.6"
-              />
+              <path d="M 65 0 L 40 60 L 70 20 L 65 0 Z" fill="currentColor" />
+              <path d="M 20 0 L 40 60 L 53 13 L 20 0 Z" fill="currentColor" />
             </g>
           </svg>
         </div>
@@ -719,6 +706,47 @@ onMounted(async () => {
           </label>
         </template>
 
+        <button
+          class="theme-toggle"
+          @click="toggleTheme"
+          :title="isDark ? 'Light mode' : 'Dark mode'"
+        >
+          <svg
+            v-if="isDark"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+
         <a
           href="https://github.com/ubugeeei/vize"
           target="_blank"
@@ -777,7 +805,7 @@ onMounted(async () => {
             </div>
           </div>
           <div class="editor-container">
-            <MonacoEditor v-model="source" :language="editorLanguage" />
+            <MonacoEditor v-model="source" :language="editorLanguage" :theme="currentTheme" />
           </div>
         </div>
 
@@ -887,12 +915,14 @@ onMounted(async () => {
                   v-if="isTypeScript && codeViewMode === 'js'"
                   :code="formattedJsCode"
                   language="javascript"
+                  :theme="currentTheme"
                   show-line-numbers
                 />
                 <CodeHighlight
                   v-else
                   :code="formattedCode || output.code"
                   :language="isTypeScript ? 'typescript' : 'javascript'"
+                  :theme="currentTheme"
                   show-line-numbers
                 />
               </div>
@@ -919,7 +949,12 @@ onMounted(async () => {
                     </button>
                   </div>
                 </div>
-                <CodeHighlight :code="astJson" language="json" show-line-numbers />
+                <CodeHighlight
+                  :code="astJson"
+                  language="json"
+                  :theme="currentTheme"
+                  show-line-numbers
+                />
               </div>
 
               <!-- Helpers Tab -->
@@ -946,7 +981,11 @@ onMounted(async () => {
                         : ""
                     }}
                   </h5>
-                  <CodeHighlight :code="sfcResult.descriptor.template.content" language="html" />
+                  <CodeHighlight
+                    :code="sfcResult.descriptor.template.content"
+                    language="html"
+                    :theme="currentTheme"
+                  />
                 </div>
 
                 <div v-if="sfcResult.descriptor.scriptSetup" class="sfc-block">
@@ -961,6 +1000,7 @@ onMounted(async () => {
                   <CodeHighlight
                     :code="sfcResult.descriptor.scriptSetup.content"
                     language="typescript"
+                    :theme="currentTheme"
                   />
                 </div>
 
@@ -976,6 +1016,7 @@ onMounted(async () => {
                   <CodeHighlight
                     :code="sfcResult.descriptor.script.content"
                     language="typescript"
+                    :theme="currentTheme"
                   />
                 </div>
 
@@ -990,7 +1031,7 @@ onMounted(async () => {
                       <span v-if="style.scoped" class="badge">scoped</span>
                       <span v-if="style.lang" class="badge">{{ style.lang }}</span>
                     </span>
-                    <CodeHighlight :code="style.content" language="css" />
+                    <CodeHighlight :code="style.content" language="css" :theme="currentTheme" />
                   </div>
                 </div>
               </div>
@@ -1024,6 +1065,7 @@ onMounted(async () => {
                     <CodeHighlight
                       :code="formattedCss || cssResult.code"
                       language="css"
+                      :theme="currentTheme"
                       show-line-numbers
                     />
                   </div>
