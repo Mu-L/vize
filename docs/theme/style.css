@@ -431,6 +431,14 @@ body::after {
   border-radius: 2px;
 }
 
+/* Author avatar */
+.entry-content .content > h2 + p > img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 /* Mobile */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .sidebar {

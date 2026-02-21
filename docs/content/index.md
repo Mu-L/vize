@@ -48,7 +48,7 @@ features:
 
 ## Author
 
-<img src="https://github.com/ubugeeei.png" alt="ubugeeei" width="80" style="border-radius: 50%;" />
+![ubugeeei](https://github.com/ubugeeei.png)
 
 **[ubugeeei](https://github.com/ubugeeei)** — Member of [Vue.js Japan User Group](https://github.com/vuejs-jp). Active in the Vue.js community as an organizer of [Vue Fes Japan](https://vuefes.jp/) and contributor to Vue.js ecosystem tools.
 

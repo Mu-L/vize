@@ -10,7 +10,6 @@
         <g transform="skewX(-15)">
             <path d="M 200 0 L 120 180 L 210 60 L 200 0 Z" fill="#121212"/>
             <path d="M 60 0 L 120 180 L 160 40 L 60 0 Z" fill="#121212"/>
-            <path d="M 60 0 L 120 180" stroke="#121212" stroke-width="2" stroke-linecap="round"/>
         </g>
     </g>
 </svg>
