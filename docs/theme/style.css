@@ -3,13 +3,13 @@
 /* Override header logo for dark mode */
 [data-theme="dark"] .header-title img,
 [data-theme="dark"] .hero-image img {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) sepia(0.08);
+  content: url("/logo-light.svg");
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .header-title img,
   :root:not([data-theme="light"]) .hero-image img {
-    filter: invert(1) hue-rotate(180deg) brightness(0.92) sepia(0.08);
+    content: url("/logo-light.svg");
   }
 }
 
@@ -191,7 +191,6 @@ body:not(.entry-page) .header {
   width: auto !important;
   height: 60vh !important;
   max-width: none !important;
-  opacity: 0.85;
   animation: none !important;
   z-index: 0;
 }
