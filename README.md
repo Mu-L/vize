@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="./assets/logo.svg" alt="Vize Logo" width="400" />
+  <img src="./playground/public/og-image.png" alt="Vize" width="600" />
 </p>
-
-<h1 align="center">Vize</h1>
 
 <p align="center">
   <strong>Unofficial High-Performance Vue.js Toolchain in Rust</strong>
@@ -38,67 +36,67 @@
     <th>Description</th>
   </tr>
   <tr>
-    <td><img src="./crates/vize_carton/logo.png" width="32" align="center" /> <a href="./crates/vize_carton">vize_carton</a></td>
+    <td><a href="./crates/vize_carton">vize_carton</a></td>
     <td>Shared utilities & arena allocator</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_relief/logo.png" width="32" align="center" /> <a href="./crates/vize_relief">vize_relief</a></td>
+    <td><a href="./crates/vize_relief">vize_relief</a></td>
     <td>AST definitions, errors, options</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_armature/logo.png" width="32" align="center" /> <a href="./crates/vize_armature">vize_armature</a></td>
+    <td><a href="./crates/vize_armature">vize_armature</a></td>
     <td>Parser & tokenizer</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_croquis/logo.png" width="32" align="center" /> <a href="./crates/vize_croquis">vize_croquis</a></td>
+    <td><a href="./crates/vize_croquis">vize_croquis</a></td>
     <td>Semantic analysis layer</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_atelier_core/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_core">vize_atelier_core</a></td>
+    <td><a href="./crates/vize_atelier_core">vize_atelier_core</a></td>
     <td>Transforms & code generation</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_atelier_dom/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_dom">vize_atelier_dom</a></td>
+    <td><a href="./crates/vize_atelier_dom">vize_atelier_dom</a></td>
     <td>DOM (VDom) compiler</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_atelier_vapor/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_vapor">vize_atelier_vapor</a></td>
+    <td><a href="./crates/vize_atelier_vapor">vize_atelier_vapor</a></td>
     <td>Vapor mode compiler</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_atelier_sfc/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_sfc">vize_atelier_sfc</a></td>
+    <td><a href="./crates/vize_atelier_sfc">vize_atelier_sfc</a></td>
     <td>SFC (.vue) compiler</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_atelier_ssr/logo.png" width="32" align="center" /> <a href="./crates/vize_atelier_ssr">vize_atelier_ssr</a></td>
+    <td><a href="./crates/vize_atelier_ssr">vize_atelier_ssr</a></td>
     <td>SSR (Server-Side Rendering) compiler</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_vitrine/logo.png" width="32" align="center" /> <a href="./crates/vize_vitrine">vize_vitrine</a></td>
+    <td><a href="./crates/vize_vitrine">vize_vitrine</a></td>
     <td>Node.js / WASM bindings</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize/logo.png" width="32" align="center" /> <a href="./crates/vize">vize</a></td>
+    <td><a href="./crates/vize">vize</a></td>
     <td>Command-line interface</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_canon/logo.png" width="32" align="center" /> <a href="./crates/vize_canon">vize_canon</a></td>
+    <td><a href="./crates/vize_canon">vize_canon</a></td>
     <td>TypeScript type checker</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_patina/logo.png" width="32" align="center" /> <a href="./crates/vize_patina">vize_patina</a></td>
+    <td><a href="./crates/vize_patina">vize_patina</a></td>
     <td>Vue.js linter</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_glyph/logo.png" width="32" align="center" /> <a href="./crates/vize_glyph">vize_glyph</a></td>
+    <td><a href="./crates/vize_glyph">vize_glyph</a></td>
     <td>Vue.js formatter</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_maestro/logo.png" width="32" align="center" /> <a href="./crates/vize_maestro">vize_maestro</a></td>
+    <td><a href="./crates/vize_maestro">vize_maestro</a></td>
     <td>Language Server Protocol</td>
   </tr>
   <tr>
-    <td><img src="./crates/vize_musea/logo.png" width="32" align="center" /> <a href="./crates/vize_musea">vize_musea</a></td>
+    <td><a href="./crates/vize_musea">vize_musea</a></td>
     <td>Component gallery (Storybook)</td>
   </tr>
 </table>

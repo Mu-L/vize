@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  inject,
+  type ComputedRef,
+} from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import type { Diagnostic } from "./MonacoEditor.vue";
 import type {
@@ -28,6 +37,8 @@ import { PRESETS, type Preset } from "./presets/crossfile";
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 // === State ===
 const currentPreset = ref<string>("default");
 const currentPresetData = computed(
@@ -1674,6 +1685,7 @@ onUnmounted(() => {
           v-model="currentSource"
           :language="editorLanguage"
           :diagnostics="currentDiagnostics"
+          :theme="theme"
         />
       </div>
     </main>
@@ -1940,10 +1952,10 @@ onUnmounted(() => {
 }
 
 .file-item.has-errors .file-icon {
-  color: #ef4444;
+  color: var(--color-error);
 }
 .file-item.has-warnings .file-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .file-icon {
@@ -1971,13 +1983,13 @@ onUnmounted(() => {
 }
 
 .file-badge.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .file-badge.warning {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .file-delete {
@@ -2005,8 +2017,8 @@ onUnmounted(() => {
 }
 
 .file-delete:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 /* Dependency Graph */
@@ -2148,13 +2160,13 @@ onUnmounted(() => {
 }
 
 .tab-badge.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .tab-badge.warning {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .editor-status {
@@ -2216,18 +2228,18 @@ onUnmounted(() => {
 }
 
 .stat-chip.error {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .stat-chip.warning {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .stat-chip.info {
-  background: rgba(96, 165, 250, 0.2);
-  color: #60a5fa;
+  background: var(--color-info-bg);
+  color: var(--color-info);
 }
 
 .diagnostics-empty {
@@ -2237,7 +2249,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   padding: 32px;
-  color: #4ade80;
+  color: var(--color-success);
 }
 
 .empty-icon {
@@ -2315,13 +2327,13 @@ onUnmounted(() => {
 }
 
 .issue-card.error .severity-icon {
-  color: #ef4444;
+  color: var(--color-error);
 }
 .issue-card.warning .severity-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 .issue-card.info .severity-icon {
-  color: #60a5fa;
+  color: var(--color-info);
 }
 
 .issue-code {
@@ -2350,8 +2362,8 @@ onUnmounted(() => {
   margin-top: 6px;
   padding: 6px;
   font-size: 10px;
-  color: #4ade80;
-  background: rgba(74, 222, 128, 0.1);
+  color: var(--color-success);
+  background: var(--color-success-bg);
   border-radius: 3px;
   display: flex;
   gap: 6px;

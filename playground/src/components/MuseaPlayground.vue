@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from "vue";
+import { ref, watch, computed, onMounted, inject, type ComputedRef } from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 
 interface Diagnostic {
@@ -18,6 +18,8 @@ import { mdiPalette, mdiDiamond } from "@mdi/js";
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 
 const source = ref(ART_PRESET);
 const parsedArt = ref<ArtDescriptor | null>(null);
@@ -205,7 +207,7 @@ watch(
         </div>
       </div>
       <div class="editor-container">
-        <MonacoEditor v-model="source" language="vue" :diagnostics="diagnostics" />
+        <MonacoEditor v-model="source" language="vue" :diagnostics="diagnostics" :theme="theme" />
       </div>
     </div>
 
@@ -379,7 +381,7 @@ watch(
                   <button @click="copyToClipboard(variant.template)" class="btn-copy">Copy</button>
                 </div>
                 <div class="variant-template">
-                  <CodeHighlight :code="variant.template" language="html" />
+                  <CodeHighlight :code="variant.template" language="html" :theme="theme" />
                 </div>
               </div>
             </div>
@@ -395,7 +397,12 @@ watch(
               </div>
             </div>
             <div class="code-container">
-              <CodeHighlight :code="csfOutput.code" language="typescript" show-line-numbers />
+              <CodeHighlight
+                :code="csfOutput.code"
+                language="typescript"
+                show-line-numbers
+                :theme="theme"
+              />
             </div>
           </div>
         </template>

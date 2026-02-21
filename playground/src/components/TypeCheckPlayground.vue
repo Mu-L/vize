@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from "vue";
+import { ref, watch, computed, onMounted, onUnmounted, inject, type ComputedRef } from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import * as monaco from "monaco-editor";
 import type {
@@ -233,6 +233,8 @@ interface SourceMapEntry {
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 
 const source = ref(TYPECHECK_PRESET);
 const typeCheckResult = ref<TypeCheckResult | null>(null);
@@ -1035,7 +1037,7 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="editor-container">
-        <MonacoEditor v-model="source" language="vue" :diagnostics="diagnostics" />
+        <MonacoEditor v-model="source" language="vue" :diagnostics="diagnostics" :theme="theme" />
       </div>
     </div>
 
@@ -1165,6 +1167,7 @@ onUnmounted(() => {
                 :model-value="typeCheckResult.virtualTs"
                 language="typescript"
                 :read-only="true"
+                :theme="theme"
               />
             </div>
             <div v-else class="empty-state">

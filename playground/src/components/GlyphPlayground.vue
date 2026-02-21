@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, inject, type ComputedRef } from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import CodeHighlight from "./CodeHighlight.vue";
 import type { WasmModule, FormatOptions, FormatResult } from "../wasm/index";
@@ -9,6 +9,8 @@ import { mdiFileEdit, mdiAutoFix, mdiCheck } from "@mdi/js";
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 
 const source = ref(GLYPH_PRESET);
 const formatResult = ref<FormatResult | null>(null);
@@ -126,7 +128,7 @@ watch(
         </div>
       </div>
       <div class="editor-container">
-        <MonacoEditor v-model="source" language="vue" />
+        <MonacoEditor v-model="source" language="vue" :theme="theme" />
       </div>
     </div>
 
@@ -183,7 +185,12 @@ watch(
               </div>
             </div>
             <div class="code-container">
-              <CodeHighlight :code="formatResult.code" language="vue" show-line-numbers />
+              <CodeHighlight
+                :code="formatResult.code"
+                language="vue"
+                show-line-numbers
+                :theme="theme"
+              />
             </div>
           </div>
 

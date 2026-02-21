@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from "vue";
+import { ref, watch, computed, onMounted, onUnmounted, inject, type ComputedRef } from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import * as monaco from "monaco-editor";
 import type { WasmModule, LintResult, LintDiagnostic, LintRule, LocaleInfo } from "../wasm/index";
@@ -20,6 +20,9 @@ interface Diagnostic {
 const props = defineProps<{
   compiler: WasmModule | null;
 }>();
+
+const _injectedTheme = inject<ComputedRef<"dark" | "light">>("theme");
+const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light");
 
 const source = ref(LINT_PRESET);
 const lintResult = ref<LintResult | null>(null);
@@ -543,7 +546,13 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="editor-container">
-        <MonacoEditor ref="editorRef" v-model="source" language="vue" :diagnostics="diagnostics" />
+        <MonacoEditor
+          ref="editorRef"
+          v-model="source"
+          language="vue"
+          :diagnostics="diagnostics"
+          :theme="theme"
+        />
       </div>
     </div>
 
@@ -765,8 +774,8 @@ onUnmounted(() => {
 .perf-badge {
   font-size: 0.625rem;
   padding: 0.125rem 0.375rem;
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
   border-radius: 3px;
   font-family: "JetBrains Mono", monospace;
 }
@@ -781,13 +790,14 @@ onUnmounted(() => {
 }
 
 .count-badge.errors {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .count-badge.warnings {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
 }
 
 .panel-actions {
@@ -844,11 +854,12 @@ onUnmounted(() => {
 .tab-badge {
   font-size: 0.625rem;
   padding: 0.0625rem 0.3125rem;
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   border-radius: 8px;
   min-width: 1rem;
   text-align: center;
+  font-weight: 600;
 }
 
 .tab-count {
@@ -870,27 +881,29 @@ onUnmounted(() => {
 
 /* Error State */
 .error-panel {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .error-header {
   padding: 0.5rem 0.75rem;
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 0.75rem;
   font-weight: 600;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .error-content {
   padding: 0.75rem;
   font-size: 0.75rem;
-  color: #fca5a5;
+  color: var(--text-secondary);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: "JetBrains Mono", monospace;
 }
 
 /* Output Header Bar */
@@ -898,19 +911,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.15));
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 4px;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-primary);
   margin-bottom: 0.75rem;
 }
 
 .output-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fbbf24;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .locale-selector select {
@@ -930,7 +941,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   padding: 2rem;
-  color: #4ade80;
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -949,8 +960,16 @@ onUnmounted(() => {
 .diagnostic-item {
   padding: 0.75rem;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: 4px;
+  border-left: 2px solid var(--text-muted);
+  border-radius: 0;
+}
+
+.diagnostic-item.severity-error {
+  border-left-color: var(--color-error);
+}
+
+.diagnostic-item.severity-warning {
+  border-left-color: var(--color-warning);
 }
 
 .diagnostic-header {
@@ -967,11 +986,11 @@ onUnmounted(() => {
 }
 
 .severity-error .severity-icon {
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .severity-warning .severity-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .rule-id {
@@ -999,9 +1018,9 @@ onUnmounted(() => {
 .diagnostic-help {
   margin-top: 0.75rem;
   padding: 0.75rem;
-  background: linear-gradient(135deg, rgba(96, 165, 250, 0.08) 0%, rgba(147, 51, 234, 0.05) 100%);
-  border: 1px solid rgba(96, 165, 250, 0.2);
-  border-radius: 6px;
+  background: var(--bg-tertiary);
+  border-left: 2px solid var(--text-muted);
+  border-radius: 0;
   font-size: 0.85rem;
 }
 
@@ -1011,7 +1030,7 @@ onUnmounted(() => {
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(96, 165, 250, 0.15);
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .help-icon {
@@ -1020,8 +1039,10 @@ onUnmounted(() => {
 
 .help-label {
   font-weight: 600;
-  color: #60a5fa;
-  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .help-content {
@@ -1030,14 +1051,15 @@ onUnmounted(() => {
 }
 
 .help-content :deep(strong) {
-  color: #f59e0b;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .help-content :deep(.help-code) {
   margin: 0.5rem 0;
   padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   border-radius: 4px;
   overflow-x: auto;
   font-family: "JetBrains Mono", "Fira Code", monospace;
@@ -1046,64 +1068,65 @@ onUnmounted(() => {
 }
 
 .help-content :deep(.help-code code) {
-  color: #a5d6ff;
+  color: var(--text-primary);
   background: none;
   padding: 0;
 }
 
 .help-content :deep(.help-inline-code) {
-  background: rgba(110, 118, 129, 0.3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.85em;
-  color: #ff7b72;
+  color: var(--hl-keyword);
 }
 
-/* Syntax highlighting colors */
+/* Syntax highlighting colors — warm earthy tones, theme-adaptive */
 .help-content :deep(.hl-keyword) {
-  color: #ff7b72;
+  color: var(--hl-keyword);
 }
 
 .help-content :deep(.hl-vue-api) {
-  color: #7ee787;
+  color: var(--hl-function);
 }
 
 .help-content :deep(.hl-string) {
-  color: #a5d6ff;
+  color: var(--hl-string);
 }
 
 .help-content :deep(.hl-comment) {
-  color: #8b949e;
+  color: var(--hl-comment);
   font-style: italic;
 }
 
 .help-content :deep(.hl-tag) {
-  color: #7ee787;
+  color: var(--hl-tag);
 }
 
 .help-content :deep(.hl-directive) {
-  color: #d2a8ff;
+  color: var(--hl-directive);
 }
 
 .help-content :deep(.hl-delimiter) {
-  color: #ffa657;
+  color: var(--hl-delimiter);
 }
 
 .help-content :deep(.hl-type) {
-  color: #79c0ff;
+  color: var(--hl-type);
 }
 
 .help-content :deep(.hl-number) {
-  color: #79c0ff;
+  color: var(--hl-number);
 }
 
 .help-content :deep(.hl-property) {
-  color: #79c0ff;
+  color: var(--hl-property);
 }
 
 .help-content :deep(.hl-value) {
-  color: #a5d6ff;
+  color: var(--hl-value);
 }
 
 /* Rules Output */
@@ -1285,18 +1308,19 @@ onUnmounted(() => {
 }
 
 .severity-badge.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .severity-badge.warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
 }
 
 .fixable-badge {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
 }
 
 .rule-description {
