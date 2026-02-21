@@ -675,9 +675,7 @@ export function vize(options: VizeOptions = {}): Plugin[] {
 
       // Handle .vue file imports
       if (id.endsWith(".vue")) {
-        const handleNodeModules = initialized
-          ? (mergedOptions.handleNodeModulesVue ?? true)
-          : true;
+        const handleNodeModules = initialized ? (mergedOptions.handleNodeModulesVue ?? true) : true;
 
         if (!handleNodeModules && id.includes("node_modules")) {
           logger.log(`resolveId: skipping node_modules import ${id}`);
