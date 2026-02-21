@@ -693,20 +693,20 @@ jobs:
 
       - name: Inject native binding package versions
         run: |
-          VERSION=$(node -p "require('./npm/vize/package.json').version")
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('npm/vize/package.json', 'utf8'));
+            const version = pkg.version;
             if (pkg.optionalDependencies) {
               for (const dep of Object.keys(pkg.optionalDependencies)) {
                 if (dep.startsWith('@vizejs/native-')) {
-                  pkg.optionalDependencies[dep] = '\$VERSION';
+                  pkg.optionalDependencies[dep] = version;
                 }
               }
             }
             fs.writeFileSync('npm/vize/package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('Updated optionalDependencies to ' + version);
           "
-          echo "Updated optionalDependencies to $VERSION"
           cat npm/vize/package.json
 
       - name: Build vize CLI package
