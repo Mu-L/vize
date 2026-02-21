@@ -454,24 +454,53 @@ body::after {
     grid-template-columns: 1fr !important;
   }
 
+  .entry-page .hero {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100vh !important;
+  }
+
   .entry-page .hero-content {
     grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
     grid-template-areas:
       "name"
       "text"
-      "logo"
-      "tag"
-      "action" !important;
+      "action"
+      "logo" !important;
     padding: 100px 1.5rem 3rem 1.5rem !important;
     gap: 0 !important;
+    height: auto !important;
+    min-height: 100vh !important;
   }
 
   .entry-page .hero-name {
     font-size: clamp(3rem, 15vw, 6rem) !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .entry-page .hero-text {
+    margin-bottom: 2rem !important;
+  }
+
+  .entry-page .hero-tagline {
+    display: none !important;
   }
 
   .entry-page .hero-image {
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
+    position: static !important;
+    padding: 2rem 0 0 0 !important;
+    justify-self: center !important;
+  }
+
+  .entry-page .hero-image img {
+    position: static !important;
+    transform: none !important;
+    height: 30vh !important;
+    opacity: 0.6;
+  }
+
+  .entry-page .hero-actions {
+    align-self: start !important;
   }
 }
