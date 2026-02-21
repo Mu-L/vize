@@ -24,17 +24,17 @@ function toggleSidebar() {
 
 const themeIcon = computed(() => {
   switch (currentTheme.value) {
-    case 'light': return mdiWeatherSunny
+    case 'dark': return mdiWeatherNight
     case 'system': return mdiThemeLightDark
-    default: return mdiWeatherNight
+    default: return mdiWeatherSunny
   }
 })
 
 const themeLabel = computed(() => {
   switch (currentTheme.value) {
-    case 'light': return 'Light'
+    case 'dark': return 'Dark'
     case 'system': return 'System'
-    default: return 'Dark'
+    default: return 'Light'
   }
 })
 
