@@ -189,6 +189,10 @@ function rewriteDynamicTemplateImports(code: string, aliasRules: DynamicImportAl
  * statements hoisted to the top of the module, so Vite's module resolution
  * pipeline handles alias expansion and asset hashing in both dev and build.
  */
+// File extensions that are code modules, not static assets.
+// These should never be rewritten to default imports by rewriteStaticAssetUrls.
+const SCRIPT_EXTENSIONS = /\.(js|mjs|cjs|ts|mts|cts|jsx|tsx)$/i;
+
 function rewriteStaticAssetUrls(code: string, aliasRules: DynamicImportAliasRule[]): string {
   let rewritten = code;
   const imports: string[] = [];
@@ -204,8 +208,12 @@ function rewriteStaticAssetUrls(code: string, aliasRules: DynamicImportAliasRule
     );
     rewritten = rewritten.replace(
       pattern,
-      (_match: string, prefix: string, dqPath?: string, sqPath?: string) => {
+      (match: string, prefix: string, dqPath?: string, sqPath?: string) => {
         const fullPath = dqPath || sqPath;
+        // Skip script files — they are code modules, not static assets.
+        if (fullPath && SCRIPT_EXTENSIONS.test(fullPath)) {
+          return match;
+        }
         const varName = `__vize_static_${counter++}`;
         imports.push(`import ${varName} from ${JSON.stringify(fullPath)};`);
         return `${prefix}${varName}`;
@@ -819,16 +827,28 @@ export function vize(options: VizeOptions = {}): Plugin[] {
           const block = compiled.styles[blockIndex];
           let styleContent = block.content;
 
-          // For scoped styles, wrap in a scope selector using native CSS nesting.
-          // Vite's pipeline will handle preprocessor compilation first, then scoping
-          // is applied at the CSS level. For preprocessor langs, return the raw content
-          // so Vite can preprocess it. We wrap in a scoped selector if needed.
-          if (scoped && block.scoped) {
-            // For SCSS/Less, wrap with nesting so the scope attribute selector is applied
-            // after preprocessing. For plain CSS, Vite handles scoping via the query.
-            if (lang && lang !== "css") {
-              styleContent = `[${scoped}] {\n${styleContent}\n}`;
+          // For scoped preprocessor styles, wrap content in a scope selector using
+          // CSS/SCSS nesting. SCSS @use/@forward/@import directives must remain at the
+          // top level (before any rules), so we hoist them out of the wrapper.
+          if (scoped && block.scoped && lang && lang !== "css") {
+            const lines = styleContent.split("\n");
+            const hoisted: string[] = [];
+            const body: string[] = [];
+            for (const line of lines) {
+              const trimmed = line.trimStart();
+              if (
+                trimmed.startsWith("@use ") ||
+                trimmed.startsWith("@forward ") ||
+                trimmed.startsWith("@import ")
+              ) {
+                hoisted.push(line);
+              } else {
+                body.push(line);
+              }
             }
+            const bodyContent = body.join("\n");
+            const hoistedContent = hoisted.length > 0 ? hoisted.join("\n") + "\n\n" : "";
+            styleContent = `${hoistedContent}[${scoped}] {\n${bodyContent}\n}`;
           }
 
           // Return with a virtual file suffix hint so Vite's CSS pipeline

@@ -337,6 +337,89 @@ fn count_braces_outside_strings(line: &str) -> i32 {
     count_braces_with_state(line, &mut state)
 }
 
+/// Count net paren depth change (( minus )) in a line, properly tracking
+/// string literals and template literal `${...}` expressions.
+/// State is carried across lines to handle multiline template literals.
+fn count_parens_with_state(line: &str, state: &mut StringTrackState) -> i32 {
+    let mut count: i32 = 0;
+    let chars: Vec<char> = line.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+
+    while i < len {
+        let ch = chars[i];
+
+        if state.escape {
+            state.escape = false;
+            i += 1;
+            continue;
+        }
+
+        if state.in_string {
+            if ch == '\\' {
+                state.escape = true;
+                i += 1;
+                continue;
+            }
+
+            if state.string_char == '`' {
+                if ch == '`' {
+                    state.in_string = false;
+                } else if ch == '$' && i + 1 < len && chars[i + 1] == '{' {
+                    state.in_string = false;
+                    state.template_expr_brace_stack.push(0);
+                    i += 2;
+                    continue;
+                }
+            } else if ch == state.string_char {
+                state.in_string = false;
+            }
+        } else {
+            // Not in string - we're in code mode
+            match ch {
+                '\'' | '"' => {
+                    state.in_string = true;
+                    state.string_char = ch;
+                }
+                '`' => {
+                    state.in_string = true;
+                    state.string_char = '`';
+                }
+                '{' => {
+                    // Track braces for template expression depth even though we're counting parens
+                    if let Some(depth) = state.template_expr_brace_stack.last_mut() {
+                        *depth += 1;
+                    }
+                }
+                '}' => {
+                    if let Some(&depth) = state.template_expr_brace_stack.last() {
+                        if depth == 0 {
+                            state.template_expr_brace_stack.pop();
+                            state.in_string = true;
+                            state.string_char = '`';
+                            i += 1;
+                            continue;
+                        } else {
+                            *state.template_expr_brace_stack.last_mut().unwrap() -= 1;
+                        }
+                    }
+                }
+                '(' => {
+                    count += 1;
+                }
+                ')' => {
+                    count -= 1;
+                }
+                _ => {}
+            }
+        }
+
+        i += 1;
+    }
+
+    count
+}
+
 /// Compact render body by removing unnecessary line breaks inside function calls and arrays
 #[allow(dead_code)]
 fn compact_render_body(render_body: &str) -> String {
@@ -469,6 +552,7 @@ pub(crate) fn extract_template_parts(template_code: &str) -> (String, String, St
     let mut in_return = false;
     let mut brace_depth = 0;
     let mut brace_state = StringTrackState::default();
+    let mut paren_state = StringTrackState::default();
     let mut return_paren_depth = 0;
 
     // Collect all lines for look-ahead
@@ -490,6 +574,7 @@ pub(crate) fn extract_template_parts(template_code: &str) -> (String, String, St
             in_render = true;
             brace_depth = 0;
             brace_state = StringTrackState::default();
+            paren_state = StringTrackState::default();
             brace_depth += count_braces_with_state(line, &mut brace_state);
         } else if in_render {
             brace_depth += count_braces_with_state(line, &mut brace_state);
@@ -499,8 +584,7 @@ pub(crate) fn extract_template_parts(template_code: &str) -> (String, String, St
                 // Continue collecting return body
                 render_body.push('\n');
                 render_body.push_str(line);
-                return_paren_depth += line.matches('(').count() as i32;
-                return_paren_depth -= line.matches(')').count() as i32;
+                return_paren_depth += count_parens_with_state(line, &mut paren_state);
 
                 // Check if return statement is complete:
                 // - Parentheses must be balanced (return_paren_depth <= 0)
@@ -526,9 +610,9 @@ pub(crate) fn extract_template_parts(template_code: &str) -> (String, String, St
                 }
             } else if let Some(stripped) = trimmed.strip_prefix("return ") {
                 render_body = stripped.to_string();
-                // Count parentheses to handle multi-line return
-                return_paren_depth =
-                    stripped.matches('(').count() as i32 - stripped.matches(')').count() as i32;
+                // Count parentheses to handle multi-line return (string-aware)
+                paren_state = StringTrackState::default();
+                return_paren_depth = count_parens_with_state(stripped, &mut paren_state);
                 if return_paren_depth > 0 {
                     in_return = true;
                 } else {
