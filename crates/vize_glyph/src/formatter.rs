@@ -5,6 +5,7 @@
 use crate::error::FormatError;
 use crate::options::FormatOptions;
 use crate::script;
+use crate::style;
 use crate::template;
 use vize_atelier_sfc::{parse_sfc, SfcParseOptions};
 use vize_carton::Allocator;
@@ -202,7 +203,7 @@ impl<'a> GlyphFormatter<'a> {
         Ok(())
     }
 
-    /// Format a style block using byte operations
+    /// Format a style block using lightningcss for CSS
     #[inline]
     fn format_style_block_fast(
         &self,
@@ -211,7 +212,15 @@ impl<'a> GlyphFormatter<'a> {
         scoped: bool,
         lang: &Option<std::borrow::Cow<'_, str>>,
     ) -> Result<(), FormatError> {
-        let formatted_content = content.trim();
+        // Use lightningcss for plain CSS; for preprocessor languages, just trim
+        let is_plain_css = lang.as_ref().map_or(true, |l| l.as_ref() == "css");
+        let formatted_content = if is_plain_css {
+            style::format_style_content(content, self.options)
+                .unwrap_or_else(|_| content.trim().to_string())
+        } else {
+            content.trim().to_string()
+        };
+        let formatted_content = formatted_content.as_str();
 
         // Build the opening tag
         output.extend_from_slice(b"<style");
