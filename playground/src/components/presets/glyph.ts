@@ -17,7 +17,7 @@ export const GLYPH_PRESET = `<template>
 <div class="container">
 <h1>{{ count }}</h1>
 <p>Doubled: {{ doubled }}</p>
-<div class="buttons">
+<div v-bind:class="cls" v-on:click="handle" id="app" ref="el">
 <button @click="decrement">-1</button>
 <button @click="increment">+1</button>
 </div>

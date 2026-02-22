@@ -25,9 +25,20 @@ const options = ref<FormatOptions>({
   useTabs: false,
   semi: true,
   singleQuote: false,
+  jsxSingleQuote: false,
+  trailingComma: "all",
   bracketSpacing: true,
   bracketSameLine: false,
+  arrowParens: "always",
+  endOfLine: "lf",
+  quoteProps: "as-needed",
   singleAttributePerLine: false,
+  vueIndentScriptAndStyle: false,
+  sortAttributes: true,
+  attributeSortOrder: "alphabetical",
+  mergeBindAndNonBindAttrs: false,
+  maxAttributesPerLine: null,
+  normalizeDirectiveShorthands: true,
 });
 
 const diffLines = computed(() => {
@@ -326,12 +337,157 @@ watch(
                     <div class="toggle-main">
                       <input
                         type="checkbox"
+                        v-model="options.jsxSingleQuote"
+                        class="toggle-checkbox"
+                      />
+                      <span class="toggle-name">JSX Single Quotes</span>
+                    </div>
+                    <span class="toggle-desc">Use single quotes in JSX</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="options-section">
+                <h4 class="section-title">Trailing / Parens</h4>
+                <div class="options-grid">
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">Trailing Comma</span>
+                      <select v-model="options.trailingComma" class="option-select">
+                        <option value="all">All</option>
+                        <option value="es5">ES5</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                    <span class="option-desc">Print trailing commas wherever possible</span>
+                  </label>
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">Arrow Parens</span>
+                      <select v-model="options.arrowParens" class="option-select">
+                        <option value="always">Always</option>
+                        <option value="avoid">Avoid</option>
+                      </select>
+                    </div>
+                    <span class="option-desc"
+                      >Parentheses around a sole arrow function parameter</span
+                    >
+                  </label>
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">Quote Props</span>
+                      <select v-model="options.quoteProps" class="option-select">
+                        <option value="as-needed">As Needed</option>
+                        <option value="consistent">Consistent</option>
+                        <option value="preserve">Preserve</option>
+                      </select>
+                    </div>
+                    <span class="option-desc">When to quote object properties</span>
+                  </label>
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">End of Line</span>
+                      <select v-model="options.endOfLine" class="option-select">
+                        <option value="lf">LF</option>
+                        <option value="crlf">CRLF</option>
+                        <option value="cr">CR</option>
+                        <option value="auto">Auto</option>
+                      </select>
+                    </div>
+                    <span class="option-desc">End of line style</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="options-section">
+                <h4 class="section-title">Vue Template</h4>
+                <div class="options-grid">
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">Attribute Sort Order</span>
+                      <select v-model="options.attributeSortOrder" class="option-select">
+                        <option value="alphabetical">Alphabetical</option>
+                        <option value="as-written">As Written</option>
+                      </select>
+                    </div>
+                    <span class="option-desc">How to sort attributes within priority groups</span>
+                  </label>
+                  <label class="option-card">
+                    <div class="option-header">
+                      <span class="option-name">Max Attrs Per Line</span>
+                      <input
+                        type="number"
+                        :value="options.maxAttributesPerLine ?? ''"
+                        @input="
+                          options.maxAttributesPerLine =
+                            ($event.target as HTMLInputElement).value === ''
+                              ? null
+                              : Number(($event.target as HTMLInputElement).value)
+                        "
+                        min="1"
+                        max="20"
+                        placeholder="auto"
+                        class="option-input"
+                      />
+                    </div>
+                    <span class="option-desc">Max attributes per line before wrapping</span>
+                  </label>
+                </div>
+                <div class="toggle-grid" style="margin-top: 0.75rem">
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input
+                        type="checkbox"
+                        v-model="options.sortAttributes"
+                        class="toggle-checkbox"
+                      />
+                      <span class="toggle-name">Sort Attributes</span>
+                    </div>
+                    <span class="toggle-desc">Sort HTML attributes in template</span>
+                  </label>
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input
+                        type="checkbox"
+                        v-model="options.normalizeDirectiveShorthands"
+                        class="toggle-checkbox"
+                      />
+                      <span class="toggle-name">Normalize Directives</span>
+                    </div>
+                    <span class="toggle-desc">Normalize v-bind/v-on/v-slot to shorthand</span>
+                  </label>
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input
+                        type="checkbox"
                         v-model="options.singleAttributePerLine"
                         class="toggle-checkbox"
                       />
                       <span class="toggle-name">Single Attribute Per Line</span>
                     </div>
                     <span class="toggle-desc">Enforce single attribute per line in templates</span>
+                  </label>
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input
+                        type="checkbox"
+                        v-model="options.vueIndentScriptAndStyle"
+                        class="toggle-checkbox"
+                      />
+                      <span class="toggle-name">Indent Script/Style</span>
+                    </div>
+                    <span class="toggle-desc">Indent code inside script and style tags</span>
+                  </label>
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input
+                        type="checkbox"
+                        v-model="options.mergeBindAndNonBindAttrs"
+                        class="toggle-checkbox"
+                      />
+                      <span class="toggle-name">Merge Bind Attrs</span>
+                    </div>
+                    <span class="toggle-desc">Merge bind and non-bind attrs for sorting</span>
                   </label>
                 </div>
               </div>
@@ -763,6 +919,22 @@ watch(
 }
 
 .option-input:focus {
+  outline: none;
+  border-color: var(--accent-rust);
+}
+
+.option-select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+}
+
+.option-select:focus {
   outline: none;
   border-color: var(--accent-rust);
 }
