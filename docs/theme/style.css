@@ -450,57 +450,146 @@ body::after {
     background: rgba(28, 28, 28, 0.95) !important;
   }
 
+  /* ---- Header: always accessible on mobile entry page ---- */
+  .entry-page .header {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
+
+  .header {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  /* ---- Features ---- */
   .entry-page .features-grid {
     grid-template-columns: 1fr !important;
   }
 
+  .entry-page .features {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* ================================================
+     HERO — "Monument" : Monumental mobile layout
+     ================================================ */
   .entry-page .hero {
-    height: auto !important;
+    height: 100vh !important;
+    height: 100dvh !important;
     max-height: none !important;
     min-height: 100vh !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
   }
 
   .entry-page .hero-content {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: auto auto auto auto !important;
-    grid-template-areas:
-      "name"
-      "text"
-      "action"
-      "logo" !important;
-    padding: 100px 1.5rem 3rem 1.5rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: unset !important;
+    padding: 0 1rem 5rem 1rem !important;
     gap: 0 !important;
-    height: auto !important;
-    min-height: 100vh !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    margin-top: -2rem !important;
   }
 
-  .entry-page .hero-name {
-    font-size: clamp(3rem, 15vw, 6rem) !important;
-    margin-bottom: 1rem !important;
-  }
-
-  .entry-page .hero-text {
-    margin-bottom: 2rem !important;
-  }
-
-  .entry-page .hero-tagline {
-    display: none !important;
-  }
-
+  /* Logo — centered sigil, the mark */
   .entry-page .hero-image {
+    order: 1 !important;
     position: static !important;
-    padding: 2rem 0 0 0 !important;
+    padding: 0 !important;
+    margin: 0 0 0.5rem 0 !important;
     justify-self: center !important;
+    z-index: 1 !important;
   }
 
   .entry-page .hero-image img {
     position: static !important;
     transform: none !important;
-    height: 30vh !important;
-    opacity: 0.6;
+    height: 14vh !important;
+    width: auto !important;
+    max-width: none !important;
+    opacity: 0.8 !important;
   }
 
+  /* Title — MONUMENTAL. Edge-to-edge presence */
+  .entry-page .hero-name {
+    order: 2 !important;
+    font-size: clamp(5rem, 32vw, 14rem) !important;
+    letter-spacing: -0.07em !important;
+    line-height: 0.82 !important;
+    text-align: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 1 !important;
+    width: auto !important;
+  }
+
+  /* Decorative rule — a whisper of structure */
+  .entry-page .hero-name::after {
+    content: '' !important;
+    display: block !important;
+    width: 28px !important;
+    height: 0.5px !important;
+    background: var(--octc-color-text) !important;
+    margin: 1rem auto 0 auto !important;
+    opacity: 0.2 !important;
+  }
+
+  /* Subtitle — refined micro-typography */
+  .entry-page .hero-text {
+    order: 3 !important;
+    font-size: 0.5rem !important;
+    font-weight: 400 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.25em !important;
+    line-height: 2.4 !important;
+    text-align: center !important;
+    margin: 1rem 0 0 0 !important;
+    padding: 0 0.5rem !important;
+    max-width: 300px !important;
+    opacity: 0.4 !important;
+    color: var(--octc-color-text) !important;
+  }
+
+  /* Tagline — hidden on mobile */
+  .entry-page .hero-tagline {
+    display: none !important;
+  }
+
+  /* Hide non-functional Menu button on entry page (no sidebar exists) */
+  .entry-page .mobile-footer-btn[data-mobile-menu] {
+    display: none !important;
+  }
+
+  /* Actions — bottom-anchored, above mobile footer */
   .entry-page .hero-actions {
-    align-self: start !important;
+    order: 5 !important;
+    position: absolute !important;
+    bottom: 5rem !important;
+    left: 0 !important;
+    right: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-self: auto !important;
+    gap: 0.5rem !important;
+    padding: 0 1.5rem !important;
+  }
+
+  .entry-page .hero-action-brand,
+  .entry-page .hero-action-alt {
+    width: auto !important;
+    padding: 0.55rem 1.4rem !important;
+    font-size: 0.575rem !important;
+    letter-spacing: 0.07em !important;
   }
 }
