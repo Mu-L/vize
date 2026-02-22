@@ -45,44 +45,97 @@ impl<'a> GlyphFormatter<'a> {
         let estimated_size = self.estimate_output_size(source, &descriptor);
         let mut output = Vec::with_capacity(estimated_size);
 
-        // Format script setup block (comes first by convention)
-        if let Some(script_setup) = &descriptor.script_setup {
-            self.format_script_block_fast(
-                &mut output,
-                &script_setup.content,
-                true,
-                &script_setup.lang,
-            )?;
-            output.extend_from_slice(newline);
-            output.extend_from_slice(newline);
+        // Collect all blocks with their sort keys
+        enum Block<'b> {
+            Script(&'b vize_atelier_sfc::SfcScriptBlock<'b>, bool), // (block, is_setup)
+            Template(&'b vize_atelier_sfc::SfcTemplateBlock<'b>),
+            Style(&'b vize_atelier_sfc::SfcStyleBlock<'b>),
+            Custom(&'b vize_atelier_sfc::SfcCustomBlock<'b>),
         }
 
-        // Format regular script block
+        let mut blocks: Vec<(usize, Block<'_>)> = Vec::new();
+
         if let Some(script) = &descriptor.script {
-            self.format_script_block_fast(&mut output, &script.content, false, &script.lang)?;
-            output.extend_from_slice(newline);
-            output.extend_from_slice(newline);
+            let order = if self.options.sort_blocks {
+                0
+            } else {
+                script.loc.tag_start
+            };
+            blocks.push((order, Block::Script(script, false)));
         }
-
-        // Format template block
+        if let Some(script_setup) = &descriptor.script_setup {
+            let order = if self.options.sort_blocks {
+                1
+            } else {
+                script_setup.loc.tag_start
+            };
+            blocks.push((order, Block::Script(script_setup, true)));
+        }
         if let Some(template) = &descriptor.template {
-            self.format_template_block_fast(&mut output, &template.content, &template.lang)?;
-            output.extend_from_slice(newline);
-            output.extend_from_slice(newline);
+            let order = if self.options.sort_blocks {
+                2
+            } else {
+                template.loc.tag_start
+            };
+            blocks.push((order, Block::Template(template)));
         }
-
-        // Format style blocks
         for style in &descriptor.styles {
-            self.format_style_block_fast(&mut output, &style.content, style.scoped, &style.lang)?;
-            output.extend_from_slice(newline);
-            output.extend_from_slice(newline);
+            let order = if self.options.sort_blocks {
+                if style.scoped {
+                    3
+                } else {
+                    4
+                }
+            } else {
+                style.loc.tag_start
+            };
+            blocks.push((order, Block::Style(style)));
+        }
+        for block in &descriptor.custom_blocks {
+            let order = if self.options.sort_blocks {
+                5
+            } else {
+                block.loc.tag_start
+            };
+            blocks.push((order, Block::Custom(block)));
         }
 
-        // Format custom blocks
-        for block in &descriptor.custom_blocks {
-            self.format_custom_block_fast(&mut output, &block.block_type, &block.content)?;
-            output.extend_from_slice(newline);
-            output.extend_from_slice(newline);
+        blocks.sort_by_key(|(order, _)| *order);
+
+        // Format each block in order
+        for (i, (_, block)) in blocks.iter().enumerate() {
+            if i > 0 {
+                output.extend_from_slice(newline);
+                output.extend_from_slice(newline);
+            }
+            match block {
+                Block::Script(script, is_setup) => {
+                    self.format_script_block_fast(
+                        &mut output,
+                        &script.content,
+                        *is_setup,
+                        &script.lang,
+                    )?;
+                }
+                Block::Template(template) => {
+                    self.format_template_block_fast(
+                        &mut output,
+                        &template.content,
+                        &template.lang,
+                    )?;
+                }
+                Block::Style(style) => {
+                    self.format_style_block_fast(
+                        &mut output,
+                        &style.content,
+                        style.scoped,
+                        &style.lang,
+                    )?;
+                }
+                Block::Custom(block) => {
+                    self.format_custom_block_fast(&mut output, &block.block_type, &block.content)?;
+                }
+            }
         }
 
         // Trim trailing whitespace efficiently

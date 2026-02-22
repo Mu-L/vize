@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch, computed, inject, type ComputedRef } from "vue";
+import { ref, watch, computed, inject, toRaw, onMounted, onUnmounted, type ComputedRef } from "vue";
 import MonacoEditor from "./MonacoEditor.vue";
 import CodeHighlight from "./CodeHighlight.vue";
 import type { WasmModule, FormatOptions, FormatResult } from "../wasm/index";
+import { getWasm } from "../wasm/index";
 import { GLYPH_PRESET } from "./presets/glyph";
 import { mdiFileEdit, mdiAutoFix, mdiCheck } from "@mdi/js";
 
@@ -39,6 +40,7 @@ const options = ref<FormatOptions>({
   mergeBindAndNonBindAttrs: false,
   maxAttributesPerLine: null,
   normalizeDirectiveShorthands: true,
+  sortBlocks: true,
 });
 
 const diffLines = computed(() => {
@@ -79,13 +81,19 @@ const diffLines = computed(() => {
 });
 
 async function format() {
-  if (!props.compiler) return;
+  const compiler = getWasm();
+  if (!compiler) return;
 
   const startTime = performance.now();
   error.value = null;
 
   try {
-    const result = props.compiler.formatSfc(source.value, options.value);
+    const raw = toRaw(options.value);
+    const opts: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (v != null) opts[k] = v;
+    }
+    const result = compiler.formatSfc(source.value, opts);
     formatResult.value = result;
     formatTime.value = performance.now() - startTime;
   } catch (e) {
@@ -115,14 +123,42 @@ watch(
   { immediate: true, deep: true },
 );
 
-watch(
-  () => props.compiler,
-  () => {
-    if (props.compiler) {
-      format();
+// Workaround for vite-plugin-vize prop reactivity issue
+// Use getWasm() directly instead of props since prop updates aren't detected
+let hasInitialized = false;
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+function tryInitialize() {
+  const compiler = getWasm();
+  if (compiler && !hasInitialized) {
+    hasInitialized = true;
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
     }
-  },
-);
+    format();
+  }
+}
+
+onMounted(() => {
+  tryInitialize();
+  if (!hasInitialized) {
+    pollInterval = setInterval(tryInitialize, 100);
+    setTimeout(() => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }, 10000);
+  }
+});
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+});
 </script>
 
 <template>
@@ -139,7 +175,7 @@ watch(
         </div>
       </div>
       <div class="editor-container">
-        <MonacoEditor v-model="source" language="vue" :theme="theme" />
+        <MonacoEditor v-model="source" language="html" :theme="theme" />
       </div>
     </div>
 
@@ -198,7 +234,7 @@ watch(
             <div class="code-container">
               <CodeHighlight
                 :code="formatResult.code"
-                language="vue"
+                language="html"
                 show-line-numbers
                 :theme="theme"
               />
@@ -400,7 +436,18 @@ watch(
               </div>
 
               <div class="options-section">
-                <h4 class="section-title">Vue Template</h4>
+                <h4 class="section-title">Vue SFC</h4>
+                <div class="toggle-grid" style="margin-bottom: 0.75rem">
+                  <label class="toggle-card">
+                    <div class="toggle-main">
+                      <input type="checkbox" v-model="options.sortBlocks" class="toggle-checkbox" />
+                      <span class="toggle-name">Sort Blocks</span>
+                    </div>
+                    <span class="toggle-desc"
+                      >Reorder blocks: script → setup → template → style</span
+                    >
+                  </label>
+                </div>
                 <div class="options-grid">
                   <label class="option-card">
                     <div class="option-header">

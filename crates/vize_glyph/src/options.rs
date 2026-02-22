@@ -94,6 +94,12 @@ pub struct FormatOptions {
     /// `v-bind:xxx` → `:xxx`, `v-on:xxx` → `@xxx`, `v-slot:xxx` → `#xxx`
     #[serde(default = "default_true")]
     pub normalize_directive_shorthands: bool,
+
+    /// Sort SFC blocks in canonical order (default: true)
+    /// Order: script → script setup → template → style scoped → style → custom blocks
+    /// When false, blocks are preserved in their original source order.
+    #[serde(default = "default_true")]
+    pub sort_blocks: bool,
 }
 
 impl Default for FormatOptions {
@@ -119,6 +125,7 @@ impl Default for FormatOptions {
             max_attributes_per_line: None,
             attribute_groups: None,
             normalize_directive_shorthands: true,
+            sort_blocks: true,
         }
     }
 }

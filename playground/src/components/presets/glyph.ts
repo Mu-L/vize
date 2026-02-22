@@ -6,6 +6,8 @@
  * - No proper indentation
  * - Missing spaces around operators
  * - Condensed CSS rules
+ * - Non-canonical block order (template first, then script)
+ * - Long-form directives (v-bind:, v-on:) to demonstrate normalization
  *
  * Used to showcase the Glyph formatter's capabilities.
  *

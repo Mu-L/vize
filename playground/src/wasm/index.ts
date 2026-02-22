@@ -191,6 +191,7 @@ export interface FormatOptions {
   maxAttributesPerLine?: number | null;
   attributeGroups?: string[][] | null;
   normalizeDirectiveShorthands?: boolean;
+  sortBlocks?: boolean;
 }
 
 export interface FormatResult {
