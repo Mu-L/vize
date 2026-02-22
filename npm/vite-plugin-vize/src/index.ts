@@ -618,15 +618,16 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       //   Component.vue?vue&type=style&index=0&lang=scss
       //   Component.vue?vue&type=style&index=0&lang=scss&module
       if (id.includes("?vue&type=style") || id.includes("?vue=&type=style")) {
-        // For CSS Modules, append .module.{lang} suffix so Vite's CSS pipeline
-        // automatically treats it as a CSS module and returns the class mapping.
         const params = new URLSearchParams(id.split("?")[1]);
+        const lang = params.get("lang") || "css";
         if (params.has("module")) {
-          const lang = params.get("lang") || "css";
-          // Return with a virtual .module.{lang} suffix for Vite's CSS module detection
+          // For CSS Modules, append .module.{lang} suffix so Vite's CSS pipeline
+          // automatically treats it as a CSS module and returns the class mapping.
           return `\0${id}.module.${lang}`;
         }
-        return id;
+        // Append .{lang} suffix so Vite's CSS pipeline recognizes the file type
+        // and applies the appropriate preprocessor (SCSS, Less, etc.).
+        return `\0${id}.${lang}`;
       }
 
       // If importer is a vize virtual module, resolve non-vue imports against the real path
@@ -646,16 +647,33 @@ export function vize(options: VizeOptions = {}): Plugin[] {
 
         // For non-vue files, resolve relative to the real importer
         if (!id.endsWith(".vue")) {
-          if (id.includes("/dist/") || id.includes("/lib/") || id.includes("/es/")) {
-            return null;
-          }
-
           // For bare module specifiers (not relative, not absolute),
-          // let Vite's standard resolution handle them to avoid double-applying
-          // aliases. When Vite's alias plugin resolves an import, it calls
-          // this.resolve() internally. If we ALSO call this.resolve() here,
-          // the alias gets applied a second time (e.g., @pkg/src → @pkg/src/src).
+          // resolve them from the real importer path so that Vite can find
+          // packages in the correct node_modules directory. Without this,
+          // Vite's resolver would try to resolve from the \0-prefixed virtual
+          // path and fail to locate the package.
+          //
+          // IMPORTANT: Skip this.resolve() for IDs that match a configured alias
+          // prefix, because calling this.resolve() would re-trigger the alias plugin
+          // and double-apply the alias (e.g., @pkg/src → @pkg/src/src).
           if (!id.startsWith("./") && !id.startsWith("../") && !id.startsWith("/")) {
+            const matchesAlias = cssAliasRules.some(
+              (rule) => id === rule.find || id.startsWith(rule.find + "/"),
+            );
+            if (!matchesAlias) {
+              try {
+                const resolved = await this.resolve(id, cleanImporter, { skipSelf: true });
+                if (resolved) {
+                  logger.log(`resolveId: resolved bare ${id} to ${resolved.id} via Vite resolver`);
+                  if (isBuild && resolved.id.startsWith("/@fs/")) {
+                    return { ...resolved, id: normalizeFsIdForBuild(resolved.id) };
+                  }
+                  return resolved;
+                }
+              } catch {
+                // Fall through — let other plugins or Vite's built-in resolver handle it
+              }
+            }
             return null;
           }
 
@@ -769,11 +787,17 @@ export function vize(options: VizeOptions = {}): Plugin[] {
         return allCss;
       }
 
-      // Strip the \0 prefix and .module.{lang} suffix for CSS module virtual IDs
+      // Strip the \0 prefix and the appended extension suffix for style virtual IDs.
+      // resolveId appends .{lang} or .module.{lang} to style IDs for Vite's CSS pipeline.
+      // Here we reverse that to get the original style query ID for content lookup.
+      //   \0...?vue=&type=style&...&module=.module.scss → ...?vue=&type=style&...&module=
+      //   \0...?vue=&type=style&...&lang=scss.scss     → ...?vue=&type=style&...&lang=scss
       let styleId = id;
-      if (id.startsWith("\0") && /\.module\.\w+$/.test(id)) {
-        // e.g. \0Component.vue?vue=&type=style&...&module=.module.scss -> Component.vue?vue=&type=style&...&module=
-        styleId = id.slice(1).replace(/\.module\.\w+$/, "");
+      if (id.startsWith("\0") && id.includes("?vue")) {
+        styleId = id
+          .slice(1) // strip \0
+          .replace(/\.module\.\w+$/, "") // strip .module.{lang}
+          .replace(/\.\w+$/, ""); // strip .{lang}
       }
 
       if (styleId.includes("?vue&type=style") || styleId.includes("?vue=&type=style")) {
