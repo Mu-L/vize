@@ -213,7 +213,7 @@ impl<'a> GlyphFormatter<'a> {
         lang: &Option<std::borrow::Cow<'_, str>>,
     ) -> Result<(), FormatError> {
         // Use lightningcss for plain CSS; for preprocessor languages, just trim
-        let is_plain_css = lang.as_ref().map_or(true, |l| l.as_ref() == "css");
+        let is_plain_css = lang.as_ref().is_none_or(|l| l.as_ref() == "css");
         let formatted_content = if is_plain_css {
             style::format_style_content(content, self.options)
                 .unwrap_or_else(|_| content.trim().to_string())

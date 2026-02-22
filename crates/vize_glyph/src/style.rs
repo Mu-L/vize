@@ -17,13 +17,7 @@ pub fn format_style_content(source: &str, options: &FormatOptions) -> Result<Str
     let stylesheet = StyleSheet::parse(trimmed, ParserOptions::default())
         .map_err(|e| FormatError::StyleFormatError(e.to_string()))?;
 
-    let indent_width = if options.use_tabs {
-        // lightningcss doesn't support tabs directly; use tab_width spaces
-        // and we'll convert later if needed
-        options.tab_width as u8
-    } else {
-        options.tab_width
-    };
+    let indent_width = options.tab_width;
 
     let printer_options = PrinterOptions {
         minify: false,
