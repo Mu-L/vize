@@ -15,6 +15,7 @@ const theme = computed<"dark" | "light">(() => _injectedTheme?.value ?? "light")
 
 const source = ref(GLYPH_PRESET);
 const formatResult = ref<FormatResult | null>(null);
+const formatKey = ref(0);
 const error = ref<string | null>(null);
 const formatTime = ref<number | null>(null);
 const activeTab = ref<"formatted" | "diff" | "options">("formatted");
@@ -95,6 +96,7 @@ async function format() {
     }
     const result = compiler.formatSfc(source.value, opts);
     formatResult.value = result;
+    formatKey.value++;
     formatTime.value = performance.now() - startTime;
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
@@ -106,25 +108,18 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text);
 }
 
-function applyFormatted() {
-  if (formatResult.value) {
-    source.value = formatResult.value.code;
-  }
-}
-
 let formatTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(
   [source, options],
   () => {
+    if (!getWasm()) return;
     if (formatTimer) clearTimeout(formatTimer);
     formatTimer = setTimeout(format, 300);
   },
-  { immediate: true, deep: true },
+  { deep: true },
 );
 
-// Workaround for vite-plugin-vize prop reactivity issue
-// Use getWasm() directly instead of props since prop updates aren't detected
 let hasInitialized = false;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -223,9 +218,6 @@ onUnmounted(() => {
             <div class="output-header-bar">
               <span class="output-title">Formatted Code</span>
               <div class="output-actions">
-                <button v-if="formatResult?.changed" @click="applyFormatted" class="btn-apply">
-                  Apply Changes
-                </button>
                 <button @click="copyToClipboard(formatResult?.code || '')" class="btn-ghost">
                   Copy
                 </button>
@@ -233,6 +225,7 @@ onUnmounted(() => {
             </div>
             <div class="code-container">
               <CodeHighlight
+                :key="formatKey"
                 :code="formatResult.code"
                 language="html"
                 show-line-numbers
@@ -603,8 +596,8 @@ onUnmounted(() => {
 .perf-badge {
   font-size: 0.625rem;
   padding: 0.125rem 0.375rem;
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--color-success-bg);
+  color: var(--color-success);
   border-radius: 3px;
   font-family: "JetBrains Mono", monospace;
 }
@@ -618,13 +611,13 @@ onUnmounted(() => {
 }
 
 .status-badge.changed {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .status-badge.unchanged {
-  background: rgba(74, 222, 128, 0.2);
-  color: #4ade80;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .panel-actions {
@@ -688,16 +681,16 @@ onUnmounted(() => {
 
 /* Error State */
 .error-panel {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .error-header {
   padding: 0.5rem 0.75rem;
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -705,7 +698,7 @@ onUnmounted(() => {
 .error-content {
   padding: 0.75rem;
   font-size: 0.75rem;
-  color: #fca5a5;
+  color: var(--color-error);
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
@@ -717,8 +710,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
-  background: linear-gradient(135deg, rgba(163, 72, 40, 0.15), rgba(217, 119, 6, 0.15));
-  border: 1px solid rgba(163, 72, 40, 0.3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
   border-radius: 4px 4px 0 0;
   border-bottom: none;
 }
@@ -734,21 +727,6 @@ onUnmounted(() => {
 .output-actions {
   display: flex;
   gap: 0.5rem;
-}
-
-.btn-apply {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.625rem;
-  background: var(--accent-rust);
-  border: none;
-  border-radius: 3px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-apply:hover {
-  background: #8b3720;
 }
 
 /* Formatted Output */
@@ -786,13 +764,13 @@ onUnmounted(() => {
 }
 
 .diff-stats .additions {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .diff-stats .deletions {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .success-state {
@@ -801,7 +779,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 0.5rem;
   padding: 2rem;
-  color: #4ade80;
+  color: var(--color-success);
   font-size: 0.875rem;
 }
 
@@ -859,13 +837,13 @@ onUnmounted(() => {
 }
 
 .diff-removed {
-  background: rgba(239, 68, 68, 0.1);
-  color: #fca5a5;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .diff-added {
-  background: rgba(74, 222, 128, 0.1);
-  color: #86efac;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .line-prefix {
@@ -876,11 +854,11 @@ onUnmounted(() => {
 }
 
 .diff-removed .line-prefix {
-  color: #f87171;
+  color: var(--color-error);
 }
 
 .diff-added .line-prefix {
-  color: #4ade80;
+  color: var(--color-success);
 }
 
 .line-content {

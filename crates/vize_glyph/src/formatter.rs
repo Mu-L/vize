@@ -202,7 +202,10 @@ impl<'a> GlyphFormatter<'a> {
         // Add content with indentation if configured
         if self.options.vue_indent_script_and_style {
             let indent = self.options.indent_bytes();
-            for line in formatted_content.as_bytes().split(|&b| b == b'\n') {
+            let trimmed = formatted_content
+                .trim_end_matches('\n')
+                .trim_end_matches('\r');
+            for line in trimmed.as_bytes().split(|&b| b == b'\n') {
                 if !line.is_empty() && line != b"\r" {
                     output.extend_from_slice(indent);
                 }
@@ -243,7 +246,10 @@ impl<'a> GlyphFormatter<'a> {
 
         // Template content is always indented by one level from the template tag
         let indent = self.options.indent_bytes();
-        for line in formatted_content.as_bytes().split(|&b| b == b'\n') {
+        let trimmed = formatted_content
+            .trim_end_matches('\n')
+            .trim_end_matches('\r');
+        for line in trimmed.as_bytes().split(|&b| b == b'\n') {
             if !line.is_empty() && line != b"\r" {
                 output.extend_from_slice(indent);
             }
@@ -291,7 +297,10 @@ impl<'a> GlyphFormatter<'a> {
         // Add content with indentation if configured
         if self.options.vue_indent_script_and_style {
             let indent = self.options.indent_bytes();
-            for line in formatted_content.as_bytes().split(|&b| b == b'\n') {
+            let trimmed = formatted_content
+                .trim_end_matches('\n')
+                .trim_end_matches('\r');
+            for line in trimmed.as_bytes().split(|&b| b == b'\n') {
                 if !line.is_empty() && line != b"\r" {
                     output.extend_from_slice(indent);
                 }
@@ -300,7 +309,9 @@ impl<'a> GlyphFormatter<'a> {
             }
         } else {
             output.extend_from_slice(formatted_content.as_bytes());
-            output.extend_from_slice(self.options.newline_bytes());
+            if !formatted_content.ends_with('\n') {
+                output.extend_from_slice(self.options.newline_bytes());
+            }
         }
 
         output.extend_from_slice(b"</style>");
