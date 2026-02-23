@@ -128,8 +128,37 @@ export default defineNuxtModule<VizeNuxtOptions>({
           }
         }
 
-        // 2. Composable auto-imports: inject useRoute, ref, computed, etc.
+        // 2. i18n function injection: inject useI18n() for $t, $rt, $d, $n, $tm, $te
+        // @nuxtjs/i18n's TransformI18nFunctionPlugin skips \0-prefixed IDs.
+        // Must inject inside the setup() function body, not at module top level.
+        const i18nFnRe = /\$([tdn]|rt|tm|te)\s*\(/;
+        if (i18nFnRe.test(result) && !result.includes("useI18n")) {
+          const i18nMap: Record<string, string> = {
+            $t: "t: $t", $rt: "rt: $rt", $d: "d: $d",
+            $n: "n: $n", $tm: "tm: $tm", $te: "te: $te",
+          };
+          const usedFns: string[] = [];
+          for (const [fn, destructure] of Object.entries(i18nMap)) {
+            // Escape $ for regex
+            if (new RegExp(`\\${fn}\\s*\\(`).test(result)) {
+              usedFns.push(destructure);
+            }
+          }
+          if (usedFns.length > 0) {
+            // Find the setup function opening brace to inject inside it
+            const setupMatch = result.match(/setup\s*\(__props[\s\S]*?\)\s*\{/);
+            if (setupMatch && setupMatch.index !== undefined) {
+              const insertPos = setupMatch.index + setupMatch[0].length;
+              const injection = `\nconst { ${usedFns.join(", ")} } = useI18n();\n`;
+              result = result.slice(0, insertPos) + injection + result.slice(insertPos);
+              changed = true;
+            }
+          }
+        }
+
+        // 3. Composable auto-imports: inject useRoute, ref, computed, useI18n, etc.
         // Nuxt's unimport TransformPlugin normally does this, but skips \0-prefixed IDs.
+        // Runs after i18n injection so unimport picks up the `useI18n` reference.
         if (unimportCtx) {
           try {
             const injected = await unimportCtx.injectImports(result, id);
@@ -144,6 +173,28 @@ export default defineNuxtModule<VizeNuxtOptions>({
 
         if (changed) {
           return { code: result, map: null };
+        }
+      },
+    });
+
+    // ─── UnoCSS bridge: patch filter to accept vize virtual modules ────────
+    // UnoCSS's Vite plugin uses createFilter from unplugin-utils which
+    // hard-excludes \0-prefixed module IDs. Patch the transform functions
+    // to strip the \0 prefix so UnoCSS can extract utility classes.
+    addVitePlugin({
+      name: "vizejs:unocss-bridge",
+      configResolved(config: { plugins: Array<{ name: string; transform?: Function }> }) {
+        for (const plugin of config.plugins) {
+          if (plugin.name?.startsWith("unocss:") && typeof plugin.transform === "function") {
+            const origTransform = plugin.transform;
+            plugin.transform = function (code: string, id: string, ...args: unknown[]) {
+              if (id.startsWith("\0") && id.endsWith(".vue.ts")) {
+                // Strip \0 prefix so UnoCSS's filter doesn't reject it
+                return origTransform.call(this, code, id.slice(1), ...args);
+              }
+              return origTransform.call(this, code, id, ...args);
+            };
+          }
         }
       },
     });

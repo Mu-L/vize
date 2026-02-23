@@ -237,6 +237,18 @@ const apps: AppConfig[] = [
         stdio: "inherit",
         timeout: 120_000,
       });
+      console.log("[misskey:setup] building misskey-js package...");
+      execSync("npx pnpm@10 --filter misskey-js build", {
+        cwd: misskeyDir,
+        stdio: "inherit",
+        timeout: 120_000,
+      });
+      console.log("[misskey:setup] building frontend-shared package...");
+      execSync("npx pnpm@10 --filter frontend-shared build", {
+        cwd: misskeyDir,
+        stdio: "inherit",
+        timeout: 120_000,
+      });
 
       // 6. Create @vizejs symlinks
       createVizeSymlinks(path.join(misskeyDir, "node_modules"));
