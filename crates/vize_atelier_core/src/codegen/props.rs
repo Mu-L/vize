@@ -250,6 +250,7 @@ fn generate_props_object_inner(
     };
 
     // Check for static class/style that need to be merged with dynamic
+    ctx.push("/* __INNER_REACHED__ */");
     let static_class = props.iter().find_map(|p| {
         if let PropNode::Attribute(attr) = p {
             if attr.name == "class" {
@@ -861,7 +862,7 @@ pub fn generate_directive_prop_with_static(
                     // Merge static class if present (needed even inside mergeProps)
                     if let Some(static_val) = static_class {
                         ctx.push("[\"");
-                        ctx.push(static_val);
+                        ctx.push(&escape_js_string(static_val));
                         ctx.push("\", ");
                         generate_expression(ctx, exp);
                         ctx.push("]");

@@ -212,10 +212,10 @@ fn add_scope_id_to_template(template_line: &str, scope_id: &str) -> String {
     template_line.to_string()
 }
 
-/// State for tracking string/template literal context across multiple lines.
-/// Required because template literals (backtick strings) can span multiple lines,
-/// and `${...}` expressions within them contain code-mode braces that must be
-/// distinguished from surrounding code braces.
+/// State for tracking string/template literal/comment context across multiple lines.
+/// Required because template literals (backtick strings) and block comments can span
+/// multiple lines, and `${...}` expressions within template literals contain code-mode
+/// braces that must be distinguished from surrounding code braces.
 #[derive(Clone)]
 struct StringTrackState {
     /// Whether we're inside a string literal (regular or template literal text portion)
@@ -229,6 +229,10 @@ struct StringTrackState {
     /// When a `}` is encountered and the top depth is 0, the expression ends
     /// and we return to the enclosing template literal text.
     template_expr_brace_stack: Vec<i32>,
+    /// Whether we're inside a `/* ... */` block comment.
+    /// Block comments can span multiple lines and may contain quote characters
+    /// (e.g., `doesn't`) that must not be treated as string delimiters.
+    in_block_comment: bool,
 }
 
 impl Default for StringTrackState {
@@ -238,13 +242,14 @@ impl Default for StringTrackState {
             string_char: '\0',
             escape: false,
             template_expr_brace_stack: Vec::new(),
+            in_block_comment: false,
         }
     }
 }
 
 /// Count net brace depth change ({ minus }) in a line, properly tracking
-/// string literals and template literal `${...}` expressions.
-/// State is carried across lines to handle multiline template literals.
+/// string literals, block comments, and template literal `${...}` expressions.
+/// State is carried across lines to handle multiline template literals and comments.
 fn count_braces_with_state(line: &str, state: &mut StringTrackState) -> i32 {
     let mut count: i32 = 0;
     let chars: Vec<char> = line.chars().collect();
@@ -256,6 +261,17 @@ fn count_braces_with_state(line: &str, state: &mut StringTrackState) -> i32 {
 
         if state.escape {
             state.escape = false;
+            i += 1;
+            continue;
+        }
+
+        // Inside a block comment: skip everything until */
+        if state.in_block_comment {
+            if ch == '*' && i + 1 < len && chars[i + 1] == '/' {
+                state.in_block_comment = false;
+                i += 2; // Skip both * and /
+                continue;
+            }
             i += 1;
             continue;
         }
@@ -286,6 +302,16 @@ fn count_braces_with_state(line: &str, state: &mut StringTrackState) -> i32 {
         } else {
             // Not in string - we're in code mode
             match ch {
+                '/' if i + 1 < len && chars[i + 1] == '*' => {
+                    // Enter block comment /*
+                    state.in_block_comment = true;
+                    i += 2; // Skip both / and *
+                    continue;
+                }
+                '/' if i + 1 < len && chars[i + 1] == '/' => {
+                    // Line comment // — skip rest of line
+                    break;
+                }
                 '\'' | '"' => {
                     state.in_string = true;
                     state.string_char = ch;
@@ -338,8 +364,8 @@ fn count_braces_outside_strings(line: &str) -> i32 {
 }
 
 /// Count net paren depth change (( minus )) in a line, properly tracking
-/// string literals and template literal `${...}` expressions.
-/// State is carried across lines to handle multiline template literals.
+/// string literals, block comments, and template literal `${...}` expressions.
+/// State is carried across lines to handle multiline template literals and comments.
 fn count_parens_with_state(line: &str, state: &mut StringTrackState) -> i32 {
     let mut count: i32 = 0;
     let chars: Vec<char> = line.chars().collect();
@@ -351,6 +377,17 @@ fn count_parens_with_state(line: &str, state: &mut StringTrackState) -> i32 {
 
         if state.escape {
             state.escape = false;
+            i += 1;
+            continue;
+        }
+
+        // Inside a block comment: skip everything until */
+        if state.in_block_comment {
+            if ch == '*' && i + 1 < len && chars[i + 1] == '/' {
+                state.in_block_comment = false;
+                i += 2; // Skip both * and /
+                continue;
+            }
             i += 1;
             continue;
         }
@@ -377,6 +414,16 @@ fn count_parens_with_state(line: &str, state: &mut StringTrackState) -> i32 {
         } else {
             // Not in string - we're in code mode
             match ch {
+                '/' if i + 1 < len && chars[i + 1] == '*' => {
+                    // Enter block comment /*
+                    state.in_block_comment = true;
+                    i += 2; // Skip both / and *
+                    continue;
+                }
+                '/' if i + 1 < len && chars[i + 1] == '/' => {
+                    // Line comment // — skip rest of line
+                    break;
+                }
                 '\'' | '"' => {
                     state.in_string = true;
                     state.string_char = ch;

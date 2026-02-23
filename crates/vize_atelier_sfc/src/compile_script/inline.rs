@@ -68,6 +68,7 @@ fn strip_comments_for_counting(line: &str) -> String {
 }
 
 /// Compile script setup with inline template (Vue's inline template mode)
+#[allow(clippy::too_many_arguments)]
 pub fn compile_script_setup_inline(
     content: &str,
     component_name: &str,

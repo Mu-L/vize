@@ -457,6 +457,41 @@ function startDevServer(app: AppConfig): ChildProcess {
   return proc;
 }
 
+function ensurePortFree(port: number): Promise<void> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host: "127.0.0.1" }, () => {
+      socket.destroy();
+      // Port is in use — try to kill whatever is listening
+      console.log(`[warn] Port ${port} is in use, attempting to free it...`);
+      try {
+        execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { timeout: 5000 });
+      } catch {
+        // ignore
+      }
+      setTimeout(resolve, 2000);
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve(); // Port is free
+    });
+  });
+}
+
+async function waitForHttpReady(url: string, port: number, maxRetries = 10): Promise<void> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.status < 500) {
+        return;
+      }
+    } catch {
+      // retry
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  console.log(`[warn] HTTP health check did not succeed for ${url} after ${maxRetries} retries`);
+}
+
 function killProcess(proc: ChildProcess): void {
   if (proc.pid) {
     try {
@@ -528,6 +563,9 @@ for (const app of apps) {
         app.setup();
       }
 
+      // Ensure the port is free before starting the dev server
+      await ensurePortFree(app.port);
+
       console.log(`Starting dev server for ${app.name}...`);
       devServer = startDevServer(app);
 
@@ -537,6 +575,9 @@ for (const app of apps) {
 
       console.log(`Waiting for ${app.name} server to be ready (port ${app.port})...`);
       await waitForServerReady(devServer, app.port, app.readyPattern, app.startupTimeout, app.readyDelay);
+
+      // Verify the server responds with HTTP before proceeding
+      await waitForHttpReady(app.url, app.port);
       console.log(`${app.name} server is ready`);
     });
 
