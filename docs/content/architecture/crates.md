@@ -53,7 +53,7 @@ Key dependencies: `oxc_parser`, `oxc_ast`, `oxc_span`, `oxc_allocator`, `dashmap
 
 ## Compilation Crates
 
-### vize_atelier_core
+### vize\_atelier\_core
 
 **The Core Workshop** — Shared transforms and code generation utilities used by all compilation backends.
 
@@ -62,7 +62,7 @@ Key dependencies: `oxc_parser`, `oxc_ast`, `oxc_span`, `oxc_allocator`, `dashmap
 - **Source map generation** — Maps generated JavaScript back to the original `.vue` source for debugging.
 - **OXC integration** — Full OXC stack (`oxc_parser`, `oxc_ast`, `oxc_codegen`, `oxc_semantic`, `oxc_transformer`) for JavaScript/TypeScript code generation and transformation.
 
-### vize_atelier_dom
+### vize\_atelier\_dom
 
 **The DOM Workshop** — Generates code targeting Vue's virtual DOM runtime.
 
@@ -71,7 +71,7 @@ Key dependencies: `oxc_parser`, `oxc_ast`, `oxc_span`, `oxc_allocator`, `dashmap
 - **Static hoisting** — Lifts static subtrees out of the render function into module-level constants, avoiding re-creation on every render.
 - **Block tree optimization** — Uses `openBlock()`/`createBlock()` for optimized VDOM patching.
 
-### vize_atelier_vapor
+### vize\_atelier\_vapor
 
 **The Vapor Workshop** — Generates code targeting Vue 3.6's Vapor mode.
 
@@ -80,7 +80,7 @@ Key dependencies: `oxc_parser`, `oxc_ast`, `oxc_span`, `oxc_allocator`, `dashmap
 - **No runtime overhead** — Vapor components have zero VDOM overhead. Only the reactive subscriptions and their effects exist at runtime.
 - **Template-level optimization** — Analyzes the template to determine the minimal set of reactive effects needed.
 
-### vize_atelier_sfc
+### vize\_atelier\_sfc
 
 **The SFC Workshop** — Orchestrates the compilation of complete Single File Components.
 
@@ -92,7 +92,7 @@ Key dependencies: `oxc_parser`, `oxc_ast`, `oxc_span`, `oxc_allocator`, `dashmap
 
 Key dependencies: all `vize_atelier_*` crates + `lightningcss` + full OXC stack
 
-### vize_atelier_ssr
+### vize\_atelier\_ssr
 
 **The SSR Workshop** — Generates code optimized for server-side rendering.
 
