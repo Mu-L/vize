@@ -389,6 +389,11 @@ pub struct SfcCompileOptions {
 
     /// Style compile options
     pub style: StyleCompileOptions,
+
+    /// External scope ID (8-char hex, without "data-v-" prefix).
+    /// When provided, this scope ID is used instead of generating one from the filename.
+    /// This ensures consistency with the JS-side scope ID generation (SHA-256).
+    pub scope_id: Option<String>,
 }
 
 /// Script compile options

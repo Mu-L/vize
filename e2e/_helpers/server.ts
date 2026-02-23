@@ -1,0 +1,191 @@
+import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { createConnection } from "node:net";
+import type { AppConfig } from "./apps";
+
+const VITE_PLUS_BIN = `${process.env.HOME ?? ""}/.vite-plus/bin`;
+
+export function waitForServerReady(
+  proc: ChildProcess,
+  port: number,
+  readyPattern: RegExp,
+  timeout: number,
+  readyDelay?: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeout;
+    let resolved = false;
+    let processExited = false;
+
+    function checkDone() {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    }
+
+    function checkFailed(reason: string) {
+      if (resolved) return;
+      resolved = true;
+      reject(new Error(reason));
+    }
+
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+    const onData = (data: Buffer) => {
+      const text = stripAnsi(data.toString());
+      if (readyPattern.test(text)) {
+        setTimeout(checkDone, readyDelay ?? 1000);
+      }
+    };
+    proc.stdout?.on("data", onData);
+    proc.stderr?.on("data", onData);
+
+    proc.on("exit", (code) => {
+      processExited = true;
+      checkFailed(`Dev server process exited with code ${code} before becoming ready`);
+    });
+
+    function attemptTcp() {
+      if (resolved || processExited) return;
+      if (Date.now() > deadline) {
+        checkFailed(`Server did not become ready within ${timeout}ms (port ${port})`);
+        return;
+      }
+      const socket = createConnection({ port, host: "127.0.0.1" }, () => {
+        socket.destroy();
+        checkDone();
+      });
+      socket.on("error", () => {
+        socket.destroy();
+        setTimeout(attemptTcp, 2000);
+      });
+    }
+
+    setTimeout(attemptTcp, 3000);
+  });
+}
+
+export function startDevServer(app: AppConfig): ChildProcess {
+  const env = {
+    ...process.env,
+    PATH: `${VITE_PLUS_BIN}:${process.env.PATH}`,
+    NODE_ENV: "development",
+    BROWSER: "none",
+    ...app.env,
+  };
+
+  const proc = spawn(app.command, app.args, {
+    cwd: app.cwd,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+
+  proc.stdout?.on("data", (data: Buffer) => {
+    const line = data.toString().trim();
+    if (line) console.log(`[${app.name}:stdout] ${line}`);
+  });
+
+  proc.stderr?.on("data", (data: Buffer) => {
+    const line = data.toString().trim();
+    if (line) console.log(`[${app.name}:stderr] ${line}`);
+  });
+
+  return proc;
+}
+
+export function startPreviewServer(app: AppConfig): ChildProcess {
+  if (!app.preview) throw new Error(`No preview config for ${app.name}`);
+
+  const env = {
+    ...process.env,
+    PATH: `${VITE_PLUS_BIN}:${process.env.PATH}`,
+    NODE_ENV: "production",
+    ...app.env,
+  };
+
+  const proc = spawn(app.preview.command, app.preview.args, {
+    cwd: app.cwd,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+
+  proc.stdout?.on("data", (data: Buffer) => {
+    const line = data.toString().trim();
+    if (line) console.log(`[${app.name}:preview:stdout] ${line}`);
+  });
+
+  proc.stderr?.on("data", (data: Buffer) => {
+    const line = data.toString().trim();
+    if (line) console.log(`[${app.name}:preview:stderr] ${line}`);
+  });
+
+  return proc;
+}
+
+export function ensurePortFree(port: number): Promise<void> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host: "127.0.0.1" }, () => {
+      socket.destroy();
+      console.log(`[warn] Port ${port} is in use, attempting to free it...`);
+      try {
+        execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { timeout: 5000 });
+      } catch {
+        // ignore
+      }
+      setTimeout(resolve, 2000);
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve();
+    });
+  });
+}
+
+export async function waitForHttpReady(url: string, _port: number, maxRetries = 10): Promise<void> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.status < 500) {
+        return;
+      }
+    } catch {
+      // retry
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  console.log(`[warn] HTTP health check did not succeed for ${url} after ${maxRetries} retries`);
+}
+
+export function killProcess(proc: ChildProcess | undefined): void {
+  if (proc?.pid) {
+    try {
+      process.kill(-proc.pid, "SIGTERM");
+    } catch {
+      try {
+        proc.kill("SIGTERM");
+      } catch {
+        // already dead
+      }
+    }
+  }
+}
+
+export function runBuild(app: AppConfig): void {
+  if (!app.build) throw new Error(`No build config for ${app.name}`);
+
+  const env = {
+    ...process.env,
+    PATH: `${VITE_PLUS_BIN}:${process.env.PATH}`,
+    NODE_ENV: "production",
+    ...app.env,
+  };
+
+  console.log(`[${app.name}] Running build: ${app.build.command} ${app.build.args.join(" ")}`);
+  execSync(`${app.build.command} ${app.build.args.join(" ")}`, {
+    cwd: app.cwd,
+    env,
+    stdio: "inherit",
+    timeout: app.build.timeout,
+  });
+  console.log(`[${app.name}] Build completed`);
+}

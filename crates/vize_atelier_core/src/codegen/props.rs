@@ -250,7 +250,6 @@ fn generate_props_object_inner(
     };
 
     // Check for static class/style that need to be merged with dynamic
-    ctx.push("/* __INNER_REACHED__ */");
     let static_class = props.iter().find_map(|p| {
         if let PropNode::Attribute(attr) = p {
             if attr.name == "class" {

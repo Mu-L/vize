@@ -280,12 +280,19 @@ pub fn compile_sfc(
     let has_scoped = descriptor.styles.iter().any(|s| s.scoped);
     let is_ts = opts.is_ts.unwrap_or(false);
 
+    // Extract scope_id from options (strip "data-v-" prefix if present)
+    let external_scope_id = opts.scope_id.as_ref().map(|sid| {
+        sid.strip_prefix("data-v-")
+            .unwrap_or(sid)
+            .to_string()
+    });
+
     // Create compiler options with scope_id for scoped CSS
     let template_compiler_options = if has_scoped {
-        opts.scope_id
+        external_scope_id
             .as_ref()
             .map(|scope_id| vize_atelier_dom::DomCompilerOptions {
-                scope_id: Some(scope_id.clone().into()),
+                scope_id: Some(format!("data-v-{}", scope_id).into()),
                 ..Default::default()
             })
     } else {
@@ -315,6 +322,7 @@ pub fn compile_sfc(
             scoped: has_scoped,
             ..Default::default()
         },
+        scope_id: external_scope_id,
     };
 
     match sfc_compile(&descriptor, compile_opts) {
@@ -511,6 +519,7 @@ pub fn compile_sfc_batch(
                 scoped: has_scoped,
                 ..Default::default()
             },
+            scope_id: None,
         };
 
         match sfc_compile(&descriptor, compile_opts) {
@@ -571,13 +580,12 @@ pub fn compile_sfc_batch_with_results(
         let filename = &file.path;
         let source = &file.source;
 
-        // Generate scope ID from filename
+        // Generate scope ID from filename using SHA-256 (matching JS-side generateScopeId)
         let scope_id = {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            filename.hash(&mut hasher);
-            format!("{:08x}", hasher.finish() & 0xFFFFFFFF)
+            use sha2::{Sha256, Digest};
+            let hash = Sha256::digest(filename.as_bytes());
+            // Take first 8 hex chars of the SHA-256 hash (same as JS: hash.slice(0, 8))
+            format!("{:02x}{:02x}{:02x}{:02x}", hash[0], hash[1], hash[2], hash[3])
         };
 
         let has_scoped = source.contains("<style") && source.contains("scoped");
@@ -650,6 +658,7 @@ pub fn compile_sfc_batch_with_results(
                 scoped: actual_has_scoped,
                 ..Default::default()
             },
+            scope_id: Some(scope_id.clone()),
         };
 
         match sfc_compile(&descriptor, compile_opts) {

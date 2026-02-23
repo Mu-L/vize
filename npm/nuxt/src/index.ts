@@ -57,6 +57,17 @@ export default defineNuxtModule<VizeNuxtOptions>({
     // Compiler
     if (options.compiler !== false) {
       nuxt.options.vite.plugins.push(vize());
+
+      // Disable Nuxt's built-in @vitejs/plugin-vue when vize is active.
+      // Both plugins handle .vue files; if both are active, @vitejs/plugin-vue
+      // may try to read vize's \0-prefixed virtual module IDs via fs.readFileSync,
+      // causing "path must not contain null bytes" errors.
+      nuxt.hook("vite:extendConfig", (config) => {
+        config.plugins = config.plugins?.filter((p) => {
+          const name = p && typeof p === "object" && "name" in p ? (p as { name: string }).name : "";
+          return name !== "vite:vue";
+        });
+      });
     }
 
     // ─── Bridge: Apply Nuxt transforms to vize virtual modules ────────────

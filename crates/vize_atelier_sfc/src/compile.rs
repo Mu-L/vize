@@ -28,8 +28,12 @@ pub fn compile_sfc(
 
     let filename = options.script.id.as_deref().unwrap_or("anonymous.vue");
 
-    // Generate scope ID from filename
-    let scope_id = generate_scope_id(filename);
+    // Use externally-provided scope ID if available, otherwise generate from filename.
+    // The external scope ID ensures consistency with JS-side SHA-256 generation.
+    let scope_id = options
+        .scope_id
+        .clone()
+        .unwrap_or_else(|| generate_scope_id(filename));
     let has_scoped = descriptor.styles.iter().any(|s| s.scoped);
 
     // Detect vapor mode from script attrs

@@ -326,6 +326,7 @@ impl Compiler {
                 scoped: descriptor.styles.iter().any(|s| s.scoped),
                 ..Default::default()
             },
+            scope_id: None,
         };
 
         // Compile the full SFC
