@@ -2,6 +2,9 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: "smoke.spec.ts",
+  // Exclude submodule directories that contain their own playwright configs
+  testIgnore: ["**/npmx.dev/**", "**/elk/**", "**/misskey/**", "**/directus/**"],
   timeout: 120_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,

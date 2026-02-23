@@ -4,3 +4,6 @@
 [submodule "e2e/misskey"]
 	path = e2e/misskey
 	url = https://github.com/misskey-dev/misskey
+[submodule "e2e/npmx.dev"]
+	path = e2e/npmx.dev
+	url = https://github.com/npmx-dev/npmx.dev

@@ -8,7 +8,7 @@
  * - Type Checker: `vize check` CLI command (via `vize` bin)
  */
 
-import { defineNuxtModule } from "@nuxt/kit";
+import { defineNuxtModule, addVitePlugin } from "@nuxt/kit";
 import vize from "@vizejs/vite-plugin";
 import { musea } from "@vizejs/vite-plugin-musea";
 import type { MuseaOptions } from "@vizejs/vite-plugin-musea";
@@ -58,6 +58,95 @@ export default defineNuxtModule<VizeNuxtOptions>({
     if (options.compiler !== false) {
       nuxt.options.vite.plugins.push(vize());
     }
+
+    // ─── Bridge: Apply Nuxt transforms to vize virtual modules ────────────
+    // Nuxt's auto-import (unimport) and component loader (LoaderPlugin) use
+    // unplugin-utils/createFilter which hard-excludes \0-prefixed module IDs.
+    // Since vize uses \0-prefixed virtual IDs (Rollup convention), those
+    // transforms never run on vize-compiled modules. This bridge plugin
+    // fills the gap by applying the same transforms in a post-processing step.
+
+    // Capture unimport context for composable auto-imports (useRoute, ref, computed, etc.)
+    let unimportCtx: {
+      injectImports: (code: string, id?: string) => Promise<{ code: string; s: unknown; imports: unknown[] }>;
+    } | null = null;
+    nuxt.hook("imports:context", (ctx: unknown) => {
+      unimportCtx = ctx as typeof unimportCtx;
+    });
+
+    // Capture component registry for component auto-imports (NuxtPage, NuxtLayout, etc.)
+    let nuxtComponents: Array<{
+      pascalName: string;
+      kebabName: string;
+      name: string;
+      filePath: string;
+      export: string;
+    }> = [];
+    nuxt.hook("components:extend", (comps: unknown) => {
+      nuxtComponents = comps as typeof nuxtComponents;
+    });
+
+    addVitePlugin({
+      name: "vizejs:nuxt-transform-bridge",
+      enforce: "post" as const,
+      async transform(code: string, id: string) {
+        // Only process vize virtual modules
+        if (!id.startsWith("\0") || !id.endsWith(".vue.ts")) return;
+
+        let result = code;
+        let changed = false;
+
+        // 1. Component auto-imports: replace _resolveComponent("Name") with direct imports
+        // Nuxt's LoaderPlugin normally does this, but skips \0-prefixed IDs.
+        if (nuxtComponents.length > 0) {
+          const compImports: string[] = [];
+          let counter = 0;
+          result = result.replace(
+            /_?resolveComponent\s*\(\s*["'`]([^"'`]+)["'`]\s*(?:,\s*[^)]+)?\)/g,
+            (match: string, name: string) => {
+              const comp = nuxtComponents.find(
+                (c) => c.pascalName === name || c.kebabName === name || c.name === name,
+              );
+              if (comp) {
+                const varName = `__nuxt_component_${counter++}`;
+                const exportName = comp.export || "default";
+                if (exportName === "default") {
+                  compImports.push(`import ${varName} from ${JSON.stringify(comp.filePath)};`);
+                } else {
+                  compImports.push(
+                    `import { ${exportName} as ${varName} } from ${JSON.stringify(comp.filePath)};`,
+                  );
+                }
+                return varName;
+              }
+              return match;
+            },
+          );
+          if (compImports.length > 0) {
+            result = compImports.join("\n") + "\n" + result;
+            changed = true;
+          }
+        }
+
+        // 2. Composable auto-imports: inject useRoute, ref, computed, etc.
+        // Nuxt's unimport TransformPlugin normally does this, but skips \0-prefixed IDs.
+        if (unimportCtx) {
+          try {
+            const injected = await unimportCtx.injectImports(result, id);
+            if (injected.imports && injected.imports.length > 0) {
+              result = injected.code;
+              changed = true;
+            }
+          } catch {
+            // Ignore errors — auto-imports might not be needed for all modules
+          }
+        }
+
+        if (changed) {
+          return { code: result, map: null };
+        }
+      },
+    });
 
     // Musea gallery (without nuxtMusea mock layer)
     // In Nuxt context, real composables/components are already available
