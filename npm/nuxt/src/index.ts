@@ -58,15 +58,24 @@ export default defineNuxtModule<VizeNuxtOptions>({
     if (options.compiler !== false) {
       nuxt.options.vite.plugins.push(vize());
 
-      // Disable Nuxt's built-in @vitejs/plugin-vue when vize is active.
+      // Remove Nuxt's built-in @vitejs/plugin-vue when vize is active.
       // Both plugins handle .vue files; if both are active, @vitejs/plugin-vue
       // may try to read vize's \0-prefixed virtual module IDs via fs.readFileSync,
-      // causing "path must not contain null bytes" errors.
-      nuxt.hook("vite:extendConfig", (config) => {
-        config.plugins = config.plugins?.filter((p) => {
-          const name = p && typeof p === "object" && "name" in p ? (p as { name: string }).name : "";
-          return name !== "vite:vue";
-        });
+      // causing "path must not contain null bytes" / ENOENT errors.
+      //
+      // Nuxt adds @vitejs/plugin-vue AFTER vite:extendConfig but BEFORE
+      // vite:configResolved. For the environment API path, the hook receives
+      // a shallow copy of the config, so we must MUTATE the plugins array
+      // in-place (splice) rather than replacing it (filter), so the change
+      // propagates to the original config used by createServer().
+      nuxt.hook("vite:configResolved", (config: { plugins: Array<{ name?: string }> }) => {
+        for (let i = config.plugins.length - 1; i >= 0; i--) {
+          const p = config.plugins[i];
+          const name = p && typeof p === "object" && "name" in p ? p.name : "";
+          if (name === "vite:vue") {
+            config.plugins.splice(i, 1);
+          }
+        }
       });
     }
 
