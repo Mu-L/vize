@@ -61,4 +61,3 @@ pub fn format_script_wasm(source: &str, options: JsValue) -> Result<JsValue, JsV
 pub(crate) fn parse_format_options(options: JsValue) -> vize_glyph::FormatOptions {
     serde_wasm_bindgen::from_value(options).unwrap_or_default()
 }
-
