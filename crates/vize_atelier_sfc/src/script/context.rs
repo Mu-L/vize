@@ -262,6 +262,58 @@ impl ScriptCompileContext {
         self.has_define_model_call = !self.macros.define_models.is_empty();
     }
 
+    /// Collect type definitions (interfaces and type aliases) from additional source.
+    /// Used to merge types from the normal `<script>` block into the context
+    /// so that `defineProps<TypeRef>()` can resolve type references across blocks.
+    pub fn collect_types_from(&mut self, source: &str) {
+        let allocator = Allocator::default();
+        let source_type = SourceType::from_path("script.ts").unwrap_or_default();
+        let ret = Parser::new(&allocator, source, source_type).parse();
+        if ret.panicked {
+            return;
+        }
+        for stmt in ret.program.body.iter() {
+            match stmt {
+                Statement::TSInterfaceDeclaration(iface) => {
+                    let name = iface.id.name.to_string();
+                    let body_start = iface.body.span.start as usize;
+                    let body_end = iface.body.span.end as usize;
+                    let body = source[body_start..body_end].to_string();
+                    self.interfaces.entry(name).or_insert(body);
+                }
+                Statement::TSTypeAliasDeclaration(type_alias) => {
+                    let name = type_alias.id.name.to_string();
+                    let type_start = type_alias.type_annotation.span().start as usize;
+                    let type_end = type_alias.type_annotation.span().end as usize;
+                    let type_body = source[type_start..type_end].to_string();
+                    self.type_aliases.entry(name).or_insert(type_body);
+                }
+                Statement::ExportNamedDeclaration(export_decl) => {
+                    if let Some(ref decl) = export_decl.declaration {
+                        match decl {
+                            oxc_ast::ast::Declaration::TSInterfaceDeclaration(iface) => {
+                                let name = iface.id.name.to_string();
+                                let body_start = iface.body.span.start as usize;
+                                let body_end = iface.body.span.end as usize;
+                                let body = source[body_start..body_end].to_string();
+                                self.interfaces.entry(name).or_insert(body);
+                            }
+                            oxc_ast::ast::Declaration::TSTypeAliasDeclaration(type_alias) => {
+                                let name = type_alias.id.name.to_string();
+                                let type_start = type_alias.type_annotation.span().start as usize;
+                                let type_end = type_alias.type_annotation.span().end as usize;
+                                let type_body = source[type_start..type_end].to_string();
+                                self.type_aliases.entry(name).or_insert(type_body);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// Process a statement
     fn process_statement(&mut self, stmt: &Statement<'_>, source: &str) {
         match stmt {

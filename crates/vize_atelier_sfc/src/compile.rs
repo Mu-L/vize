@@ -28,8 +28,12 @@ pub fn compile_sfc(
 
     let filename = options.script.id.as_deref().unwrap_or("anonymous.vue");
 
-    // Generate scope ID from filename
-    let scope_id = generate_scope_id(filename);
+    // Use externally-provided scope ID if available, otherwise generate from filename.
+    // The external scope ID ensures consistency with JS-side SHA-256 generation.
+    let scope_id = options
+        .scope_id
+        .clone()
+        .unwrap_or_else(|| generate_scope_id(filename));
     let has_scoped = descriptor.styles.iter().any(|s| s.scoped);
 
     // Detect vapor mode from script attrs
@@ -260,6 +264,13 @@ pub fn compile_sfc(
     let mut ctx = ScriptCompileContext::new(&script_setup.content);
     ctx.analyze();
 
+    // Merge type definitions from normal <script> block so that
+    // defineProps<TypeRef>() can resolve types defined there.
+    if has_script {
+        let script = descriptor.script.as_ref().unwrap();
+        ctx.collect_types_from(&script.content);
+    }
+
     // 3. Merge Props bindings from ScriptCompileContext (type resolution fallback)
     //    Croquis can't resolve interface references, so we take Props from the legacy analyzer
     for (name, bt) in &ctx.bindings.bindings {
@@ -268,34 +279,14 @@ pub fn compile_sfc(
         }
     }
 
-    // Also register exported bindings from normal script (e.g., export const n = 1)
-    // These are accessible in the template without _ctx. prefix
+    // Register bindings from normal <script> block.
+    // When both <script> and <script setup> exist, all imports and exported
+    // variables from the normal script are accessible in the template.
+    // This enables proper component resolution (e.g., `import { Form as PForm }`)
+    // and identifier prefix resolution (avoiding incorrect `_ctx.` prefix).
     if has_script {
         let script = descriptor.script.as_ref().unwrap();
-        let normal_ctx = ScriptCompileContext::new(&script.content);
-        // Extract exported variable names from normal script
-        for line in script.content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("export const ") || trimmed.starts_with("export let ") {
-                let rest = if let Some(r) = trimmed.strip_prefix("export const ") {
-                    r
-                } else {
-                    trimmed.strip_prefix("export let ").unwrap()
-                };
-                // Extract variable name before = or : or whitespace
-                if let Some(name_end) =
-                    rest.find(|c: char| c == '=' || c == ':' || c.is_whitespace())
-                {
-                    let name = rest[..name_end].trim();
-                    if !name.is_empty() && !name.starts_with('{') && !name.starts_with('[') {
-                        script_bindings
-                            .bindings
-                            .insert(name.to_string(), BindingType::SetupConst);
-                    }
-                }
-            }
-        }
-        drop(normal_ctx);
+        register_normal_script_bindings(&script.content, &mut script_bindings);
     }
 
     // Compile template with bindings (if present) to get the render function
@@ -353,6 +344,8 @@ pub fn compile_sfc(
             render_body: &render_body,
         },
         normal_script_content.as_deref(),
+        &descriptor.css_vars,
+        &scope_id,
     )?;
 
     // The inline mode compile_script_setup_inline generates a complete output
@@ -429,6 +422,88 @@ fn extract_component_name(filename: &str) -> String {
         .and_then(|s| s.to_str())
         .unwrap_or("anonymous")
         .to_string()
+}
+
+/// Register bindings from normal `<script>` block into `BindingMetadata`.
+///
+/// When both `<script>` and `<script setup>` exist, all imports and exported
+/// declarations from the normal script are accessible in the template.
+/// Uses OXC parser for accurate import extraction (handles `import { Form as PForm }`,
+/// default imports, namespace imports, re-exports, etc.).
+fn register_normal_script_bindings(content: &str, bindings: &mut BindingMetadata) {
+    use oxc_allocator::Allocator;
+    use oxc_ast::ast::{Declaration, ImportDeclarationSpecifier, Statement};
+    use oxc_parser::Parser;
+    use oxc_span::SourceType;
+
+    let allocator = Allocator::default();
+    let source_type = SourceType::from_path("script.ts").unwrap_or_default();
+    let ret = Parser::new(&allocator, content, source_type).parse();
+
+    if ret.panicked {
+        return;
+    }
+
+    for stmt in ret.program.body.iter() {
+        match stmt {
+            // Register import bindings: import { Foo, Bar as Baz } from '...'
+            Statement::ImportDeclaration(decl) => {
+                // Skip type-only imports (import type { ... } from '...')
+                if decl.import_kind.is_type() {
+                    continue;
+                }
+                if let Some(specifiers) = &decl.specifiers {
+                    for spec in specifiers {
+                        match spec {
+                            ImportDeclarationSpecifier::ImportSpecifier(s) => {
+                                // Skip type-only specifiers
+                                if s.import_kind.is_type() {
+                                    continue;
+                                }
+                                let local = s.local.name.to_string();
+                                bindings
+                                    .bindings
+                                    .entry(local)
+                                    .or_insert(BindingType::SetupConst);
+                            }
+                            ImportDeclarationSpecifier::ImportDefaultSpecifier(s) => {
+                                let local = s.local.name.to_string();
+                                bindings
+                                    .bindings
+                                    .entry(local)
+                                    .or_insert(BindingType::SetupConst);
+                            }
+                            ImportDeclarationSpecifier::ImportNamespaceSpecifier(s) => {
+                                let local = s.local.name.to_string();
+                                bindings
+                                    .bindings
+                                    .entry(local)
+                                    .or_insert(BindingType::SetupConst);
+                            }
+                        }
+                    }
+                }
+            }
+            // Register exported variable declarations: export const foo = ...
+            Statement::ExportNamedDeclaration(decl) => {
+                if let Some(ref declaration) = decl.declaration {
+                    if let Declaration::VariableDeclaration(var_decl) = declaration {
+                        for declarator in &var_decl.declarations {
+                            if let oxc_ast::ast::BindingPattern::BindingIdentifier(id) =
+                                &declarator.id
+                            {
+                                bindings
+                                    .bindings
+                                    .entry(id.name.to_string())
+                                    .or_insert(BindingType::SetupConst);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// Extract content from normal script block that should be preserved when both
@@ -781,6 +856,41 @@ function handlePresetChange(key: PresetKey) {}
         assert!(
             result.code.contains("handlePresetChange"),
             "Should have event handler. Got:\n{}",
+            result.code
+        );
+    }
+
+    #[test]
+    fn test_multi_statement_event_handler() {
+        let source = r#"<script setup lang="ts">
+const editDashboard = ref()
+</script>
+
+<template>
+  <div @click="
+    editDashboard = 'test';
+    console.log('done');
+  "></div>
+</template>"#;
+
+        let descriptor =
+            parse_sfc(source, SfcParseOptions::default()).expect("Failed to parse SFC");
+        let opts = SfcCompileOptions {
+            script: ScriptCompileOptions {
+                is_ts: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let result = compile_sfc(&descriptor, opts).expect("Failed to compile SFC");
+
+        eprintln!("Multi-statement event handler output:\n{}", result.code);
+
+        // Multi-statement handler should use block body { ... }, not ( ... )
+        // The concise body (editDashboard = 'test'; console.log('done');) is invalid JS
+        assert!(
+            result.code.contains("($event: any) => { "),
+            "Multi-statement handler should use block body ($event: any) => {{ ... }}. Got:\n{}",
             result.code
         );
     }

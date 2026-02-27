@@ -11,7 +11,7 @@ export default /*@__PURE__*/_defineComponent({
   __name: 'test',
   props: {
     initialState: { type: null as unknown as PropType<FormShape>, required: true },
-    onSubmit: { type: Object as PropType<(data: FormShape) => void>, required: true }
+    onSubmit: { type: Function as PropType<(data: FormShape) => void>, required: true }
   },
   setup(__props) {
 

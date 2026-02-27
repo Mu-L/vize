@@ -13,6 +13,10 @@ use vize_carton::FxHashMap;
 
 use crate::types::BindingType;
 
+/// Sentinel value for rest spread identifiers in local_to_key map.
+/// When `gen_props_access_exp` receives this, it returns just `__props`.
+const PROPS_REST_SENTINEL: &str = "\0__REST__";
+
 /// Props destructure binding info
 #[derive(Debug, Clone)]
 pub struct PropsDestructureBinding {
@@ -144,6 +148,13 @@ pub fn transform_destructured_props(
     let mut local_to_key: FxHashMap<&str, &str> = FxHashMap::default();
     for (key, binding) in &destructured.bindings {
         local_to_key.insert(binding.local.as_str(), key.as_str());
+    }
+
+    // Handle rest spread identifier: `const { a, ...rest } = defineProps()`
+    // References to `rest` should be rewritten to `__props`
+    // (e.g., `rest.foo` becomes `__props.foo`)
+    if let Some(ref rest_id) = destructured.rest_id {
+        local_to_key.insert(rest_id.as_str(), PROPS_REST_SENTINEL);
     }
 
     // Try AST-based transformation first
@@ -742,6 +753,46 @@ fn collect_from_expression<'a>(
                 rewrites,
             );
         }
+        Expression::AssignmentExpression(assign) => {
+            // Handle: target = value (e.g., title.value = alt.replace(...))
+            // Visit the right side for prop references
+            collect_from_expression(
+                &assign.right,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+            // Visit the left side for computed member access (e.g., obj[prop] = ...)
+            match &assign.left {
+                oxc_ast::ast::AssignmentTarget::StaticMemberExpression(member) => {
+                    collect_from_expression(
+                        &member.object,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                oxc_ast::ast::AssignmentTarget::ComputedMemberExpression(member) => {
+                    collect_from_expression(
+                        &member.object,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                    collect_from_expression(
+                        &member.expression,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                _ => {}
+            }
+        }
         Expression::LogicalExpression(log) => {
             collect_from_expression(&log.left, source, local_to_key, local_bindings, rewrites);
             collect_from_expression(&log.right, source, local_to_key, local_bindings, rewrites);
@@ -749,6 +800,67 @@ fn collect_from_expression<'a>(
         Expression::UnaryExpression(unary) => {
             collect_from_expression(
                 &unary.argument,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+        }
+        Expression::AwaitExpression(await_expr) => {
+            collect_from_expression(
+                &await_expr.argument,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+        }
+        Expression::NewExpression(new_expr) => {
+            collect_from_expression(
+                &new_expr.callee,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+            for arg in new_expr.arguments.iter() {
+                if let Some(e) = arg.as_expression() {
+                    collect_from_expression(e, source, local_to_key, local_bindings, rewrites);
+                }
+            }
+        }
+        Expression::SequenceExpression(seq) => {
+            for expr in seq.expressions.iter() {
+                collect_from_expression(expr, source, local_to_key, local_bindings, rewrites);
+            }
+        }
+        Expression::TaggedTemplateExpression(tagged) => {
+            collect_from_expression(&tagged.tag, source, local_to_key, local_bindings, rewrites);
+            for expr in tagged.quasi.expressions.iter() {
+                collect_from_expression(expr, source, local_to_key, local_bindings, rewrites);
+            }
+        }
+        Expression::TSNonNullExpression(ts_non_null) => {
+            collect_from_expression(
+                &ts_non_null.expression,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+        }
+        Expression::TSAsExpression(ts_as) => {
+            collect_from_expression(
+                &ts_as.expression,
+                source,
+                local_to_key,
+                local_bindings,
+                rewrites,
+            );
+        }
+        Expression::TSSatisfiesExpression(ts_satisfies) => {
+            collect_from_expression(
+                &ts_satisfies.expression,
                 source,
                 local_to_key,
                 local_bindings,
@@ -763,6 +875,66 @@ fn collect_from_expression<'a>(
                 local_bindings,
                 rewrites,
             );
+        }
+        Expression::ChainExpression(chain) => {
+            // Handle optional chaining: socialUrls?.x, foo?.bar()
+            match &chain.expression {
+                oxc_ast::ast::ChainElement::CallExpression(call) => {
+                    for arg in call.arguments.iter() {
+                        if let Some(e) = arg.as_expression() {
+                            collect_from_expression(
+                                e,
+                                source,
+                                local_to_key,
+                                local_bindings,
+                                rewrites,
+                            );
+                        }
+                    }
+                    collect_from_expression(
+                        &call.callee,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                oxc_ast::ast::ChainElement::StaticMemberExpression(member) => {
+                    collect_from_expression(
+                        &member.object,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                oxc_ast::ast::ChainElement::ComputedMemberExpression(member) => {
+                    collect_from_expression(
+                        &member.object,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                    collect_from_expression(
+                        &member.expression,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                oxc_ast::ast::ChainElement::PrivateFieldExpression(member) => {
+                    collect_from_expression(
+                        &member.object,
+                        source,
+                        local_to_key,
+                        local_bindings,
+                        rewrites,
+                    );
+                }
+                _ => {}
+            }
         }
         _ => {}
     }
@@ -797,6 +969,10 @@ fn register_binding_pattern(pattern: &BindingPattern<'_>, bindings: &mut FxHashM
 
 /// Generate prop access expression
 pub fn gen_props_access_exp(key: &str) -> String {
+    // Rest spread sentinel: just return `__props` (no property access)
+    if key == PROPS_REST_SENTINEL {
+        return "__props".to_string();
+    }
     if is_simple_identifier(key) {
         let mut out = String::with_capacity(key.len() + 8);
         out.push_str("__props.");
@@ -1441,6 +1617,50 @@ console.log(data)"#;
 do {
     console.log(count)
 } while (count > 0)"#;
+            let result = transform_destructured_props(source, &bindings);
+            insta::assert_snapshot!(result);
+        }
+
+        #[test]
+        fn test_rest_spread_member_access() {
+            // const { actions, ...props } = defineProps<{...}>()
+            // props.status should become __props.status
+            let mut bindings = PropsDestructuredBindings::default();
+            bindings.bindings.insert(
+                "actions".to_string(),
+                PropsDestructureBinding {
+                    local: "actions".to_string(),
+                    default: None,
+                },
+            );
+            bindings.rest_id = Some("props".to_string());
+
+            let source = r#"const status = computed(() => {
+    if (props.status.reblog) return props.status.reblog
+    return props.status
+})
+const rebloggedBy = computed(() => props.status.reblog ? props.status.account : null)
+console.log(actions)"#;
+            let result = transform_destructured_props(source, &bindings);
+            insta::assert_snapshot!(result);
+        }
+
+        #[test]
+        fn test_rest_spread_bare_identifier() {
+            // const { a, ...rest } = defineProps<{...}>()
+            // bare `rest` should become `__props`
+            let mut bindings = PropsDestructuredBindings::default();
+            bindings.bindings.insert(
+                "a".to_string(),
+                PropsDestructureBinding {
+                    local: "a".to_string(),
+                    default: None,
+                },
+            );
+            bindings.rest_id = Some("rest".to_string());
+
+            let source = r#"console.log(rest)
+const b = rest"#;
             let result = transform_destructured_props(source, &bindings);
             insta::assert_snapshot!(result);
         }

@@ -10,8 +10,8 @@ export default /*@__PURE__*/_defineComponent({
   __name: 'test',
   props: {
     onSuccess: { type: Function as PropType<() => void>, required: true },
-    onError: { type: Object as PropType<(error: Error) => void>, required: true },
-    transform: { type: Object as PropType<(value: string) => number>, required: true }
+    onError: { type: Function as PropType<(error: Error) => void>, required: true },
+    transform: { type: Function as PropType<(value: string) => number>, required: true }
   },
   setup(__props) {
 

@@ -60,7 +60,7 @@ const name = ref('test')
 </script>
 
 <template>
-  <Component :options="{ name, extra: 'value' }" />
+  <MyComponent :options="{ name, extra: 'value' }" />
 </template>
 """
 

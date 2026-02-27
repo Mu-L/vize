@@ -9,7 +9,7 @@ import { Fragment as _Fragment, openBlock as _openBlock, createElementBlock as _
 export default /*@__PURE__*/_defineComponent({
   __name: 'test',
   props: {
-    options: { type: Object as PropType<readonly { value: string | number; label: string }[]>, required: true }
+    options: { type: Array as PropType<readonly { value: string | number; label: string }[]>, required: true }
   },
   setup(__props) {
 

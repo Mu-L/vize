@@ -519,6 +519,18 @@ impl<'a> Parser<'a> {
         let mut dir_node = DirectiveNode::new(self.allocator, dir.name.clone(), loc);
         dir_node.raw_name = Some(dir.raw_name);
 
+        // Vue 3.4+ same-name shorthand: `:foo` without a value is `:foo="foo"`
+        // Pre-compute the shorthand expression before moving dir.arg
+        let shorthand_exp = if dir.name == "bind" && dir.value_start.is_none() {
+            if let Some((ref arg_content, arg_start, arg_end, false)) = dir.arg {
+                Some((vize_carton::camelize(arg_content), arg_start, arg_end))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         // Add argument if present
         if let Some((arg_content, arg_start, arg_end, is_dynamic)) = dir.arg {
             let arg_loc = self.create_loc(arg_start, arg_end);
@@ -544,6 +556,13 @@ impl<'a> Parser<'a> {
             let exp_node = SimpleExpressionNode::new(exp_content, false, exp_loc);
             let exp_boxed = Box::new_in(exp_node, self.allocator);
             dir_node.exp = Some(ExpressionNode::Simple(exp_boxed));
+        } else if let Some((camelized, s_start, s_end)) = shorthand_exp {
+            // Apply same-name shorthand: synthesize expression from arg name
+            let exp_loc = self.create_loc(s_start, s_end);
+            let exp_node = SimpleExpressionNode::new(&*camelized, false, exp_loc);
+            let exp_boxed = Box::new_in(exp_node, self.allocator);
+            dir_node.exp = Some(ExpressionNode::Simple(exp_boxed));
+            dir_node.shorthand = true;
         }
 
         if let Some(ref mut current) = self.current_element {

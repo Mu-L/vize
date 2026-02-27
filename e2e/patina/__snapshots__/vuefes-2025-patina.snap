@@ -1,0 +1,1285 @@
+[
+  {
+    "file": "app/app.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/OgImage/OgDefault.vue",
+    "messages": [
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 473,
+        "endLine": 1,
+        "endColumn": 722,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 484,
+        "endLine": 1,
+        "endColumn": 502,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 1291,
+        "endLine": 1,
+        "endColumn": 1310,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 3
+  },
+  {
+    "file": "app/components/OgImage/OgNameBadge.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 2633,
+        "endLine": 1,
+        "endColumn": 2660,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3174,
+        "endLine": 1,
+        "endColumn": 3210,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 4507,
+        "endLine": 1,
+        "endColumn": 4527,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 3
+  },
+  {
+    "file": "app/components/OgImage/OgSpeaker.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 1502,
+        "endLine": 1,
+        "endColumn": 1529,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 1767,
+        "endLine": 1,
+        "endColumn": 1791,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/components/OgImage/OgSponsor.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 2716,
+        "endLine": 1,
+        "endColumn": 2743,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3255,
+        "endLine": 1,
+        "endColumn": 3277,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/components/SponsorGrid.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 840,
+        "endLine": 1,
+        "endColumn": 866,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/components/button/VFButton.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/cta/VFCta.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/cta/VFSpCta.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 853,
+        "endLine": 1,
+        "endColumn": 877,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/components/cta/VFSpCtaMobileButton.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/footer/VFFooter.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/form/VFFileInput.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 1248,
+        "endLine": 1,
+        "endColumn": 1259,
+        "help": "Use shorthand prop syntax"
+      },
+      {
+        "ruleId": "vue/v-slot-style",
+        "severity": 1,
+        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
+        "line": 1,
+        "column": 1210,
+        "endLine": 1,
+        "endColumn": 1224,
+        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 1431,
+        "endLine": 1,
+        "endColumn": 1451,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 1663,
+        "endLine": 1,
+        "endColumn": 1670,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 4
+  },
+  {
+    "file": "app/components/form/VFForm.vue",
+    "messages": [
+      {
+        "ruleId": "vue/attribute-order",
+        "severity": 1,
+        "message": "[vize:vue/attribute-order] Attribute should be placed in correct order",
+        "line": 1,
+        "column": 1628,
+        "endLine": 1,
+        "endColumn": 1637,
+        "help": "Reorder attributes to follow the recommended order"
+      },
+      {
+        "ruleId": "vue/v-slot-style",
+        "severity": 1,
+        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
+        "line": 1,
+        "column": 1609,
+        "endLine": 1,
+        "endColumn": 1622,
+        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/components/form/VFInput.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 571,
+        "endLine": 1,
+        "endColumn": 578,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/components/form/VFTextarea.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 542,
+        "endLine": 1,
+        "endColumn": 549,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/components/header/VFHeader.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/heading/VFHeading.vue",
+    "messages": [
+      {
+        "ruleId": "a11y/anchor-has-content",
+        "severity": 1,
+        "message": "[vize:a11y/anchor-has-content] <a> elements must have accessible content",
+        "line": 1,
+        "column": 192,
+        "endLine": 1,
+        "endColumn": 237,
+        "help": "Fix options:\n1. Add text content:\n  <a href=\"/about\">About Us</a>\n2. Add aria-label for icon-only links:\n  <a href=\"/settings\" aria-label=\"Settings\">\n  <IconSettings />\n  </a>\n3. Include image with alt:\n  <a href=\"/\"><img src=\"logo.png\" alt=\"Home\"></a>"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 205,
+        "endLine": 1,
+        "endColumn": 220,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/components/mainVisual/MainVisual.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/mainVisual/MainVisualGraphic.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/mainVisual/MainVisualWebGL.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/menu/VFMenu.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/menu/VFMenuItem.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/menu/VFSpMenu.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/menu/VFSpMenuMobileButton.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/nameBadge/VFNameBadgePreview.vue",
+    "messages": [
+      {
+        "ruleId": "a11y/no-static-element-interactions",
+        "severity": 1,
+        "message": "[vize:a11y/no-static-element-interactions] <div> is a static element and should not have interactive event handlers",
+        "line": 1,
+        "column": 5734,
+        "endLine": 1,
+        "endColumn": 5877,
+        "help": "Why: Non-interactive elements (div, span, etc.) should not have click/keyboard handlers without a role.\nFix options:\n1. Use a native interactive element:\n  <button @click=\"handle\">Click me</button>\n2. Add role and tabindex:\n  <div role=\"button\" tabindex=\"0\" @click=\"handle\">\n  Click me\n  </div>"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 6535,
+        "endLine": 1,
+        "endColumn": 6562,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 7115,
+        "endLine": 1,
+        "endColumn": 7173,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 3
+  },
+  {
+    "file": "app/components/scrollAttention/VFScrollAttention.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/components/section/VFSection.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 456,
+        "endLine": 1,
+        "endColumn": 476,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 606,
+        "endLine": 1,
+        "endColumn": 613,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/components/toast/VFToast.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/error.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/layouts/default.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionAccess.vue",
+    "messages": [
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 620,
+        "endLine": 1,
+        "endColumn": 725,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 732,
+        "endLine": 1,
+        "endColumn": 837,
+        "help": "Use self-closing syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/pages/_components/SectionContact.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 1912,
+        "endLine": 1,
+        "endColumn": 1927,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/pages/_components/SectionEvent.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionGetYourTicket.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionGranYourGear.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionMessage.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionSpeaker.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionSponsorClosed.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionSponsorWanted.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionSponsors.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionStaff.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionStudentSupport.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionTimetable.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/SectionVolunteer.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/StaffGrid.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/_components/StaffGridItem.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 672,
+        "endLine": 1,
+        "endColumn": 687,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 837,
+        "endLine": 1,
+        "endColumn": 852,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/pages/code-of-conduct/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/event/_components/EventSpeakerCard.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 205,
+        "endLine": 1,
+        "endColumn": 228,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/pages/event/index.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 3615,
+        "endLine": 1,
+        "endColumn": 3632,
+        "help": "Use shorthand prop syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 4319,
+        "endLine": 1,
+        "endColumn": 4333,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 4724,
+        "endLine": 1,
+        "endColumn": 4738,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 5446,
+        "endLine": 1,
+        "endColumn": 5463,
+        "help": "Use shorthand prop syntax"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 8378,
+        "endLine": 1,
+        "endColumn": 8398,
+        "help": "Use self-closing syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 5
+  },
+  {
+    "file": "app/pages/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/privacy-policy/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/related-events/index.vue",
+    "messages": [
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 1524,
+        "endLine": 1,
+        "endColumn": 1623,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 1529,
+        "endLine": 1,
+        "endColumn": 1549,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 2031,
+        "endLine": 1,
+        "endColumn": 2042,
+        "help": "Move the key to the first child element inside template"
+      }
+    ],
+    "errorCount": 1,
+    "warningCount": 2
+  },
+  {
+    "file": "app/pages/speaker/[speakerId]/index.vue",
+    "messages": [
+      {
+        "ruleId": "a11y/heading-levels",
+        "severity": 1,
+        "message": "[vize:a11y/heading-levels] Heading level skipped from <h1> to <h3>",
+        "line": 1,
+        "column": 3677,
+        "endLine": 1,
+        "endColumn": 3703,
+        "help": "Heading levels should increase by one. Screen reader users navigate by heading levels, so skipping levels makes the document structure confusing."
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 3549,
+        "endLine": 1,
+        "endColumn": 3613,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3554,
+        "endLine": 1,
+        "endColumn": 3584,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 3929,
+        "endLine": 1,
+        "endColumn": 3938,
+        "help": "Move the key to the first child element inside template"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 4895,
+        "endLine": 1,
+        "endColumn": 4934,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 5169,
+        "endLine": 1,
+        "endColumn": 5203,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 5444,
+        "endLine": 1,
+        "endColumn": 5484,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 6250,
+        "endLine": 1,
+        "endColumn": 6289,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 6524,
+        "endLine": 1,
+        "endColumn": 6558,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 6799,
+        "endLine": 1,
+        "endColumn": 6839,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 7306,
+        "endLine": 1,
+        "endColumn": 7315,
+        "help": "Move the key to the first child element inside template"
+      }
+    ],
+    "errorCount": 2,
+    "warningCount": 9
+  },
+  {
+    "file": "app/pages/speaker/_components/SpeakerCard.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 785,
+        "endLine": 1,
+        "endColumn": 808,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/pages/speaker/index.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 2833,
+        "endLine": 1,
+        "endColumn": 2850,
+        "help": "Use shorthand prop syntax"
+      },
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 3211,
+        "endLine": 1,
+        "endColumn": 3228,
+        "help": "Use shorthand prop syntax"
+      },
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 3658,
+        "endLine": 1,
+        "endColumn": 3675,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 3
+  },
+  {
+    "file": "app/pages/sponsors/[sponsorId]/index.vue",
+    "messages": [
+      {
+        "ruleId": "a11y/heading-levels",
+        "severity": 1,
+        "message": "[vize:a11y/heading-levels] Heading level skipped from <h2> to <h4>",
+        "line": 1,
+        "column": 4570,
+        "endLine": 1,
+        "endColumn": 4629,
+        "help": "Heading levels should increase by one. Screen reader users navigate by heading levels, so skipping levels makes the document structure confusing."
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 3076,
+        "endLine": 1,
+        "endColumn": 3151,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3081,
+        "endLine": 1,
+        "endColumn": 3114,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 4422,
+        "endLine": 1,
+        "endColumn": 4453,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 4837,
+        "endLine": 1,
+        "endColumn": 4846,
+        "help": "Move the key to the first child element inside template"
+      }
+    ],
+    "errorCount": 1,
+    "warningCount": 4
+  },
+  {
+    "file": "app/pages/sponsors/_components/SponsorTag.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/sponsors/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/store/_components/StoreItemCard.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 389,
+        "endLine": 1,
+        "endColumn": 403,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 725,
+        "endLine": 1,
+        "endColumn": 729,
+        "help": "Use self-closing syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 2
+  },
+  {
+    "file": "app/pages/store/_components/StorePreOrderButton.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/store/index.vue",
+    "messages": [
+      {
+        "ruleId": "vue/prefer-props-shorthand",
+        "severity": 1,
+        "message": "[vize:vue/prefer-props-shorthand] Use shorthand syntax for same-name prop binding",
+        "line": 1,
+        "column": 1662,
+        "endLine": 1,
+        "endColumn": 1673,
+        "help": "Use shorthand prop syntax"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 1
+  },
+  {
+    "file": "app/pages/ticket/[userId]/edit/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/ticket/[userId]/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/ticket/index.vue",
+    "messages": [
+      {
+        "ruleId": "a11y/landmark-roles",
+        "severity": 1,
+        "message": "[vize:a11y/landmark-roles] Multiple \"region\" landmarks found without distinct labels",
+        "line": 1,
+        "column": 2071,
+        "endLine": 1,
+        "endColumn": 2104,
+        "help": "When multiple landmarks of the same type exist, each should have a unique aria-label or aria-labelledby to help users distinguish them."
+      },
+      {
+        "ruleId": "a11y/landmark-roles",
+        "severity": 1,
+        "message": "[vize:a11y/landmark-roles] Multiple \"region\" landmarks found without distinct labels",
+        "line": 1,
+        "column": 5756,
+        "endLine": 1,
+        "endColumn": 5788,
+        "help": "When multiple landmarks of the same type exist, each should have a unique aria-label or aria-labelledby to help users distinguish them."
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 2968,
+        "endLine": 1,
+        "endColumn": 3037,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 3625,
+        "endLine": 1,
+        "endColumn": 3697,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 4756,
+        "endLine": 1,
+        "endColumn": 4828,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 5429,
+        "endLine": 1,
+        "endColumn": 5504,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 6428,
+        "endLine": 1,
+        "endColumn": 6486,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      },
+      {
+        "ruleId": "ssr/no-hydration-mismatch",
+        "severity": 1,
+        "message": "[vize:ssr/no-hydration-mismatch] '.toLocaleString()' may cause hydration mismatch between server and client",
+        "line": 1,
+        "column": 7607,
+        "endLine": 1,
+        "endColumn": 7668,
+        "help": "Use useId() for unique IDs, or wrap in <ClientOnly> for client-only values"
+      }
+    ],
+    "errorCount": 0,
+    "warningCount": 8
+  },
+  {
+    "file": "app/pages/timetable/_components/TimetableCard.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 2071,
+        "endLine": 1,
+        "endColumn": 2087,
+        "help": "Move the key to the first child element inside template"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 2856,
+        "endLine": 1,
+        "endColumn": 2906,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 2861,
+        "endLine": 1,
+        "endColumn": 2884,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3537,
+        "endLine": 1,
+        "endColumn": 3549,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      }
+    ],
+    "errorCount": 1,
+    "warningCount": 3
+  },
+  {
+    "file": "app/pages/timetable/_components/TimetableCell.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 2216,
+        "endLine": 1,
+        "endColumn": 2232,
+        "help": "Move the key to the first child element inside template"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 2973,
+        "endLine": 1,
+        "endColumn": 3023,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 2978,
+        "endLine": 1,
+        "endColumn": 3001,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3654,
+        "endLine": 1,
+        "endColumn": 3666,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      }
+    ],
+    "errorCount": 1,
+    "warningCount": 3
+  },
+  {
+    "file": "app/pages/timetable/_components/TimetableHead.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  },
+  {
+    "file": "app/pages/timetable/index.vue",
+    "messages": [
+      {
+        "ruleId": "vue/no-template-key",
+        "severity": 2,
+        "message": "[vize:vue/no-template-key] <template> elements cannot have a key attribute",
+        "line": 1,
+        "column": 2871,
+        "endLine": 1,
+        "endColumn": 2883,
+        "help": "Move the key to the first child element inside template"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3453,
+        "endLine": 1,
+        "endColumn": 3546,
+        "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/html-self-closing",
+        "severity": 1,
+        "message": "[vize:vue/html-self-closing] Void element should be self-closing",
+        "line": 1,
+        "column": 3666,
+        "endLine": 1,
+        "endColumn": 3838,
+        "help": "Use self-closing syntax"
+      },
+      {
+        "ruleId": "vue/no-unsafe-url",
+        "severity": 1,
+        "message": "[vize:vue/no-unsafe-url] Dynamic :{attr} binding may be vulnerable to XSS via javascript: protocol",
+        "line": 1,
+        "column": 3681,
+        "endLine": 1,
+        "endColumn": 3767,
+        "help": "Ensure URLs are sanitized before binding to prevent XSS via javascript: protocol"
+      }
+    ],
+    "errorCount": 1,
+    "warningCount": 3
+  },
+  {
+    "file": "app/pages/tokusho/index.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
+  }
+]

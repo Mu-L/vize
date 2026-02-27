@@ -552,6 +552,8 @@ pub struct DirectiveNode<'a> {
     pub modifiers: Vec<'a, SimpleExpressionNode<'a>>,
     /// Parsed result for v-for
     pub for_parse_result: Option<ForParseResult<'a>>,
+    /// Whether this is a Vue 3.4+ same-name shorthand (`:foo` without value)
+    pub shorthand: bool,
     pub loc: SourceLocation,
 }
 
@@ -564,6 +566,7 @@ impl<'a> DirectiveNode<'a> {
             arg: None,
             modifiers: Vec::new_in(allocator),
             for_parse_result: None,
+            shorthand: false,
             loc,
         }
     }

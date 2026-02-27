@@ -66,6 +66,33 @@ fn strip_ts_comments(input: &str) -> String {
     result
 }
 
+/// Join multi-line type definitions where continuation lines start with `|` or `&`.
+/// For example:
+/// ```text
+/// type?:
+///     | 'input'
+///     | 'text';
+/// ```
+/// becomes: `type?: | 'input' | 'text';`
+fn join_union_continuation_lines(input: &str) -> String {
+    let lines: Vec<&str> = input.lines().collect();
+    let mut result = String::with_capacity(input.len());
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('|') || trimmed.starts_with('&') {
+            // Join to previous line with a space
+            result.push(' ');
+            result.push_str(trimmed);
+        } else {
+            if i > 0 {
+                result.push('\n');
+            }
+            result.push_str(line);
+        }
+    }
+    result
+}
+
 /// Extract prop types from TypeScript type definition.
 /// Returns a Vec to preserve definition order (important for matching Vue's output).
 pub fn extract_prop_types_from_type(type_args: &str) -> Vec<(String, PropTypeInfo)> {
@@ -73,7 +100,9 @@ pub fn extract_prop_types_from_type(type_args: &str) -> Vec<(String, PropTypeInf
 
     // Strip comments before parsing
     let stripped = strip_ts_comments(type_args);
-    let content = stripped.trim();
+    // Join multi-line union/intersection types (lines starting with | or &)
+    let joined = join_union_continuation_lines(&stripped);
+    let content = joined.trim();
     let content = if content.starts_with('{') && content.ends_with('}') {
         &content[1..content.len() - 1]
     } else {
@@ -110,10 +139,20 @@ pub fn extract_prop_types_from_type(type_args: &str) -> Vec<(String, PropTypeInf
                     current.push(c);
                 }
             }
-            ',' | ';' | '\n' if depth <= 0 => {
+            ',' | ';' if depth <= 0 => {
                 extract_prop_type_info(&current, &mut props);
                 current.clear();
                 depth = 0;
+            }
+            '\n' if depth <= 0 => {
+                // Don't split on newline if the current segment ends with ':' (type on next line)
+                let trimmed_current = current.trim();
+                if !trimmed_current.is_empty() && !trimmed_current.ends_with(':') {
+                    extract_prop_type_info(&current, &mut props);
+                    current.clear();
+                    depth = 0;
+                }
+                // If ends with ':', keep accumulating (type continues on next line)
             }
             _ => current.push(c),
         }
@@ -156,6 +195,81 @@ fn extract_prop_type_info(segment: &str, props: &mut Vec<(String, PropTypeInfo)>
     }
 }
 
+/// Split a type string at a delimiter only at the top level (depth 0),
+/// respecting nested `<>`, `()`, `[]`, `{}` and `=>` arrows.
+fn split_type_at_top_level(s: &str, delimiter: char) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut depth: i32 = 0;
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        let c = chars[i];
+        match c {
+            '(' | '[' | '{' | '<' => {
+                depth += 1;
+                current.push(c);
+            }
+            ')' | ']' | '}' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+                current.push(c);
+            }
+            '>' => {
+                // Don't count > as closing angle bracket when preceded by = (arrow =>)
+                if i > 0 && chars[i - 1] == '=' {
+                    current.push(c);
+                } else {
+                    if depth > 0 {
+                        depth -= 1;
+                    }
+                    current.push(c);
+                }
+            }
+            c2 if c2 == delimiter && depth == 0 => {
+                parts.push(std::mem::take(&mut current));
+            }
+            _ => current.push(c),
+        }
+        i += 1;
+    }
+    if !current.is_empty() || !parts.is_empty() {
+        parts.push(current);
+    }
+    parts
+}
+
+/// Check if a type string contains a top-level `=>` (arrow function signature).
+fn contains_top_level_arrow(s: &str) -> bool {
+    let mut depth: i32 = 0;
+    let chars: Vec<char> = s.chars().collect();
+    for i in 0..chars.len() {
+        match chars[i] {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+            }
+            '>' => {
+                if i > 0 && chars[i - 1] == '=' {
+                    // This is `=>`
+                    if depth == 0 {
+                        return true;
+                    }
+                    // Inside nested structure — don't change depth
+                } else if depth > 0 {
+                    depth -= 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Convert TypeScript type to JavaScript type constructor
 fn ts_type_to_js_type(ts_type: &str) -> String {
     let ts_type = ts_type.trim();
@@ -177,14 +291,50 @@ fn ts_type_to_js_type(ts_type: &str) -> String {
         return "Boolean".to_string();
     }
 
-    // Handle union types - take the first non-undefined/null type
-    if ts_type.contains('|') {
-        let parts: Vec<&str> = ts_type.split('|').collect();
-        for part in parts {
-            let part = part.trim();
-            if part != "undefined" && part != "null" {
-                return ts_type_to_js_type(part);
+    // Arrow function types must be detected BEFORE union splitting,
+    // because `(x: T) => A | B` is a single function type (return type is `A | B`),
+    // not a union of `(x: T) => A` and `B`.
+    // Also must come before array/object checks because `(items: T[]) => T[]`
+    // ends with `[]` and contains `:`.
+    if contains_top_level_arrow(ts_type) {
+        return "Function".to_string();
+    }
+
+    // Handle union types — split at top level only (respecting nesting).
+    // For mixed types like `string | number`, produce `[String, Number]`.
+    {
+        let parts = split_type_at_top_level(ts_type, '|');
+        if parts.len() > 1 {
+            let meaningful: Vec<&str> = parts
+                .iter()
+                .map(|p| p.trim())
+                .filter(|p| *p != "undefined" && *p != "null")
+                .collect();
+
+            if meaningful.is_empty() {
+                return "null".to_string();
             }
+
+            // Collect unique JS types for each union member
+            let mut js_types: Vec<String> = Vec::new();
+            for part in &meaningful {
+                let jt = ts_type_to_js_type(part);
+                if !js_types.contains(&jt) {
+                    js_types.push(jt);
+                }
+            }
+
+            if js_types.len() == 1 {
+                return js_types.into_iter().next().unwrap();
+            }
+
+            // Multiple distinct types → array form: [String, Number]
+            let joined = js_types.join(", ");
+            let mut result = String::with_capacity(joined.len() + 2);
+            result.push('[');
+            result.push_str(&joined);
+            result.push(']');
+            return result;
         }
     }
 
@@ -200,11 +350,11 @@ fn ts_type_to_js_type(ts_type: &str) -> String {
             // Handle array types
             if ts_type.ends_with("[]") || ts_type.starts_with("Array<") {
                 "Array".to_string()
-            } else if ts_type.starts_with('{') || ts_type.contains(':') {
+            } else if ts_type.starts_with('{') || contains_top_level_colon(ts_type) {
                 // Object literal type
                 "Object".to_string()
             } else if ts_type.starts_with('(') && ts_type.contains("=>") {
-                // Function type
+                // Function type (fallback, already handled above)
                 "Function".to_string()
             } else {
                 // Check if this is a built-in JavaScript constructor type
@@ -226,6 +376,33 @@ fn ts_type_to_js_type(ts_type: &str) -> String {
             }
         }
     }
+}
+
+/// Check if a type string contains a `:` at the top level (not inside generics/parens).
+/// Used to detect object literal types like `{ key: string }` vs types like `Record<K, V>`.
+fn contains_top_level_colon(s: &str) -> bool {
+    let mut depth: i32 = 0;
+    let chars: Vec<char> = s.chars().collect();
+    for i in 0..chars.len() {
+        match chars[i] {
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+            }
+            '>' => {
+                if i > 0 && chars[i - 1] == '=' {
+                    // Arrow =>, don't change depth
+                } else if depth > 0 {
+                    depth -= 1;
+                }
+            }
+            ':' if depth == 0 => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Extract emit names from TypeScript type definition

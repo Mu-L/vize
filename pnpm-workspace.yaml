@@ -5,3 +5,5 @@ packages:
   - 'npm/fresco/examples/*'
   - 'examples/vite-musea'
   - 'docs'
+  - 'e2e'
+  - 'bench'

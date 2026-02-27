@@ -90,6 +90,7 @@ regex = "1.10"
 smallvec = { version = "1.13", features = ["union"] }
 dashmap = "6.1"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+sha2 = "0.10"
 
 # CSS
 lightningcss = "1.0.0-alpha.68"

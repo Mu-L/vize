@@ -247,7 +247,10 @@ pub fn compile_script_setup(
             // Handle side-effect imports without semicolons (e.g., import '@/css/reset.scss')
             // These have no 'from' clause and are always single-line
             if !trimmed.contains(" from ") && (trimmed.contains('\'') || trimmed.contains('"')) {
-                imports.push(format!("{}\n", line));
+                let mut import = String::with_capacity(line.len() + 1);
+                import.push_str(line);
+                import.push('\n');
+                imports.push(import);
                 continue;
             }
             in_import = true;
@@ -405,7 +408,7 @@ pub fn compile_script_setup(
     }
 
     // Output imports (filtering out type-only imports + dedupe)
-    let deduped_imports = dedupe_imports(&imports);
+    let deduped_imports = dedupe_imports(&imports, false);
     for import in &deduped_imports {
         output.extend_from_slice(import.as_bytes());
     }
@@ -1048,13 +1051,19 @@ fn is_reserved_word(name: &str) -> bool {
 
 /// Deduplicate imports by removing duplicate specifiers from the same source.
 /// This avoids "Identifier has already been declared" errors.
-pub fn dedupe_imports(imports: &[String]) -> Vec<String> {
+pub fn dedupe_imports(imports: &[String], is_ts: bool) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     let mut seen_specifiers: HashSet<String> = HashSet::new();
 
     for import in imports {
-        let Some(processed) = process_import_for_types(import) else {
-            continue;
+        let processed = if is_ts {
+            // In TS mode, preserve type imports as-is (TypeScript handles them)
+            import.trim().to_string() + "\n"
+        } else {
+            let Some(p) = process_import_for_types(import) else {
+                continue;
+            };
+            p
         };
         let trimmed = processed.trim();
         if trimmed.is_empty() {
@@ -1077,6 +1086,8 @@ pub fn dedupe_imports(imports: &[String]) -> Vec<String> {
         for stmt in &parse_result.program.body {
             if let Statement::ImportDeclaration(decl) = stmt {
                 let source = decl.source.value.as_str();
+
+                let is_type_only_import = decl.import_kind.is_type();
 
                 if decl.specifiers.is_none() {
                     // Side-effect import: import 'module';
@@ -1112,15 +1123,26 @@ pub fn dedupe_imports(imports: &[String]) -> Vec<String> {
                                 }
 
                                 let imported = s.imported.name().as_str();
-                                if imported == local {
-                                    named_specs.push(imported.to_string());
+                                let type_prefix = if is_ts && s.import_kind.is_type() {
+                                    "type "
                                 } else {
-                                    let mut name =
-                                        String::with_capacity(imported.len() + local.len() + 4);
-                                    name.push_str(imported);
-                                    name.push_str(" as ");
-                                    name.push_str(local);
-                                    named_specs.push(name);
+                                    ""
+                                };
+                                if imported == local {
+                                    let mut spec =
+                                        String::with_capacity(type_prefix.len() + imported.len());
+                                    spec.push_str(type_prefix);
+                                    spec.push_str(imported);
+                                    named_specs.push(spec);
+                                } else {
+                                    let mut spec = String::with_capacity(
+                                        type_prefix.len() + imported.len() + 4 + local.len(),
+                                    );
+                                    spec.push_str(type_prefix);
+                                    spec.push_str(imported);
+                                    spec.push_str(" as ");
+                                    spec.push_str(local);
+                                    named_specs.push(spec);
                                 }
                             }
                             ImportDeclarationSpecifier::ImportDefaultSpecifier(s) => {
@@ -1172,8 +1194,12 @@ pub fn dedupe_imports(imports: &[String]) -> Vec<String> {
                 }
 
                 let joined = parts.join(", ");
-                let mut line = String::with_capacity(joined.len() + source.len() + 13);
-                line.push_str("import ");
+                let mut line = String::with_capacity(joined.len() + source.len() + 18);
+                if is_ts && is_type_only_import {
+                    line.push_str("import type ");
+                } else {
+                    line.push_str("import ");
+                }
                 line.push_str(&joined);
                 line.push_str(" from '");
                 line.push_str(source);

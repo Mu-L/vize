@@ -1,7 +1,6 @@
 //! Glyph (Formatter) WASM bindings.
 
 use super::to_js_value;
-use vize_atelier_sfc::{CssCompileOptions, CssTargets};
 use wasm_bindgen::prelude::*;
 
 /// Format Vue SFC file
@@ -63,73 +62,3 @@ pub(crate) fn parse_format_options(options: JsValue) -> vize_glyph::FormatOption
     serde_wasm_bindgen::from_value(options).unwrap_or_default()
 }
 
-/// Parse CSS options from JsValue
-pub(crate) fn parse_css_options(options: JsValue) -> CssCompileOptions {
-    let scope_id = js_sys::Reflect::get(&options, &JsValue::from_str("scopeId"))
-        .ok()
-        .and_then(|v| v.as_string());
-
-    let scoped = js_sys::Reflect::get(&options, &JsValue::from_str("scoped"))
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let minify = js_sys::Reflect::get(&options, &JsValue::from_str("minify"))
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let source_map = js_sys::Reflect::get(&options, &JsValue::from_str("sourceMap"))
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let filename = js_sys::Reflect::get(&options, &JsValue::from_str("filename"))
-        .ok()
-        .and_then(|v| v.as_string());
-
-    // Parse targets
-    let targets = js_sys::Reflect::get(&options, &JsValue::from_str("targets"))
-        .ok()
-        .and_then(|v| {
-            if v.is_undefined() || v.is_null() {
-                return None;
-            }
-            Some(CssTargets {
-                chrome: js_sys::Reflect::get(&v, &JsValue::from_str("chrome"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-                firefox: js_sys::Reflect::get(&v, &JsValue::from_str("firefox"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-                safari: js_sys::Reflect::get(&v, &JsValue::from_str("safari"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-                edge: js_sys::Reflect::get(&v, &JsValue::from_str("edge"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-                ios: js_sys::Reflect::get(&v, &JsValue::from_str("ios"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-                android: js_sys::Reflect::get(&v, &JsValue::from_str("android"))
-                    .ok()
-                    .and_then(|v| v.as_f64())
-                    .map(|v| v as u32),
-            })
-        });
-
-    CssCompileOptions {
-        scope_id,
-        scoped,
-        minify,
-        source_map,
-        targets,
-        filename,
-        custom_media: false,
-    }
-}
