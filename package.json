@@ -6,7 +6,7 @@
     "access": "public"
   },
   "type": "module",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "dev": "pnpm -C playground dev",
     "build:plugin": "pnpm -C npm/vite-plugin-vize build",

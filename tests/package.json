@@ -1,0 +1,15 @@
+{
+  "name": "@vize/tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:dev": "playwright test --config app/playwright.config.ts",
+    "test:preview": "node --experimental-strip-types app/preview/elk.ts && node --experimental-strip-types app/preview/misskey.ts && node --experimental-strip-types app/preview/npmx.ts && node --experimental-strip-types app/preview/vuefes.ts",
+    "test:check": "node --experimental-strip-types --test snapshot/check/elk.ts snapshot/check/misskey.ts snapshot/check/npmx.ts snapshot/check/vuefes.ts",
+    "test:lint": "node --experimental-strip-types --test snapshot/lint/elk.ts snapshot/lint/misskey.ts snapshot/lint/npmx.ts snapshot/lint/vuefes.ts",
+    "test:build": "node --experimental-strip-types --test snapshot/build/elk.ts snapshot/build/misskey.ts snapshot/build/npmx.ts snapshot/build/vuefes.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}
