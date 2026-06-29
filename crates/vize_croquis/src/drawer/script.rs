@@ -76,6 +76,12 @@ impl Drawer {
 
     /// Draw non-script-setup (Options API) source code.
     pub fn draw_script_plain(&mut self, source: &str) -> &mut Self {
+        self.draw_script_plain_with_jsx(source, false)
+    }
+
+    /// Draw non-script-setup (Options API) source code with an explicit JSX
+    /// parser dialect.
+    pub fn draw_script_plain_with_jsx(&mut self, source: &str, jsx: bool) -> &mut Self {
         if !self.options.analyze_script {
             return self;
         }
@@ -85,12 +91,13 @@ impl Drawer {
         // Use OXC-based parser for non-script-setup
         let result = profile!(
             "croquis.drawer.script_plain",
-            crate::script_parser::parse_script_with_options(
+            crate::script_parser::parse_script_with_options_and_jsx(
                 source,
                 crate::script_parser::ScriptParserOptions {
                     options_api: self.options_api,
                     legacy_vue2: self.legacy_vue2,
-                }
+                },
+                jsx,
             )
         );
 
@@ -138,5 +145,12 @@ impl Drawer {
     #[inline]
     pub fn analyze_script_plain(&mut self, source: &str) -> &mut Self {
         self.draw_script_plain(source)
+    }
+
+    /// Compatibility wrapper for callers that already know the plain script
+    /// should be parsed with JSX enabled.
+    #[inline]
+    pub fn analyze_script_plain_jsx(&mut self, source: &str) -> &mut Self {
+        self.draw_script_plain_with_jsx(source, true)
     }
 }
