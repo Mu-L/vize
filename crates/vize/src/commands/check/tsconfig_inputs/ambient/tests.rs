@@ -126,3 +126,45 @@ fn ambient_collection_loads_compiler_options_type_packages() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn ambient_collection_resolves_compiler_options_types_from_tsconfig_dir() {
+    let root = unique_case_dir("compiler-options-types-nested");
+    let _ = std::fs::remove_dir_all(&root);
+    let app_dir = root.join("packages/app");
+    write(&app_dir, "src/App.vue", "<template><div /></template>\n");
+    write(
+        &app_dir,
+        "node_modules/vue/package.json",
+        r#"{ "exports": { "./jsx": "./jsx.d.ts" } }"#,
+    );
+    write(
+        &app_dir,
+        "node_modules/vue/jsx.d.ts",
+        "export {};\ndeclare global { namespace JSX { interface IntrinsicElements { div: unknown } } }\n",
+    );
+    write(
+        &app_dir,
+        "tsconfig.json",
+        r#"{
+  "compilerOptions": {
+    "types": ["vue/jsx"]
+  },
+  "include": ["src/**/*"]
+}"#,
+    );
+
+    let project_root = root.canonicalize().unwrap();
+    let files = collect_ambient_declaration_files(
+        &project_root,
+        Some(&project_root.join("packages/app/tsconfig.json")),
+        &mut TsconfigInputCache::default(),
+    );
+
+    assert!(
+        relative_paths(&project_root, &files)
+            .contains(&"packages/app/node_modules/vue/jsx.d.ts".to_string()),
+        "{files:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

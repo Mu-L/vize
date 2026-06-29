@@ -188,6 +188,9 @@ fn common_file_parent(files: &[PathBuf]) -> Option<PathBuf> {
 
 fn common_project_root(mut common: PathBuf, files: &[PathBuf]) -> PathBuf {
     for file in files {
+        if path_has_component(file, "node_modules") {
+            continue;
+        }
         let parent = file.parent().unwrap_or(file.as_path());
         while !parent.starts_with(&common) {
             if !common.pop() {
@@ -197,6 +200,11 @@ fn common_project_root(mut common: PathBuf, files: &[PathBuf]) -> PathBuf {
     }
 
     common
+}
+
+fn path_has_component(path: &Path, component: &str) -> bool {
+    path.components()
+        .any(|part| part.as_os_str().to_str() == Some(component))
 }
 
 pub(super) fn display_path(base: &Path, path: &Path) -> vize_carton::String {

@@ -130,7 +130,7 @@ fn push_existing_package_root(
     package_root: PathBuf,
 ) {
     if package_root.is_dir() {
-        let package_root = vize_carton::path::canonicalize_non_verbatim(&package_root);
+        let package_root = normalize_path_lexically(&package_root);
         if seen.insert(package_root.clone()) {
             roots.push(package_root);
         }
@@ -259,13 +259,13 @@ fn push_unique_candidate(candidates: &mut Vec<PathBuf>, path: PathBuf) {
 }
 
 fn collect_package_declaration_graph(entry: &Path, package_root: &Path) -> Vec<PathBuf> {
-    let package_root = vize_carton::path::canonicalize_non_verbatim(package_root);
+    let package_root = normalize_path_lexically(package_root);
     let mut files = Vec::new();
     let mut seen = FxHashSet::default();
     let mut queue = vec![entry.to_path_buf()];
 
     while let Some(path) = queue.pop() {
-        let path = vize_carton::path::canonicalize_non_verbatim(&path);
+        let path = normalize_path_lexically(&path);
         if !seen.insert(path.clone()) {
             continue;
         }
@@ -278,8 +278,7 @@ fn collect_package_declaration_graph(entry: &Path, package_root: &Path) -> Vec<P
             continue;
         };
         for reference in content.lines().filter_map(reference_path_attribute) {
-            let referenced =
-                vize_carton::path::canonicalize_non_verbatim(&base_dir.join(reference));
+            let referenced = normalize_path_lexically(&base_dir.join(reference));
             if referenced.starts_with(&package_root)
                 && is_declaration_path(&referenced)
                 && referenced.is_file()
@@ -290,6 +289,22 @@ fn collect_package_declaration_graph(entry: &Path, package_root: &Path) -> Vec<P
     }
 
     files
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            _ => normalized.push(component.as_os_str()),
+        }
+    }
+    normalized
 }
 
 fn reference_path_attribute(line: &str) -> Option<&str> {

@@ -128,9 +128,10 @@ fn collect_tsconfig_type_declaration_files(
     project_root: &Path,
     tsconfig_path: Option<&Path>,
 ) -> Vec<PathBuf> {
+    let search_start = tsconfig_path.unwrap_or(project_root);
     collect_tsconfig_type_packages(tsconfig_path)
         .into_iter()
-        .flat_map(|package| resolve_type_package_declaration_files(project_root, package.as_str()))
+        .flat_map(|package| resolve_type_package_declaration_files(search_start, package.as_str()))
         .collect()
 }
 

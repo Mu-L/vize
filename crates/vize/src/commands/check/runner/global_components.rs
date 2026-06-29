@@ -114,8 +114,11 @@ pub(super) fn collect_project_global_component_stubs(
         })
         .collect::<Vec<_>>();
 
+    let type_package_search_start = tsconfig_path.unwrap_or(project_root);
     for package in collect_global_component_type_packages(files, tsconfig_path) {
-        for path in resolve_type_package_declaration_files(project_root, package.as_str()) {
+        for path in
+            resolve_type_package_declaration_files(type_package_search_start, package.as_str())
+        {
             declaration_sources.push(GlobalComponentDeclarationSource {
                 path,
                 type_package: Some(package.clone()),

@@ -155,6 +155,30 @@ fn resolves_common_root_when_explicit_tsconfig_is_below_inputs() {
 }
 
 #[test]
+fn explicit_tsconfig_root_ignores_node_modules_dependency_roots() {
+    let project_root = unique_case_dir("explicit-tsconfig-node-modules");
+    let _ = std::fs::remove_dir_all(&project_root);
+    let app_dir = project_root.join("packages/app");
+    let src_dir = app_dir.join("src");
+    let dep_dir = project_root.join("node_modules/.pnpm/vue/node_modules/vue");
+    std::fs::create_dir_all(&src_dir).unwrap();
+    std::fs::create_dir_all(&dep_dir).unwrap();
+    let tsconfig = app_dir.join("tsconfig.json");
+    let app = src_dir.join("App.vue");
+    let dep = dep_dir.join("jsx.d.ts");
+    std::fs::write(&tsconfig, "{}").unwrap();
+    std::fs::write(&app, "<template />").unwrap();
+    std::fs::write(&dep, "export {};\n").unwrap();
+    let files = vec![app, dep];
+
+    let resolved_root = resolve_project_root(Some(&tsconfig), &app_dir, &files);
+
+    assert_eq!(resolved_root, app_dir);
+
+    let _ = std::fs::remove_dir_all(&project_root);
+}
+
+#[test]
 fn falls_back_to_cwd_resolution_when_files_have_no_tsconfig() {
     let project_root = unique_case_dir("no-tsconfig");
     let _ = std::fs::remove_dir_all(&project_root);
