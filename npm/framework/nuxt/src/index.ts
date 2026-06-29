@@ -1,6 +1,7 @@
 import { createNuxtComponentResolver, injectNuxtComponentImports } from "./components";
 import { injectNuxtI18nHelpers } from "./i18n";
 import { appendMuseaArtComponentIgnore } from "./musea-components";
+import { registerNuxtMuseaStaticPublicAsset } from "./musea-static";
 import "./schema";
 import type { VizeNuxtCompilerOptions, VizeNuxtOptions } from "./options";
 import {
@@ -59,7 +60,7 @@ type NuxtWithBuilderOptions = {
       base?: string;
     };
     vite?: { plugins?: unknown[]; resolve?: { dedupe?: string[] } };
-    nitro?: { virtual?: Record<string, string> };
+    nitro?: { virtual?: Record<string, string>; publicAssets?: unknown[] };
     vize?: Partial<VizeNuxtOptions>;
     _requiredModules?: Record<string, boolean>;
     _nuxtVersion?: string;
@@ -625,10 +626,8 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
     });
   }
 
-  // Musea gallery (without nuxtMusea mock layer)
-  // In Nuxt context, real composables/components are already available
-  // via Nuxt's own Vite plugins. Adding nuxtMusea globally would shadow
-  // Nuxt's #imports resolution and break the app.
+  // Musea gallery runs without the nuxtMusea mock layer because Nuxt's own
+  // Vite plugins already provide real composables/components and #imports.
   if (museaOptions !== false && supportsViteCompiler) {
     const { musea } = await import("@vizejs/vite-plugin-musea");
     const museaBasePath =
@@ -636,6 +635,7 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
         ? ((museaOptions as Record<string, unknown>).basePath as string)
         : "/__musea__";
     (nuxt.options.vite ||= {}).plugins ||= [];
+    registerNuxtMuseaStaticPublicAsset(nuxt, museaBasePath);
     const museaConfig = { projectRoot: nuxt.options.rootDir, vueVersion, ...museaOptions };
     nuxt.options.vite.plugins.push(...musea(museaConfig));
 
