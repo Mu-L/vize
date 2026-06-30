@@ -1,13 +1,7 @@
 //! Mode-aware JSX/TSX compilation (#1496).
 //!
-//! Selects the output backend (VDOM or Vapor) per component: a global default
-//! mode from [`JsxCompileConfig`], overridden per component by a
-//! `"use vue:vapor"` / `"use vue:vdom"` directive prologue (detected during
-//! lowering as [`LoweredRoot::mode`](crate::LoweredRoot)).
-//!
-//! The module is lowered once and analyzed once; each render root is then
-//! routed to the backend its resolved mode selects, so a single file may mix
-//! VDOM and Vapor components.
+//! The module is lowered once, then each render root is routed to VDOM, Vapor,
+//! or SSR according to the configured default and any directive prologue.
 
 mod component;
 mod render_exports;
@@ -45,6 +39,8 @@ pub struct JsxCompileConfig {
 pub struct JsxCompileOutput {
     /// One entry per outermost JSX render root, in source order.
     pub components: Vec<JsxComponent>,
+    /// Original JSX/TSX source used to rebuild stateful component wrappers.
+    source: String,
     /// Parse, lowering, and transform diagnostics.
     pub diagnostics: Vec<JsxDiagnostic>,
 }
@@ -68,19 +64,18 @@ impl JsxCompileOutput {
     /// and report an empty preamble, so they pass through untouched.
     pub fn module_code(&self) -> String {
         let preamble = merge_preambles(self.components.iter().map(JsxComponent::preamble));
-        render_exports::module_code(&self.components, preamble)
+        render_exports::module_code(&self.components, preamble, &self.source)
     }
 
-    /// The v3 source map (JSON) for the module's render code, when source-map
-    /// emission was requested (#1533).
-    ///
-    /// A map is surfaced only for a single-component module: codegen maps each
-    /// component's render code against the JSX source independently, and
-    /// concatenating several components shifts line offsets such that the
-    /// per-component maps no longer line up. A `.jsx`/`.tsx` file authored as one
-    /// component (the shape the bundler plugins consume) is the case that carries
-    /// a map; multi-component modules report `None` rather than a misaligned map.
+    /// The v3 source map for single-component modules when requested (#1533).
     pub fn source_map(&self) -> Option<&str> {
+        if self
+            .components
+            .iter()
+            .any(|c| c.component_setup().is_some())
+        {
+            return None;
+        }
         match self.components.as_slice() {
             [only] => only.map(),
             _ => None,
@@ -245,6 +240,7 @@ pub fn compile_jsx(
 
     JsxCompileOutput {
         components,
+        source: String::from(source),
         diagnostics,
     }
 }
