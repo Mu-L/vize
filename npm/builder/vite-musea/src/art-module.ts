@@ -497,7 +497,7 @@ export const __styles__ = ${JSON.stringify(art.styleBlocks ?? [])};
   if (scriptSetup && hasSetup && !isolatedSetup) {
     code += `
 const __museaSharedSetup = (() => {
-${scriptSetup.setupBody.map((l) => `  ${l}`).join("\n")}
+${scriptSetup.setupBody.join("\n")}
   return ${setupReturn};
 })();
 `;
@@ -530,10 +530,9 @@ ${scriptSetup.setupBody.map((l) => `  ${l}`).join("\n")}
     const componentNames = new Map<string, string>();
     if (componentTagName) componentNames.set(componentTagName, componentBindingName);
     if (scriptSetup) {
-      for (const name of scriptSetup.returnNames) {
-        // PascalCase names starting with uppercase are likely components
-        if (/^[A-Z]/.test(name)) componentNames.set(name, name);
-      }
+      for (const name of scriptSetup.returnNames)
+        if (/^[A-Z]/.test(name) && scriptSetup.imports.some((imp) => importDeclaresName(imp, name)))
+          componentNames.set(name, name);
     }
     const components =
       componentNames.size > 0
@@ -548,7 +547,7 @@ ${scriptSetup.setupBody.map((l) => `  ${l}`).join("\n")}
 export const ${variantComponentName} = defineComponent({
   name: '${variantComponentName}',
 ${components}  setup() {
-${scriptSetup.setupBody.map((l) => `    ${l}`).join("\n")}
+${scriptSetup.setupBody.join("\n")}
     return ${setupReturn};
   },
   template: \`${fullTemplate}\`,
