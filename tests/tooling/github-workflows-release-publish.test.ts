@@ -171,3 +171,20 @@ test("release workflow does not block GitHub releases on VS Code Marketplace tok
     /name:\s*Publish VS Code extension[\s\S]*if:\s*env\.VSCE_PAT != ''[\s\S]*continue-on-error:\s*true[\s\S]*publish_vscode_extension\.mbtx/,
   );
 });
+
+test("Open VSX workflow publishes the VS Code extension when configured", () => {
+  const workflow = readRepoFile(".github", "workflows", "release-open-vsx.yml");
+  const publishJob = workflowJobBody(workflow, "release-open-vsx-extension");
+
+  assert.match(workflow, /on:\s*\n\s*release:\s*\n\s*types:\s*\[published\]/);
+  assert.match(publishJob, /environment:\s*open-vsx-registry/);
+  assert.match(workflow, /OVSX_PAT:\s*\$\{\{ secrets\.OVSX_PAT \}\}/);
+  assert.match(publishJob, /name:\s*Download VSIX from GitHub Release/);
+  assert.match(publishJob, /gh release download/);
+  assert.match(publishJob, /--pattern "\*\.vsix"/);
+  assert.match(publishJob, /name:\s*Skip publish when OVSX_PAT is absent/);
+  assert.match(
+    publishJob,
+    /name:\s*Publish Open VSX extension[\s\S]*if:\s*env\.OVSX_PAT != ''[\s\S]*continue-on-error:\s*true[\s\S]*publish_open_vsx_extension\.mbtx/,
+  );
+});
