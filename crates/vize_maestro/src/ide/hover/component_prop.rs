@@ -89,9 +89,9 @@ fn prop_signature_at(script: &str, offset: usize, prop_name: &str) -> String {
 mod tests {
     use std::fs;
 
-    use super::super::{HoverContents, HoverService};
+    use super::super::HoverService;
     use crate::{ide::IdeContext, server::ServerState};
-    use tower_lsp::lsp_types::Url;
+    use tower_lsp::lsp_types::{HoverContents, Url};
 
     #[test]
     fn hover_component_prop_uses_croquis_metadata() {

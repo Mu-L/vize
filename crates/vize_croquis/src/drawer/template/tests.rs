@@ -104,6 +104,46 @@ fn component_v_bind_arg_is_not_an_undefined_template_ref() {
 }
 
 #[test]
+fn component_usage_records_slots() {
+    use vize_armature::parse;
+    use vize_carton::Bump;
+
+    let template = r#"<Child :message="msg" @save.once="save">
+  <template #item="{ row, index }">
+    <span>{{ row }}</span>
+  </template>
+  <span>fallback</span>
+</Child>"#;
+
+    let allocator = Bump::new();
+    let (root, errors) = parse(&allocator, template);
+    assert!(errors.is_empty(), "Template should parse without errors");
+
+    let mut drawer = Drawer::with_options(DrawerOptions::full());
+    drawer.draw_template(&root);
+    let summary = drawer.finish();
+    let usage = summary
+        .component_usages
+        .iter()
+        .find(|usage| usage.name == "Child")
+        .expect("Child usage must be collected");
+
+    assert_eq!(usage.props.len(), 1);
+    assert_eq!(usage.events.len(), 1);
+    assert!(usage.slots.iter().any(|slot| {
+        slot.name == "item"
+            && slot.has_scope
+            && slot.scope_vars.iter().any(|var| var == "row")
+            && slot.scope_vars.iter().any(|var| var == "index")
+    }));
+    assert!(
+        usage.slots.iter().any(|slot| {
+            slot.name == "default" && !slot.has_scope && slot.scope_vars.is_empty()
+        })
+    );
+}
+
+#[test]
 fn nested_v_scope_shadows_outer() {
     use vize_armature::parse;
     use vize_carton::Bump;
