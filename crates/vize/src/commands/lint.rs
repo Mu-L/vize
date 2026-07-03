@@ -4,6 +4,7 @@ mod args;
 mod collect;
 mod cross_file;
 mod fix;
+mod patterns;
 mod stdout;
 
 #[cfg(test)]
@@ -83,10 +84,7 @@ pub fn run(args: LintArgs) {
     let collect_time = collect_start.elapsed();
 
     if files.is_empty() {
-        eprintln!(
-            "No .vue, .html, .js, .ts, .jsx, or .tsx files found matching patterns: {:?}",
-            args.patterns
-        );
+        eprintln!("{}", patterns::no_lint_files_message(&args.patterns));
         return;
     }
 

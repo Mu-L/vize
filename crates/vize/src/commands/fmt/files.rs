@@ -3,9 +3,14 @@ use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 use super::ignores::FmtIgnoreSet;
+use super::patterns::is_format_extension;
 
 const NODE_MODULES_DIR: &str = "node_modules";
 const VIZE_CACHE_DIR: &str = ".vize";
+
+#[cfg(test)]
+#[path = "files_tests.rs"]
+mod files_tests;
 
 #[allow(clippy::disallowed_types)]
 pub(crate) fn collect_files(
@@ -64,7 +69,8 @@ fn collect_walked_files(
 }
 
 fn should_include_format_file(path: &Path, ignore_set: Option<&FmtIgnoreSet>) -> bool {
-    is_format_target(path)
+    path.is_file()
+        && is_format_target(path)
         && !is_generated_path(path)
         && !ignore_set.is_some_and(|ignore_set| ignore_set.is_ignored(path))
 }
@@ -136,28 +142,6 @@ fn is_format_target(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(is_format_extension)
-}
-
-/// File extensions `vize fmt` knows how to format.
-fn is_format_extension(extension: &str) -> bool {
-    matches!(
-        extension,
-        "vue"
-            | "jsx"
-            | "tsx"
-            | "js"
-            | "mjs"
-            | "cjs"
-            | "ts"
-            | "mts"
-            | "cts"
-            | "json"
-            | "jsonc"
-            | "yaml"
-            | "yml"
-            | "md"
-            | "markdown"
-    )
 }
 
 #[inline]

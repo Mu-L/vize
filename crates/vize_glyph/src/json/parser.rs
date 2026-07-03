@@ -1,7 +1,7 @@
 //! Recursive-descent parser for JSON / JSONC into the [`super::ast`] value tree.
 
 use super::ast::{Comment, Element, Member, Node, split_trailing};
-use super::{json_error, trim_end};
+use super::{json_error, number, trim_end};
 use crate::error::FormatError;
 use vize_carton::{String, cstr};
 
@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
             Some('t') => Ok(Node::Scalar(self.parse_keyword("true")?)),
             Some('f') => Ok(Node::Scalar(self.parse_keyword("false")?)),
             Some('n') => Ok(Node::Scalar(self.parse_keyword("null")?)),
-            Some('-' | '0'..='9') => Ok(Node::Scalar(self.parse_number())),
+            Some('-' | '0'..='9') => Ok(Node::Scalar(number::parse(&mut self.iter)?)),
             Some(c) => Err(json_error(cstr!("unexpected character '{c}'"))),
             None => Err(json_error("unexpected end of input")),
         }
@@ -285,7 +285,12 @@ impl<'a> Parser<'a> {
                                 }
                             }
                         }
-                        Some(c) => out.push(c),
+                        Some(c @ ('"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't')) => {
+                            out.push(c);
+                        }
+                        Some(c) => {
+                            return Err(json_error(cstr!("invalid escape '\\{c}' in string")));
+                        }
                     }
                 }
                 Some(c) if (c as u32) < 0x20 => {
@@ -294,20 +299,6 @@ impl<'a> Parser<'a> {
                 Some(c) => out.push(c),
             }
         }
-    }
-
-    /// Scan a JSON number and copy it verbatim.
-    ///
-    /// JSON numbers are `-? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?`.
-    /// We only reach this after the leading `-` or digit is confirmed, so we
-    /// consume greedily until the next non-number character.
-    fn parse_number(&mut self) -> String {
-        let mut out = String::default();
-        while let Some(c @ ('0'..='9' | '-' | '+' | '.' | 'e' | 'E')) = self.peek() {
-            out.push(c);
-            self.advance();
-        }
-        out
     }
 
     /// Consume and return an exact keyword (`true`, `false`, `null`).

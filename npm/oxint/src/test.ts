@@ -51,17 +51,14 @@ function findOxlintBin() {
     .sort((left, right) => right.localeCompare(left))
     .map((entry) => path.join(pnpmStoreDir, entry, "node_modules", "oxlint", "bin", "oxlint"))
     .filter((entry) => fs.existsSync(entry));
-
   const match = candidates[0];
   if (match == null) {
     throw new Error(`Unable to locate the oxlint binary in ${pnpmStoreDir}`);
   }
-
   return match;
 }
 
 const oxlintBin = findOxlintBin();
-
 fs.rmSync(fixtureDir, { force: true, recursive: true });
 fs.mkdirSync(fixtureDir, { recursive: true });
 
@@ -80,7 +77,6 @@ fs.writeFileSync(
     2,
   ),
 );
-
 fs.writeFileSync(
   noHelpConfigPath,
   JSON.stringify(
@@ -879,5 +875,9 @@ assert.equal(
   "<template>",
   "Diagnostics should map back to their containing SFC block",
 );
-await Promise.all([import("./cli/output.test.ts"), import("./nuxt-preset.test.ts")]);
+await Promise.all([
+  import("./cli/files.test.ts"),
+  import("./cli/output.test.ts"),
+  import("./nuxt-preset.test.ts"),
+]);
 console.log("✅ oxlint-plugin-vize integration tests passed!");
