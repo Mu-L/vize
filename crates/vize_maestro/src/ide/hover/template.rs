@@ -28,6 +28,10 @@ impl HoverService {
             return Some(hover);
         }
 
+        if let Some(hover) = Self::hover_component_tag(ctx) {
+            return Some(hover);
+        }
+
         if let Some(hover) = super::component_prop::hover_attribute(ctx) {
             return Some(hover);
         }
@@ -191,84 +195,6 @@ impl HoverService {
                     &[
                         "Ref values are automatically unwrapped in templates.",
                         resolved_from,
-                    ],
-                )
-                .build(),
-        )
-    }
-
-    /// Get hover for a petite-vue `v-scope` binding in a standalone HTML
-    /// document.
-    ///
-    /// petite-vue documents have no SFC `<template>` block, so the whole
-    /// document is the template. We parse it with the document parser
-    /// (`<!DOCTYPE>`-tolerant, raw-text `<script>`/`<style>`) and run Croquis
-    /// over the resulting AST. `v-scope` keys are modeled as `v-slot`-kind
-    /// scopes, so the identifier under the cursor resolves through the same
-    /// `bindings_visible_at` walk the completion path uses. Offsets are
-    /// document-absolute (no `<template>` block offset to subtract).
-    ///
-    /// Gated on `is_standalone_html_path` + petite-vue dialect, so `.vue` SFC
-    /// hover is unaffected.
-    pub(super) fn hover_petite_vue_scope_binding(ctx: &IdeContext, word: &str) -> Option<Hover> {
-        use vize_croquis::{Drawer, DrawerOptions, ScopeKind};
-
-        if !crate::utils::is_standalone_html_path(ctx.uri.path()) || !ctx.dialect().is_petite_vue()
-        {
-            return None;
-        }
-
-        let allocator = vize_carton::Bump::new();
-        let (root, _errors) = vize_armature::parse_document(&allocator, &ctx.content);
-
-        let mut drawer = Drawer::with_options(DrawerOptions::full());
-        drawer.draw_template(&root);
-        let croquis = drawer.finish();
-
-        let offset = ctx.offset.min(ctx.content.len()) as u32;
-        let (binding, scope_kind) = croquis
-            .scopes
-            .bindings_visible_at(offset)
-            .into_iter()
-            .find(|(name, _, scope_kind)| {
-                *name == word
-                    && matches!(
-                        scope_kind,
-                        ScopeKind::VSlot
-                            | ScopeKind::VFor
-                            | ScopeKind::EventHandler
-                            | ScopeKind::Callback
-                    )
-            })
-            .map(|(_, binding, scope_kind)| (binding, scope_kind))?;
-
-        let inferred_type = Self::binding_type_to_ts_display(binding.binding_type);
-        #[allow(clippy::disallowed_macros)]
-        let signature = format!("{word}: {inferred_type}");
-
-        let scope_note = match scope_kind {
-            ScopeKind::VFor => {
-                "Local binding introduced by a `v-for` inside the `v-scope` subtree."
-            }
-            ScopeKind::EventHandler | ScopeKind::Callback => {
-                "Local binding visible inside the `v-scope` subtree."
-            }
-            _ => "Reactive key declared by the enclosing `v-scope` object.",
-        };
-
-        Some(
-            HoverBuilder::new()
-                .title(word)
-                .meta("petite-vue scope binding")
-                .code("typescript", &signature)
-                .description(
-                    "Resolved from the petite-vue `v-scope` chain of this standalone HTML document.",
-                )
-                .bullets(
-                    "Behavior",
-                    &[
-                        scope_note,
-                        "Visible only inside its `v-scope` subtree's expressions and directives.",
                     ],
                 )
                 .build(),

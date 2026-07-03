@@ -88,6 +88,10 @@ impl Drawer {
                 "croquis.template.component.props_events",
                 self.collect_component_props_events(el, usage)
             );
+            profile!(
+                "croquis.template.component.slots",
+                self.collect_component_slots(el, usage)
+            );
         }
 
         if let Some(usage) = component_usage {
