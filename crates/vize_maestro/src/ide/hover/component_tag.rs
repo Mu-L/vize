@@ -60,8 +60,12 @@ impl HoverService {
                 .map(|prop| prop.name.clone())
                 .collect::<Vec<_>>();
             if !missing_required.is_empty() {
-                builder =
-                    section_from_items(builder, "Required props not passed", &missing_required);
+                let heading = if usage.has_spread_attrs {
+                    "Required props not statically visible"
+                } else {
+                    "Required props not passed"
+                };
+                builder = section_from_items(builder, heading, &missing_required);
             }
         }
 
@@ -252,6 +256,55 @@ function save() {}
         assert!(value.contains("@save.once=\"save\""), "got {value:?}");
         assert!(value.contains("#item { row, index }"), "got {value:?}");
         assert!(value.contains("#default"), "got {value:?}");
+    }
+
+    #[test]
+    fn hover_component_tag_does_not_overstate_missing_props_with_spread_attrs() {
+        let dir = tempfile::tempdir().unwrap();
+        let child_path = dir.path().join("Child.vue");
+        fs::write(
+            &child_path,
+            r#"<script setup lang="ts">
+defineProps<{ requiredMessage: string }>()
+</script>
+<template><div /></template>
+"#,
+        )
+        .unwrap();
+
+        let source_path = dir.path().join("Parent.vue");
+        let source = r#"<script setup lang="ts">
+import Child from './Child.vue'
+const attrs = {}
+</script>
+
+<template>
+  <Child v-bind="attrs" />
+</template>
+"#;
+        fs::write(&source_path, source).unwrap();
+
+        let uri = Url::from_file_path(&source_path).unwrap();
+        let state = ServerState::new();
+        state
+            .documents
+            .open(uri.clone(), source.to_string(), 1, "vue".to_string());
+        state.update_virtual_docs(&uri, source);
+
+        let offset = source.find("<Child").unwrap() + "<Ch".len();
+        let ctx = IdeContext::new(&state, &uri, offset).unwrap();
+        let hover = HoverService::hover(&ctx).unwrap();
+        let value = hover_markdown(hover);
+
+        assert!(value.contains("Spread attrs"), "got {value:?}");
+        assert!(
+            value.contains("Required props not statically visible"),
+            "got {value:?}"
+        );
+        assert!(
+            !value.contains("Required props not passed"),
+            "got {value:?}"
+        );
     }
 
     fn hover_markdown(hover: tower_lsp::lsp_types::Hover) -> String {

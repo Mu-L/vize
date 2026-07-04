@@ -14,6 +14,7 @@ mod component_meta;
 mod components;
 mod directives;
 mod self_component;
+mod slot_outlets;
 mod tag_context;
 
 use tower_lsp::lsp_types::CompletionItem;
