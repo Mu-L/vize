@@ -13,6 +13,8 @@ mod html_attribute_tests;
 #[cfg(feature = "native")]
 mod html_tag;
 #[cfg(feature = "native")]
+mod svg_attribute;
+#[cfg(feature = "native")]
 mod virtual_mirror;
 mod workspace_edit;
 

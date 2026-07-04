@@ -14,8 +14,8 @@ use crate::ide::definition::helpers as definition_helpers;
 use crate::ide::{IdeContext, is_component_tag, kebab_to_pascal, pascal_to_kebab};
 
 use super::tag_context::{
-    find_attr_value, find_tag_end, is_dynamic_prop_prefix, is_prop_completion_prefix,
-    is_slot_completion_prefix, nearest_open_component_before, opening_tag_context_at_offset,
+    is_dynamic_prop_prefix, is_prop_completion_prefix, is_slot_completion_prefix,
+    nearest_open_component_before, opening_tag_context_at_offset,
 };
 
 pub(crate) fn component_surface_completions(ctx: &IdeContext) -> Vec<CompletionItem> {
@@ -294,9 +294,12 @@ fn extract_component_metadata(
     }
 
     if let Some(template) = descriptor.template.as_ref() {
-        for slot in extract_template_slot_outlets(template.content.as_ref()) {
-            if seen_slots.insert(slot.name.clone()) {
-                slots.push(slot);
+        for name in super::slot_outlets::extract_template_slot_names(template.content.as_ref()) {
+            if seen_slots.insert(name.clone()) {
+                slots.push(ComponentSlot {
+                    name,
+                    props_type: None,
+                });
             }
         }
     }
@@ -504,40 +507,6 @@ mod slot_prop_name_tests {
     fn returns_none_for_non_object_slot_props() {
         assert_eq!(extract_slot_prop_names("Props"), None);
     }
-}
-
-fn extract_template_slot_outlets(template: &str) -> Vec<ComponentSlot> {
-    let mut slots = Vec::new();
-    let mut seen = BTreeSet::new();
-    let mut pos = 0usize;
-
-    while let Some(relative_start) = template[pos..].find("<slot") {
-        let tag_start = pos + relative_start;
-        let after_name = tag_start + "<slot".len();
-        if template
-            .as_bytes()
-            .get(after_name)
-            .is_some_and(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        {
-            pos = after_name;
-            continue;
-        }
-
-        let Some(tag_end) = find_tag_end(template, tag_start) else {
-            break;
-        };
-        let tag = &template[tag_start..=tag_end];
-        let name = find_attr_value(tag, "name").unwrap_or_else(|| "default".to_string());
-        if seen.insert(name.clone()) {
-            slots.push(ComponentSlot {
-                name,
-                props_type: None,
-            });
-        }
-        pos = tag_end + 1;
-    }
-
-    slots
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@ use tower_lsp::lsp_types::Url;
 use vize_carton::{String, cstr};
 
 use super::html_tag::native_dom_tag_info;
+use super::svg_attribute::{canonical_svg_dom_attribute_name, mapped_svg_dom_attribute_property};
 
 pub(crate) struct NativeDomAttributeInfo {
     pub(crate) category: &'static str,
@@ -55,7 +56,7 @@ pub(crate) fn native_dom_attribute_info(
     }
 
     let tag_info = native_dom_tag_info(tag_name)?;
-    let normalized_attr = normalize_attribute_name(attr_name)?;
+    let normalized_attr = normalize_attribute_name(tag_name, attr_name)?;
     let property_name = dom_attribute_property_name(tag_name, &normalized_attr)?;
     let is_boolean = vize_carton::is_boolean_attr(&normalized_attr);
     let category = if vize_carton::is_html_tag(tag_name) {
@@ -72,6 +73,10 @@ pub(crate) fn native_dom_attribute_info(
     } else if normalized_attr.starts_with("data-") {
         String::from(
             "https://developer.mozilla.org/en-US/docs/Learn/HTML/Howto/Use_data_attributes",
+        )
+    } else if vize_carton::is_svg_tag(tag_name) {
+        cstr!(
+            "https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/{normalized_attr}"
         )
     } else {
         cstr!(
@@ -93,7 +98,7 @@ pub(crate) fn native_dom_attribute_info(
     })
 }
 
-fn normalize_attribute_name(attr_name: &str) -> Option<String> {
+fn normalize_attribute_name(tag_name: &str, attr_name: &str) -> Option<String> {
     let attr_name = attr_name.trim();
     if attr_name.is_empty()
         || attr_name.starts_with('@')
@@ -119,6 +124,12 @@ fn normalize_attribute_name(attr_name: &str) -> Option<String> {
         return None;
     }
 
+    if vize_carton::is_svg_tag(tag_name)
+        && let Some(canonical) = canonical_svg_dom_attribute_name(tag_name, attr_name)
+    {
+        return Some(String::from(canonical));
+    }
+
     Some(attr_name.to_ascii_lowercase().into())
 }
 
@@ -133,6 +144,12 @@ fn dom_attribute_property_name(tag_name: &str, attr_name: &str) -> Option<String
 
     if let Some(aria_name) = attr_name.strip_prefix("aria-") {
         return Some(cstr!("aria{}", kebab_to_pascal(aria_name)));
+    }
+
+    if vize_carton::is_svg_tag(tag_name)
+        && let Some(property_name) = mapped_svg_dom_attribute_property(tag_name, attr_name)
+    {
+        return Some(String::from(property_name));
     }
 
     if let Some(mapped) = mapped_dom_attribute_property(attr_name)

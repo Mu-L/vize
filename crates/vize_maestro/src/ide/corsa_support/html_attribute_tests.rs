@@ -22,9 +22,37 @@ fn native_dom_attribute_info_maps_html_attributes_to_dom_properties() {
 }
 
 #[test]
+fn native_dom_attribute_info_preserves_svg_dom_property_names() {
+    let view_box = native_dom_attribute_info("svg", "viewBox").expect("viewBox attr");
+    assert_eq!(view_box.category, "SVG attribute");
+    assert_eq!(view_box.property_name.as_str(), "viewBox");
+    assert_eq!(
+        view_box.type_expression.as_str(),
+        "SVGElementTagNameMap[\"svg\"][\"viewBox\"]"
+    );
+    assert!(
+        view_box
+            .documentation_url
+            .ends_with("/Web/SVG/Reference/Attribute/viewBox")
+    );
+
+    let lowercase_view_box =
+        native_dom_attribute_info("svg", "viewbox").expect("lowercase viewbox attr");
+    assert_eq!(lowercase_view_box.property_name.as_str(), "viewBox");
+
+    let circle_center = native_dom_attribute_info("circle", "cx").expect("circle cx attr");
+    assert_eq!(circle_center.property_name.as_str(), "cx");
+    assert_eq!(
+        circle_center.type_expression.as_str(),
+        "SVGElementTagNameMap[\"circle\"][\"cx\"]"
+    );
+}
+
+#[test]
 fn native_dom_attribute_info_rejects_unknown_and_component_attributes() {
     assert!(native_dom_attribute_info("button", "not-real").is_none());
     assert!(native_dom_attribute_info("div", "href").is_none());
+    assert!(native_dom_attribute_info("svg", "not-real").is_none());
     assert!(native_dom_attribute_info("my-element", "disabled").is_none());
     assert!(native_dom_attribute_info("button", "@click").is_none());
 }
