@@ -6,6 +6,7 @@ import { patchQuasarBridge } from "./quasar.ts";
 const sourcePath = path.resolve(process.cwd(), "target", "vize-tests", "quasar", "App.vue");
 const virtualId = `\0${sourcePath}.ts`;
 const queriedClientVirtualId = `${sourcePath}.ts?vue&vize`;
+const queriedTsxClientVirtualId = `${sourcePath}.tsx?vue&vize`;
 const queriedSsrVirtualId = `\0vize-ssr:${sourcePath}.ts?vue&type=template`;
 const legacyVirtualId = `\0vize:${sourcePath}.ts`;
 
@@ -54,10 +55,12 @@ const legacyVirtualId = `\0vize:${sourcePath}.ts`;
 
   patchQuasarBridge(plugins);
   plugins[0]!.transform!("export default {}", queriedClientVirtualId);
+  plugins[0]!.transform!("export default {}", queriedTsxClientVirtualId);
   plugins[0]!.transform!("export default {}", queriedSsrVirtualId);
   plugins[0]!.transform!("export default {}", legacyVirtualId);
 
   assert.deepEqual(receivedIds, [
+    `${sourcePath}?vue&vize`,
     `${sourcePath}?vue&vize`,
     `${sourcePath}?vue&type=template`,
     sourcePath,

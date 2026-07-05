@@ -141,6 +141,22 @@ const msg = 'hello'
 }
 
 {
+  const state = createState({
+    filter: () => true,
+  });
+  const plugin = createPostTransformPlugin(state);
+  const result = await plugin.transform?.(
+    virtualSfcSource,
+    path.join("/src", "Card.vue.tsx?vue&vize"),
+    {
+      ssr: false,
+    },
+  );
+
+  assert.equal(result, null, "Post-transform should ignore generated TSX Vue virtual modules");
+}
+
+{
   const transformed = transformScopedPreprocessorCss(
     ".rrevdjwu > .group + .group { color: red; }",
     "\0/src/MkSuperMenu.vue?vue=&type=style&index=0&scoped=data-v-menu&lang=scss.scss",

@@ -31,11 +31,11 @@ function stripBridgePrefix(id: string): string {
 }
 
 function isQuasarBridgeModuleId(id: string): boolean {
-  return /\.vue\.ts(?:[?#]|$)/.test(stripBridgePrefix(id));
+  return /\.vue\.tsx?(?:[?#]|$)/.test(stripBridgePrefix(id));
 }
 
 function normalizeQuasarBridgeModuleId(id: string): string {
-  return stripBridgePrefix(id).replace(/\.vue\.ts(?=[?#]|$)/, ".vue");
+  return stripBridgePrefix(id).replace(/\.vue\.tsx?(?=[?#]|$)/, ".vue");
 }
 
 export function patchQuasarBridge(plugins: QuasarLikePlugin[]): void {

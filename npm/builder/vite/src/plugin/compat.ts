@@ -91,6 +91,7 @@ function shouldPostTransformSfcLikeModule(state: VizePluginState, id: string): b
   if (
     filename.endsWith(".vue") ||
     filename.endsWith(".vue.ts") ||
+    filename.endsWith(".vue.tsx") ||
     filename.includes("node_modules")
   ) {
     return false;
