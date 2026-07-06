@@ -81,8 +81,9 @@ jobs:
     # Matrix legs run in parallel and keep breaking changes attributed per crate.
     # PRs compare against base; pushes compare against the previous main commit.
     # Conventional breaking markers (`type(scope)!:` / `BREAKING CHANGE:`) are major.
-    # Keep this list in sync with publishable crates. `vize_croquis_cf` is omitted
-    # until first publish so registry fallback cannot hit "not found in registry".
+    # Keep this list in sync with crates published by publish_crates.mbtx.
+    # New crates are omitted until first publish so registry fallback cannot hit
+    # "not found in registry"; dependents of those crates are omitted with them.
     strategy:
       fail-fast: false
       matrix:
@@ -93,12 +94,10 @@ jobs:
           - vize_atelier_sfc
           - vize_atelier_ssr
           - vize_atelier_vapor
-          - vize_canon
           - vize_carton
           - vize_croquis
           - vize_fresco
           - vize_musea
-          - vize_patina
           - vize_relief
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6

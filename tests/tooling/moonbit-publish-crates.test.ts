@@ -47,6 +47,10 @@ function getPendingFirstPublishCrates(): string[] {
   return getScriptCrateArray("pending_first_publish_crates");
 }
 
+function getBlockedByPendingFirstPublishCrates(): string[] {
+  return getScriptCrateArray("blocked_by_pending_first_publish_crates");
+}
+
 function getMetadata(): CargoMetadata {
   return JSON.parse(
     execFileSync("cargo", ["metadata", "--no-deps", "--format-version", "1"], {
@@ -88,6 +92,7 @@ test("publish_crates script keeps publishable workspace dependencies ordered", (
 test("publish_crates includes every publishable crate package after first publish exclusions", () => {
   const publishedCrates = new Set(getPublishedCrates());
   const pendingFirstPublishCrates = new Set(getPendingFirstPublishCrates());
+  const blockedByPendingFirstPublishCrates = new Set(getBlockedByPendingFirstPublishCrates());
   const missingCrates = getMetadata()
     .packages.filter((pkg) =>
       path.relative(repoRoot, pkg.manifest_path).startsWith(`crates${path.sep}`),
@@ -95,13 +100,18 @@ test("publish_crates includes every publishable crate package after first publis
     .filter((pkg) => pkg.publish === null || pkg.publish.length > 0)
     .map((pkg) => pkg.name)
     .filter((crateName) => !publishedCrates.has(crateName))
-    .filter((crateName) => !pendingFirstPublishCrates.has(crateName));
+    .filter((crateName) => !pendingFirstPublishCrates.has(crateName))
+    .filter((crateName) => !blockedByPendingFirstPublishCrates.has(crateName));
 
   assert.deepEqual(missingCrates, []);
 });
 
 test("publish_crates only defers crates that have not been created on crates.io", () => {
-  assert.deepEqual(getPendingFirstPublishCrates(), ["vize_croquis_cf"]);
+  assert.deepEqual(getPendingFirstPublishCrates(), ["vize_croquis_cf", "vize_atelier_jsx"]);
+});
+
+test("publish_crates only blocks crates that depend on first-publish exclusions", () => {
+  assert.deepEqual(getBlockedByPendingFirstPublishCrates(), ["vize_canon", "vize_patina"]);
 });
 
 test("publish_crates runs as a native MoonBit script", () => {
