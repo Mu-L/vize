@@ -124,9 +124,9 @@ test("publish_crates runs as a native MoonBit script", () => {
     assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`.trim());
     const logLines = fs.readFileSync(cargoLogPath, "utf8").trim().split("\n");
     assert.match(logLines[0] ?? "", /^publish -p vize_carton$/);
-    assert.match(logLines[1] ?? "", /^info vize_carton@/);
+    assert.match(logLines[1] ?? "", /^info --registry crates-io vize_carton@/);
     assert.match(logLines.at(-2) ?? "", /^publish -p vize_fresco$/);
-    assert.match(logLines.at(-1) ?? "", /^info vize_fresco@/);
+    assert.match(logLines.at(-1) ?? "", /^info --registry crates-io vize_fresco@/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -171,7 +171,7 @@ test("publish_crates treats a non-zero cargo publish exit as success when the cr
     assert.match(result.stdout, /already resolvable despite a non-zero cargo publish exit/i);
     const logLines = fs.readFileSync(cargoLogPath, "utf8").trim().split("\n");
     assert.equal(logLines[0], "publish -p vize_carton");
-    assert.match(logLines[1] ?? "", /^info vize_carton@/);
+    assert.match(logLines[1] ?? "", /^info --registry crates-io vize_carton@/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

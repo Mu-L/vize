@@ -125,7 +125,12 @@ fn json_has_published_version(value : Json, version : String) -> Bool {
 async fn crate_is_published(crate_name : String, version : String) -> Bool {
   let (exit_code, body) = @process.collect_stdout(
     "curl",
-    ["-sf", "https://crates.io/api/v1/crates/" + crate_name],
+    [
+      "-sf",
+      "-H",
+      "User-Agent: vize-release-publish (https://github.com/ubugeeei-prod/vize)",
+      "https://crates.io/api/v1/crates/" + crate_name,
+    ],
   )
   if exit_code != 0 {
     return false
@@ -147,7 +152,7 @@ async fn crate_is_published(crate_name : String, version : String) -> Bool {
 async fn crate_is_resolvable(crate_name : String, version : String) -> Bool {
   let (exit_code, _, _) = @process.collect_output(
     "cargo",
-    ["info", crate_name + "@" + version],
+    ["info", "--registry", "crates-io", crate_name + "@" + version],
   )
   exit_code == 0
 }
