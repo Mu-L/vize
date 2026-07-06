@@ -233,6 +233,16 @@ async fn run_app() -> Int {
     delay_seconds,
   )
   println("Expected version: \{version}")
+  if !pending_first_publish_crates.is_empty() {
+    println(
+      "Deferred first-publish crates: " + pending_first_publish_crates.join(", "),
+    )
+  }
+  if !blocked_by_pending_first_publish_crates.is_empty() {
+    println(
+      "Deferred dependent crates: " + blocked_by_pending_first_publish_crates.join(", "),
+    )
+  }
 
   for crate_name in published_crates {
     println("Publishing \{crate_name} v\{version}...")
