@@ -33,6 +33,19 @@ pub(crate) fn collect_template_prop_names(summary: &Croquis) -> FxHashSet<String
         insert_reserved_prop_name(summary, &mut names, model.name.as_str());
     }
 
+    for usage in &summary.component_usages {
+        for prop in &usage.props {
+            if prop.is_dynamic
+                && prop
+                    .value
+                    .as_ref()
+                    .is_some_and(|value| value.as_str() == prop.name.as_str())
+            {
+                insert_reserved_prop_name(summary, &mut names, prop.name.as_str());
+            }
+        }
+    }
+
     names
 }
 
