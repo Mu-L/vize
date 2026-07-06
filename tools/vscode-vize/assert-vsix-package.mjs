@@ -44,8 +44,6 @@ const requiredFiles = [
   "extension/icons/logo.png",
   "extension/icons/vue.svg",
   "extension/language-configuration.json",
-  "extension/node_modules/@vizejs/typescript-vue-plugin/index.cjs",
-  "extension/node_modules/@vizejs/typescript-vue-plugin/package.json",
   "extension/package.json",
   "extension/readme.md",
   "extension/syntaxes/art-vue.tmLanguage.json",
@@ -63,7 +61,6 @@ const allowedExtensionEntries = [
   /^extension\/dist\/extension\.cjs$/,
   /^extension\/icons\/(?:logo\.png|vue\.svg)$/,
   /^extension\/language-configuration\.json$/,
-  /^extension\/node_modules\/@vizejs\/typescript-vue-plugin\/(?:index\.cjs|package\.json)$/,
   /^extension\/package\.json$/,
   /^extension\/readme\.md$/,
   /^extension\/syntaxes\/(?:art-vue|vue)\.tmLanguage\.json$/,
@@ -81,7 +78,7 @@ const forbiddenEntries = [
   /^extension\/\.vscode-test\//,
   /^extension\/\.vscode\//,
   /^extension\/dist\/.*\.map$/,
-  /^extension\/node_modules\/(?!@vizejs\/typescript-vue-plugin\/(?:index\.cjs|package\.json)$)/,
+  /^extension\/node_modules\//,
   /^extension\/package-lock\.json$/,
   /^extension\/pnpm-lock\.yaml$/,
   /^extension\/src\//,
@@ -126,12 +123,7 @@ for (const command of packageJson.contributes.commands) {
 
 assert.ok(packageJson.activationEvents.includes("onLanguage:vue"));
 assert.ok(packageJson.activationEvents.includes("onLanguage:art-vue"));
-assert.deepEqual(packageJson.contributes.typescriptServerPlugins, [
-  {
-    name: "@vizejs/typescript-vue-plugin",
-    enableForWorkspaceTypeScriptVersions: true,
-  },
-]);
+assert.equal(packageJson.contributes.typescriptServerPlugins, undefined);
 
 const languages = new Map(
   packageJson.contributes.languages.map((language) => [language.id, language]),
