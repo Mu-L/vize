@@ -184,6 +184,49 @@ readModelValue({ props })
 }
 
 #[test]
+fn check_with_defaults_undefined_default_preserves_optional_prop_value() {
+    let Some(corsa_path) = resolve_test_corsa_path() else {
+        return;
+    };
+    let project_root = create_case(
+        "with-defaults-undefined-default",
+        "Foo.vue",
+        r#"<script setup lang="ts">
+interface FooProps {
+  modelValue?: string
+}
+
+type UseModelOptions<P, K extends keyof P> = {
+  props: P
+  key: K
+  clone?: boolean | ((value: P[K]) => P[K])
+}
+
+function useModel<P, K extends keyof P>(options: UseModelOptions<P, K>) {
+  void options
+}
+
+const props = withDefaults(defineProps<FooProps>(), {
+  modelValue: undefined,
+})
+
+useModel({
+  props,
+  key: 'modelValue',
+  clone: value => value === undefined ? undefined : value.trim(),
+})
+</script>
+
+<template>{{ props.modelValue }}</template>
+"#,
+    );
+
+    run_check_json(&project_root, &corsa_path, "src/Foo.vue");
+
+    let _ = std::fs::remove_dir_all(&project_root);
+}
+
+#[test]
 fn check_v_for_infers_items_from_union_of_arrays() {
     let Some(corsa_path) = resolve_test_corsa_path() else {
         return;
