@@ -7,6 +7,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { preparePublishManifest } from "./prepare-publish-manifest.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const dependencySections = [
   "dependencies",
@@ -81,15 +83,6 @@ function run(command, args, options = {}) {
   }
 
   return result.stdout;
-}
-
-function preparePublishManifest(packageDir) {
-  const scriptPath = path.join(root, "tools/moon/scripts/prepare_npm_publish_manifest.mbtx");
-  const moonBin = process.env.MOON_BIN || "moon";
-  run(moonBin, ["run", "-q", "--target", "native", "-", "--", packageDir], {
-    cwd: root,
-    input: fs.readFileSync(scriptPath, "utf8"),
-  });
 }
 
 function readPackageJson(packageDir) {
