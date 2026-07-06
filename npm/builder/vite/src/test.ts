@@ -18,6 +18,7 @@ import "./plugin/quasar.test.ts";
 import "./plugin/resolve-peer-runtime.test.ts";
 import "./plugin/resolve-vue-runtime.test.ts";
 import "./plugin/resolve-dependency-style.test.ts";
+import "./plugin/resolve-relative-vue.test.ts";
 import "./plugin/resolve.test.ts";
 import "./plugin/precompile.test.ts";
 import "./plugin/state.test.ts";
