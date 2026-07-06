@@ -236,13 +236,21 @@ async fn run_app() -> Int {
     let mut attempt = 1
     let mut published = false
     while attempt <= max_attempts {
-      let (publish_exit, _, _) = @process.collect_output(
+      let (publish_exit, publish_stdout, publish_stderr) = @process.collect_output(
         "cargo",
         ["publish", "-p", crate_name],
       )
       if publish_exit == 0 {
         published = true
         break
+      }
+      let stdout_text = publish_stdout.text().trim()
+      let stderr_text = publish_stderr.text().trim()
+      if stdout_text != "" {
+        println(stdout_text)
+      }
+      if stderr_text != "" {
+        @stdio.stderr.write(stderr_text + "\n")
       }
       if crate_is_published(crate_name, version) {
         println(
