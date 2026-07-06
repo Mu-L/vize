@@ -1,11 +1,8 @@
 mod setup_scoped;
 mod template_bindings;
 mod template_names;
+mod with_defaults;
 use super::helpers::{is_reserved_identifier, to_safe_identifier};
-use oxc_allocator::Allocator;
-use oxc_ast::ast::{Argument, Expression, ObjectPropertyKind, PropertyKey};
-use oxc_parser::Parser;
-use oxc_span::SourceType;
 use setup_scoped::props_type_ref;
 pub(crate) use setup_scoped::{PropsTypeEmission, generate_setup_scoped_props_artifact};
 use template_bindings::{emit_macro_template_prop_bindings, should_skip_template_prop_binding};
@@ -16,6 +13,7 @@ use vize_carton::append;
 use vize_carton::cstr;
 use vize_croquis::Croquis;
 use vize_croquis::macros::{MacroKind, ModelDefinition};
+use with_defaults::collect_with_defaults_default_names_from_source;
 
 fn emit_template_prop_binding(
     ts: &mut String,
@@ -174,53 +172,6 @@ fn collect_with_defaults_default_names(summary: &Croquis) -> FxHashSet<String> {
         collect_with_defaults_default_names_from_source(runtime_args.as_str(), &mut names);
     }
     names
-}
-
-fn collect_with_defaults_default_names_from_source(source: &str, names: &mut FxHashSet<String>) {
-    let source = source.trim();
-    let expression_source = if source.starts_with("withDefaults") {
-        String::from(source)
-    } else {
-        cstr!("withDefaults({source})")
-    };
-
-    let allocator = Allocator::default();
-    let source_type = SourceType::ts();
-    let Ok(Expression::CallExpression(call)) =
-        Parser::new(&allocator, expression_source.as_str(), source_type).parse_expression()
-    else {
-        return;
-    };
-    let Expression::Identifier(callee) = &call.callee else {
-        return;
-    };
-    if callee.name.as_str() != "withDefaults" {
-        return;
-    }
-    let Some(Argument::ObjectExpression(defaults)) = call.arguments.get(1) else {
-        return;
-    };
-
-    for prop in &defaults.properties {
-        let ObjectPropertyKind::ObjectProperty(prop) = prop else {
-            continue;
-        };
-        if prop.computed {
-            continue;
-        }
-        let Some(name) = property_key_name(&prop.key) else {
-            continue;
-        };
-        names.insert(name.into());
-    }
-}
-
-fn property_key_name<'a>(key: &'a PropertyKey<'a>) -> Option<&'a str> {
-    match key {
-        PropertyKey::StaticIdentifier(id) => Some(id.name.as_str()),
-        PropertyKey::StringLiteral(s) => Some(s.value.as_str()),
-        _ => None,
-    }
 }
 
 fn template_props_type_ref(
@@ -713,9 +664,8 @@ fn append_param_with_default(result: &mut String, param: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        add_generic_defaults, collect_with_defaults_default_names_from_source,
-        extract_generic_names, strip_const_modifiers, template_props_type_ref,
-        type_reference_lookup_key,
+        add_generic_defaults, extract_generic_names, strip_const_modifiers,
+        template_props_type_ref, type_reference_lookup_key,
     };
     use vize_carton::{FxHashSet, String};
 
@@ -756,38 +706,6 @@ mod tests {
             strip_const_modifiers(add_generic_defaults("const T extends Tab").as_str()).as_str(),
             "T extends Tab = any"
         );
-    }
-
-    #[test]
-    fn collects_with_defaults_object_keys() {
-        let mut names = FxHashSet::default();
-        collect_with_defaults_default_names_from_source(
-            r#"withDefaults(defineProps<Props>(), {
-  thickness: 0.1,
-  "label": "ok",
-  ...moreDefaults,
-  [dynamicKey]: 1,
-})"#,
-            &mut names,
-        );
-
-        assert!(names.contains("thickness"));
-        assert!(names.contains("label"));
-        assert!(!names.contains("dynamicKey"));
-        assert_eq!(names.len(), 2);
-
-        let mut arg_names = FxHashSet::default();
-        collect_with_defaults_default_names_from_source(
-            r#"defineProps<Props>(), {
-  count: 0,
-  "title": "Counter",
-}"#,
-            &mut arg_names,
-        );
-
-        assert!(arg_names.contains("count"));
-        assert!(arg_names.contains("title"));
-        assert_eq!(arg_names.len(), 2);
     }
 
     #[test]
