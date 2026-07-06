@@ -16,6 +16,7 @@ import {
 
 import type { VizePluginState } from "./state.ts";
 import { isInsidePath, isProjectSourceImporter, normalizeImporterFilePath } from "./importer.ts";
+import { cleanVueSfcImporter, resolveRelativeVueSfcImport } from "./resolve-relative-vue.ts";
 import {
   LEGACY_VIZE_PREFIX,
   VIRTUAL_CSS_MODULE,
@@ -739,21 +740,6 @@ function hasNuxtComponentQuery(request: ReturnType<typeof classifyVitePluginRequ
   return new URLSearchParams(request.querySuffix.slice(1)).has("nuxt_component");
 }
 
-function cleanVueSfcImporter(
-  importer: string,
-  request: ReturnType<typeof classifyVitePluginRequest> | null,
-): string {
-  let cleanImporter = request?.normalizedFsId ?? request?.normalizedVuePath ?? importer;
-
-  if (cleanImporter.startsWith("/@id/__x00__")) {
-    cleanImporter = cleanImporter.slice("/@id/__x00__".length);
-  } else if (cleanImporter.startsWith("__x00__")) {
-    cleanImporter = cleanImporter.slice("__x00__".length);
-  }
-
-  return classifyVitePluginRequest(cleanImporter).normalizedVuePath;
-}
-
 async function resolveAliasedVueImport(
   ctx: ResolveContext,
   state: VizePluginState,
@@ -945,6 +931,19 @@ export async function resolveIdHook(
         : cleanVueSfcImporter(importer, importerRequest);
 
     state.logger.log(`resolveId from virtual: id=${id}, cleanImporter=${cleanImporter}`);
+
+    const relativeVueResolved = await resolveRelativeVueSfcImport(
+      ctx,
+      state,
+      id,
+      cleanImporter,
+      isSsrRequest,
+      isDependencyScan,
+      resolveWithVite,
+    );
+    if (relativeVueResolved) {
+      return relativeVueResolved;
+    }
 
     // Subpath imports (e.g., #imports/entry from Nuxt)
     if (id.startsWith("#")) {
