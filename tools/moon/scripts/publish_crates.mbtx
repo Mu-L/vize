@@ -23,12 +23,15 @@ import {
 /// The order matters because many of these crates depend on previously
 /// published workspace crates via exact-version dependencies. The accompanying
 /// test asserts that this list remains topologically valid.
+///
+/// Crates in `pending_first_publish_crates` are intentionally omitted here:
+/// crates.io Trusted Publishing can publish new versions of existing crates,
+/// but it cannot create a crate on its first release.
 let published_crates : Array[String] = [
   "vize_carton",
   "vize_relief",
   "vize_armature",
   "vize_croquis",
-  "vize_croquis_cf",
   "vize_atelier_core",
   "vize_atelier_dom",
   "vize_atelier_vapor",
@@ -39,6 +42,13 @@ let published_crates : Array[String] = [
   "vize_patina",
   "vize_musea",
   "vize_fresco",
+]
+
+///|
+/// Publishable crates that need one manual owner-token publish before GitHub
+/// Trusted Publishing can take over subsequent versions.
+let pending_first_publish_crates : Array[String] = [
+  "vize_croquis_cf",
 ]
 
 ///|

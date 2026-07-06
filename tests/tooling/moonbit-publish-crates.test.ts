@@ -25,15 +25,26 @@ type CargoDependency = {
   name: string;
 };
 
-function getPublishedCrates(): string[] {
+function getScriptCrateArray(variableName: string): string[] {
   const scriptPath = path.join(repoRoot, "tools", "moon", "scripts", "publish_crates.mbtx");
   const script = fs.readFileSync(scriptPath, "utf8");
   const arrayBody = script.match(
-    /let published_crates\s*:\s*Array\[String\]\s*=\s*\[(?<body>[\s\S]*?)\n\]/m,
+    new RegExp(
+      `let ${variableName}\\s*:\\s*Array\\[String\\]\\s*=\\s*\\[(?<body>[\\s\\S]*?)\\n\\]`,
+      "m",
+    ),
   )?.groups?.body;
 
-  assert.ok(arrayBody, "Failed to locate publishedCrates in publish_crates.mbtx");
+  assert.ok(arrayBody, `Failed to locate ${variableName} in publish_crates.mbtx`);
   return Array.from(arrayBody.matchAll(/"([^"]+)"/g), ([, crateName]) => crateName);
+}
+
+function getPublishedCrates(): string[] {
+  return getScriptCrateArray("published_crates");
+}
+
+function getPendingFirstPublishCrates(): string[] {
+  return getScriptCrateArray("pending_first_publish_crates");
 }
 
 function getMetadata(): CargoMetadata {
@@ -74,17 +85,23 @@ test("publish_crates script keeps publishable workspace dependencies ordered", (
   }
 });
 
-test("publish_crates includes every publishable crate package", () => {
+test("publish_crates includes every publishable crate package after first publish exclusions", () => {
   const publishedCrates = new Set(getPublishedCrates());
+  const pendingFirstPublishCrates = new Set(getPendingFirstPublishCrates());
   const missingCrates = getMetadata()
     .packages.filter((pkg) =>
       path.relative(repoRoot, pkg.manifest_path).startsWith(`crates${path.sep}`),
     )
     .filter((pkg) => pkg.publish === null || pkg.publish.length > 0)
     .map((pkg) => pkg.name)
-    .filter((crateName) => !publishedCrates.has(crateName));
+    .filter((crateName) => !publishedCrates.has(crateName))
+    .filter((crateName) => !pendingFirstPublishCrates.has(crateName));
 
   assert.deepEqual(missingCrates, []);
+});
+
+test("publish_crates only defers crates that have not been created on crates.io", () => {
+  assert.deepEqual(getPendingFirstPublishCrates(), ["vize_croquis_cf"]);
 });
 
 test("publish_crates runs as a native MoonBit script", () => {
