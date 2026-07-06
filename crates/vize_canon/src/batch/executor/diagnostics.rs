@@ -7,8 +7,11 @@ use crate::corsa_client::LspDiagnostic;
 use crate::file_uri::file_uri_to_path;
 use vize_carton::{FxHashMap, FxHashSet, String};
 
+mod keyof_indexed_assignment;
+mod line_index;
 mod module_resolution;
 
+use line_index::LineIndex;
 pub(super) use module_resolution::relative_module_resolves_on_disk;
 
 pub(super) fn map_batch_diagnostics(
@@ -102,6 +105,15 @@ impl<'a> DiagnosticMapper<'a> {
         if code == Some(6133) && !self.preserve_unused_diagnostics {
             return None;
         }
+        if code == Some(2322)
+            && self.is_keyof_indexed_assignment(
+                virtual_path,
+                diagnostic.range.start.line,
+                diagnostic.range.start.character,
+            )
+        {
+            return None;
+        }
 
         let original = self.map_to_original(
             virtual_path,
@@ -191,93 +203,26 @@ impl<'a> DiagnosticMapper<'a> {
 
         self.original_sources.get(path)
     }
+
+    pub(super) fn is_keyof_indexed_assignment(
+        &mut self,
+        virtual_path: &Path,
+        line: u32,
+        column: u32,
+    ) -> bool {
+        let Some(file) = self.project.find_by_virtual(virtual_path) else {
+            return false;
+        };
+        let Some(offset) = self.virtual_offset(file, line, column) else {
+            return false;
+        };
+        keyof_indexed_assignment::matches_at(&file.content, &file.virtual_path, offset)
+    }
 }
 
 struct CachedSource {
     content: String,
     line_index: LineIndex,
-}
-
-struct LineIndex {
-    starts: Vec<usize>,
-    len: usize,
-}
-
-impl LineIndex {
-    fn new(content: &str) -> Self {
-        let mut starts = vec![0];
-        for (index, byte) in content.bytes().enumerate() {
-            if byte == b'\n' {
-                starts.push(index + 1);
-            }
-        }
-
-        Self {
-            starts,
-            len: content.len(),
-        }
-    }
-
-    /// Convert an LSP (line, character) — where character is in UTF-16 code
-    /// units — back to a byte offset into `content`. (#965)
-    fn line_col_to_offset(&self, content: &str, line: u32, col: u32) -> Option<u32> {
-        let line = usize::try_from(line).ok()?;
-        let start = *self.starts.get(line)?;
-        let end = self.line_end(line);
-        let mut current_col = 0u32;
-        let mut offset = start;
-
-        if col == 0 {
-            return u32::try_from(offset).ok();
-        }
-
-        for ch in content[start..end].chars() {
-            offset += ch.len_utf8();
-            current_col += ch.len_utf16() as u32;
-            if current_col >= col {
-                return u32::try_from(offset).ok();
-            }
-        }
-
-        if current_col == col {
-            u32::try_from(offset).ok()
-        } else {
-            None
-        }
-    }
-
-    /// Convert a byte offset to LSP (line, character). `character` is in
-    /// UTF-16 code units — astral characters (`len_utf16() == 2`) count as
-    /// two so the column matches what `vue-tsc` / `@vue/language-tools`
-    /// report. (#965)
-    fn offset_to_line_col(&self, content: &str, offset: u32) -> Option<(u32, u32)> {
-        let offset = usize::try_from(offset).ok()?;
-        if offset > self.len {
-            return None;
-        }
-
-        let line = self.starts.partition_point(|start| *start <= offset);
-        let line = line.saturating_sub(1);
-        let start = *self.starts.get(line)?;
-        let end = self.line_end(line);
-        let mut col = 0u32;
-        let mut cursor = start;
-        for ch in content[start..end].chars() {
-            if cursor >= offset {
-                break;
-            }
-            col += ch.len_utf16() as u32;
-            cursor += ch.len_utf8();
-        }
-        Some((u32::try_from(line).ok()?, col))
-    }
-
-    fn line_end(&self, line: usize) -> usize {
-        self.starts
-            .get(line + 1)
-            .map(|next_start| next_start.saturating_sub(1))
-            .unwrap_or(self.len)
-    }
 }
 
 fn uri_to_path(uri: &str) -> PathBuf {
@@ -497,39 +442,6 @@ mod tests {
             uri_to_path("file:///workspace/pages/%5Bname%5D%20%231.vue.ts"),
             PathBuf::from("/workspace/pages/[name] #1.vue.ts")
         );
-    }
-
-    #[test]
-    fn line_index_matches_source_map_boundaries() {
-        let content = "a\nbeta\n";
-        let index = LineIndex::new(content);
-
-        assert_eq!(index.line_col_to_offset(content, 0, 1), Some(1));
-        assert_eq!(index.line_col_to_offset(content, 1, 4), Some(6));
-        assert_eq!(index.line_col_to_offset(content, 2, 0), Some(7));
-        assert_eq!(index.line_col_to_offset(content, 1, 5), None);
-        assert_eq!(index.offset_to_line_col(content, 7), Some((2, 0)));
-
-        let content = "é\n";
-        let index = LineIndex::new(content);
-        assert_eq!(index.offset_to_line_col(content, 1), Some((0, 1)));
-    }
-
-    #[test]
-    fn line_index_counts_astral_chars_as_two_utf16_units() {
-        // Regression for #965: LSP `Position.character` is in UTF-16 code
-        // units. An emoji (`U+1F600`) is one Unicode scalar but TWO UTF-16
-        // units (encoded as a surrogate pair) — `vue-tsc` /
-        // `@vue/language-tools` report the post-emoji column as `+2`, so
-        // vize must too.
-        let content = "\u{1F600}x\n";
-        let index = LineIndex::new(content);
-
-        // Byte offset 4 is right after the emoji + `x`. The emoji is 4
-        // UTF-8 bytes and counts as 2 UTF-16 units; `x` is 1 of each.
-        assert_eq!(index.offset_to_line_col(content, 5), Some((0, 3)));
-        // The reverse direction must round-trip.
-        assert_eq!(index.line_col_to_offset(content, 0, 3), Some(5));
     }
 
     #[test]

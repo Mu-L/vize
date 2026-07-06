@@ -562,20 +562,20 @@ fn parse_cli_diagnostic_line(
     }
 
     let virtual_path = normalize_cli_path(path, project.virtual_root());
+    if code == Some(2322) && mapper.is_keyof_indexed_assignment(&virtual_path, line, column) {
+        return None;
+    }
     if let Some(diagnostic) =
         project_diagnostics::config(&virtual_path, project, message, code, severity)
     {
         return Some(diagnostic);
     }
-
     let original = mapper.map_to_original(&virtual_path, line, column)?;
     if should_skip_original_diagnostic(code, &original) {
         return None;
     }
 
-    // Suppress the false `TS2307` raised for a relative import of a sibling that
-    // exists on disk but sits outside an explicit file subset. See the matching
-    // check in `diagnostics::map_lsp_diagnostic`.
+    // Suppress false `TS2307` for existing siblings outside an explicit subset.
     if code == Some(2307) && relative_module_resolves_on_disk(message, &original.path) {
         return None;
     }
