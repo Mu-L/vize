@@ -10,6 +10,7 @@ use crate::graph::DependencyGraph;
 use crate::registry::{FileId, ModuleRegistry};
 use vize_carton::{CompactString, FxHashMap, FxHashSet, cstr};
 
+mod info;
 mod summary;
 
 pub use summary::{FallthroughSummary, summarize_fallthrough};
@@ -271,6 +272,10 @@ fn extract_passed_attrs(
 
 /// Check if an attribute is a standard HTML attribute.
 fn is_standard_html_attr(attr: &str) -> bool {
+    if attr.starts_with("data-") || attr.starts_with("aria-") || is_listener_attr(attr) {
+        return true;
+    }
+
     matches!(
         attr,
         "class"
@@ -278,14 +283,18 @@ fn is_standard_html_attr(attr: &str) -> bool {
             | "id"
             | "key"
             | "ref"
-            | "data-*"
-            | "aria-*"
             | "role"
             | "tabindex"
             | "title"
             | "disabled"
             | "hidden"
     )
+}
+
+fn is_listener_attr(attr: &str) -> bool {
+    attr.strip_prefix("on")
+        .and_then(|suffix| suffix.chars().next())
+        .is_some_and(|first| first.is_ascii_uppercase())
 }
 
 #[cfg(test)]
