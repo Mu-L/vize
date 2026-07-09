@@ -3,6 +3,7 @@ import { injectNuxtI18nHelpers } from "./i18n";
 import { appendMuseaArtComponentIgnore } from "./musea-components";
 import { registerNuxtMuseaStaticPublicAsset } from "./musea-static";
 import "./schema";
+import * as bridgeFastPath from "./bridge-fast-path";
 import type { VizeNuxtCompilerOptions, VizeNuxtOptions } from "./options";
 import {
   resolveNuxtBridgeOptions,
@@ -32,7 +33,6 @@ const VUE_RUNTIME_DEDUPE = [
   "@vue/runtime-dom",
   "@vue/shared",
 ];
-const VUE_CLIENT_RUNTIME_IMPORT = "vue/dist/vue.runtime.esm-bundler.js";
 type VitePluginWithTransform = {
   name?: string;
   transform?: unknown;
@@ -211,16 +211,6 @@ function isViteSsrTransform(args: unknown[]): boolean {
     "ssr" in options &&
     (options as { ssr?: boolean }).ssr === true
   );
-}
-
-function rewriteBareVueImportsToClientRuntime(code: string): string {
-  return code
-    .replace(/(\bfrom\s*)(["'])vue\2/g, (_, prefix: string, quote: string) => {
-      return `${prefix}${quote}${VUE_CLIENT_RUNTIME_IMPORT}${quote}`;
-    })
-    .replace(/(\bimport\s*)(["'])vue\2/g, (_, prefix: string, quote: string) => {
-      return `${prefix}${quote}${VUE_CLIENT_RUNTIME_IMPORT}${quote}`;
-    });
 }
 
 function normalizeNuxtKeyedTransformResult(
@@ -505,7 +495,7 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
 
         // 1. Component auto-imports: replace _resolveComponent("Name") with direct imports
         // Nuxt's LoaderPlugin normally does this, but skips \0-prefixed IDs.
-        if (nuxtComponentResolver) {
+        if (nuxtComponentResolver && bridgeFastPath.hasComponentBridgeInput(result)) {
           const nextComponentResult = injectNuxtComponentImports(result, (name) => {
             return nuxtComponentResolver.resolve(name);
           });
@@ -520,7 +510,7 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
         // Must inject inside the setup() function body, not at module top level.
         // Parse the virtual module so string literals, comments, and Vue template
         // globals do not look like setup-scope runtime helper calls.
-        if (bridgeOptions.i18n) {
+        if (bridgeOptions.i18n && bridgeFastPath.hasI18nBridgeInput(result)) {
           const nextResult = injectNuxtI18nHelpers(result, id);
           if (nextResult !== result) {
             result = nextResult;
@@ -552,7 +542,7 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
           }
         }
 
-        if (bridgeOptions.stableInjectedKeys) {
+        if (bridgeOptions.stableInjectedKeys && bridgeFastPath.hasStableKeyBridgeInput(result)) {
           const stableKeyResult = stabilizeNuxtInjectedKeysForVizeVirtualModule(result, id);
           if (stableKeyResult !== result) {
             result = stableKeyResult;
@@ -561,7 +551,7 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
         }
 
         if (isViteBuild && !isViteSsrTransform(args)) {
-          const clientRuntimeResult = rewriteBareVueImportsToClientRuntime(result);
+          const clientRuntimeResult = bridgeFastPath.rewriteBareVueImportsToClientRuntime(result);
           if (clientRuntimeResult !== result) {
             result = clientRuntimeResult;
             changed = true;
