@@ -1,5 +1,6 @@
 //! Lint command - Lint Vue and script files
 
+mod aggregate;
 mod args;
 mod collect;
 mod cross_file;
@@ -13,6 +14,7 @@ mod tests;
 pub use args::LintArgs;
 
 use crate::profile_support;
+use aggregate::{LintRunAccumulator, should_retain_file_results};
 use collect::{collect_lint_files, load_lint_ignore_set, resolve_lint_config_path};
 use cross_file::apply_sfc_cross_file_lint;
 use fix::lint_source_with_optional_fix;
@@ -47,7 +49,7 @@ pub fn run(args: LintArgs) {
         );
         std::process::exit(2);
     });
-    let render_details = should_render_lint_details(format, args.quiet);
+    let render_details = aggregate::should_render_details(format, args.quiet);
     crate::config::write_schema(None);
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let (loaded_config, linter_config, linter_features) = if args.no_config {
@@ -133,7 +135,9 @@ pub fn run(args: LintArgs) {
     }
 
     let lint_start = Instant::now();
-    let mut results: Vec<_> = files
+    let cross_file_enabled = args.cross_file || args.cross_file_tree || args.cross_file_complexity;
+    let retain_file_results = should_retain_file_results(render_details, cross_file_enabled);
+    let lint_run = files
         .par_iter()
         .filter_map(|path| {
             let file_start = args.profile.then(Instant::now);
@@ -197,11 +201,18 @@ pub fn run(args: LintArgs) {
 
             Some((path.clone(), filename, source, result))
         })
-        .collect();
+        .fold(
+            || LintRunAccumulator::new(retain_file_results),
+            LintRunAccumulator::push,
+        )
+        .reduce(
+            || LintRunAccumulator::new(retain_file_results),
+            LintRunAccumulator::merge,
+        );
+    let (mut results, quiet_totals) = lint_run.into_parts();
     let lint_time = lint_start.elapsed();
 
     let mut cross_file_report = None;
-    let cross_file_enabled = args.cross_file || args.cross_file_tree || args.cross_file_complexity;
     let cross_file_start = args.profile.then(Instant::now);
     if cross_file_enabled {
         cross_file_report = profile!(
@@ -218,15 +229,8 @@ pub fn run(args: LintArgs) {
         .map(|start| start.elapsed())
         .unwrap_or(Duration::ZERO);
 
-    let total_errors: usize = results
-        .iter()
-        .map(|(_, _, _, result)| result.error_count)
-        .sum::<usize>()
-        + write_failures.load(Ordering::Relaxed);
-    let total_warnings: usize = results
-        .iter()
-        .map(|(_, _, _, result)| result.warning_count)
-        .sum();
+    let (lint_error_count, total_warnings) = aggregate::totals(quiet_totals, &results);
+    let total_errors = lint_error_count + write_failures.load(Ordering::Relaxed);
 
     let output_start = Instant::now();
     if render_details {
@@ -404,9 +408,4 @@ fn severity_overrides(entries: Vec<(String, LintRuleSeverity)>) -> Vec<(String, 
             LintRuleSeverity::Error => Some((name, Severity::Error)),
         })
         .collect()
-}
-
-#[inline]
-fn should_render_lint_details(format: OutputFormat, quiet: bool) -> bool {
-    format.renders_details_when_quiet() || !quiet
 }
