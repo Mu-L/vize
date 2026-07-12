@@ -1,7 +1,79 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { parse } from "yaml";
 
 import { readRepoFile, workflowJobBody } from "./support/github-workflows.ts";
+
+type ReleaseJob = {
+  environment?: string;
+  needs?: string | string[];
+  permissions?: Record<string, string>;
+  "runs-on"?: string;
+  steps?: Array<{
+    env?: Record<string, string>;
+    run?: string;
+    uses?: string;
+    with?: Record<string, unknown>;
+  }>;
+  "timeout-minutes"?: number;
+  uses?: string;
+};
+
+function jobNeeds(job: ReleaseJob): string[] {
+  if (job.needs == null) return [];
+  return Array.isArray(job.needs) ? job.needs : [job.needs];
+}
+
+test("every publication edge waits for credential-free release preflight", () => {
+  const source = readRepoFile(".github", "workflows", "release.yml");
+  const workflow = parse(source) as { jobs?: Record<string, ReleaseJob> };
+  const jobs = workflow.jobs ?? {};
+  const publishJobs = Object.entries(jobs)
+    .filter(([, job]) => {
+      const serialized = JSON.stringify(job);
+      return (
+        ["npm", "crates-io", "vscode-marketplace"].includes(job.environment ?? "") ||
+        /publish_npm_package|npm publish|cargo publish|vsce publish|crates-io-auth-action@|softprops\/action-gh-release@/.test(
+          serialized,
+        )
+      );
+    })
+    .map(([name]) => name)
+    .sort();
+
+  assert.deepEqual(publishJobs, [
+    "create-github-release",
+    "release-crates",
+    "release-npm-cli",
+    "release-npm-fresco",
+    "release-npm-fresco-native",
+    "release-npm-musea-mcp-server",
+    "release-npm-musea-nuxt",
+    "release-npm-native",
+    "release-npm-nuxt",
+    "release-npm-oxlint-plugin",
+    "release-npm-rspack-plugin",
+    "release-npm-unplugin",
+    "release-npm-vite-plugin",
+    "release-npm-vite-plugin-musea",
+    "release-npm-wasm",
+    "release-vscode-extension",
+  ]);
+  for (const jobName of publishJobs) {
+    assert.ok(jobNeeds(jobs[jobName]).includes("release-preflight"), jobName);
+  }
+
+  const preflight = jobs["release-preflight"];
+  assert.ok(preflight);
+  assert.equal(preflight.uses, "./.github/workflows/release-preflight.yml");
+  assert.deepEqual(preflight.permissions, {
+    actions: "write",
+    contents: "read",
+    issues: "read",
+  });
+  assert.deepEqual(jobNeeds(preflight), []);
+  assert.doesNotMatch(JSON.stringify(preflight), /environment|id-token|secrets\./);
+});
 
 test("release workflow does not pin a separate hard-coded Node version for VS Code publishing", () => {
   const workflow = readRepoFile(".github", "workflows", "release.yml");
@@ -114,7 +186,11 @@ test("release workflow smokes the wasm package wrapper before publishing", () =>
   assert.match(buildJob, /npm\/wasm\/index\.d\.ts/);
   assert.match(buildJob, /moon run --target native tools\/moon\/cmd\/build_vize_wasm_package --/);
   assert.match(buildJob, /name:\s*release-package-vize-wasm/);
-  assert.match(publishJob, /needs:\s*build-wasm-package/);
+  const publishWorkflow = parse(workflow) as { jobs?: Record<string, ReleaseJob> };
+  const publishWasm = publishWorkflow.jobs?.["release-npm-wasm"];
+  assert.ok(publishWasm);
+  assert.ok(jobNeeds(publishWasm).includes("build-wasm-package"));
+  assert.ok(jobNeeds(publishWasm).includes("release-preflight"));
   assert.match(publishJob, /name:\s*release-package-vize-wasm/);
   assert.match(publishJob, /path:\s*npm\/wasm/);
 
