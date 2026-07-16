@@ -24,7 +24,7 @@ export function buildNuxtCompilerOptions(
 ): VizeNuxtCompilerOptions {
   const defaults: VizeNuxtCompilerOptions = {
     devUrlBase: buildNuxtDevAssetBase(baseURL, buildAssetsDir),
-    handleNodeModulesVue: false,
+    handleNodeModulesVue: true,
     root: rootDir,
     scanPatterns: [],
   };
