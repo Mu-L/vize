@@ -10,7 +10,7 @@ use crate::virtual_ts::{VirtualTsCheckOptions, VirtualTsOptions};
 use vize_carton::String;
 
 mod paths;
-use paths::{collect_project_paths, refreshed_paths};
+use paths::{IncrementalPaths, collect_project_paths};
 
 /// Result of type checking.
 #[derive(Debug, Default)]
@@ -115,6 +115,8 @@ pub struct BatchTypeChecker {
     scanned: bool,
     /// Number of parallel Corsa CLI processes; `None` auto-tunes.
     server_count: Option<usize>,
+    /// Source membership carried across incremental checks.
+    incremental_paths: IncrementalPaths,
 }
 
 impl BatchTypeChecker {
@@ -148,6 +150,7 @@ impl BatchTypeChecker {
             executor,
             scanned: false,
             server_count: None,
+            incremental_paths: IncrementalPaths::new(),
         })
     }
 
@@ -223,6 +226,7 @@ impl BatchTypeChecker {
     pub fn scan_paths(&mut self, paths: &[PathBuf]) -> CorsaResult<()> {
         self.project.register_paths(paths)?;
         self.scanned = true;
+        self.incremental_paths.after_explicit_scan(paths);
         Ok(())
     }
 
@@ -231,6 +235,7 @@ impl BatchTypeChecker {
         let paths = collect_project_paths(self.project.project_root())?;
         self.project.register_paths(&paths)?;
         self.scanned = true;
+        self.incremental_paths.after_project_scan(&self.project);
         Ok(())
     }
 
@@ -299,8 +304,9 @@ impl TypeChecker for BatchTypeChecker {
         // checked against the stale virtual files captured by the initial scan.
         // A dependency-aware persistent Corsa session can optimize this path
         // without weakening this observable contract.
+        let paths = self.incremental_paths.refresh(&self.project, changed)?;
+
         let mut refreshed = self.project.empty_with_same_options()?;
-        let paths = refreshed_paths(&self.project, changed)?;
         refreshed.register_paths(&paths)?;
         self.check_registered_project(&refreshed)
     }
