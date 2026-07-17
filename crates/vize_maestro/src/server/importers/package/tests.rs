@@ -160,3 +160,62 @@ fn package_export_arrays_fall_back_without_escaping_the_package() {
         None
     );
 }
+
+#[test]
+fn package_export_conditions_block_empty_and_unknown_targets() {
+    let dir = tempfile::tempdir().unwrap();
+    let package = dir.path().join("node_modules/conditional-package");
+    let runtime = package.join("dist/runtime.mjs");
+    let declaration = package.join("dist/runtime.d.mts");
+    let browser = package.join("dist/browser.d.ts");
+    std::fs::create_dir_all(runtime.parent().unwrap()).unwrap();
+    std::fs::write(&runtime, "export const runtime = true").unwrap();
+    std::fs::write(&declaration, "export declare const runtime: true").unwrap();
+    std::fs::write(&browser, "export declare const browser: true").unwrap();
+    std::fs::write(
+        package.join("package.json"),
+        r#"{
+  "exports": {
+    ".": { "types": null, "import": "./dist/runtime.mjs" },
+    "./unknown": { "browser": "./dist/browser.d.ts" }
+  }
+}"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        resolve_package_import(dir.path(), "conditional-package"),
+        None
+    );
+    assert_eq!(
+        resolve_package_import(dir.path(), "conditional-package/unknown"),
+        None
+    );
+}
+
+#[test]
+fn package_export_patterns_prefer_the_longest_prefix_before_total_length() {
+    let dir = tempfile::tempdir().unwrap();
+    let package = dir.path().join("node_modules/pattern-package");
+    let expected = package.join("types/admin/settings.d.ts");
+    let longer_pattern = package.join("types/settings/admin.d.ts");
+    std::fs::create_dir_all(expected.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(longer_pattern.parent().unwrap()).unwrap();
+    std::fs::write(&expected, "export declare const selected: 'prefix'").unwrap();
+    std::fs::write(&longer_pattern, "export declare const selected: 'length'").unwrap();
+    std::fs::write(
+        package.join("package.json"),
+        r#"{
+  "exports": {
+    "./features/admin/*": "./types/admin/*.d.ts",
+    "./features/*/settings": "./types/settings/*.d.ts"
+  }
+}"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        resolve_package_import(dir.path(), "pattern-package/features/admin/settings"),
+        Some(std::fs::canonicalize(&expected).unwrap())
+    );
+}
