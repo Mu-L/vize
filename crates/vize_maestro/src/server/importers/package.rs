@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde_json::Value;
 use vize_carton::{CompactString, cstr};
@@ -24,8 +24,9 @@ pub(super) fn resolve_package_import(importer_dir: &Path, specifier: &str) -> Op
 
     if let Some(target) = manifest
         .as_ref()
-        .and_then(|manifest| package_export_target(manifest, subpath))
-        .and_then(|target| resolve_package_target(&package_root, target.as_str()))
+        .into_iter()
+        .flat_map(|manifest| package_export_targets(manifest, subpath))
+        .find_map(|target| resolve_package_target(&package_root, target.as_str()))
     {
         return Some(comparable_path(&target));
     }
@@ -46,7 +47,7 @@ pub(super) fn resolve_package_import(importer_dir: &Path, specifier: &str) -> Op
                 .iter()
                 .find_map(|key| manifest.get(key).and_then(Value::as_str))
         })
-        .and_then(|target| resolve_package_target(&package_root, target))
+        .and_then(|target| resolve_legacy_package_target(&package_root, target))
         .or_else(|| resolve_package_candidate(package_root.join("index")))
         .map(|path| comparable_path(&path))
 }
@@ -79,11 +80,13 @@ fn split_package_specifier(specifier: &str) -> Option<(&str, Option<&str>)> {
     Some((first, subpath))
 }
 
-fn package_export_target(manifest: &Value, subpath: Option<&str>) -> Option<CompactString> {
-    let exports = manifest.get("exports")?;
+fn package_export_targets(manifest: &Value, subpath: Option<&str>) -> Vec<CompactString> {
+    let Some(exports) = manifest.get("exports") else {
+        return Vec::new();
+    };
     let key = subpath.map_or_else(|| cstr!("."), |subpath| cstr!("./{subpath}"));
     match exports.get(key.as_str()) {
-        Some(entry) => return conditional_export_target(entry).map(CompactString::from),
+        Some(entry) => return conditional_export_targets(entry, None),
         None if subpath.is_none()
             && exports.as_object().is_none_or(|conditions| {
                 conditions
@@ -91,13 +94,15 @@ fn package_export_target(manifest: &Value, subpath: Option<&str>) -> Option<Comp
                     .all(|condition| !condition.starts_with('.'))
             }) =>
         {
-            return conditional_export_target(exports).map(CompactString::from);
+            return conditional_export_targets(exports, None);
         }
         None => {}
     }
 
+    let Some(exports) = exports.as_object() else {
+        return Vec::new();
+    };
     exports
-        .as_object()?
         .iter()
         .filter_map(|(pattern, entry)| {
             let capture = export_pattern_capture(pattern, key.as_str())?;
@@ -105,9 +110,8 @@ fn package_export_target(manifest: &Value, subpath: Option<&str>) -> Option<Comp
             Some((prefix_len, pattern.len(), entry, capture))
         })
         .max_by_key(|(prefix_len, pattern_len, _, _)| (*prefix_len, *pattern_len))
-        .and_then(|(_, _, entry, capture)| {
-            conditional_export_target(entry)
-                .map(|target| CompactString::from(target.replace('*', capture)))
+        .map_or_else(Vec::new, |(_, _, entry, capture)| {
+            conditional_export_targets(entry, Some(capture))
         })
 }
 
@@ -124,24 +128,71 @@ fn export_pattern_capture<'a>(pattern: &str, requested: &'a str) -> Option<&'a s
     requested.get(prefix.len()..requested.len() - suffix.len())
 }
 
-fn conditional_export_target(value: &Value) -> Option<&str> {
+fn conditional_export_targets(value: &Value, capture: Option<&str>) -> Vec<CompactString> {
+    let mut targets = Vec::new();
+    collect_conditional_export_targets(value, capture, &mut targets);
+    targets
+}
+
+fn collect_conditional_export_targets(
+    value: &Value,
+    capture: Option<&str>,
+    targets: &mut Vec<CompactString>,
+) {
     match value {
-        Value::String(target) => Some(target),
-        Value::Array(targets) => targets.iter().find_map(conditional_export_target),
-        Value::Object(conditions) => ["types", "import", "require", "default"]
-            .iter()
-            .find_map(|condition| {
-                conditions
-                    .get(*condition)
-                    .and_then(conditional_export_target)
-            })
-            .or_else(|| conditions.values().find_map(conditional_export_target)),
-        _ => None,
+        Value::String(target) => targets.push(capture.map_or_else(
+            || CompactString::from(target.as_str()),
+            |capture| CompactString::from(target.replace('*', capture)),
+        )),
+        Value::Array(entries) => {
+            for entry in entries {
+                collect_conditional_export_targets(entry, capture, targets);
+            }
+        }
+        Value::Object(conditions) => {
+            for condition in ["types", "import", "require", "default"] {
+                let Some(entry) = conditions.get(condition) else {
+                    continue;
+                };
+                let previous_len = targets.len();
+                collect_conditional_export_targets(entry, capture, targets);
+                if targets.len() > previous_len {
+                    return;
+                }
+            }
+            for entry in conditions.values() {
+                let previous_len = targets.len();
+                collect_conditional_export_targets(entry, capture, targets);
+                if targets.len() > previous_len {
+                    return;
+                }
+            }
+        }
+        _ => {}
     }
 }
 
 fn resolve_package_target(package_root: &Path, target: &str) -> Option<PathBuf> {
-    let target = target.strip_prefix("./").unwrap_or(target);
+    let target = target.strip_prefix("./")?;
+    resolve_relative_package_target(package_root, target)
+}
+
+fn resolve_legacy_package_target(package_root: &Path, target: &str) -> Option<PathBuf> {
+    resolve_relative_package_target(package_root, target.strip_prefix("./").unwrap_or(target))
+}
+
+fn resolve_relative_package_target(package_root: &Path, target: &str) -> Option<PathBuf> {
+    let target = Path::new(target);
+    if target.as_os_str().is_empty()
+        || target.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+    {
+        return None;
+    }
     resolve_package_candidate(package_root.join(target))
 }
 
@@ -183,123 +234,4 @@ fn declaration_sidecar(base: &Path) -> Option<PathBuf> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{package_export_target, resolve_package_import, split_package_specifier};
-
-    #[test]
-    fn package_specifiers_preserve_scopes_and_subpaths() {
-        assert_eq!(split_package_specifier("vue"), Some(("vue", None)));
-        assert_eq!(
-            split_package_specifier("vue-router/auto-routes"),
-            Some(("vue-router", Some("auto-routes")))
-        );
-        assert_eq!(
-            split_package_specifier("@vue/language-core/lib/types"),
-            Some(("@vue/language-core", Some("lib/types")))
-        );
-        assert_eq!(
-            split_package_specifier("@vue/language-core"),
-            Some(("@vue/language-core", None))
-        );
-        assert_eq!(split_package_specifier(""), None);
-        assert_eq!(split_package_specifier("@vue"), None);
-        assert_eq!(split_package_specifier("@/invalid"), None);
-    }
-
-    #[test]
-    fn package_exports_select_types_without_guessing_a_root_subpath() {
-        let manifest = serde_json::json!({
-            "exports": {
-                ".": {
-                    "types": "./dist/index.d.mts",
-                    "import": "./dist/index.mjs"
-                },
-                "./auto-routes": [
-                    null,
-                    { "types": "./routes.d.cts", "default": "./routes.cjs" }
-                ]
-            }
-        });
-        assert_eq!(
-            package_export_target(&manifest, None).as_deref(),
-            Some("./dist/index.d.mts")
-        );
-        assert_eq!(
-            package_export_target(&manifest, Some("auto-routes")).as_deref(),
-            Some("./routes.d.cts")
-        );
-        assert_eq!(package_export_target(&manifest, Some("missing")), None);
-
-        let conditional_root = serde_json::json!({
-            "exports": {
-                "types": "./index.d.ts",
-                "default": "./index.js"
-            }
-        });
-        assert_eq!(
-            package_export_target(&conditional_root, None).as_deref(),
-            Some("./index.d.ts")
-        );
-
-        let subpaths_only = serde_json::json!({
-            "exports": { "./feature": { "types": "./feature.d.ts" } }
-        });
-        assert_eq!(package_export_target(&subpaths_only, None), None);
-    }
-
-    #[test]
-    fn package_exports_are_authoritative_and_support_nested_wildcards() {
-        let dir = tempfile::tempdir().unwrap();
-        let package = dir.path().join("node_modules/@scope/router");
-        let nested_declaration = package.join("types/features/admin.d.mts");
-        std::fs::create_dir_all(nested_declaration.parent().unwrap()).unwrap();
-        std::fs::write(&nested_declaration, "export declare const route: unknown").unwrap();
-        std::fs::write(
-            package.join("private.d.ts"),
-            "export declare const secret: unknown",
-        )
-        .unwrap();
-        std::fs::write(
-            package.join("package.json"),
-            r#"{
-  "types": "./private.d.ts",
-  "exports": {
-    "./features/*": { "types": "./types/features/*.d.mts" },
-    "./*": { "types": "./types/*.d.ts" }
-  }
-}"#,
-        )
-        .unwrap();
-
-        assert_eq!(
-            resolve_package_import(dir.path(), "@scope/router/features/admin"),
-            Some(std::fs::canonicalize(&nested_declaration).unwrap())
-        );
-        assert_eq!(
-            resolve_package_import(dir.path(), "@scope/router/private"),
-            None
-        );
-        assert_eq!(resolve_package_import(dir.path(), "@scope/router"), None);
-    }
-
-    #[test]
-    fn package_runtime_exports_prefer_declaration_sidecars() {
-        let dir = tempfile::tempdir().unwrap();
-        let package = dir.path().join("node_modules/runtime-package");
-        let runtime = package.join("dist/index.mjs");
-        let declaration = package.join("dist/index.d.mts");
-        std::fs::create_dir_all(runtime.parent().unwrap()).unwrap();
-        std::fs::write(&runtime, "export const value = 1").unwrap();
-        std::fs::write(&declaration, "export declare const value: number").unwrap();
-        std::fs::write(
-            package.join("package.json"),
-            r#"{ "exports": { ".": { "import": "./dist/index.mjs" } } }"#,
-        )
-        .unwrap();
-
-        assert_eq!(
-            resolve_package_import(dir.path(), "runtime-package"),
-            Some(std::fs::canonicalize(&declaration).unwrap())
-        );
-    }
-}
+mod tests;
