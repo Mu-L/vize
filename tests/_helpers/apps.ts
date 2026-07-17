@@ -1719,9 +1719,7 @@ function setupVuefesWorktree(opts?: { enableVize?: boolean; variant?: string }):
     fs.writeFileSync(vuefesPackageJson, JSON.stringify(pkg, null, "\t") + "\n");
   }
 
-  addPnpmOverrides(vuefesPackageJson, {
-    vite: "^8.0.0",
-  });
+  if (enableVize) addPnpmOverrides(vuefesPackageJson, { vite: "^8.0.0" });
   patchVuefesVisualFixture(vuefesDir);
 
   installPnpmDependencies(vuefesDir, {
@@ -1807,7 +1805,8 @@ export function createVuefesVisualParityApps(mode: VuefesVisualParityMode = "dev
   const candidatePort = mode === "preview" ? 5333 : 5327;
 
   return {
-    reference: createVuefesVisualParityApp("reference", referencePort, mode),
+    // Use the upstream production build as the stable reference for both candidate modes.
+    reference: createVuefesVisualParityApp("reference", referencePort, "preview"),
     candidate: createVuefesVisualParityApp("candidate", candidatePort, mode),
   };
 }
