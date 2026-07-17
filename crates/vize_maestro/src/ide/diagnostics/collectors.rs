@@ -317,9 +317,9 @@ impl DiagnosticService {
 
         let allocator = vize_carton::Bump::new();
         let (_, errors) = vize_armature::parse(&allocator, &template.content);
-
         errors
             .iter()
+            .filter(|error| !error.is_compatibility_notice())
             .filter_map(|error| {
                 let loc = error.loc.as_ref()?;
 

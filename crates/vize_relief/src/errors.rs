@@ -1,5 +1,5 @@
 //! Compiler error types and codes.
-
+mod compatibility;
 use crate::SourceLocation;
 use thiserror::Error;
 use vize_carton::{CompactString, ToCompactString};
@@ -40,11 +40,7 @@ impl CompilerError {
     /// gate render emission (#958).
     #[must_use]
     pub fn is_recoverable(&self) -> bool {
-        matches!(self.code, ErrorCode::DuplicateAttribute)
-            || (self.code == ErrorCode::ExtendPoint
-                && self
-                    .message
-                    .starts_with("Invalid self-closing syntax on non-void HTML element"))
+        matches!(self.code, ErrorCode::DuplicateAttribute) || self.is_compatibility_notice()
     }
 }
 

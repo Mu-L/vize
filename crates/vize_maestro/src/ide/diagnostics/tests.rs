@@ -1,5 +1,5 @@
 //! Tests for the diagnostics aggregation pipeline.
-
+mod self_closing_compatibility;
 use std::fs;
 
 use super::{DiagnosticBuilder, DiagnosticService, Severity, offset_to_line_col, sources};

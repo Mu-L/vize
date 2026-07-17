@@ -1,5 +1,5 @@
 //! Reverse dependency index for open Vue documents.
-
+mod dependents;
 use std::path::{Component, Path, PathBuf};
 
 use oxc_allocator::Allocator;
@@ -12,7 +12,7 @@ use vize_carton::{FxHashMap, FxHashSet};
 
 use self::package::resolve_package_import;
 use super::ServerState;
-
+pub(super) use dependents::open_vue_dependents;
 mod package;
 
 const SCRIPT_EXTENSIONS: &[&str] = &["vue", "ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
