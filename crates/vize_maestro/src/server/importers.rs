@@ -144,7 +144,11 @@ fn resolve_import(importer_dir: &Path, specifier: &str) -> Option<PathBuf> {
     let specifier = specifier
         .split_once(['?', '#'])
         .map_or(specifier, |(path, _)| path);
-    if specifier.starts_with("./") || specifier.starts_with("../") {
+    if specifier == "."
+        || specifier == ".."
+        || specifier.starts_with("./")
+        || specifier.starts_with("../")
+    {
         return resolve_relative_import(importer_dir, specifier);
     }
 
@@ -153,6 +157,13 @@ fn resolve_import(importer_dir: &Path, specifier: &str) -> Option<PathBuf> {
 
 fn resolve_relative_import(importer_dir: &Path, specifier: &str) -> Option<PathBuf> {
     let joined = importer_dir.join(specifier);
+    if matches!(specifier, "." | "..") {
+        return SCRIPT_EXTENSIONS
+            .iter()
+            .map(|extension| joined.join("index").with_extension(extension))
+            .find(|candidate| candidate.exists())
+            .map(|candidate| comparable_path(&candidate));
+    }
     if Path::new(specifier).extension().is_some() {
         return Some(comparable_path(&joined));
     }
@@ -197,7 +208,7 @@ fn source_type(lang: Option<&str>) -> SourceType {
 mod tests {
     #![allow(clippy::disallowed_methods)]
 
-    use super::open_vue_importers;
+    use super::{open_vue_importers, resolve_import};
     use crate::server::ServerState;
     use tower_lsp::lsp_types::Url;
 
@@ -282,5 +293,26 @@ void plugin
             vec![parent_uri.clone()]
         );
         assert_eq!(open_vue_importers(&state, &common_uri), vec![parent_uri]);
+    }
+
+    #[test]
+    fn exact_directory_specifiers_resolve_index_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let source_dir = dir.path().join("src");
+        let source_index = source_dir.join("index.ts");
+        let parent_index = dir.path().join("index.ts");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::write(&source_index, "export const source = true").unwrap();
+        std::fs::write(&parent_index, "export const parent = true").unwrap();
+        std::fs::write(dir.path().join("src.vue"), "<template />").unwrap();
+
+        assert_eq!(
+            resolve_import(&source_dir, ".?raw"),
+            Some(std::fs::canonicalize(&source_index).unwrap())
+        );
+        assert_eq!(
+            resolve_import(&source_dir, "..#parent"),
+            Some(std::fs::canonicalize(&parent_index).unwrap())
+        );
     }
 }
