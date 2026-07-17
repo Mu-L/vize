@@ -10,7 +10,10 @@ use parking_lot::RwLock;
 use tower_lsp::lsp_types::Url;
 use vize_carton::{FxHashMap, FxHashSet};
 
+use self::package::resolve_package_import;
 use super::ServerState;
+
+mod package;
 
 const SCRIPT_EXTENSIONS: &[&str] = &["vue", "ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"];
 
@@ -141,10 +144,14 @@ fn resolve_import(importer_dir: &Path, specifier: &str) -> Option<PathBuf> {
     let specifier = specifier
         .split_once(['?', '#'])
         .map_or(specifier, |(path, _)| path);
-    if !specifier.starts_with("./") && !specifier.starts_with("../") {
-        return None;
+    if specifier.starts_with("./") || specifier.starts_with("../") {
+        return resolve_relative_import(importer_dir, specifier);
     }
 
+    resolve_package_import(importer_dir, specifier)
+}
+
+fn resolve_relative_import(importer_dir: &Path, specifier: &str) -> Option<PathBuf> {
     let joined = importer_dir.join(specifier);
     if Path::new(specifier).extension().is_some() {
         return Some(comparable_path(&joined));
@@ -230,5 +237,50 @@ mod tests {
 
         state.update_virtual_docs(&parent_uri, source);
         assert_eq!(open_vue_importers(&state, &child_uri), vec![parent_uri]);
+    }
+
+    #[test]
+    fn index_resolves_package_export_declaration_variants() {
+        let dir = tempfile::tempdir().unwrap();
+        let package = dir.path().join("node_modules/vue-router");
+        let parent = dir.path().join("Parent.vue");
+        let module_declaration = package.join("routes.d.mts");
+        let common_declaration = package.join("plugin.d.cts");
+        std::fs::create_dir_all(&package).unwrap();
+        std::fs::write(
+            package.join("package.json"),
+            r#"{
+  "exports": {
+    "./auto-routes": { "types": "./routes.d.mts" },
+    "./volar/plugin": { "types": "./plugin.d.cts" }
+  }
+}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &module_declaration,
+            "export declare const routes: unknown[]",
+        )
+        .unwrap();
+        std::fs::write(&common_declaration, "export declare const plugin: unknown").unwrap();
+        std::fs::write(&parent, "<template />").unwrap();
+        let parent_uri = Url::from_file_path(&parent).unwrap();
+        let module_uri = Url::from_file_path(&module_declaration).unwrap();
+        let common_uri = Url::from_file_path(&common_declaration).unwrap();
+        let state = ServerState::new();
+        let source = r#"<script setup lang="ts">
+import { routes } from 'vue-router/auto-routes'
+import { plugin } from 'vue-router/volar/plugin'
+void routes
+void plugin
+</script>"#;
+
+        state.update_virtual_docs(&parent_uri, source);
+
+        assert_eq!(
+            open_vue_importers(&state, &module_uri),
+            vec![parent_uri.clone()]
+        );
+        assert_eq!(open_vue_importers(&state, &common_uri), vec![parent_uri]);
     }
 }
