@@ -30,6 +30,8 @@ const assertionOnlyCheckTests = {
     "solution tsconfig oracle asserts referenced-project CLI and LSP diagnostic parity",
   "vue-router-patch-oracle":
     "library patch oracle asserts exact package-resolution behavior across document versions",
+  "vue-router-dmts-oracle":
+    "declaration patch oracle asserts .d.mts resolution and dependent diagnostic refresh",
   directus: "real-world smoke lane is too large for a deterministic complete baseline",
   "element-plus": "real-world smoke lane is too large for a deterministic complete baseline",
   "frontend-phpcon": "real-world smoke lane is too large for a deterministic complete baseline",
