@@ -154,18 +154,8 @@ fn collect_conditional_export_targets(
                 let Some(entry) = conditions.get(condition) else {
                     continue;
                 };
-                let previous_len = targets.len();
                 collect_conditional_export_targets(entry, capture, targets);
-                if targets.len() > previous_len {
-                    return;
-                }
-            }
-            for entry in conditions.values() {
-                let previous_len = targets.len();
-                collect_conditional_export_targets(entry, capture, targets);
-                if targets.len() > previous_len {
-                    return;
-                }
+                return;
             }
         }
         _ => {}
