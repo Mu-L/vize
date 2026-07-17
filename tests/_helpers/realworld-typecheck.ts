@@ -53,6 +53,14 @@ export function runVueTsc(workspaceDir: string, vueTscPath: string): CommandResu
   );
 }
 
+export function runVueTscBuild(workspaceDir: string, vueTscPath: string): CommandResult {
+  return runCommand(
+    vueTscPath,
+    ["--build", "tsconfig.json", "--pretty", "false", "--force"],
+    workspaceDir,
+  );
+}
+
 export function resolveTsgoBinary(): string {
   return requireBinary(
     [
