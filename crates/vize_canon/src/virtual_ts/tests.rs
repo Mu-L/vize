@@ -12,6 +12,7 @@ mod legacy_nuxt2_page_context;
 mod no_check_template_bindings;
 mod options_api_props_spread;
 mod options_api_setup_spread;
+mod slot_component_bindings;
 mod unused_refs;
 mod vif_chain;
 fn assert_virtual_ts_snapshot(name: &str, value: &str) {
@@ -999,7 +1000,6 @@ function handleUpdate(value: string) {
         output.code.as_str(),
     );
 }
-
 #[test]
 fn test_check_props_option_disables_component_prop_checks() {
     use vize_croquis::{Analyzer, AnalyzerOptions};

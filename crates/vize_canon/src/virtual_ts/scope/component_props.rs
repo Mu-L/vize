@@ -201,7 +201,6 @@ pub(super) fn generate_component_props(
         );
     }
 
-    // Emit value checks for components in closure scopes (v-for and v-slot)
     for scope in summary.scopes.iter() {
         if !matches!(scope.kind, ScopeKind::VFor | ScopeKind::VSlot) {
             continue;
@@ -212,6 +211,7 @@ pub(super) fn generate_component_props(
         }
         let props_ctx = VForPropsContext {
             summary,
+            options: ctx.options,
             components_by_scope: &components_by_scope,
             children_map: ctx.children_map,
             vfor_enclosing_guards: &vfor_enclosing_guards,
@@ -248,7 +248,6 @@ fn generate_closure_component_props_recursive(
 ) {
     let scope_id = scope.id.as_u32();
     let inner_indent = vize_carton::cstr!("{indent}  ");
-
     match scope.data() {
         ScopeData::VFor(data) => {
             let enclosing_guard = ctx.vfor_enclosing_guards.get(&scope_id).map(String::as_str);
@@ -341,6 +340,8 @@ fn generate_closure_component_props_recursive(
                 data.name
             );
             let props_type = slot_props_type(
+                ctx.summary,
+                ctx.options,
                 data.component.as_deref(),
                 data.name.as_str(),
                 ctx.summary.scopes.is_v_slot_name_static(scope.id),
@@ -360,7 +361,6 @@ fn generate_closure_component_props_recursive(
                     append!(*ts, "{inner_indent}void {prop_name};\n");
                 }
             }
-
             // Emit component prop checks for this scope
             if let Some(usages) = ctx.components_by_scope.get(&scope_id) {
                 for &(idx, usage) in usages {
