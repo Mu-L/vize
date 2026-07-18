@@ -1,6 +1,6 @@
 use glob::{MatchOptions, Pattern, glob};
 use ignore::WalkBuilder;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use super::ignores::FmtIgnoreSet;
 use super::patterns::is_format_extension;
@@ -63,7 +63,7 @@ fn collect_walked_files(
     for entry in walker.filter_map(Result::ok) {
         let path = entry.path();
         if pattern.matches(path) && should_include_format_file(path, ignore_set) {
-            files.push(path.to_path_buf());
+            files.push(path.strip_prefix(".").unwrap_or(path).to_path_buf());
         }
     }
 }
@@ -79,7 +79,12 @@ fn should_include_format_file(path: &Path, ignore_set: Option<&FmtIgnoreSet>) ->
 fn should_walk_with_gitignore(pattern: &str) -> bool {
     // `normalize_fmt_pattern` strips leading `./`, but accept it defensively.
     let bare = pattern.strip_prefix("./").unwrap_or(pattern);
-    bare == "**/*" || bare.strip_prefix("**/*.").is_some_and(is_format_extension)
+    let path = Path::new(bare);
+    contains_glob_char(bare)
+        && !path.is_absolute()
+        && !path
+            .components()
+            .any(|component| component == Component::ParentDir)
 }
 
 pub(super) struct FmtPattern {
