@@ -11,9 +11,36 @@ use crate::commands::check::{
     imports_aliases::PathAliasResolver,
     path_cache::CanonicalPathCache,
     tsconfig_inputs::{
-        TsconfigInputCache, collect_default_check_files, collect_hidden_ambient_declaration_files,
+        TsconfigInputCache, collect_ambient_declaration_files, collect_default_check_files,
+        collect_hidden_ambient_declaration_files,
     },
 };
+
+pub(super) struct ExplicitAmbientImportContext<'a> {
+    project_root: &'a Path,
+    cwd: &'a Path,
+    tsconfig_path: &'a Path,
+    explicit_input_root: &'a Path,
+    include_jsx: bool,
+}
+
+impl<'a> ExplicitAmbientImportContext<'a> {
+    pub(super) fn new(
+        project_root: &'a Path,
+        cwd: &'a Path,
+        tsconfig_path: &'a Path,
+        explicit_input_root: &'a Path,
+        include_jsx: bool,
+    ) -> Self {
+        Self {
+            project_root,
+            cwd,
+            tsconfig_path,
+            explicit_input_root,
+            include_jsx,
+        }
+    }
+}
 
 pub(super) fn collect_default_run_files(
     project_root: &Path,
@@ -66,6 +93,36 @@ fn register_ambient_declaration_files(
     }
 }
 
+pub(super) fn register_explicit_ambient_imports(
+    files: &mut Vec<PathBuf>,
+    context: ExplicitAmbientImportContext<'_>,
+    tsconfig_input_cache: &mut TsconfigInputCache,
+    canonical_paths: &mut CanonicalPathCache,
+) {
+    let keep_package_local =
+        super::resolve::project_root_has_package_boundary(context.project_root);
+    let ambient_declarations = collect_ambient_declaration_files(
+        context.project_root,
+        Some(context.tsconfig_path),
+        tsconfig_input_cache,
+    )
+    .into_iter()
+    .filter(|path| !keep_package_local || path.starts_with(context.project_root))
+    .collect::<Vec<_>>();
+    files.extend(ambient_declarations.iter().cloned());
+    files.extend(collect_transitive_local_imports_from(
+        &ambient_declarations,
+        context.cwd,
+        Some(context.tsconfig_path),
+        context.include_jsx,
+        canonical_paths,
+        Some(context.explicit_input_root),
+        true,
+    ));
+    files.sort();
+    files.dedup();
+}
+
 pub(super) fn canonical_file_set(
     files: &[PathBuf],
     canonical_paths: &mut CanonicalPathCache,
@@ -85,18 +142,59 @@ pub(super) fn register_transitive_local_imports(
     explicit_input_root: Option<&Path>,
     validate_inputs: bool,
 ) {
+    let discovered = collect_local_imports(files, cwd, tsconfig_path, include_jsx, canonical_paths);
+    append_local_imports(files, discovered, explicit_input_root, validate_inputs);
+}
+
+pub(super) fn collect_transitive_local_imports_from(
+    roots: &[PathBuf],
+    cwd: &Path,
+    tsconfig_path: Option<&Path>,
+    include_jsx: bool,
+    canonical_paths: &mut CanonicalPathCache,
+    explicit_input_root: Option<&Path>,
+    validate_inputs: bool,
+) -> Vec<PathBuf> {
+    collect_local_imports(roots, cwd, tsconfig_path, include_jsx, canonical_paths)
+        .into_iter()
+        .filter(|path| local_import_is_allowed(path, explicit_input_root, validate_inputs))
+        .collect()
+}
+
+fn collect_local_imports(
+    roots: &[PathBuf],
+    cwd: &Path,
+    tsconfig_path: Option<&Path>,
+    include_jsx: bool,
+    canonical_paths: &mut CanonicalPathCache,
+) -> Vec<PathBuf> {
     let aliases = PathAliasResolver::from_tsconfig(tsconfig_path);
-    for path in
-        collect_transitive_local_imports(files, cwd, canonical_paths, include_jsx, Some(&aliases))
-    {
-        let inside_allowed = !validate_inputs
-            || explicit_input_root.is_none_or(|root| path_is_inside_root(root, &path));
-        if inside_allowed && !files.contains(&path) {
+    collect_transitive_local_imports(roots, cwd, canonical_paths, include_jsx, Some(&aliases))
+}
+
+fn append_local_imports(
+    files: &mut Vec<PathBuf>,
+    discovered: Vec<PathBuf>,
+    explicit_input_root: Option<&Path>,
+    validate_inputs: bool,
+) {
+    for path in discovered {
+        if local_import_is_allowed(&path, explicit_input_root, validate_inputs)
+            && !files.contains(&path)
+        {
             files.push(path);
         }
     }
     files.sort();
     files.dedup();
+}
+
+fn local_import_is_allowed(
+    path: &Path,
+    explicit_input_root: Option<&Path>,
+    validate_inputs: bool,
+) -> bool {
+    !validate_inputs || explicit_input_root.is_none_or(|root| path_is_inside_root(root, path))
 }
 
 #[cfg(test)]
