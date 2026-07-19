@@ -1,7 +1,7 @@
 //! Code generation context that tracks state during Vapor code emission.
 
 use super::{
-    destructure::{parse_destructure_bindings, parse_destructure_names},
+    destructure::{parse_destructure_bindings, parse_destructure_names, resolve_props_binding},
     expression,
 };
 use vize_atelier_core::options::BindingMetadata;
@@ -244,7 +244,7 @@ impl<'a> GenerateContext<'a> {
             }
         }
 
-        None
+        resolve_props_binding(self.binding_metadata, name)
     }
 
     pub(super) fn resolve_simple_reference(&self, expr: &str) -> String {
