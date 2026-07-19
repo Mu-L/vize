@@ -54,12 +54,7 @@ function outputText(run: CompilerRun): string {
   return run.error ?? run.formattedCode ?? run.code;
 }
 
-function formatTypeCheckDiagnostic(diagnostic: TypeCheckDiagnostic): string {
-  const code = diagnostic.code ? ` ${diagnostic.code}` : "";
-  return `${diagnostic.severity}${code}: ${diagnostic.message}`;
-}
-
-function formatCroquisDiagnostic(diagnostic: CroquisDiagnostic): string {
+function formatDiagnostic(diagnostic: TypeCheckDiagnostic | CroquisDiagnostic): string {
   const code = diagnostic.code ? ` ${diagnostic.code}` : "";
   return `${diagnostic.severity}${code}: ${diagnostic.message}`;
 }
@@ -77,6 +72,9 @@ async function compileOfficialVue(
 
   try {
     const officialTarget = officialTargetFor(target);
+    // Force `vapor` so the reference stays honest when the target is Vapor but
+    // the source omits the `vapor` attr the official compiler auto-detects.
+    const vapor = target === "vapor";
     const parsed = parse(file.source, { filename: file.path });
     const descriptor = parsed.descriptor;
     const isTypeScript = descriptorUsesTypeScript(descriptor);
@@ -94,12 +92,14 @@ async function compileOfficialVue(
         id: file.path,
         inlineTemplate,
         isProd: true,
+        vapor,
         templateOptions: inlineTemplate
           ? {
               filename: file.path,
               id: file.path,
               scoped,
               isProd: true,
+              vapor,
               compilerOptions: {
                 expressionPlugins: isTypeScript ? ["typescript"] : undefined,
               },
@@ -119,6 +119,7 @@ async function compileOfficialVue(
         scoped,
         isProd: true,
         ssr: officialTarget === "ssr",
+        vapor,
         compilerOptions: {
           bindingMetadata,
           expressionPlugins: isTypeScript ? ["typescript"] : undefined,
@@ -172,10 +173,9 @@ async function compileVize(
       templateSyntax: options.templateSyntax,
     };
     const result = compiler.compileSfc(file.source, compileOptions);
-    const code =
-      target === "vapor"
-        ? result.template?.code || result.script?.code || ""
-        : result.script?.code || result.template?.code || "";
+    // Prefer `script.code` (the full compiled SFC module); using `template.code`
+    // for Vapor dropped every `<script setup>` statement (#2969).
+    const code = result.script?.code || result.template?.code || "";
     const parser = descriptorUsesTypeScript(result.descriptor as SFCDescriptor)
       ? "typescript"
       : "babel";
@@ -218,7 +218,7 @@ async function inspectVirtualTs(compiler: WasmModule, file: InspectorFile): Prom
       code,
       formattedCode,
       parser: "typescript",
-      warnings: result.diagnostics.map(formatTypeCheckDiagnostic),
+      warnings: result.diagnostics.map(formatDiagnostic),
       error: null,
       timeMs: performance.now() - start,
     };
@@ -247,7 +247,7 @@ function inspectVir(compiler: WasmModule, file: InspectorFile): CompilerRun {
       code,
       formattedCode: code,
       parser: "babel",
-      warnings: result.diagnostics.map(formatCroquisDiagnostic),
+      warnings: result.diagnostics.map(formatDiagnostic),
       error: null,
       timeMs: performance.now() - start,
     };
