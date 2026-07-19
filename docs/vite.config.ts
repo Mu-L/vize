@@ -11,7 +11,9 @@ if (puppeteerExecutablePath) {
 }
 
 const themeDir = resolve(import.meta.dirname, "theme");
-const themeCss = readFileSync(resolve(themeDir, "style.css"), "utf-8");
+const themeCss = ["style.css", "i18n/locale-selector.css"]
+  .map((file) => readFileSync(resolve(themeDir, file), "utf-8"))
+  .join("\n");
 const themeJs = buildDocsBackgroundScript(themeDir);
 
 export default defineConfig({
@@ -19,6 +21,21 @@ export default defineConfig({
     oxContent({
       srcDir: "content",
       outDir: "dist",
+
+      i18n: {
+        enabled: true,
+        dir: "content/i18n",
+        defaultLocale: "en",
+        hideDefaultLocale: true,
+        check: true,
+        locales: [
+          { code: "en", name: "English" },
+          { code: "ja", name: "日本語" },
+          { code: "zh-CN", name: "简体中文" },
+          { code: "pt-BR", name: "Português" },
+          { code: "fr", name: "Français" },
+        ],
+      },
 
       ogImage: true,
       ogImageOptions: {
