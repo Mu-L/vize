@@ -1,4 +1,7 @@
-# vize_maestro
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/ubugeeei-prod/vize/main/assets/crates/vize_maestro.svg" alt="vize_maestro logo" width="120" height="120" /><br>
+  vize_maestro
+</h1>
 
 `vize_maestro` is the Language Server Protocol implementation for Vize.
 

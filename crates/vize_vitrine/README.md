@@ -1,4 +1,7 @@
-# vize_vitrine
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/ubugeeei-prod/vize/main/assets/crates/vize_vitrine.svg" alt="vize_vitrine logo" width="120" height="120" /><br>
+  vize_vitrine
+</h1>
 
 `vize_vitrine` exposes Vize functionality to JavaScript through NAPI and WASM bindings.
 
