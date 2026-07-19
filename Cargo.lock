@@ -3690,7 +3690,9 @@ version = "0.298.0"
 dependencies = [
  "serde",
  "serde_json",
+ "tempfile",
  "vize_carton",
+ "vize_croquis_cf",
 ]
 
 [[package]]
