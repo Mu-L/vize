@@ -795,14 +795,7 @@ fn test_compile_slot_outlet_preserves_dynamic_name() {
 
     let code = normalize_code(&result.code);
     assert_parses_as_module(&code);
-    assert!(
-        code.contains(
-            r#"const n0 = _renderSlot($slots, _ctx.slotName, { "item": _ctx.x }, () => {"#
-        ),
-        "{}",
-        code
-    );
-    assert!(code.contains(r#"return n1"#), "{}", code);
+    insta::assert_snapshot!(code.as_str());
 }
 
 #[test]
