@@ -112,6 +112,8 @@ Key options:
 | `-f, --format`        | Output format: `js`, `json`, `stats`                                   |
 | `--ssr`               | Enable SSR compilation                                                 |
 | `--script-ext`        | `preserve` or `downcompile`                                            |
+| `--declaration`       | Emit `.d.ts` files for the built SFCs (alias: `--dts`)                 |
+| `--declaration-dir`   | Declaration output directory (default: the build output directory)     |
 | `-j, --threads`       | Thread count override                                                  |
 | `--profile`           | Print timing profile                                                   |
 | `--continue-on-error` | Keep compiling and report failures at the end                          |
@@ -247,10 +249,6 @@ declare module "vue" {
     $t: (key: string) => string;
   }
 }
-```
-
-```bash
-vize check --tsconfig tsconfig.app.json src
 ```
 
 ## Inspector
