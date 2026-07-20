@@ -27,7 +27,7 @@ use super::emit::{
 };
 use super::event_handler::generate_event_handler_expressions;
 use super::globals::{generate_instance_global_refs, generate_undefined_refs};
-use super::vif_guard::common_vif_guard_prefix_outside_v_for_scope;
+use super::vif_guard::{callback_vif_guard, common_vif_guard_prefix_outside_v_for_scope};
 
 /// Generate scope closures from Croquis scope chain.
 /// Uses recursive tree-based generation so nested v-for/v-slot scopes
@@ -97,8 +97,7 @@ pub(crate) fn generate_scope_closures(
             }
         });
 
-    // Determine which scopes are nested inside a closure scope (VFor/VSlot).
-    // These will be generated recursively inside their parent, not at top level.
+    // Scopes nested inside a VFor/VSlot closure are generated inside their parent.
     let nested_scope_ids: FxHashSet<ScopeId> =
         profile!("canon.virtual_ts.collect_nested_scope_ids", {
             summary
@@ -106,9 +105,7 @@ pub(crate) fn generate_scope_closures(
                 .iter()
                 .filter(|scope| {
                     scope.parent().is_some_and(|pid| {
-                        // Scope ids are arena indices, so resolve the parent
-                        // with the O(1) indexed lookup instead of rescanning
-                        // every scope (was O(n^2) over the scope arena).
+                        // Resolve the parent via O(1) indexed lookup (was O(n^2)).
                         summary.scopes.get_scope(pid).is_some_and(|parent| {
                             matches!(parent.kind, ScopeKind::VFor | ScopeKind::VSlot)
                         })
@@ -222,17 +219,10 @@ fn generate_scope_node(
 
     match scope.data() {
         ScopeData::VFor(data) => {
-            // For a v-for nested in `v-if`, wrap the whole loop in `if (guard) {}`
-            // so TypeScript narrows identifiers used in the v-for source
-            // expression (e.g. `elems[key]` with `key` narrowed by the parent
-            // `v-if="key === 'b'"`). Without this the source is evaluated outside
-            // the narrowing scope and yields the unnarrowed (wider) type (#1511).
-            //
-            // The v-for element's own bindings (`:key`, etc.) and interpolations
-            // are recorded as expressions in this scope carrying that enclosing
-            // guard; any deeper `v-if` nested *inside* the loop body extends the
-            // guard with extra `&& (...)` terms. The enclosing guard is therefore
-            // the longest common `&&`-separated prefix of direct expressions.
+            // For a v-for nested in `v-if`, wrap the loop in `if (guard) {}` so
+            // TypeScript narrows identifiers in the v-for source (e.g. `elems[key]`
+            // narrowed by the parent `v-if`); otherwise it widens (#1511). The guard
+            // is the longest common `&&`-separated prefix of this scope's expressions.
             let enclosing_guard: Option<String> = ctx
                 .expressions_by_scope
                 .get(&scope_id)
@@ -265,15 +255,25 @@ fn generate_scope_node(
                 data.source.as_str(),
             );
 
+            // A positive narrowing outside a callback is not retained for captured
+            // object properties. Recheck those terms so discriminated unions narrow.
+            let callback_guard = enclosing_guard.and_then(callback_vif_guard);
+            let callback_indent = if let Some(guard) = callback_guard.as_deref() {
+                append!(*ts, "{vfor_inner_indent}if ({guard}) {{\n");
+                cstr!("{vfor_inner_indent}  ")
+            } else {
+                vfor_inner_indent.clone()
+            };
+
             // Mark v-for variables as used to avoid TS6133
             for value in &data.value_bindings {
-                append!(*ts, "{vfor_inner_indent}void {value};\n");
+                append!(*ts, "{callback_indent}void {value};\n");
             }
             if let Some(ref key) = data.key_alias {
-                append!(*ts, "{vfor_inner_indent}void {key};\n");
+                append!(*ts, "{callback_indent}void {key};\n");
             }
             if let Some(ref index) = data.index_alias {
-                append!(*ts, "{vfor_inner_indent}void {index};\n");
+                append!(*ts, "{callback_indent}void {index};\n");
             }
 
             // Generate expressions in this scope
@@ -287,15 +287,19 @@ fn generate_scope_node(
                     ctx.template_prop_names,
                     ctx.skipped_expression_ranges,
                     ctx.template_offset,
-                    (&vfor_inner_indent, enclosing_guard),
+                    (&callback_indent, enclosing_guard),
                 );
             }
 
             // Recursively generate child scopes inside this closure
             profile!(
                 "canon.virtual_ts.child_scopes",
-                generate_child_scopes(ts, mappings, ctx, scope_id, &vfor_inner_indent)
+                generate_child_scopes(ts, mappings, ctx, scope_id, &callback_indent)
             );
+
+            if callback_guard.is_some() {
+                append!(*ts, "{vfor_inner_indent}}}\n");
+            }
 
             ts.push_str(&loop_indent);
             ts.push_str("});\n");
@@ -372,19 +376,14 @@ fn generate_scope_node(
                 let event_type = event_types.event_type;
                 let listener_type = event_types.listener_type;
                 let listener_type_expr = event_types.listener_type_expr;
-                // Type the listener against the FULL emit argument tuple so
-                // multi-arg emits keep every parameter (#1512). When the emit
-                // signature stays unresolved (`unknown[]`, e.g. a fallthrough
-                // DOM event on a component), it stays variadic because custom
-                // components may emit any number of arguments.
+                // Type the listener against the FULL emit tuple so multi-arg emits
+                // keep every parameter (#1512); unresolved sigs stay variadic.
                 append!(
                     *ts,
                     "{indent}type {listener_type} = {listener_type_expr};\n",
                 );
-                // Receive every listener argument via a rest parameter typed by
-                // `Parameters<listener>` (always a tuple, so the spread targets a
-                // rest parameter and avoids TS2556). `$event` stays bound to the
-                // first element for handlers/expressions that reference it.
+                // Receive listener args via a rest parameter typed by
+                // `Parameters<listener>` to avoid TS2556; `$event` is element 0.
                 append!(
                     *ts,
                     "{indent}((...__vize_args: Parameters<{listener_type}>) => {{\n",
