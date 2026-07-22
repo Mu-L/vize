@@ -52,6 +52,18 @@ test("Vue parity structurally gates compiler fixtures and incremental LSP behavi
     "test:check:fixtures must run the per-PR compat ratchet",
   );
 
+  const glyphProperties = steps.find(
+    (step) => step.name === "Check glyph formatter corpus properties",
+  );
+  assert.deepEqual(glyphProperties?.env, { VIZE_TEST_BIN: "target/ci/vize" });
+  assert.match(glyphProperties?.run ?? "", /--test-concurrency=1/);
+  for (const property of ["idempotence", "parse-preservation", "lint-agreement"]) {
+    assert.match(
+      glyphProperties?.run ?? "",
+      new RegExp(`tests/tooling/glyph-corpus-${property}\\.test\\.ts`),
+    );
+  }
+
   const incremental = steps.find(
     (step) => step.name === "Check incremental LSP against Misskey and Vue Vben Admin",
   );
