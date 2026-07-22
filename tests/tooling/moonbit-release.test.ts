@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
 import { repoRoot, runMoonScript } from "./_helpers/moonbit.ts";
-import { writeFakeCommand } from "./support/fake-command.ts";
+import {
+  runRepositoryGuardFixture,
+  type RepositoryGuardOptions,
+} from "./support/release-guard-fixture.ts";
 
 function writeTempFile(contents: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-release-test-"));
@@ -164,25 +168,46 @@ test("release script rewrites only the native-binaries catalog block in pnpm-loc
   assert.ok(out.includes("resolution: {integrity: sha512-AAA==}"), "integrity hash preserved");
 });
 
-test("release script includes nested release packages in extra synced manifests", () => {
+test("release version sweep covers every manifest the preflight verifies", () => {
   const result = runMoonScript("release", ["--print-extra-package-json-paths"]);
 
   assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
-  const paths = result.stdout.split("\n");
+  const extraPaths = new Set(result.stdout.split("\n").filter(Boolean));
 
-  for (const manifestPath of [
-    "editors/vscode/package.json",
-    "editors/vscode-art/package.json",
-    "npm/builder/rspack/package.json",
-    "npm/builder/unplugin/package.json",
-    "npm/builder/vite/package.json",
-    "npm/builder/vite-musea/package.json",
-    "npm/framework/musea-nuxt/package.json",
-    "npm/framework/nuxt/package.json",
-  ]) {
+  // The release preflight fails the release when any tracked, non-private
+  // manifest under these roots disagrees with the release version, so the
+  // bump tool must reach exactly that set: flat npm/<package> manifests via
+  // its directory scan, everything else via the extra list. A package added
+  // to a nested group (npm/compose, npm/ui, ...) that misses this sweep
+  // aborts the release at the preflight — this pins the alignment.
+  const tracked = execSync("git ls-files -z -- editors npm", { cwd: repoRoot })
+    .toString()
+    .split("\0")
+    .filter((relativePath) => relativePath.endsWith("/package.json"));
+  for (const manifestPath of tracked) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, manifestPath), "utf8")) as {
+      private?: boolean;
+    };
+    if (manifest.private === true) {
+      assert.ok(
+        !extraPaths.has(manifestPath),
+        `${manifestPath} is private and must stay out of the release version sweep`,
+      );
+      continue;
+    }
+    const coveredByFlatScan = /^npm\/[^/]+\/package\.json$/.test(manifestPath);
+    if (!coveredByFlatScan) {
+      assert.ok(
+        extraPaths.has(manifestPath),
+        `${manifestPath} must be bumped with release commits (preflight verifies it)`,
+      );
+    }
+  }
+
+  for (const manifestPath of extraPaths) {
     assert.ok(
-      paths.includes(manifestPath),
-      `${manifestPath} version must be bumped with release commits`,
+      tracked.includes(manifestPath),
+      `${manifestPath} is in the release sweep but not tracked under editors/ or npm/`,
     );
   }
 });
@@ -220,80 +245,6 @@ test("release script rejects the removed force-tag escape hatch", () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /--force-tag is not supported; published release tags are immutable/);
 });
-
-interface RepositoryGuardOptions {
-  branch: string;
-  dirty?: boolean;
-  ancestor?: boolean;
-  headSha?: string;
-  remoteSha?: string;
-  localTagExists?: boolean;
-  remoteTagExists?: boolean;
-  pushFails?: boolean;
-  stagedFiles?: boolean;
-  manifestTestFails?: boolean;
-}
-
-function runRepositoryGuardFixture(options: RepositoryGuardOptions) {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-release-guard-"));
-  const binDir = path.join(tempDir, "bin");
-  const gitLogPath = path.join(tempDir, "git.log");
-  const cargoTomlPath = path.join(tempDir, "Cargo.toml");
-  const cargoToml = '[workspace.package]\nversion = "0.290.0"\n';
-  fs.mkdirSync(binDir, { recursive: true });
-  fs.mkdirSync(path.join(tempDir, "npm"));
-  fs.mkdirSync(path.join(tempDir, "tests/tooling"), { recursive: true });
-  fs.writeFileSync(gitLogPath, "");
-  fs.writeFileSync(cargoTomlPath, cargoToml);
-  fs.writeFileSync(path.join(tempDir, "pnpm-workspace.yaml"), "");
-  fs.writeFileSync(path.join(tempDir, "pnpm-lock.yaml"), "");
-  fs.writeFileSync(
-    path.join(tempDir, "tests/tooling/package-manifests.test.ts"),
-    options.manifestTestFails ? 'throw new Error("manifest drift");\n' : "",
-  );
-  writeFakeCommand(binDir, "cargo", "process.exit(0);");
-  writeFakeCommand(
-    binDir,
-    "git",
-    [
-      "const fs = require('node:fs');",
-      "const args = process.argv.slice(2);",
-      "fs.appendFileSync(process.env.GIT_LOG, args.join(' ') + '\\n');",
-      "if (args[0] === 'branch') { console.log(process.env.TEST_BRANCH); process.exit(0); }",
-      "if (args[0] === 'status') { if (process.env.TEST_DIRTY === 'true') console.log(' M Cargo.toml'); process.exit(0); }",
-      "if (args[0] === 'fetch') process.exit(0);",
-      "if (args[0] === 'merge-base') process.exit(process.env.TEST_ANCESTOR === 'false' ? 1 : 0);",
-      "if (args[0] === 'rev-parse' && args.includes('--verify')) process.exit(process.env.LOCAL_TAG_EXISTS === 'true' ? 0 : 1);",
-      "if (args[0] === 'rev-parse') { console.log(args.at(-1) === 'HEAD' ? process.env.TEST_HEAD_SHA : process.env.TEST_REMOTE_SHA); process.exit(0); }",
-      "if (args[0] === 'ls-remote' && process.env.REMOTE_TAG_EXISTS === 'true') { console.log('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\t' + args.at(-1)); process.exit(0); }",
-      "if (args[0] === 'ls-remote') process.exit(2);",
-      "if (args[0] === 'diff' && args.includes('--cached')) { if (process.env.TEST_STAGED_FILES !== 'false') console.log('Cargo.toml'); process.exit(0); }",
-      "if (args[0] === 'push') process.exit(process.env.TEST_PUSH_FAIL === 'true' ? 1 : 0);",
-      "if (['add', 'commit', 'tag'].includes(args[0])) process.exit(0);",
-      "process.exit(1);",
-    ].join("\n"),
-  );
-
-  const result = runMoonScript("release", ["patch", "-y"], {
-    cwd: tempDir,
-    env: {
-      PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
-      GIT_LOG: gitLogPath,
-      TEST_BRANCH: options.branch,
-      TEST_DIRTY: String(options.dirty ?? false),
-      TEST_ANCESTOR: String(options.ancestor ?? true),
-      TEST_HEAD_SHA: options.headSha ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      TEST_REMOTE_SHA: options.remoteSha ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      LOCAL_TAG_EXISTS: String(options.localTagExists ?? false),
-      REMOTE_TAG_EXISTS: String(options.remoteTagExists),
-      TEST_PUSH_FAIL: String(options.pushFails ?? false),
-      TEST_STAGED_FILES: String(options.stagedFiles ?? true),
-      VIZE_RELEASE_GUARD_SCRIPT: path.join(repoRoot, "tools/github/release-local-guard.mjs"),
-    },
-  });
-  const gitLog = fs.readFileSync(gitLogPath, "utf8");
-  return { cargoToml, cargoTomlPath, gitLog, result, tempDir };
-}
 
 test("release script refuses to create an empty release commit", () => {
   const fixture = runRepositoryGuardFixture({ branch: "main", stagedFiles: false });

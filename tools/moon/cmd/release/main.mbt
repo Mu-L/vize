@@ -267,11 +267,60 @@ fn replace_package_json_version(
   updated.join("\n")
 }
 
+/// Nested npm group directories (npm/builder, npm/framework, npm/compose,
+/// npm/ui, ...) hold their packages one level deeper than the flat
+/// npm/<package> layout. Scanning them keeps every new group aligned with the
+/// release version without editing a hardcoded list — the release preflight
+/// verifies all tracked non-private manifests, so any package this scan
+/// misses fails the release before publication.
+async fn nested_npm_package_dirs() -> Array[String] {
+  let package_dirs : Array[String] = []
+  for group_name in @tool.read_dir("npm") {
+    let group_dir = @tool.join_path("npm", group_name)
+    if !@tool.is_dir(group_dir) {
+      continue
+    }
+    if @tool.path_exists(@tool.join_path(group_dir, "package.json")) {
+      continue
+    }
+    for entry_name in @tool.read_dir(group_dir) {
+      let package_dir = @tool.join_path(group_dir, entry_name)
+      if !@tool.is_dir(package_dir) {
+        continue
+      }
+      let package_json_path = @tool.join_path(package_dir, "package.json")
+      if !@tool.path_exists(package_json_path) {
+        continue
+      }
+      // Mirror the release preflight exactly: it verifies tracked,
+      // non-private manifests, so ignored build output and private
+      // packages stay out of the release version sweep.
+      if is_git_ignored(package_json_path) {
+        continue
+      }
+      match @tool.read_file_to_string(package_json_path) {
+        Some(content) =>
+          if content.contains("\"private\": true") {
+            continue
+          }
+        None => continue
+      }
+      package_dirs.push(package_dir)
+    }
+  }
+  package_dirs.sort_by((a, b) => a.lexical_compare(b))
+  package_dirs
+}
+
 /// Package manifests that are intentionally outside the npm workspace package
 /// globs but still ship release artifacts and must stay aligned with the
 /// workspace version.
-fn extra_release_package_json_paths() -> Array[String] {
-  ["editors/vscode/package.json", "editors/vscode-art/package.json", "npm/builder/rspack/package.json", "npm/builder/unplugin/package.json", "npm/builder/vite/package.json", "npm/builder/vite-musea/package.json", "npm/framework/musea-nuxt/package.json", "npm/framework/nuxt/package.json"]
+async fn extra_release_package_json_paths() -> Array[String] {
+  let paths : Array[String] = ["editors/vscode/package.json", "editors/vscode-art/package.json"]
+  for package_dir in nested_npm_package_dirs() {
+    paths.push(@tool.join_path(package_dir, "package.json"))
+  }
+  paths
 }
 
 /// Replaces the first TOML `version = "..."` line in a file.
@@ -308,90 +357,6 @@ fn replace_all_version_references(
   new_version : String,
 ) -> String {
   content.replace_all(old=current_version, new=new_version)
-}
-
-/// Rewrites every native binary catalog pin under the `native-binaries:` block
-/// of `pnpm-workspace.yaml` to the new release version.
-/// The catalog block is recognised by the `  native-binaries:` header (two-space
-/// indent) and runs until the next top-level or catalog-section header. Inside
-/// that block the function replaces the version literal on every
-/// `    "@vizejs/native-...": "<version>"` line. The block header itself plus
-/// any comments are preserved untouched.
-fn replace_native_binary_workspace_catalog(
-  content : String,
-  current_version : String,
-  new_version : String,
-) -> String {
-  let updated : Array[String] = []
-  let mut in_catalog = false
-  let lines : Array[String] = content.split("\n").map(view => view.to_owned()).collect()
-  let header = "  native-binaries:"
-  let pin_prefix = "    \"@vizejs/native-"
-  for line in lines {
-    if line == header {
-      in_catalog = true
-      updated.push(line)
-      continue
-    }
-    if in_catalog {
-      let leaves_block = line != "" &&
-        !line.has_prefix("    ") &&
-        !line.has_prefix("  #")
-      if leaves_block {
-        in_catalog = false
-      } else if line.has_prefix(pin_prefix) && line.contains(current_version) {
-        updated.push(line.replace(old=current_version, new=new_version))
-        continue
-      }
-    }
-    updated.push(line)
-  }
-  updated.join("\n")
-}
-
-/// Rewrites every native binary catalog pin under the `native-binaries:` block
-/// inside `pnpm-lock.yaml`.
-/// The catalogs section of pnpm-lock.yaml mirrors `pnpm-workspace.yaml` and each
-/// native package appears as a two-line entry:
-/// ```
-///     '@vizejs/native-darwin-arm64':
-///       specifier: 0.107.0
-///       version: 0.107.0
-/// ```
-/// We walk the file, detect entry into the `native-binaries:` block (under
-/// `catalogs:` at the four-space indent), and rewrite the `specifier:` /
-/// `version:` lines for every native package. The block ends when we either hit
-/// a top-level YAML key or another catalog header at the same indent.
-fn replace_native_binary_lockfile_catalog(
-  content : String,
-  current_version : String,
-  new_version : String,
-) -> String {
-  let updated : Array[String] = []
-  let mut in_block = false
-  let lines : Array[String] = content.split("\n").map(view => view.to_owned()).collect()
-  let header = "  native-binaries:"
-  for line in lines {
-    if line == header {
-      in_block = true
-      updated.push(line)
-      continue
-    }
-    if in_block {
-      let leaves_block = line != "" && !line.has_prefix("    ")
-      if leaves_block {
-        in_block = false
-      } else if (
-        line.has_prefix("      specifier: ") || line.has_prefix("      version: ")
-      ) &&
-        line.contains(current_version) {
-        updated.push(line.replace(old=current_version, new=new_version))
-        continue
-      }
-    }
-    updated.push(line)
-  }
-  updated.join("\n")
 }
 
 /// Detects whether the script can safely prompt the user for confirmation.
@@ -749,11 +714,18 @@ async fn run_app() -> Int {
     }
     files_to_stage.push(root_readme)
   }
+  let readme_package_dirs : Array[String] = []
   for entry_name in @tool.read_dir("npm") {
     let package_dir = @tool.join_path("npm", entry_name)
     if !@tool.is_dir(package_dir) {
       continue
     }
+    readme_package_dirs.push(package_dir)
+  }
+  for package_dir in nested_npm_package_dirs() {
+    readme_package_dirs.push(package_dir)
+  }
+  for package_dir in readme_package_dirs {
     let readme_path = @tool.join_path(package_dir, "README.md")
     if !@tool.path_exists(readme_path) {
       continue
