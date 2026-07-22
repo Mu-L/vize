@@ -13,6 +13,9 @@ mod directives;
 mod formatter;
 mod helpers;
 
+#[cfg(test)]
+mod attribute_priority_tests;
+
 use crate::{error::FormatError, options::FormatOptions};
 use vize_carton::String;
 
@@ -38,9 +41,8 @@ pub fn format_template_content(
 
 #[cfg(test)]
 mod tests {
-    use super::{attributes, directives, format_template_content, formatter, helpers};
+    use super::{directives, format_template_content, formatter, helpers};
     use crate::options::{AttributeSortOrder, FormatOptions};
-    use attributes::attribute_priority;
     use directives::{custom_attribute_priority, format_v_for_expression, matches_attr_pattern};
     use formatter::format_interpolations;
     use helpers::{is_tag_name_char, is_void_element_str};
@@ -333,24 +335,6 @@ mod tests {
         let result = format_template_content(source, &options).unwrap();
 
         insta::assert_snapshot!(result.as_str());
-    }
-
-    #[test]
-    fn test_attribute_priority_order() {
-        assert!(attribute_priority("is") < attribute_priority("v-for"));
-        assert!(attribute_priority("v-for") < attribute_priority("v-if"));
-        assert!(attribute_priority("v-if") < attribute_priority("v-show"));
-        assert!(attribute_priority("v-show") < attribute_priority("id"));
-        assert!(attribute_priority("id") < attribute_priority("ref"));
-        assert!(attribute_priority("ref") < attribute_priority(":key"));
-        assert!(attribute_priority(":key") < attribute_priority("v-model"));
-        assert!(attribute_priority("v-model") < attribute_priority(":class"));
-        // :class and class share the same priority so they stay adjacent
-        assert_eq!(attribute_priority(":class"), attribute_priority("class"));
-        assert_eq!(attribute_priority(":style"), attribute_priority("style"));
-        assert!(attribute_priority("class") < attribute_priority("@click"));
-        assert!(attribute_priority("@click") < attribute_priority("#default"));
-        assert!(attribute_priority("#default") < attribute_priority("v-html"));
     }
 
     // ---------------------------------------------------------------
