@@ -45,14 +45,17 @@ test("every publication edge waits for credential-free release preflight", () =>
     "create-github-release",
     "release-crates",
     "release-npm-cli",
+    "release-npm-composable",
     "release-npm-fresco",
     "release-npm-fresco-native",
+    "release-npm-marquette",
     "release-npm-musea-mcp-server",
     "release-npm-musea-nuxt",
     "release-npm-native",
     "release-npm-nuxt",
     "release-npm-oxlint-plugin",
     "release-npm-rspack-plugin",
+    "release-npm-ui",
     "release-npm-unplugin",
     "release-npm-vite-plugin",
     "release-npm-vite-plugin-musea",
@@ -112,6 +115,9 @@ test("release workflow publishes npm packages through Trusted Publishing only", 
     "release-npm-musea-nuxt",
     "release-npm-nuxt",
     "release-npm-cli",
+    "release-npm-marquette",
+    "release-npm-composable",
+    "release-npm-ui",
   ];
 
   for (const jobName of npmPublishJobs) {
@@ -142,6 +148,9 @@ test("release workflow publishes npm packages from package-specific artifacts", 
     "release-package-musea-nuxt",
     "release-package-nuxt",
     "release-package-vize-wasm",
+    "release-package-marquette",
+    "release-package-composable",
+    "release-package-ui",
   ]) {
     assert.match(workflow, new RegExp(`name:\\s*${artifactName}`));
   }
@@ -162,6 +171,9 @@ test("release workflow publishes npm packages from package-specific artifacts", 
     ["release-npm-musea-nuxt", "release-package-musea-nuxt", "npm/framework/musea-nuxt"],
     ["release-npm-nuxt", "release-package-nuxt", "npm/framework/nuxt"],
     ["release-npm-cli", "release-package-vize", "npm/cli"],
+    ["release-npm-marquette", "release-package-marquette", "npm/marquette"],
+    ["release-npm-composable", "release-package-composable", "npm/compose/core"],
+    ["release-npm-ui", "release-package-ui", "npm/ui/core"],
   ] as const;
 
   for (const [jobName, artifactName, downloadPath] of downloadTargets) {
