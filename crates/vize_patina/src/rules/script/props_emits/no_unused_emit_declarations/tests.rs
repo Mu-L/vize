@@ -1,10 +1,22 @@
+use crate::linter::{LintResult, Linter};
 use crate::rules::script::NoUnusedEmitDeclarations;
 use crate::rules::script::ScriptLinter;
+
+// Template-usage tests (#3209) live in the `template` submodule.
+mod template;
 
 fn create_linter() -> ScriptLinter {
     let mut linter = ScriptLinter::new();
     linter.add_rule(Box::new(NoUnusedEmitDeclarations));
     linter
+}
+
+/// Lint a full SFC end-to-end with only this rule enabled, exercising the
+/// engine path that supplies the raw `<template>` source to the rule (#3209).
+fn lint_sfc(sfc: &str) -> LintResult {
+    Linter::new()
+        .with_enabled_rules(Some(vec!["script/no-unused-emit-declarations".into()]))
+        .lint_sfc(sfc, "test.vue")
 }
 
 #[test]
