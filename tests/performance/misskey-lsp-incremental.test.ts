@@ -151,7 +151,12 @@ test(
             });
             return waitForDiagnostics(session, componentUri, 4, true);
           });
-          assertSingleInjectedMismatch(sharedBroken.diagnostics, baseline, cleanSource, "binding");
+          assertSingleInjectedMismatch(
+            sharedBroken.diagnostics,
+            baseline,
+            cleanSource,
+            "attribute-name",
+          );
 
           const sharedRepaired = await metrics.measure("sharedRepaired", async () => {
             session.notify("textDocument/didChange", {
@@ -254,7 +259,7 @@ function assertSingleInjectedMismatch(
   diagnostics: LspDiagnostic[],
   baseline: string[],
   source: string,
-  expectedRange: "declaration" | "binding" = "declaration",
+  expectedRange: "declaration" | "attribute-name" = "declaration",
 ): void {
   const injected = diagnostics.filter(
     (diagnostic) =>
@@ -273,10 +278,12 @@ function assertSingleInjectedMismatch(
     assert.deepEqual(diagnostic.range?.start, start);
     assert.deepEqual(diagnostic.range?.end, end);
   } else {
-    const bindingOffset = source.indexOf(`String(${symbol})`);
-    assert.notEqual(bindingOffset, -1);
-    const start = offsetToPosition(source, bindingOffset);
-    const end = { line: start.line, character: start.character + `String(${symbol})`.length };
+    // The child prop-type mismatch anchors at the attribute name, exactly
+    // where vue-tsc reports it.
+    const attributeOffset = source.indexOf(`:code="String(${symbol})"`);
+    assert.notEqual(attributeOffset, -1);
+    const start = offsetToPosition(source, attributeOffset + ":".length);
+    const end = { line: start.line, character: start.character + "code".length };
     assert.deepEqual(diagnostic.range?.start, start);
     assert.deepEqual(diagnostic.range?.end, end);
   }

@@ -7,7 +7,7 @@
 
 use super::super::helpers::{to_camel_case, to_safe_identifier_fragment};
 use super::super::types::{VizeMapping, VizeSubSpan};
-use super::reserved_props::rewrite_reserved_template_prop;
+use super::prop_sources::{generated_prop_value, prop_name_source_range, prop_value_source_range};
 use vize_carton::FxHashMap;
 use vize_carton::FxHashSet;
 use vize_carton::String;
@@ -15,45 +15,6 @@ use vize_carton::append;
 use vize_carton::cstr;
 use vize_carton::profile;
 use vize_croquis::croquis::{ComponentUsage, PassedProp};
-use vize_croquis::drawer::strip_js_comments;
-
-fn push_ts_string_literal(out: &mut String, value: &str) {
-    out.push('"');
-    for ch in value.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(ch),
-        }
-    }
-    out.push('"');
-}
-
-fn generated_prop_value(
-    prop: &PassedProp,
-    template_prop_names: &FxHashSet<String>,
-) -> Option<String> {
-    if !prop.is_dynamic {
-        let mut value = String::default();
-        if let Some(static_value) = prop.value.as_ref() {
-            push_ts_string_literal(&mut value, static_value.as_str());
-        } else {
-            value.push_str("true");
-        }
-        return Some(value);
-    }
-
-    let value = strip_js_comments(prop.value.as_ref()?.as_str());
-    let trimmed_value = value.as_ref().trim();
-    let rewritten_value = rewrite_reserved_template_prop(trimmed_value, template_prop_names);
-    Some(rewritten_value.as_ref().map_or_else(
-        || String::from(value.as_ref()),
-        |s| String::from(s.as_str()),
-    ))
-}
 
 fn has_inference_props(usage: &ComponentUsage) -> bool {
     usage.props.iter().any(is_checkable_prop)
@@ -73,20 +34,6 @@ impl<'a> ComponentPropSource<'a> {
     pub(crate) const fn new(template: Option<&'a str>, offset: u32) -> Self {
         Self { template, offset }
     }
-}
-
-fn prop_value_source_range(
-    source_context: ComponentPropSource<'_>,
-    prop: &PassedProp,
-) -> Option<std::ops::Range<usize>> {
-    let source = source_context.template?;
-    let value = prop.value.as_ref()?.as_str();
-    let prop_start = prop.start as usize;
-    let prop_end = prop.end as usize;
-    let raw_prop = source.get(prop_start..prop_end)?;
-    let relative_start = raw_prop.rfind(value)?;
-    let source_start = source_context.offset as usize + prop_start + relative_start;
-    Some(source_start..source_start + value.len())
 }
 
 fn collect_generated_class_bindings<'a>(
@@ -184,21 +131,37 @@ pub(crate) fn generate_component_prop_checks(
             let check_name_end = ts.len();
             append!(
                 *ts,
-                ": __{component_type_name}_{idx}_prop_{safe_prop_name} = {};\n",
-                generated_value.as_str(),
+                ": __{component_type_name}_{idx}_prop_{safe_prop_name} = ",
             );
+            let value_gen_start = ts.len();
+            ts.push_str(generated_value.as_str());
+            let value_gen_end = ts.len();
+            ts.push_str(";\n");
             let gen_stmt_end = ts.len();
             append!(*ts, "{expr_indent}void {check_name};\n");
+
+            // The synthetic identifier receives the child prop-type error
+            // (TS2322-class), which vue-tsc anchors at the attribute name;
+            // the initializer keeps the exact authored expression so errors
+            // inside the value land on the authored bytes.
+            let name_src_range = prop_name_source_range(source_context, prop);
+            let mut sub_spans = Vec::new();
+            if let Some(src_range) = name_src_range.or_else(|| value_src_range.clone()) {
+                sub_spans.push(VizeSubSpan {
+                    gen_range: check_name_start..check_name_end,
+                    src_range,
+                });
+            }
+            if let Some(src_range) = value_src_range {
+                sub_spans.push(VizeSubSpan {
+                    gen_range: value_gen_start..value_gen_end,
+                    src_range,
+                });
+            }
             mappings.push(VizeMapping {
                 gen_range: gen_stmt_start..gen_stmt_end,
                 src_range: prop_src_start..prop_src_end,
-                sub_spans: value_src_range
-                    .map(|src_range| VizeSubSpan {
-                        gen_range: check_name_start..check_name_end,
-                        src_range,
-                    })
-                    .into_iter()
-                    .collect(),
+                sub_spans,
             });
 
             if usage.vif_guard.is_some() {
