@@ -19,6 +19,7 @@ use super::{
     },
 };
 
+mod interpolation;
 mod whitespace_significant;
 
 /// High-performance template formatter.
@@ -415,11 +416,7 @@ impl<'a> TemplateFormatter<'a> {
             self.write_indent_string(&mut out, depth);
             out.push_str("{{");
             out.push_str(self.newline_str());
-            for line in expr.trim().lines() {
-                self.write_indent_string(&mut out, depth + 1);
-                out.push_str(line.trim_end_matches('\r'));
-                out.push_str(self.newline_str());
-            }
+            out.push_str(self.render_interpolation_expr_lines(expr, depth).as_str());
             self.write_indent_string(&mut out, depth);
             out.push_str("}}");
             out.push_str(self.newline_str());
@@ -443,11 +440,8 @@ impl<'a> TemplateFormatter<'a> {
         self.write_indented_line(output, b"{{", depth);
 
         let formatted_expr = format_interpolation_expression(expr, self.options);
-        for line in formatted_expr.trim().lines() {
-            self.write_indent(output, depth + 1);
-            output.extend_from_slice(line.trim_end_matches('\r').as_bytes());
-            output.extend_from_slice(self.newline);
-        }
+        let rendered = self.render_interpolation_expr_lines(&formatted_expr, depth);
+        output.extend_from_slice(rendered.as_bytes());
 
         self.write_indented_line(output, b"}}", depth);
     }
