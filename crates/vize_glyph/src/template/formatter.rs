@@ -19,6 +19,8 @@ use super::{
     },
 };
 
+mod whitespace_significant;
+
 /// High-performance template formatter.
 pub(crate) struct TemplateFormatter<'a> {
     options: &'a FormatOptions,
@@ -192,29 +194,17 @@ impl<'a> TemplateFormatter<'a> {
                         pos = closing_end_pos;
                         continue;
                     } else if is_whitespace_significant_element(&tag_name, &sorted_attrs) {
-                        // `<pre>`, `<textarea>`, and any element with `v-pre`
-                        // are whitespace-significant. Their content must be
-                        // emitted byte-for-byte: a formatter must never
-                        // change rendered output. Find the matching close
-                        // tag and copy the inner source verbatim. (#963)
-                        output.push(b'>');
-                        if let Some(close_start) =
-                            find_matching_close_tag(source, end_pos, &tag_name)
-                        {
-                            output.extend_from_slice(&source[end_pos..close_start]);
-                            output.extend_from_slice(b"</");
-                            output.extend_from_slice(tag_name.as_bytes());
-                            output.push(b'>');
-                            output.extend_from_slice(self.newline);
-                            // Move past `</tag_name>`
-                            pos = close_start + 2 + tag_name.len() + 1;
-                            continue;
-                        } else {
-                            // Unclosed — copy the rest and stop.
-                            output.extend_from_slice(&source[end_pos..]);
-                            pos = len;
-                            continue;
-                        }
+                        // Copy `<pre>`/`<textarea>`/`v-pre` content verbatim so
+                        // the formatter never changes rendered output.
+                        // (#963, #3249)
+                        pos = self.copy_whitespace_significant_element(
+                            source,
+                            end_pos,
+                            &tag_name,
+                            len,
+                            &mut output,
+                        );
+                        continue;
                     } else {
                         output.push(b'>');
                         if !is_void {
