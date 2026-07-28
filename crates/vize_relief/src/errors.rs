@@ -1,6 +1,6 @@
 //! Compiler error types and codes.
 mod compatibility;
-mod recovery;
+pub mod recovery;
 use crate::SourceLocation;
 use thiserror::Error;
 use vize_carton::{CompactString, ToCompactString};
