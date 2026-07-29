@@ -11,7 +11,7 @@
 mod attributes;
 mod directives;
 mod formatter;
-mod helpers;
+pub(crate) mod helpers;
 
 #[cfg(test)]
 mod attribute_priority_tests;
