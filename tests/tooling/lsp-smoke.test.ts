@@ -137,7 +137,7 @@ const secondaryLabel = ref('secondary')
 
       const hoverText = hoverToText(hover);
       assert.match(hoverText, /secondaryLabel/);
-      assert.match(hoverText, /(Ref<string>|string)/);
+      assert.ok(/template scope/.test(hoverText) && !/Ref</.test(hoverText), hoverText);
 
       const definition = (await session.request("textDocument/definition", {
         textDocument: { uri: artUri },
