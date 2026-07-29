@@ -1,3 +1,9 @@
+mod interpolation;
+#[cfg(test)]
+mod tests;
+
+use interpolation::InterpolationScan;
+
 /// Per-line "this line is inside a whitespace-significant block" mask.
 ///
 /// Lines inside `<pre>`, `<textarea>`, `v-pre`, multi-line comments,
@@ -17,21 +23,29 @@ pub(super) fn compute_raw_line_mask(lines: &[&[u8]]) -> Vec<bool> {
     let mut open_quote: Option<OpenQuote> = None;
     let mut pending_raw_tag: Option<&'static str> = None;
     let mut in_comment = false;
-    // Inside a `{{ … }}` interpolation, and inside a template literal within
-    // it. The template formatter already emits those quasi lines verbatim; the
-    // SFC layer must not indent them on top.
-    let mut interpolation_depth = 0usize;
-    let mut in_interpolation_literal = false;
+    // Lexer state for the inside of a `{{ … }}` interpolation. The template
+    // formatter already emits template-literal quasi lines verbatim; the SFC
+    // layer must not indent them on top.
+    let mut interpolation = InterpolationScan::default();
+    // A `{{` with no `}}` after it is text, not an interpolation (Vue treats
+    // an unterminated marker as plain text). Entering expression mode there
+    // would disable tag, comment and `<pre>`/`<textarea>` tracking for the
+    // rest of the document, so activation is gated on a closing pair
+    // actually following.
+    let last_close_line = lines.iter().rposition(|line| contains(line, b"}}"));
     const TAGS: [(&str, &str, &str); 2] = [
         ("pre", "<pre", "</pre>"),
         ("textarea", "<textarea", "</textarea>"),
     ];
 
     for (i, line) in lines.iter().enumerate() {
+        // `'…'` / `"…"` cannot span a newline in JS, so an unbalanced quote
+        // must not swallow the following lines as string content.
+        interpolation.string = None;
         if !depth_stack.is_empty()
             || open_quote.is_some_and(OpenQuote::marks_line_raw)
             || in_comment
-            || in_interpolation_literal
+            || interpolation.line_starts_in_quasi()
         {
             mask[i] = true;
         }
@@ -81,21 +95,16 @@ pub(super) fn compute_raw_line_mask(lines: &[&[u8]]) -> Vec<bool> {
                 cursor += 1;
                 continue;
             }
-            if interpolation_depth > 0 && bytes[cursor] == b'`' && !is_escaped(bytes, cursor) {
-                in_interpolation_literal = !in_interpolation_literal;
-                cursor += 1;
+            // Inside an interpolation the bytes are a JS expression, not
+            // markup: `<` is a comparison and `}}` only closes the
+            // interpolation when reached in code position.
+            if interpolation.active {
+                cursor = interpolation.step(bytes, cursor);
                 continue;
             }
-            if !in_interpolation_literal && bytes[cursor..].starts_with(b"{{") {
-                interpolation_depth += 1;
-                cursor += 2;
-                continue;
-            }
-            if !in_interpolation_literal
-                && interpolation_depth > 0
-                && bytes[cursor..].starts_with(b"}}")
-            {
-                interpolation_depth -= 1;
+            if bytes[cursor..].starts_with(b"{{") {
+                interpolation.active = contains(&bytes[cursor + 2..], b"}}")
+                    || last_close_line.is_some_and(|last| last > i);
                 cursor += 2;
                 continue;
             }
@@ -234,44 +243,14 @@ fn directive_expr_attr(name: &[u8]) -> bool {
         || name == b"v-text"
 }
 
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack.len() >= needle.len() && haystack.windows(needle.len()).any(|w| w == needle)
+}
+
 fn starts_with_ascii_ci(haystack: &[u8], needle: &[u8]) -> bool {
     haystack.len() >= needle.len()
         && haystack[..needle.len()]
             .iter()
             .zip(needle.iter())
             .all(|(a, b)| a.eq_ignore_ascii_case(b))
-}
-
-#[cfg(test)]
-mod interpolation_literal_tests {
-    use super::compute_raw_line_mask;
-
-    fn mask(source: &str) -> Vec<bool> {
-        let lines: Vec<&[u8]> = source.lines().map(|l| l.as_bytes()).collect();
-        compute_raw_line_mask(&lines)
-    }
-
-    #[test]
-    fn lines_inside_an_interpolation_template_literal_are_raw() {
-        // Every byte between the backticks is part of the string's runtime
-        // value, so the SFC layer must not indent these lines (#3334).
-        let source =
-            "<div>\n  {{ items.map((p) => `\n${p} {\n  --a: b;\n}\n`).join(\"\") }}\n</div>";
-        // Lines 2..=5 all *begin* inside the literal — including the line
-        // that closes it, whose leading bytes would otherwise be indented
-        // into the string's value.
-        assert_eq!(mask(source), [false, false, true, true, true, true, false]);
-    }
-
-    #[test]
-    fn ordinary_interpolation_lines_stay_indentable() {
-        let source = "<div>\n  {{ a\n    + b }}\n</div>";
-        assert_eq!(mask(source), [false, false, false, false]);
-    }
-
-    #[test]
-    fn a_closed_literal_does_not_leak_into_later_lines() {
-        let source = "<div>\n  {{ `x` }}\n  <span>y</span>\n</div>";
-        assert_eq!(mask(source), [false, false, false, false]);
-    }
 }
