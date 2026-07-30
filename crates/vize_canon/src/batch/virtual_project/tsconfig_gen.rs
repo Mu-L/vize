@@ -1,4 +1,5 @@
 mod native_options;
+mod path_rebase;
 mod vue_alias;
 
 use std::path::{Path, PathBuf};
@@ -10,8 +11,7 @@ use crate::batch::error::CorsaResult;
 use crate::batch::materialize_fs::write_if_changed;
 
 use super::tsconfig_paths::{
-    normalize_path_lexically, normalize_tsconfig_path_target, parse_jsonc_value,
-    resolve_extended_tsconfig_path,
+    normalize_path_lexically, parse_jsonc_value, resolve_extended_tsconfig_path,
 };
 use super::{SHARED_HELPERS_FILE, VirtualProject};
 use native_options::normalize_native_removed_options;
@@ -143,6 +143,10 @@ impl VirtualProject {
             .and_then(Value::as_array)
             .cloned()
             .unwrap_or_default();
+        let original_root_dir = compiler_options
+            .get("rootDir")
+            .and_then(Value::as_str)
+            .map(|root_dir| root_dir.to_compact_string());
 
         for option in PATH_SENSITIVE_COMPILER_OPTIONS {
             compiler_options.remove(*option);
@@ -189,11 +193,18 @@ impl VirtualProject {
             compiler_options.insert("declaration".into(), Value::Bool(true));
             compiler_options.insert("emitDeclarationOnly".into(), Value::Bool(true));
             compiler_options.insert("declarationMap".into(), Value::Bool(declaration_map));
-            let root_dir = self
-                .common_virtual_source_dir()
-                .to_string_lossy()
-                .into_owned();
-            compiler_options.insert("rootDir".into(), Value::String(root_dir));
+            // Honor a configured `rootDir` (see [`path_rebase`]) and fall back
+            // to inference when nothing is configured.
+            let root_dir = path_rebase::root_dir_into_mirror(
+                &self.project_root,
+                &self.virtual_root,
+                original_root_dir.as_deref(),
+            )
+            .unwrap_or_else(|| self.common_virtual_source_dir());
+            compiler_options.insert(
+                "rootDir".into(),
+                Value::String(root_dir.to_string_lossy().into_owned()),
+            );
             compiler_options.insert(
                 "outDir".into(),
                 Value::String(out_dir.to_string_lossy().into_owned()),
@@ -294,7 +305,7 @@ impl VirtualProject {
             .cloned()
             .unwrap_or_default();
         let base_dir = normalized.parent().unwrap_or(self.project_root.as_path());
-        self.normalize_paths_for_project_root(&mut compiler_options, base_dir);
+        path_rebase::onto_project_root(&mut compiler_options, base_dir, &self.project_root);
 
         // `extends` may be a single specifier or an array; array entries are
         // applied in order, with later entries overriding earlier ones, and
@@ -322,57 +333,6 @@ impl VirtualProject {
 
         inherited.extend(compiler_options);
         Ok(inherited)
-    }
-
-    #[allow(clippy::disallowed_types)]
-    fn normalize_paths_for_project_root(
-        &self,
-        compiler_options: &mut Map<std::string::String, Value>,
-        base_dir: &Path,
-    ) {
-        // Relative path-ish options resolve against the tsconfig that declares
-        // them; rebase them onto the project root so the flattened option set
-        // keeps the declaring config's meaning.
-        if let Some(type_roots) = compiler_options
-            .get_mut("typeRoots")
-            .and_then(Value::as_array_mut)
-        {
-            for entry in type_roots {
-                let Some(raw_entry) = entry.as_str() else {
-                    continue;
-                };
-                if Path::new(raw_entry).is_absolute() {
-                    continue;
-                }
-                *entry = Value::String(
-                    normalize_tsconfig_path_target(base_dir, &self.project_root, raw_entry).into(),
-                );
-            }
-        }
-
-        let Some(paths) = compiler_options
-            .get_mut("paths")
-            .and_then(Value::as_object_mut)
-        else {
-            return;
-        };
-
-        for targets in paths.values_mut() {
-            let Some(targets) = targets.as_array_mut() else {
-                continue;
-            };
-            for target in targets {
-                let Some(raw_target) = target.as_str() else {
-                    continue;
-                };
-                if Path::new(raw_target).is_absolute() {
-                    continue;
-                }
-                *target = Value::String(
-                    normalize_tsconfig_path_target(base_dir, &self.project_root, raw_target).into(),
-                );
-            }
-        }
     }
 
     /// Re-anchor tsconfig `paths` targets into the virtual mirror. Each relative
