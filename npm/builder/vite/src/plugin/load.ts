@@ -12,7 +12,7 @@ import {
 } from "./state.ts";
 import { getLoadableVueSfcPath, shouldLoadCompiledVueSfcPath } from "./load-sfc.ts";
 import { compileFile, compileJsxModule } from "../compiler.ts";
-import { generateOutput, hasDelegatedStyles } from "../utils/index.ts";
+import { embedsInlineCss, generateOutput, hasDelegatedStyles } from "../utils/index.ts";
 import {
   resolveCssImports,
   scopeCssForPipeline,
@@ -122,10 +122,15 @@ function loadCompiledSfcModule(
   }
 
   const hasDelegated = hasDelegatedStyles(compiled);
-  const pendingHmrUpdateType = loadOptions?.ssr
-    ? undefined
-    : state.pendingHmrUpdateTypes.get(realPath);
-  if (compiled.css && !hasDelegated) {
+  const outputOptions = {
+    isProduction: state.isProduction,
+    isDev: state.server !== null && !isSsr,
+    ssr: isSsr,
+    hmrUpdateType: loadOptions?.ssr ? undefined : state.pendingHmrUpdateTypes.get(realPath),
+    extractCss,
+    filePath: realPath,
+  };
+  if (compiled.css && !hasDelegated && embedsInlineCss(compiled, outputOptions)) {
     compiled = {
       ...compiled,
       css: resolveCssImports(
@@ -137,14 +142,7 @@ function loadCompiledSfcModule(
       ),
     };
   }
-  const generatedOutput = generateOutput(compiled, {
-    isProduction: state.isProduction,
-    isDev: state.server !== null && !isSsr,
-    ssr: isSsr,
-    hmrUpdateType: pendingHmrUpdateType,
-    extractCss,
-    filePath: realPath,
-  });
+  const generatedOutput = generateOutput(compiled, outputOptions);
   const output = rewriteStaticAssetUrls(
     rewriteDynamicTemplateImports(
       isSsr ? normalizeVueServerRendererImport(generatedOutput) : generatedOutput,
