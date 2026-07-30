@@ -27,6 +27,24 @@ function createArt(pathname: string): ArtFileInfo {
   };
 }
 
+const STATIC_RUNTIME_BUNDLE = {
+  "assets/musea-static-runtime.js": {
+    type: "chunk",
+    name: "musea-static-runtime",
+    fileName: "assets/musea-static-runtime.js",
+    facadeModuleId: null,
+  },
+} as const;
+
+function collectAssets(assets: Map<string, string>) {
+  return (asset: { fileName: string; source: string | Uint8Array }) => {
+    assets.set(
+      asset.fileName,
+      typeof asset.source === "string" ? asset.source : Buffer.from(asset.source).toString("utf8"),
+    );
+  };
+}
+
 void test("static gallery paths stay under the configured Musea base path", () => {
   const previewId = staticPreviewId("/repo/src/Button.art.vue", "Default");
 
@@ -57,43 +75,26 @@ void test("emitStaticGallery packages browser-facing static output", async () =>
     const art = createArt(artPath);
     const assets = new Map<string, string>();
 
-    await emitStaticGallery(
-      (asset) => {
-        assets.set(
-          asset.fileName,
-          typeof asset.source === "string"
-            ? asset.source
-            : Buffer.from(asset.source).toString("utf8"),
-        );
+    await emitStaticGallery(collectAssets(assets), STATIC_RUNTIME_BUNDLE, {
+      config: { root: tempDir } as ResolvedConfig,
+      artFiles: new Map([[art.path, art]]),
+      scanRoots: [tempDir],
+      tokensPath: undefined,
+      basePath: "/__musea__",
+      resolvedPreviewCss: [],
+      resolvedPreviewSetup: null,
+      devSessionToken: "static-test",
+      themeConfig: undefined,
+      tokenPreviewConfig: {
+        rules: [{ pathIncludes: "elevation.overlay", kind: "zIndex" }],
       },
-      {
-        "assets/musea-static-runtime.js": {
-          type: "chunk",
-          name: "musea-static-runtime",
-          fileName: "assets/musea-static-runtime.js",
-          facadeModuleId: null,
-        },
-      },
-      {
-        config: { root: tempDir } as ResolvedConfig,
-        artFiles: new Map([[art.path, art]]),
-        scanRoots: [tempDir],
-        tokensPath: undefined,
-        basePath: "/__musea__",
-        resolvedPreviewCss: [],
-        resolvedPreviewSetup: null,
-        devSessionToken: "static-test",
-        themeConfig: undefined,
-        tokenPreviewConfig: {
-          rules: [{ pathIncludes: "elevation.overlay", kind: "zIndex" }],
-        },
-      },
-    );
+    });
 
     const previewId = staticPreviewId(art.path, "Default");
     const staticPayload = JSON.parse(assetText(assets, "__musea__/api/static.json")) as {
       arts: Array<{ path: string; metadata: { title: string }; variants: Array<{ name: string }> }>;
       previews: Record<string, Record<string, string>>;
+      details?: Record<string, Record<string, unknown>>;
     };
     const artsPayload = JSON.parse(assetText(assets, "__musea__/api/arts")) as Array<{
       path: string;
@@ -145,6 +146,21 @@ void test("emitStaticGallery packages browser-facing static output", async () =>
       "../../assets/musea-static-runtime.js",
     );
 
+    // #3362: the payload used to carry `details[art].a11y`, filled in from a
+    // handler that always answered `{violations: [], passes: 0, incomplete: 0}`.
+    // Baked into a static artifact that reads as "audited and clean" for every
+    // component. The panel measures accessibility live in the preview instead,
+    // so the field had no consumer, only the false reading.
+    const detailKeys = Object.keys(staticPayload.details?.[art.path] ?? {});
+    assert.ok(
+      detailKeys.length > 0,
+      "the payload must still carry per-art details; an empty object would make the next assertion vacuous",
+    );
+    assert.ok(
+      !detailKeys.includes("a11y"),
+      `the static payload must not report an accessibility result it never measured; got ${detailKeys.join(", ")}`,
+    );
+
     // The A11y panel runs axe inside the preview iframe and loads it from this
     // path, so an export without the vendor script has a dead a11y feature.
     const axeVendor = assets.get("__musea__/vendor/axe-core.min.js");
@@ -167,38 +183,20 @@ void test("emitStaticGallery prefixes browser URLs with Vite base without nestin
     const art = createArt(artPath);
     const assets = new Map<string, string>();
 
-    await emitStaticGallery(
-      (asset) => {
-        assets.set(
-          asset.fileName,
-          typeof asset.source === "string"
-            ? asset.source
-            : Buffer.from(asset.source).toString("utf8"),
-        );
-      },
-      {
-        "assets/musea-static-runtime.js": {
-          type: "chunk",
-          name: "musea-static-runtime",
-          fileName: "assets/musea-static-runtime.js",
-          facadeModuleId: null,
-        },
-      },
-      {
-        config: {
-          root: tempDir,
-          base: "/app/aim/aim-front/design-system/",
-        } as ResolvedConfig,
-        artFiles: new Map([[art.path, art]]),
-        scanRoots: [tempDir],
-        tokensPath: undefined,
-        basePath: "/__musea__",
-        resolvedPreviewCss: [],
-        resolvedPreviewSetup: null,
-        devSessionToken: "static-test",
-        themeConfig: undefined,
-      },
-    );
+    await emitStaticGallery(collectAssets(assets), STATIC_RUNTIME_BUNDLE, {
+      config: {
+        root: tempDir,
+        base: "/app/aim/aim-front/design-system/",
+      } as ResolvedConfig,
+      artFiles: new Map([[art.path, art]]),
+      scanRoots: [tempDir],
+      tokensPath: undefined,
+      basePath: "/__musea__",
+      resolvedPreviewCss: [],
+      resolvedPreviewSetup: null,
+      devSessionToken: "static-test",
+      themeConfig: undefined,
+    });
 
     const previewId = staticPreviewId(art.path, "Default");
     const publicBasePath = "/app/aim/aim-front/design-system/__musea__";
