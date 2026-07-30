@@ -5,6 +5,16 @@ settings:
   excludeLinksFromLockfile: false
 
 catalogs:
+  babel-jsx-oracle:
+    '@babel/core':
+      specifier: 7.29.0
+      version: 7.29.0
+    '@babel/plugin-syntax-typescript':
+      specifier: 7.28.6
+      version: 7.28.6
+    '@vue/babel-plugin-jsx':
+      specifier: 2.0.1
+      version: 2.0.1
   bundlers:
     '@rspack/cli':
       specifier: 2.0.3
@@ -239,6 +249,12 @@ importers:
 
   .:
     devDependencies:
+      '@babel/core':
+        specifier: catalog:babel-jsx-oracle
+        version: 7.29.0
+      '@babel/plugin-syntax-typescript':
+        specifier: catalog:babel-jsx-oracle
+        version: 7.28.6(@babel/core@7.29.0)
       '@iarna/toml':
         specifier: catalog:repo-tooling
         version: 2.2.5
@@ -251,6 +267,9 @@ importers:
       '@typescript/native-preview':
         specifier: catalog:typescript
         version: 7.0.0-dev.20260602.1
+      '@vue/babel-plugin-jsx':
+        specifier: catalog:babel-jsx-oracle
+        version: 2.0.1(@babel/core@7.29.0)
       ajv:
         specifier: catalog:repo-tooling
         version: 8.20.0
@@ -15026,7 +15045,7 @@ snapshots:
       '@babel/helper-module-imports': 7.28.6
       '@babel/helper-plugin-utils': 7.28.6
       '@babel/parser': 7.29.3
-      '@vue/compiler-sfc': 3.5.34
+      '@vue/compiler-sfc': 3.5.35
     transitivePeerDependencies:
       - supports-color
 
