@@ -10,6 +10,7 @@ use vize_carton::{FxHashMap, FxHashSet, String};
 mod keyof_indexed_assignment;
 mod line_index;
 mod module_resolution;
+mod module_specifier;
 mod skip_rules;
 
 use line_index::LineIndex;
@@ -474,51 +475,6 @@ mod tests {
         assert!(!should_skip_original_diagnostic(Some(6133), &mapped_vue));
         assert!(!should_skip_original_diagnostic(Some(6133), &plain_ts));
         assert!(!should_skip_original_diagnostic(Some(2322), &unmapped_vue));
-    }
-
-    #[test]
-    fn maps_missing_vue_ts2307_back_to_source_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let project_root = temp_dir.path().canonicalize().unwrap();
-        let src_dir = project_root.join("src");
-        std::fs::create_dir_all(&src_dir).unwrap();
-        let app_path = src_dir.join("App.vue");
-        std::fs::write(
-            &app_path,
-            r#"<script setup lang="ts">
-import MissingPanel from './MissingPanel.vue'
-</script>
-
-<template>
-  <MissingPanel />
-</template>
-"#,
-        )
-        .unwrap();
-
-        let mut project = VirtualProject::new(&project_root).unwrap();
-        project.register_path(&app_path).unwrap();
-        let virtual_file = project.find_by_original(&app_path).unwrap();
-        let diagnostic = ts2307_diagnostic_at(
-            virtual_file.content.as_str(),
-            "MissingPanel.vue.ts",
-            "Cannot find module './MissingPanel.vue.ts' or its corresponding type declarations.",
-        );
-
-        let diagnostics = map_batch_diagnostics(
-            vec![(file_uri_for(&virtual_file.virtual_path), vec![diagnostic])],
-            &project,
-        );
-
-        assert_eq!(diagnostics.len(), 1);
-        let diagnostic = &diagnostics[0];
-        assert_eq!(diagnostic.file, app_path);
-        assert_eq!(diagnostic.code, Some(2307));
-        assert_eq!(diagnostic.line, 1);
-        assert_eq!(
-            diagnostic.message,
-            "Cannot find module './MissingPanel.vue' or its corresponding type declarations."
-        );
     }
 
     #[test]
