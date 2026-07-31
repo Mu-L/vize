@@ -16,7 +16,9 @@
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-use vize_atelier_jsx::{JsxCompileConfig, JsxLang, JsxOutputMode, compile_jsx as jsx_compile};
+use vize_atelier_jsx::{
+    JsxCompatMode, JsxCompileConfig, JsxLang, JsxOutputMode, compile_jsx as jsx_compile,
+};
 use vize_carton::Bump;
 
 use super::serde::to_json_js_value;
@@ -100,6 +102,19 @@ fn resolve_default_mode(options: &JsValue) -> JsxOutputMode {
     }
 }
 
+/// Resolve the `jsxCompat` semantics from the JS options object, mirroring the
+/// NAPI binding and the `compiler.jsxCompat` config key (#3391). An
+/// unrecognized string falls back to `native` rather than erroring, matching how
+/// an unrecognized `jsxMode` string is handled.
+fn resolve_compat(options: &JsValue) -> JsxCompatMode {
+    js_sys::Reflect::get(options, &JsValue::from_str("jsxCompat"))
+        .ok()
+        .and_then(|v| v.as_string())
+        .as_deref()
+        .and_then(JsxCompatMode::from_config_str)
+        .unwrap_or_default()
+}
+
 /// Resolve the `sourceMap` flag from the JS options object: `true` enables v3
 /// source-map emission, anything else (including omission) leaves it off.
 fn resolve_source_map(options: &JsValue) -> bool {
@@ -119,9 +134,10 @@ fn resolve_ssr(options: &JsValue) -> bool {
 fn compile_jsx_internal(source: &str, options: &JsValue) -> JsxWasmResult {
     let lang = resolve_lang(options);
     let default_mode = resolve_default_mode(options);
+    let compat = resolve_compat(options);
     let source_map = resolve_source_map(options);
     let ssr = resolve_ssr(options);
-    build_jsx_wasm_result(source, lang, default_mode, source_map, ssr)
+    build_jsx_wasm_result(source, lang, default_mode, compat, source_map, ssr)
 }
 
 /// Build the JSX compile result from already-resolved options. Kept free of
@@ -131,11 +147,13 @@ fn build_jsx_wasm_result(
     source: &str,
     lang: JsxLang,
     default_mode: JsxOutputMode,
+    compat: JsxCompatMode,
     source_map: bool,
     ssr: bool,
 ) -> JsxWasmResult {
     let mut config = JsxCompileConfig {
         default_mode,
+        compat,
         ..Default::default()
     };
     config.ssr = ssr;
@@ -187,7 +205,7 @@ pub fn compile_jsx(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
 
 #[cfg(test)]
 mod tests {
-    use super::{JsxLang, JsxOutputMode, build_jsx_wasm_result};
+    use super::{JsxCompatMode, JsxLang, JsxOutputMode, build_jsx_wasm_result};
 
     #[test]
     fn wasm_jsx_result_surfaces_scoped_style_css() {
@@ -201,7 +219,14 @@ mod tests {
                 </div>
             );
         "#;
-        let result = build_jsx_wasm_result(source, JsxLang::Jsx, JsxOutputMode::Vdom, false, false);
+        let result = build_jsx_wasm_result(
+            source,
+            JsxLang::Jsx,
+            JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
+            false,
+            false,
+        );
 
         assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
         assert_eq!(
@@ -228,6 +253,7 @@ mod tests {
             "const App = () => <div class=\"box\">hi</div>;",
             JsxLang::Jsx,
             JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
             false,
             false,
         );
@@ -247,6 +273,7 @@ mod tests {
             "const App = () => <div>{message}</div>;",
             JsxLang::Jsx,
             JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
             false,
             false,
         );
@@ -262,11 +289,24 @@ mod tests {
     fn wasm_jsx_result_surfaces_source_map_when_requested() {
         let source = "const App = () => <div>{message}</div>;";
 
-        let without =
-            build_jsx_wasm_result(source, JsxLang::Jsx, JsxOutputMode::Vdom, false, false);
+        let without = build_jsx_wasm_result(
+            source,
+            JsxLang::Jsx,
+            JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
+            false,
+            false,
+        );
         assert!(without.map.is_none(), "no map unless requested");
 
-        let with = build_jsx_wasm_result(source, JsxLang::Jsx, JsxOutputMode::Vdom, true, false);
+        let with = build_jsx_wasm_result(
+            source,
+            JsxLang::Jsx,
+            JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
+            true,
+            false,
+        );
         assert!(with.errors.is_empty(), "errors: {:?}", with.errors);
         let map = with.map.expect("a map is surfaced when requested");
         assert!(map.contains("\"version\":3"), "v3 source map: {map}");
@@ -278,6 +318,7 @@ mod tests {
             "const App = () => <div>{message}</div>;",
             JsxLang::Jsx,
             JsxOutputMode::Vdom,
+            JsxCompatMode::Native,
             true,
             true,
         );

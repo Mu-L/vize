@@ -9,6 +9,7 @@ mod discovery;
 #[cfg(test)]
 mod experimental_tests;
 mod js;
+mod jsx;
 #[cfg(test)]
 mod legacy_dialect_tests;
 mod lint_features;
@@ -29,7 +30,7 @@ use super::model::{
 };
 
 pub use lint_features::load_config_and_linter_with_lint_features_and_source;
-pub use vapor::load_compiler_vapor;
+pub use {jsx::load_compiler_jsx_compat, vapor::load_compiler_vapor};
 
 #[derive(Debug, Clone)]
 pub struct LoadedConfig {
