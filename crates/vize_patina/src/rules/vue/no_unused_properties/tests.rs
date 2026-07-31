@@ -5,6 +5,9 @@ use crate::rule::{Rule, RuleCategory};
 
 // The positive direction (a prop that must be reported) lives in the `reports`
 // submodule; this file keeps the helpers and the silent-direction cases.
+mod directive_lexer_reports;
+mod directive_lexer_statement_blocks;
+mod directive_lexer_tsx_multiline;
 mod reports;
 
 /// Lint a full SFC with only this rule enabled.
@@ -39,14 +42,25 @@ fn none() -> Vec<(&'static str, Severity, u32, u32, &'static str)> {
     Vec::new()
 }
 
-/// The finding an unused `name` produces, anchored at the template block.
-fn unused(sfc: &str, name: &str) -> (&'static str, Severity, u32, u32, std::string::String) {
-    let anchor = sfc.find("<template>").expect("template block") + "<template>".len();
+/// The finding an unused `name` produces at its exact written declaration.
+fn unused(
+    sfc: &str,
+    name: &str,
+    declaration: &str,
+) -> (&'static str, Severity, u32, u32, std::string::String) {
+    // A declaration that appears twice would make the expected range ambiguous,
+    // so the first match is only trustworthy when it is the only one.
+    assert_eq!(
+        sfc.matches(declaration).count(),
+        1,
+        "declaration {declaration:?} must occur exactly once"
+    );
+    let start = sfc.find(declaration).expect("prop declaration") as u32;
     (
         "vue/no-unused-properties",
         Severity::Warning,
-        anchor as u32,
-        anchor as u32,
+        start,
+        start + declaration.len() as u32,
         format!("Prop '{name}' is defined but never used"),
     )
 }
@@ -274,6 +288,38 @@ defineProps<{ msg: string; rows: string[] }>();
 
 <template>
   <ul><li v-for="msg in rows" :key="msg">{{ msg }}</li></ul>
+</template>
+"#;
+    assert_eq!(findings(&lint_sfc(sfc)), none());
+}
+
+#[test]
+fn ignores_a_non_ascii_prop_named_by_a_sibling_options_api_block() {
+    // Identifiers are not ASCII-only, so a byte-wise token scan drops this
+    // reference entirely and reports the prop as unused.
+    let sfc = r#"<script>
+export default { methods: { show() { return this.ラベル; } } };
+</script>
+
+<script setup>
+defineProps({ ラベル: String });
+</script>
+
+<template>
+  <div>hi</div>
+</template>
+"#;
+    assert_eq!(findings(&lint_sfc(sfc)), none());
+}
+
+#[test]
+fn ignores_a_non_ascii_prop_read_in_an_interpolation() {
+    let sfc = r#"<script setup>
+defineProps({ étiquette: String });
+</script>
+
+<template>
+  <div>{{ étiquette }}</div>
 </template>
 "#;
     assert_eq!(findings(&lint_sfc(sfc)), none());
