@@ -1,46 +1,10 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
-import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
 import { compareTypecheckDiagnostics } from "../../tools/fixtures/typecheck-divergence.mjs";
-
-const cwd = path.join(os.tmpdir(), "vize-divergence-workspace");
-
-function compare(
-  files: Array<{ file: string; diagnostics: string[] }>,
-  vueTscOutput: string,
-  documentedDifferences?: unknown[],
-) {
-  return compareTypecheckDiagnostics({
-    projectId: "fixture",
-    cwd,
-    vizeReport: { files },
-    vueTscOutput,
-    documentedDifferences,
-  });
-}
-
-const suggestionDifference = {
-  project: "fixture",
-  file: "src/App.vue",
-  severity: "error",
-  line: 5,
-  column: 16,
-  vize: { code: 2552, message: "Cannot find name 'useRouter'. Did you mean 'router'?" },
-  baseline: { code: 2304, message: "Cannot find name 'useRouter'." },
-  issue: 3358,
-  reason: "vue-tsc exhausts its per-program spelling-suggestion budget before this span.",
-};
-
-const suggestionFiles = [
-  {
-    file: "src/App.vue",
-    diagnostics: ["error:5:16 [TS2552] Cannot find name 'useRouter'. Did you mean 'router'?"],
-  },
-];
-const suggestionBaseline = "src/App.vue(5,16): error TS2304: Cannot find name 'useRouter'.\n";
+import { compare, cwd } from "./_helpers/typecheck-divergence-fixture.ts";
 
 test("typecheck divergence classifies exact diagnostics deterministically", () => {
   const files = [
@@ -66,17 +30,19 @@ test("typecheck divergence classifies exact diagnostics deterministically", () =
     "project",
     "summary",
     "shared",
+    "messageMismatches",
     "falsePositives",
     "falseNegatives",
     "documentedDifferences",
     "sha256",
   ]);
   assert.equal(result.schema, "vize.fixtureTypecheckDivergence");
-  assert.equal(result.version, 3);
+  assert.equal(result.version, 4);
   assert.deepEqual(result.summary, {
     vizeDiagnosticCount: 2,
     baselineDiagnosticCount: 2,
     sharedCount: 2,
+    messageMismatchCount: 0,
     documentedDifferenceCount: 0,
     falsePositiveCount: 0,
     falseNegativeCount: 0,
@@ -120,6 +86,7 @@ test("typecheck divergence separates false positives and false negatives", () =>
     vizeDiagnosticCount: 3,
     baselineDiagnosticCount: 3,
     sharedCount: 1,
+    messageMismatchCount: 0,
     documentedDifferenceCount: 0,
     falsePositiveCount: 2,
     falseNegativeCount: 2,
@@ -151,10 +118,69 @@ test("typecheck divergence retains duplicate diagnostics as a multiset", () => {
     "src/App.vue(1,1): error TS2307: baseline message\n",
   );
 
-  assert.equal(result.summary.sharedCount, 1);
+  assert.equal(result.summary.sharedCount, 0);
+  assert.equal(result.summary.messageMismatchCount, 1);
   assert.equal(result.summary.falsePositiveCount, 1);
-  assert.equal(result.shared[0].vizeMessage, "a message");
+  assert.equal(result.messageMismatches[0].vizeMessage, "a message");
   assert.equal(result.falsePositives[0].message, "z message");
+});
+
+/**
+ * Regression for #3447. Both of these agree with vue-tsc on file, severity,
+ * line, column and code and differ only in the message, so the identity the
+ * comparator groups on cannot tell them apart from a match. The first is the
+ * `.vue.ts` specifier leak fixed in #3397, which the ledger scored `shared`
+ * while it sat on main; the second is vize naming its own synthetic wrapper
+ * type in user-facing text. Before the fix both landed in `shared` and
+ * `messageMismatches` did not exist.
+ */
+test("typecheck divergence separates a message-only divergence from a match", () => {
+  const result = compare(
+    [
+      {
+        file: "src/App.vue",
+        diagnostics: [
+          "error:2:20 [TS2307] Cannot find module './Absent.vue.ts' or its corresponding type declarations.",
+        ],
+      },
+      {
+        file: "src/Parent.vue",
+        diagnostics: [
+          "error:6:36 [TS2339] Property 'nope' does not exist on type '__VizeComponentInstance'.",
+        ],
+      },
+    ],
+    [
+      "src/App.vue(2,20): error TS2307: Cannot find module './Absent.vue' or its corresponding type declarations.",
+      "src/Parent.vue(6,36): error TS2339: Property 'nope' does not exist on type 'CreateComponentPublicInstanceWithMixins<ToResolvedProps<{}, {}>, { reload: (times: number) => number; }, {}, {}, {}, ComponentOptionsMixin, ComponentOptionsMixin, ... 18 more ..., {}>'.",
+    ].join("\n"),
+  );
+
+  assert.equal(result.summary.sharedCount, 0);
+  assert.equal(result.summary.messageMismatchCount, 2);
+  assert.equal(result.summary.falsePositiveCount, 0);
+  assert.equal(result.summary.falseNegativeCount, 0);
+  assert.deepEqual(result.messageMismatches, [
+    {
+      file: "src/App.vue",
+      severity: "error",
+      line: 2,
+      column: 20,
+      code: 2307,
+      vizeMessage: "Cannot find module './Absent.vue.ts' or its corresponding type declarations.",
+      baselineMessage: "Cannot find module './Absent.vue' or its corresponding type declarations.",
+    },
+    {
+      file: "src/Parent.vue",
+      severity: "error",
+      line: 6,
+      column: 36,
+      code: 2339,
+      vizeMessage: "Property 'nope' does not exist on type '__VizeComponentInstance'.",
+      baselineMessage:
+        "Property 'nope' does not exist on type 'CreateComponentPublicInstanceWithMixins<ToResolvedProps<{}, {}>, { reload: (times: number) => number; }, {}, {}, {}, ComponentOptionsMixin, ComponentOptionsMixin, ... 18 more ..., {}>'.",
+    },
+  ]);
 });
 
 test("typecheck divergence accepts a diagnostic-free baseline without NaN ratios", () => {
@@ -238,80 +264,6 @@ test("typecheck divergence rejects ambiguous diagnostics and escaping paths", ()
   ] as const) {
     assert.throws(() => compare(files as never, output), message);
   }
-});
-
-test("typecheck divergence cancels a documented difference against both buckets", () => {
-  const result = compare(suggestionFiles, suggestionBaseline, [suggestionDifference]);
-
-  assert.equal(result.summary.documentedDifferenceCount, 1);
-  assert.equal(result.summary.falsePositiveCount, 0);
-  assert.equal(result.summary.falseNegativeCount, 0);
-  assert.equal(result.summary.falsePositiveRatio, 0);
-  assert.equal(result.summary.falseNegativeRatio, 0);
-  assert.equal(result.summary.vizeDiagnosticCount, 1);
-  assert.equal(result.summary.baselineDiagnosticCount, 1);
-  assert.deepEqual(result.documentedDifferences, [
-    {
-      file: "src/App.vue",
-      severity: "error",
-      line: 5,
-      column: 16,
-      vize: suggestionDifference.vize,
-      baseline: suggestionDifference.baseline,
-      issue: 3358,
-      reason: suggestionDifference.reason,
-    },
-  ]);
-
-  const withoutLedger = compare(suggestionFiles, suggestionBaseline);
-  assert.equal(withoutLedger.summary.documentedDifferenceCount, 0);
-  assert.equal(withoutLedger.summary.falsePositiveCount, 1);
-  assert.equal(withoutLedger.summary.falseNegativeCount, 1);
-});
-
-test("typecheck divergence keeps a documented difference that no longer reproduces", () => {
-  const reworded = { code: 2552, message: "Cannot find name 'useRouter'." };
-  for (const [difference, label] of [
-    [{ ...suggestionDifference, project: "other" }, "another project"],
-    [{ ...suggestionDifference, column: 15 }, "a shifted column"],
-    [{ ...suggestionDifference, vize: reworded }, "a reworded vize message"],
-    [{ ...suggestionDifference, baseline: { code: 2551, message: "x y" } }, "a new vue-tsc code"],
-  ] as const) {
-    const result = compare(suggestionFiles, suggestionBaseline, [difference]);
-    assert.equal(result.summary.documentedDifferenceCount, 0, label);
-    assert.equal(result.summary.falsePositiveCount, 1, label);
-    assert.equal(result.summary.falseNegativeCount, 1, label);
-  }
-  // Only vize reports at 5:16, so there is nothing to cancel the false positive
-  // against and the ledger entry must not hide it.
-  const oneSided = compare(suggestionFiles, "", [suggestionDifference]);
-  assert.equal(oneSided.summary.documentedDifferenceCount, 0);
-  assert.equal(oneSided.summary.falsePositiveCount, 1);
-});
-
-test("typecheck divergence rejects an unreviewable documented difference", () => {
-  for (const [difference, message] of [
-    [{ ...suggestionDifference, reason: "cosmetic" }, /reason must explain/],
-    [{ ...suggestionDifference, issue: 0 }, /issue must be the tracking issue/],
-    [{ ...suggestionDifference, project: "" }, /must name a project/],
-    [{ ...suggestionDifference, severity: "info" }, /severity must be error or warning/],
-    [{ ...suggestionDifference, line: 0 }, /line must be a positive safe integer/],
-    [{ ...suggestionDifference, file: "src/App.ts" }, /must reference a \.vue file/],
-    [{ ...suggestionDifference, file: "../App.vue" }, /stay inside/],
-    [{ ...suggestionDifference, baseline: suggestionDifference.vize }, /must record a difference/],
-    [{ ...suggestionDifference, vize: { code: 2552 } }, /message must be a string/],
-  ] as const) {
-    assert.throws(() => compare(suggestionFiles, suggestionBaseline, [difference]), message);
-  }
-  assert.throws(
-    () =>
-      compare(suggestionFiles, suggestionBaseline, [suggestionDifference, suggestionDifference]),
-    /duplicates an earlier documented difference/,
-  );
-  assert.throws(
-    () => compare(suggestionFiles, suggestionBaseline, "no" as never),
-    /must be an array/,
-  );
 });
 
 test("typecheck divergence rejects invalid envelopes", () => {
