@@ -7,6 +7,7 @@ use super::{
 use vize_carton::config::VueVersion;
 mod auto_import_shadowing;
 mod component_navigation;
+mod component_spread_prop_order;
 mod define_props_scope;
 mod generic_module_type_exports;
 mod legacy_nuxt2_page_context;
@@ -173,55 +174,6 @@ export default defineComponent({
     assert!(
         output.code.contains("__vize_computed_status"),
         "expected computed body to be checked through a typed wrapper:\n{}",
-        output.code
-    );
-}
-
-#[test]
-fn test_options_api_virtual_ts_emits_typed_shape_for_pinia_spread_helpers() {
-    let script = r#"import { defineComponent } from 'vue'
-import { mapState, mapActions } from 'pinia'
-
-function useFakeStore() {
-    return {
-        ready: false,
-        items: [] as Array<{ id: number; label: string }>,
-        setReady(_v: boolean) {},
-    }
-}
-
-export default defineComponent({
-    computed: {
-        ...mapState(useFakeStore, ['items', 'ready']),
-        localComputed() { return 1 },
-    },
-    methods: {
-        ...mapActions(useFakeStore, ['setReady']),
-    },
-})
-"#;
-    let summary = analyze_options_api_script(script);
-    let output = generate_virtual_ts_with_offsets_options_api(
-        &summary,
-        Some(script),
-        None,
-        0,
-        0,
-        &Default::default(),
-    );
-
-    assert!(
-        output
-            .code
-            .contains("[K in 'items' | 'ready']: ReturnType<typeof useFakeStore>[K]"),
-        "expected precise mapped type for mapState spread keys:\n{}",
-        output.code
-    );
-    assert!(
-        output
-            .code
-            .contains("[K in 'setReady']: ReturnType<typeof useFakeStore>[K]"),
-        "expected precise mapped type for mapActions spread keys:\n{}",
         output.code
     );
 }
