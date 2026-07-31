@@ -38,6 +38,9 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+mod normalize_tests;
+
 /// Environment variables honored by the resolver, in precedence order.
 pub const CORSA_ENV_VARS: [&str; 4] = [
     "CORSA_PATH",
@@ -115,10 +118,19 @@ pub fn discover_corsa_in_ancestors(start: &Path) -> Option<PathBuf> {
 /// shadows, when one can be discovered from the wrapper's project root.
 /// Non-wrapper paths are returned unchanged.
 pub fn normalize_corsa_path(path: &Path) -> PathBuf {
+    normalize_corsa_path_with_discovery(path, |project_root| {
+        discover_in_walk(&[project_root.to_path_buf()], dev_paths_enabled())
+    })
+}
+
+fn normalize_corsa_path_with_discovery(
+    path: &Path,
+    discover: impl FnOnce(&Path) -> Option<PathBuf>,
+) -> PathBuf {
     let Some(project_root) = wrapper_project_root(path) else {
         return path.to_path_buf();
     };
-    match discover_in_walk(&[project_root.to_path_buf()], dev_paths_enabled()) {
+    match discover(project_root) {
         Some(resolved) if resolved != path => resolved,
         _ => path.to_path_buf(),
     }
@@ -696,19 +708,6 @@ mod tests {
         write_file(&cache);
 
         assert_eq!(normalize_corsa_path(&wrapper), cache);
-    }
-
-    #[test]
-    fn normalize_keeps_wrapper_when_nothing_better_exists() {
-        let temp_dir = TempDir::new().unwrap();
-        let wrapper = temp_dir
-            .path()
-            .join("node_modules")
-            .join(".bin")
-            .join("tsgo");
-        write_file(&wrapper);
-
-        assert_eq!(normalize_corsa_path(&wrapper), wrapper);
     }
 
     #[test]
