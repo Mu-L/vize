@@ -30,6 +30,7 @@ pub mod rename;
 pub mod selection_range;
 pub mod semantic_tokens;
 pub(crate) mod sfc_region;
+pub(crate) mod tag_pair;
 mod template_expression;
 pub mod type_service;
 pub mod workspace_symbols;
@@ -291,11 +292,10 @@ fn last_start_tag(content: &str, tag_name: &str) -> Option<usize> {
 
 fn is_inside_html_comment_at(content: &str, offset: usize) -> bool {
     let before = &content[..offset.min(content.len())];
-    let last_open = before.rfind("<!--");
-    let last_close = before.rfind("-->");
-
-    matches!((last_open, last_close), (Some(open), Some(close)) if open > close)
-        || matches!((last_open, last_close), (Some(_), None))
+    let Some(open) = before.rfind("<!--") else {
+        return false;
+    };
+    before.rfind("-->").is_none_or(|close| open > close)
 }
 
 /// Context for IDE operations.
