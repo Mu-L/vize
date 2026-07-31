@@ -15,6 +15,14 @@ function assertExists(...segments: string[]): void {
   assert.ok(fs.existsSync(path.join(root, ...segments)), segments.join("/"));
 }
 
+function shellWords(command: string, label: string): string[] {
+  const logicalCommand = command.trim().replace(/\\\r?\n[ \t]*/g, " ");
+  assert.doesNotMatch(logicalCommand, /\r?\n/, `${label} must be one logical shell command`);
+  return [...logicalCommand.matchAll(/'([^']*)'|"([^"]*)"|(\S+)/g)].map(
+    (match) => match[1] ?? match[2] ?? match[3],
+  );
+}
+
 test("workspace exposes app e2e task aliases with scoped cache inputs", () => {
   const taskInputs = readRepoFile("tools/vite-plus/task-inputs.ts");
   const taskGroups = readRepoFile("tools/vite-plus/tasks/test-benchmark.ts");
@@ -51,14 +59,50 @@ test("fast app readiness aliases use bounded pinned fixtures", () => {
     scripts["test:readiness"],
     "pnpm test:readiness:check && pnpm test:readiness:lint && pnpm test:readiness:build && pnpm test:readiness:dev",
   );
-  assert.equal(
-    scripts["test:readiness:check"],
-    "node --test --test-concurrency=1 snapshots/check/compiler-macros.ts",
-  );
-  assert.equal(
-    scripts["test:readiness:lint"],
-    "node --test --test-concurrency=1 tooling/cli-lint-contract.test.ts",
-  );
+  for (const [name, drivers] of [
+    [
+      "test:readiness:check",
+      [
+        "snapshots/check/compiler-macros.ts",
+        "snapshots/check/elk.ts",
+        "snapshots/check/misskey.ts",
+        "snapshots/check/npmx.ts",
+        "snapshots/check/nuxt-ui.ts",
+        "snapshots/check/reka-ui.ts",
+      ],
+    ],
+    [
+      "test:readiness:lint",
+      [
+        "tooling/cli-lint-contract.test.ts",
+        "snapshots/lint/elk.ts",
+        "snapshots/lint/misskey.ts",
+        "snapshots/lint/npmx.ts",
+        "snapshots/lint/nuxt-ui.ts",
+        "snapshots/lint/reka-ui.ts",
+      ],
+    ],
+  ] as const) {
+    const script = scripts[name] ?? "";
+    const argv = shellWords(script, name);
+    assert.equal(
+      argv[0],
+      "VIZE_TEST_WORKTREE_ID=${VIZE_TEST_WORKTREE_ID:-ci-readiness}",
+      `${name} must default the shared readiness worktree`,
+    );
+    assert.equal(argv[1], "node", `${name} must invoke the Node.js test runner`);
+    const driverStart = argv.findIndex((token, index) => index > 1 && token.endsWith(".ts"));
+    assert.deepEqual(
+      argv.slice(2, driverStart).toSorted(),
+      ["--test", "--test-concurrency=1"].toSorted(),
+      `${name} must run its drivers serially`,
+    );
+    assert.deepEqual(
+      argv.slice(driverStart),
+      drivers,
+      `${name} must run exactly the release-blocking drivers`,
+    );
+  }
   assert.equal(
     scripts["test:readiness:build"],
     "node --test --test-concurrency=1 snapshots/build/generic.ts snapshots/build/elk.ts",
@@ -74,7 +118,12 @@ test("fast app readiness aliases use bounded pinned fixtures", () => {
   assertExists("tests", "snapshots", "build", "generic.ts");
   assertExists("tests", "app", "dev", "misskey.spec.ts");
 
-  for (const fixture of ["elk", "misskey"]) {
+  for (const fixture of ["elk", "misskey", "npmx.dev", "nuxt-ui", "reka-ui"]) {
+    const snapshotName = fixture === "npmx.dev" ? "npmx" : fixture;
+    assertExists("tests", "snapshots", "check", `${snapshotName}.ts`);
+    assertExists("tests", "snapshots", "check", "__snapshots__", `${fixture}-check.snap`);
+    assertExists("tests", "snapshots", "lint", `${snapshotName}.ts`);
+    assertExists("tests", "snapshots", "lint", "__snapshots__", `${fixture}-lint.snap`);
     const gitlink = execFileSync(
       "git",
       ["ls-files", "--stage", `tests/_fixtures/_git/${fixture}`],
