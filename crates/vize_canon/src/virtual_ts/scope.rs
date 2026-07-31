@@ -13,6 +13,7 @@ mod component_prop_navigation;
 mod component_props;
 mod context;
 mod emit;
+mod empty_component_props;
 mod event_handler;
 mod event_scope;
 mod expression_scanner;
@@ -22,6 +23,5 @@ mod inline_callback_classifier;
 mod vif_guard;
 
 pub(crate) use closures::generate_scope_closures;
-pub(crate) use component_prop_checker::has_checkable_props_or_spread;
 pub(crate) use context::ScopeGenerationOptions;
 pub(crate) use vif_guard::remove_enclosing_vif_guard_prefix;

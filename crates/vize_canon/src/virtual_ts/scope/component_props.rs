@@ -16,12 +16,14 @@ use crate::virtual_ts::types::VizeMapping;
 
 use super::component_prop_checker::{
     append_per_prop_aliases, append_prop_check_helpers, append_prop_checker_alias,
-    has_checkable_props_or_spread, has_value_props,
 };
 use super::component_prop_navigation;
 use super::context::{ComponentPropsContext, VForPropsContext};
 use super::emit::{
     append_v_for_comment, emit_slot_function_open, emit_v_for_loop_open, slot_props_type,
+};
+use super::empty_component_props::{
+    generate_empty_root_checks, generate_scope_checks, is_empty_props_usage,
 };
 use super::vif_guard::common_vif_guard_prefix_for_guards_outside_v_for;
 
@@ -74,22 +76,11 @@ pub(super) fn generate_component_props(
 
     // Generic children expose `__vizeCheck<T>(props)`; fallback contextual
     // typing is limited to inline function props to avoid duplicate errors.
-    let any_inference_props = checkable_usages
-        .iter()
-        .any(|(_, usage)| has_checkable_props_or_spread(usage));
-    if any_inference_props {
-        append_prop_check_helpers(ts, &checkable_usages);
-    }
+    append_prop_check_helpers(ts, &checkable_usages);
 
     for &(idx, usage) in &checkable_usages {
         let component_ref = to_safe_identifier(usage.name.as_str());
         let component_type_name = to_safe_identifier_fragment(usage.name.as_str());
-
-        let has_value_props = has_value_props(usage);
-        let has_navigable_props = component_prop_navigation::has_navigable_props(ctx, usage);
-        if !has_value_props && !has_navigable_props && usage.spread_props.is_empty() {
-            continue;
-        }
 
         let src_start = (ctx.template_offset + usage.start) as usize;
         let src_end = (ctx.template_offset + usage.end) as usize;
@@ -101,16 +92,14 @@ pub(super) fn generate_component_props(
 
         append_per_prop_aliases(ts, usage, component_type_name.as_str(), idx);
 
-        if has_checkable_props_or_spread(usage) {
-            // Generic functional prop-checker for this component (#775).
-            append_prop_checker_alias(
-                ts,
-                usage,
-                component_type_name.as_str(),
-                component_ref.as_str(),
-                idx,
-            );
-        }
+        // Generic functional prop-checker for this component (#775).
+        append_prop_checker_alias(
+            ts,
+            usage,
+            component_type_name.as_str(),
+            component_ref.as_str(),
+            idx,
+        );
     }
 
     component_prop_navigation::emit_references(ts, mappings, ctx, &checkable_usages);
@@ -170,6 +159,9 @@ pub(super) fn generate_component_props(
         if closure_scope_ids.contains(&usage.scope_id.as_u32()) {
             continue; // Will be emitted inside v-for/v-slot scope
         }
+        if is_empty_props_usage(usage) {
+            continue;
+        }
         profile!(
             "canon.virtual_ts.component_prop_checks",
             generate_component_prop_checks(
@@ -183,6 +175,8 @@ pub(super) fn generate_component_props(
             )
         );
     }
+
+    generate_empty_root_checks(ts, mappings, ctx, &checkable_usages, &closure_scope_ids);
 
     for scope in summary.scopes.iter() {
         if !matches!(scope.kind, ScopeKind::VFor | ScopeKind::VSlot) {
@@ -271,7 +265,7 @@ fn generate_closure_component_props_recursive(
             }
 
             // Emit component prop checks for this scope
-            emit_scope_component_prop_checks(ts, mappings, ctx, scope_id, &vfor_inner_indent);
+            generate_scope_checks(ts, mappings, ctx, scope_id, &vfor_inner_indent);
 
             // Recursively handle child closure scopes (v-for and v-slot)
             recurse_child_closure_scopes(ts, mappings, ctx, scope_id, &vfor_inner_indent);
@@ -313,7 +307,7 @@ fn generate_closure_component_props_recursive(
                 }
             }
             // Emit component prop checks for this scope
-            emit_scope_component_prop_checks(ts, mappings, ctx, scope_id, &inner_indent);
+            generate_scope_checks(ts, mappings, ctx, scope_id, &inner_indent);
 
             // Recursively handle child closure scopes (v-for and v-slot)
             recurse_child_closure_scopes(ts, mappings, ctx, scope_id, &inner_indent);
@@ -322,33 +316,6 @@ fn generate_closure_component_props_recursive(
             ts.push_str("};\n");
         }
         _ => {}
-    }
-}
-
-/// Emit the prop checks for every component usage bound to a closure scope.
-fn emit_scope_component_prop_checks(
-    ts: &mut String,
-    mappings: &mut Vec<VizeMapping>,
-    ctx: &VForPropsContext<'_>,
-    scope_id: u32,
-    indent: &str,
-) {
-    let Some(usages) = ctx.components_by_scope.get(&scope_id) else {
-        return;
-    };
-    for &(idx, usage) in usages {
-        profile!(
-            "canon.virtual_ts.component_prop_checks",
-            generate_component_prop_checks(
-                ts,
-                mappings,
-                usage,
-                idx,
-                ctx.template_prop_names,
-                ctx.source_context,
-                indent,
-            )
-        );
     }
 }
 
