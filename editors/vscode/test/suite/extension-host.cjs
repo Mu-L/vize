@@ -2,8 +2,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vscode = require("vscode");
+const { runAutoInsertSmoke } = require("./auto-insert-smoke.cjs");
 const { runEditorCapabilityProviderSmoke } = require("./editor-capability-smoke.cjs");
-
 const extensionId = "ubugeeei.vize";
 const recommendedInitializationOptions = {
   editor: true,
@@ -21,6 +21,7 @@ const explicitlyDisabledInitializationOptions = {
   ecosystem: false,
   editor: false,
   fileRename: false,
+  autoInsert: false,
   foldingRanges: false,
   formatting: false,
   hover: false,
@@ -61,6 +62,7 @@ const featureSettingKeys = [
   "foldingRanges.enable",
   "inlayHints.enable",
   "fileRename.enable",
+  "autoInsert.enable",
 ];
 const granularEditorCapabilitySettings = [
   ["completion.enable", "completion"],
@@ -89,12 +91,12 @@ const commandIds = [
   "vize.showOutput",
   "vize.showStatus",
 ];
-
 exports.run = async function run() {
   await runDisabledContributionSmoke();
   await runSyntaxHighlightContributionSmoke();
   await runFakeServerLifecycleSmoke();
   await runConfigurationEdgeCaseSmoke();
+  await runAutoInsertSmoke();
   await runDiagnosticSmoke();
   await runEditorCapabilityProviderSmoke({
     assertLocation,
@@ -111,7 +113,6 @@ exports.run = async function run() {
   });
   await runDocumentSelectorAndWatcherSmoke();
 };
-
 async function runDisabledContributionSmoke() {
   const extension = vscode.extensions.getExtension(extensionId);
   assert.ok(extension, `missing extension: ${extensionId}`);
@@ -125,7 +126,6 @@ async function runDisabledContributionSmoke() {
   for (const commandId of commandIds) {
     assert.ok(allCommands.includes(commandId), `missing command: ${commandId}`);
   }
-
   const config = vscode.workspace.getConfiguration("vize");
   assert.equal(config.get("enable"), false);
   assert.equal(config.get("serverPath"), "");

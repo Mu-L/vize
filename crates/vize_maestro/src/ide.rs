@@ -6,8 +6,8 @@
 //! - Structure: document/workspace symbols, selection ranges, semantic tokens, inlay hints
 //! - Ecosystem: router/i18n awareness, file rename, auto-import, code lens, document links
 #![allow(clippy::disallowed_types, clippy::disallowed_methods)]
-
 pub mod auto_import;
+pub mod auto_insert;
 pub mod code_action;
 pub mod code_lens;
 pub mod completion;
@@ -34,7 +34,7 @@ pub(crate) mod tag_pair;
 mod template_expression;
 pub mod type_service;
 pub mod workspace_symbols;
-
+pub use auto_insert::AutoInsertService;
 pub use code_action::CodeActionService;
 pub use code_lens::CodeLensService;
 pub use completion::{CompletionService, TRIGGER_CHARACTERS, trigger_characters};

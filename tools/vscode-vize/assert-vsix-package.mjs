@@ -119,10 +119,7 @@ assertUniqueStrings(
 for (const command of packageJson.contributes.commands) {
   assert.equal(command.category, "Vize", `${command.command} must stay in the Vize category`);
   assert.ok(command.title, `${command.command} must have a title`);
-  assert.ok(
-    packageJson.activationEvents.includes(`onCommand:${command.command}`),
-    `${command.command} must activate the extension when invoked directly`,
-  );
+  assert.ok(packageJson.activationEvents.includes(`onCommand:${command.command}`));
 }
 
 assert.ok(packageJson.activationEvents.includes("onLanguage:vue"));
@@ -149,21 +146,24 @@ const configurationProperties = packageJson.contributes.configuration.properties
 assert.equal(configurationProperties["vize.enable"].default, true);
 assert.equal(configurationProperties["vize.serverPath"].default, "");
 assert.equal(configurationProperties["vize.trace.server"].default, "off");
-
 for (const [key, property] of Object.entries(configurationProperties)) {
-  if (key === "vize.serverPath" || key === "vize.trace.server") {
+  if (
+    key === "vize.serverPath" ||
+    key === "vize.trace.server" ||
+    (key.startsWith("vize.autoInsert.") && key !== "vize.autoInsert.enable")
+  ) {
     continue;
   }
   const expectedDefault =
     key === "vize.diagnostics.enable" ||
     key === "vize.formatting.enable" ||
     key === "vize.optionsApi.enable" ||
-    key === "vize.legacyVue2.enable"
+    key === "vize.legacyVue2.enable" ||
+    key === "vize.autoInsert.enable"
       ? false
       : true;
   assert.equal(property.default, expectedDefault, `${key} has an unexpected default`);
 }
-
 const extensionBundle = readTextEntry(archive, "extension/dist/extension.cjs");
 assert.match(extensionBundle, /exports\.activate=/);
 assert.match(extensionBundle, /exports\.deactivate=/);
