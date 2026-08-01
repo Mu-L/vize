@@ -17,7 +17,10 @@ test("nvim ftdetect maps .vue -> vue and .art.vue -> art-vue", () => {
   assert.match(ftdetect, /pattern\s*=\s*["']\*\.vue["']/);
   assert.match(ftdetect, /vim\.bo\.filetype\s*=\s*["']vue["']/);
 
-  // *.art.vue files override to the "art-vue" filetype.
+  // *.art.vue files override to the "art-vue" filetype. The resulting buffer
+  // syntax and tree-sitter parser resolution are observable behavior and are
+  // asserted against a real editor in editors/nvim/test/vize_spec.lua, so they
+  // are deliberately not re-asserted here as ftdetect source text.
   assert.match(ftdetect, /pattern\s*=\s*["']\*\.art\.vue["']/);
   assert.match(ftdetect, /vim\.bo\.filetype\s*=\s*["']art-vue["']/);
 
