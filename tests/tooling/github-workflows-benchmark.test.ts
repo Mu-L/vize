@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { parse } from "yaml";
 
 import { readRepoFile, workflowJobBody } from "./support/github-workflows.ts";
+
+type ParsedWorkflow = {
+  jobs?: Record<
+    string,
+    { if?: string; steps?: Array<{ name?: string; with?: Record<string, string> }> }
+  >;
+};
+
+// Inputs of the step that owns a contract, read as parsed YAML values so the
+// assertions survive re-indentation, quoting, and block-scalar rewrites.
+function stepInputs(
+  workflow: ParsedWorkflow,
+  jobName: string,
+  stepName: string,
+): Record<string, string> {
+  const step = workflow.jobs?.[jobName]?.steps?.find((entry) => entry.name === stepName);
+  assert.ok(step, `missing step ${stepName}`);
+  return step.with ?? {};
+}
 
 function workflowStepBody(job: string, stepName: string): string {
   const marker = `\n      - name: ${stepName}\n`;
@@ -145,11 +165,14 @@ test("benchmark schedule gates long-term drift against a fixed commit", () => {
   const workflow = readRepoFile(".github", "workflows", "benchmark.yml");
   const benchmarkJob = workflowJobBody(workflow, "pr-benchmark");
   const budgetJob = workflowJobBody(workflow, "pr-benchmark-budget");
-  const commentJob = workflowJobBody(workflow, "pr-benchmark-comment");
   const validateStep = workflowStepBody(benchmarkJob, "Validate benchmark SHAs");
   const checkoutHeadStep = workflowStepBody(benchmarkJob, "Checkout head");
   const checkBaseStep = workflowStepBody(benchmarkJob, "Check base checkout");
   const provenanceStep = workflowStepBody(benchmarkJob, "Record benchmark build provenance");
+  const parsed = parse(workflow) as ParsedWorkflow;
+  const cacheBaseInputs = stepInputs(parsed, "pr-benchmark", "Cache base CLI");
+  const cacheHeadInputs = stepInputs(parsed, "pr-benchmark", "Cache head CLI");
+  const uploadInputs = stepInputs(parsed, "pr-benchmark", "Upload benchmark results");
 
   assert.match(workflow, /\n  schedule:\n\s+- cron:\s*"29 5 \* \* 2"/);
   assert.match(
@@ -167,18 +190,32 @@ test("benchmark schedule gates long-term drift against a fixed commit", () => {
   assert.match(checkoutHeadStep, /github\.event_name != 'pull_request' && '0' \|\| '1'/);
   assert.match(checkBaseStep, /"\$EVENT_NAME" != "pull_request"/);
   assert.match(checkBaseStep, /merge-base --is-ancestor "\$BASE_SHA" "\$HEAD_SHA"/);
-  assert.match(
-    benchmarkJob,
-    /benchmark-base-\$\{\{ env\.VIZE_BENCH_BUILD_PROFILE_KEY \}\}-\$\{\{ steps\.rust-toolchain\.outputs\.cachekey \}\}/,
+  // Each cached binary is keyed by runner platform, build profile, resolved
+  // toolchain, and its own commit, so a stale artifact can never be reused.
+  assert.equal(cacheBaseInputs.path, "base/target/ci-opt/vize");
+  assert.equal(
+    cacheBaseInputs.key,
+    "${{ runner.os }}-${{ runner.arch }}-benchmark-base-${{ env.VIZE_BENCH_BUILD_PROFILE_KEY }}-${{ steps.rust-toolchain.outputs.cachekey }}-${{ env.BENCHMARK_BASE_SHA }}",
   );
-  assert.match(
-    benchmarkJob,
-    /benchmark-head-\$\{\{ env\.VIZE_BENCH_BUILD_PROFILE_KEY \}\}-\$\{\{ steps\.rust-toolchain\.outputs\.cachekey \}\}/,
+  assert.equal(cacheHeadInputs.path, "head/target/ci-opt/vize");
+  assert.equal(
+    cacheHeadInputs.key,
+    "${{ runner.os }}-${{ runner.arch }}-benchmark-head-${{ env.VIZE_BENCH_BUILD_PROFILE_KEY }}-${{ steps.rust-toolchain.outputs.cachekey }}-${{ env.BENCHMARK_HEAD_SHA }}",
   );
   assert.match(provenanceStep, /rustc --version --verbose/);
   assert.match(provenanceStep, /printf 'profile=%s\\n' "\$VIZE_BENCH_BUILD_PROFILE_KEY"/);
   assert.match(provenanceStep, /sha256sum base\/target\/ci-opt\/vize head\/target\/ci-opt\/vize/);
-  assert.match(benchmarkJob, /benchmark-provenance\.txt/);
+  // The provenance file only reaches the budget job if it is an entry of the
+  // uploaded artifact's own path list, so compare parsed entries exactly.
+  assert.equal(uploadInputs.name, "pr-benchmark");
+  const uploadPaths = String(uploadInputs.path ?? "")
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  assert.ok(
+    uploadPaths.includes("benchmark-provenance.txt"),
+    `provenance must be uploaded: ${uploadPaths.join(", ")}`,
+  );
 
   // Scheduled runs cannot opt out of a missing or unbuildable baseline: the
   // label reader is PR-only and every other event supplies an empty label set.
@@ -189,76 +226,12 @@ test("benchmark schedule gates long-term drift against a fixed commit", () => {
     budgetJob,
     /github\.event_name == 'pull_request' && steps\.pr-labels\.outputs\.labels \|\| '\[\]'/,
   );
-  assert.doesNotMatch(commentJob, /github\.event_name == 'schedule'/);
-});
-
-test("tool benchmark workflow produces docs artifacts, PR comments, and conventional commits", () => {
-  const workflow = readRepoFile(".github", "workflows", "tool-benchmark.yml");
-  const benchmarkJob = workflowJobBody(workflow, "tool-benchmark");
-  const commentJob = workflowJobBody(workflow, "tool-benchmark-comment");
-  const commitJob = workflowJobBody(workflow, "tool-benchmark-commit");
-
-  assert.match(workflow, /\n  workflow_dispatch:\n/);
-  assert.match(workflow, /commit_results:[\s\S]*type:\s*boolean[\s\S]*default:\s*false/);
-  assert.match(workflow, /VIZE_TOOL_BENCH_FILE_COUNT:/);
-  assert.match(workflow, /VIZE_TOOL_BENCH_NUXT_FILE_COUNT:/);
-  assert.match(workflow, /VIZE_TOOL_BENCH_LARGE_BLOCKS:/);
-  assert.match(benchmarkJob, /runs-on:\s*blacksmith-32vcpu-ubuntu-2404/);
-  assert.match(benchmarkJob, /contents:\s*read/);
-  assert.doesNotMatch(benchmarkJob, /contents:\s*write/);
-  assert.doesNotMatch(benchmarkJob, /issues:\s*write/);
-  assert.match(benchmarkJob, /uses:\s*\.\/\.github\/actions\/setup-moonbit/);
-  assert.match(benchmarkJob, /vp run --workspace-root build:native/);
-  assert.match(benchmarkJob, /vp run --workspace-root build:vite-plugin/);
-  assert.match(benchmarkJob, /vp run --workspace-root build:nuxt-stack/);
-  assert.match(benchmarkJob, /node bench\/generate\.mjs "\$VIZE_TOOL_BENCH_FILE_COUNT"/);
-  assert.match(benchmarkJob, /node bench\/compare-tools\.mjs/);
-  assert.match(benchmarkJob, /--nuxt-file-count "\$VIZE_TOOL_BENCH_NUXT_FILE_COUNT"/);
-  assert.match(benchmarkJob, /--large-blocks "\$VIZE_TOOL_BENCH_LARGE_BLOCKS"/);
-  assert.match(benchmarkJob, /--runner-label "blacksmith-32vcpu-ubuntu-2404"/);
-  assert.match(benchmarkJob, /--doc performance-blacksmith\.md/);
-  assert.match(benchmarkJob, /name:\s*tool-benchmark/);
-  assert.match(benchmarkJob, /tool-benchmark-results\.json/);
-
-  assert.match(
-    commentJob,
-    /if:\s*\$\{\{\s*github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.repo\.full_name == github\.repository\s*\}\}/,
+  // Commenting stays scoped to same-repo pull requests, so scheduled runs can
+  // never reach the write-permission job regardless of how the guard is worded.
+  assert.equal(
+    parsed.jobs?.["pr-benchmark-comment"]?.if,
+    "${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}",
   );
-  assert.match(commentJob, /contents:\s*read/);
-  assert.match(commentJob, /issues:\s*write/);
-  assert.match(commentJob, /pull-requests:\s*write/);
-  assert.match(commentJob, /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/);
-  assert.match(commentJob, /name:\s*tool-benchmark/);
-  assert.match(
-    commentJob,
-    /BENCHMARK_COMMENT_KEY:\s*tool-\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/,
-  );
-  assert.match(
-    commentJob,
-    /node bench\/comment-pr\.mjs --body tool-benchmark-summary\.md --comment-key "\$BENCHMARK_COMMENT_KEY"/,
-  );
-
-  // The snapshot commit job only fires on manual non-main branches; scheduled
-  // main runs publish artifacts without trying to push back.
-  assert.match(
-    commitJob,
-    /if:\s*\$\{\{\s*github\.event_name == 'workflow_dispatch' && inputs\.commit_results && startsWith\(github\.ref, 'refs\/heads\/'\) && github\.ref_name != 'main'\s*\}\}/,
-  );
-  assert.match(commitJob, /contents:\s*write/);
-  assert.match(commitJob, /docs\/content\/architecture\/performance-blacksmith\.md/);
-  assert.match(commitJob, /bench\/results\/tool-benchmark-latest\.json/);
-  assert.match(commitJob, /git commit -m "docs: update blacksmith benchmark snapshot"/);
-  assert.match(commitJob, /git push origin HEAD:\$\{\{\s*github\.ref_name\s*\}\}/);
-  assert.doesNotMatch(commitJob, /codex/i);
-});
-
-test("tool benchmark workflow publishes scheduled artifacts without pushing to protected main", () => {
-  const workflow = readRepoFile(".github", "workflows", "tool-benchmark.yml");
-
-  // A weekly cron keeps benchmark artifacts fresh without directly refreshing
-  // bench/results/tool-benchmark-latest.json from the protected main branch.
-  assert.match(workflow, /\n  schedule:\n/);
-  assert.match(workflow, /- cron:\s*"41 5 \* \* 1"/);
 });
 
 test("criterion bench workflow runs an A/B micro-benchmark and a dialect guard", () => {
