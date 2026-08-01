@@ -1,7 +1,7 @@
 //! `textDocument/foldingRange` for authored `.vue` documents.
 //!
-//! Two regions are produced: one per multi-line SFC block, and one per
-//! multi-line element or comment inside the template.
+//! Regions are produced for multi-line SFC blocks, template elements and
+//! comments, script object/function bodies, and style rule blocks.
 //!
 //! # `endLine` is the last line the client hides
 //!
@@ -13,18 +13,12 @@
 //! construct's closing line, and a construct with nothing between its opening
 //! and closing lines produces no region at all.
 //!
-//! # Not covered
-//!
-//! Folding *inside* `<script>` (functions, objects) and `<style>` (rule blocks)
-//! needs the TypeScript and CSS services rather than the SFC block layout; it is
-//! tracked in #3477.
-
 use tower_lsp::lsp_types::{FoldingRange, FoldingRangeKind, FoldingRangeParams};
 
 use crate::server::ServerState;
 
-/// One region per multi-line SFC block, then one per multi-line element or
-/// comment in the template, in document order.
+/// One region per multi-line SFC block, then nested regions in template,
+/// script, and style discovery order.
 pub(crate) fn folding_ranges(
     state: &ServerState,
     params: &FoldingRangeParams,
@@ -37,6 +31,7 @@ pub(crate) fn folding_ranges(
         ..Default::default()
     };
     let descriptor = vize_atelier_sfc::parse_sfc(&content, options).ok()?;
+    let authored_lines = AuthoredLineMap::new(&content);
 
     let mut ranges = Vec::new();
     let labelled_blocks = descriptor
@@ -59,11 +54,9 @@ pub(crate) fn folding_ranges(
         .chain(descriptor.styles.iter().map(|block| (&block.loc, "style")));
 
     for (loc, label) in labelled_blocks {
-        // `start_line`/`end_line` are the 1-based lines of the opening and
-        // closing tags.
         let Some(range) = region(
-            loc.start_line.saturating_sub(1) as u32,
-            loc.end_line.saturating_sub(1) as u32,
+            authored_lines.line_at(loc.tag_start),
+            authored_lines.line_at(loc.end),
             Some(FoldingRangeKind::Region),
             Some(label),
         ) else {
@@ -82,7 +75,49 @@ pub(crate) fn folding_ranges(
         ));
     }
 
+    for script in descriptor
+        .script_setup
+        .iter()
+        .chain(descriptor.script.iter())
+    {
+        ranges.extend(script::script_regions(
+            script,
+            authored_lines.line_at(script.loc.start),
+        ));
+    }
+    for style in &descriptor.styles {
+        ranges.extend(style::style_regions(
+            style,
+            authored_lines.line_at(style.loc.start),
+        ));
+    }
+
     (!ranges.is_empty()).then_some(ranges)
+}
+
+/// Maps authored byte offsets to zero-based lines in O(1) per lookup.
+///
+/// Construction scans the document once, so nested-region discovery neither
+/// rescans source prefixes nor binary-searches a newline table.
+struct AuthoredLineMap {
+    lines: Vec<u32>,
+}
+
+impl AuthoredLineMap {
+    fn new(source: &str) -> Self {
+        let mut lines = Vec::with_capacity(source.len() + 1);
+        let mut line = 0;
+        for byte in source.bytes() {
+            lines.push(line);
+            line += u32::from(byte == b'\n');
+        }
+        lines.push(line);
+        Self { lines }
+    }
+
+    fn line_at(&self, byte_offset: usize) -> u32 {
+        self.lines[byte_offset.min(self.lines.len() - 1)]
+    }
 }
 
 /// A region that hides `open_line + 1 ..= close_line - 1`.
@@ -238,5 +273,7 @@ fn start_tag_end(content: &str, tag_start: usize, limit: usize) -> Option<usize>
     None
 }
 
+mod script;
+mod style;
 #[cfg(test)]
 mod tests;

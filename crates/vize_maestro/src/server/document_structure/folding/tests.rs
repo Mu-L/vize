@@ -3,7 +3,7 @@ use tower_lsp::lsp_types::{
     WorkDoneProgressParams,
 };
 
-use super::folding_ranges;
+use super::{AuthoredLineMap, folding_ranges};
 use crate::server::ServerState;
 
 /// The fixture from #3455, with the `<template>` closing on line 9.
@@ -132,6 +132,128 @@ fn a_script_body_that_looks_like_markup_is_never_scanned() {
             (6, 7, None, None),
         ]
     );
+}
+
+#[test]
+fn script_and_style_bodies_fold_alongside_blocks_and_template_elements() {
+    let source = "<script setup lang=\"ts\">\nconst config = {\n  nested: true,\n}\n\nfunction greet() {\n  return config\n}\n</script>\n\n<template>\n  <section>\n    <div>hello</div>\n  </section>\n</template>\n\n<style scoped>\n.card {\n  color: red;\n}\n</style>\n";
+
+    assert_eq!(
+        ranges(source),
+        vec![
+            (10, 13, Some("region"), Some("template")),
+            (0, 7, Some("region"), Some("script setup")),
+            (16, 19, Some("region"), Some("style")),
+            (11, 12, None, None),
+            (1, 2, None, None),
+            (5, 6, None, None),
+            (17, 18, None, None),
+        ]
+    );
+}
+
+#[test]
+fn script_ast_ignores_braces_in_literals_and_folds_nested_bodies() {
+    let source = "<script lang=\"ts\">\nconst marker = \"}\"\nconst regex = /}/\nconst config = {\n  nested: {\n    enabled: true,\n  },\n  run() {\n    return marker\n  }\n}\n</script>\n";
+
+    assert_eq!(
+        ranges(source),
+        vec![
+            (0, 10, Some("region"), Some("script")),
+            (3, 9, None, None),
+            (4, 5, None, None),
+            (7, 8, None, None),
+        ]
+    );
+}
+
+#[test]
+fn style_scanner_ignores_braces_in_strings_and_comments() {
+    let source = "<style lang=\"scss\">\n.outer {\n  content: \"}\";\n  /*\n    } {\n  */\n  // }\n  .inner {\n    color: red;\n  }\n}\n</style>\n";
+
+    assert_eq!(
+        ranges(source),
+        vec![
+            (0, 10, Some("region"), Some("style")),
+            (1, 9, None, None),
+            (7, 8, None, None),
+        ]
+    );
+}
+
+#[test]
+fn multiline_opening_tags_keep_script_and_style_ranges_on_authored_lines() {
+    let source = "<script\n  setup\n  lang=\"ts\"\n>\nconst config = {\n  enabled: true,\n}\n</script>\n\n<style\n  lang=\"scss\"\n>\n.card {\n  color: red;\n}\n</style>\n";
+
+    assert_eq!(
+        ranges(source),
+        vec![
+            (0, 6, Some("region"), Some("script setup")),
+            (9, 14, Some("region"), Some("style")),
+            (4, 5, None, None),
+            (12, 13, None, None),
+        ]
+    );
+}
+
+#[test]
+fn style_line_comments_do_not_start_at_url_schemes() {
+    let source = "<style lang=\"scss\">\n.remote {\n  color: red;\n  background: url(https://example.test/a.png); }\n\n.local {\n  // } is not structural\n  color: blue;\n  padding: 0;\n}\n</style>\n";
+
+    assert_eq!(
+        ranges(source),
+        vec![
+            (0, 9, Some("region"), Some("style")),
+            (1, 2, None, None),
+            (5, 8, None, None),
+        ]
+    );
+}
+
+#[test]
+fn script_and_style_internal_work_stays_linear() {
+    let mut previous_script_work = None;
+    let mut previous_style_work = None;
+
+    for count in [128, 256, 512, 1024] {
+        let mut source = String::from("<script setup lang=\"ts\">\nconst records = [\n");
+        for _ in 0..count {
+            source.push_str("  {\n    enabled: true,\n  },\n");
+        }
+        source.push_str("]\n</script>\n<style lang=\"scss\">\n");
+        for _ in 0..count {
+            source.push_str(".rule {\n  color: red;\n}\n");
+        }
+        source.push_str("</style>\n");
+
+        let descriptor =
+            vize_atelier_sfc::parse_sfc(&source, vize_atelier_sfc::SfcParseOptions::default())
+                .unwrap();
+        let authored_lines = AuthoredLineMap::new(&source);
+        let script = descriptor.script_setup.as_ref().unwrap();
+        let style = descriptor.styles.first().unwrap();
+        let (script_ranges, script_work) = super::script::script_regions_with_metrics(
+            script,
+            authored_lines.line_at(script.loc.start),
+        );
+        let (style_ranges, style_work) = super::style::style_regions_with_metrics(
+            style,
+            authored_lines.line_at(style.loc.start),
+        );
+
+        assert_eq!(script_ranges.len(), count);
+        assert_eq!(style_ranges.len(), count);
+        assert!(script_work <= script.content.len() + count);
+        assert!(style_work <= style.content.len() + count);
+        if let Some(previous) = previous_script_work {
+            assert!(script_work <= previous * 2 + 32);
+        }
+        if let Some(previous) = previous_style_work {
+            assert!(style_work <= previous * 2 + 32);
+        }
+        previous_script_work = Some(script_work);
+        previous_style_work = Some(style_work);
+    }
 }
 
 #[test]
