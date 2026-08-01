@@ -1,6 +1,7 @@
 //! Shared config model.
 
 mod compiler;
+mod entries;
 mod experimentals;
 mod formatter;
 mod global_types;
@@ -17,6 +18,8 @@ use experimentals::RawExperimentalsConfig;
 use vue::RawVueConfig;
 
 pub use compiler::{JsxCompat, JsxMode};
+pub(crate) use entries::RawConfigEntry;
+pub use entries::{ConfigEntryFiles, ConfigEntryIgnore, LinterConfigEntry, LinterConfigPlan};
 
 use crate::String;
 use crate::dialect::VueDialect;
@@ -190,27 +193,6 @@ pub(crate) struct RawVizeConfig {
     legacy_formatter: Option<FormatterConfig>,
     #[serde(rename = "lsp")]
     legacy_lsp: Option<RawLanguageServerConfig>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub(crate) struct RawConfigEntry {
-    pub base_path: Option<String>,
-    pub files: Option<Vec<String>>,
-    pub ignores: Option<Vec<String>>,
-    pub linter: RawLinterConfig,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ConfigEntryIgnore {
-    pub base_path: Option<String>,
-    pub pattern: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ConfigEntryFiles {
-    pub base_path: Option<String>,
-    pub files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
