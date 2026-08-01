@@ -3,6 +3,7 @@
 //! The module is lowered once, then each render root is routed to VDOM, Vapor,
 //! or SSR according to the configured default and any directive prologue.
 
+mod babel;
 mod component;
 mod render_exports;
 #[cfg(test)]
@@ -16,8 +17,10 @@ use crate::diagnostics::JsxDiagnostic;
 use crate::forwarded_slots::{SlotsForwardingBackend, reject_forwarded_slots};
 use crate::ssr::compile_lowered_root_to_ssr;
 use crate::vapor::{VaporCompileOptions, compile_root_to_vapor};
-use crate::vdom::{VdomCompileOptions, compile_root_to_vdom};
+use crate::vdom::{VdomCompatOptions, VdomCompileOptions, compile_root_to_vdom};
 use crate::{JsxLang, JsxOutputMode, lower_source_with_compat};
+
+use self::babel::{collision_free_transform_on_helper, resolve_vnode_factory};
 
 pub use component::JsxComponent;
 
@@ -238,6 +241,23 @@ pub fn compile_jsx_with_babel_options(
     config: &JsxCompileConfig,
     babel_options: &BabelJsxOptions,
 ) -> JsxCompileOutput {
+    compile_jsx_with_babel_pragma(bump, source, lang, config, babel_options, None)
+}
+
+/// Compile JSX/TSX with an optional Babel-compatible vnode factory pragma.
+///
+/// This additive entry point keeps [`BabelJsxOptions`] constructible for
+/// existing callers while exposing Babel's string-valued `pragma` option. An
+/// empty pragma has the same meaning as Babel's default. The option is inert in
+/// native compatibility mode, SSR, and Vapor output.
+pub fn compile_jsx_with_babel_pragma(
+    bump: &Bump,
+    source: &str,
+    lang: JsxLang,
+    config: &JsxCompileConfig,
+    babel_options: &BabelJsxOptions,
+    pragma: Option<&str>,
+) -> JsxCompileOutput {
     let transform_on_helper =
         (config.compat.is_babel() && babel_options.transform_on && !config.ssr)
             .then(|| collision_free_transform_on_helper(source));
@@ -251,6 +271,16 @@ pub fn compile_jsx_with_babel_options(
     );
     let mut diagnostics = lowered.diagnostics;
     let is_ts = lang.is_typescript();
+    let has_vdom_root = !config.ssr
+        && lowered
+            .roots
+            .iter()
+            .any(|root| resolve_mode(root.mode, config.default_mode) == JsxOutputMode::Vdom);
+    let vnode_factory = resolve_vnode_factory(
+        pragma,
+        config.compat.is_babel() && has_vdom_root,
+        &mut diagnostics,
+    );
 
     // Move the analysis into the arena so the transforms can borrow it.
     let analysis: &Croquis = &*bump.alloc(lowered.analysis);
@@ -295,7 +325,10 @@ pub fn compile_jsx_with_babel_options(
                     analysis,
                     is_ts,
                     &config.vdom,
-                    transform_on_helper.as_deref(),
+                    VdomCompatOptions {
+                        transform_on_helper: transform_on_helper.as_deref(),
+                        vnode_factory,
+                    },
                     &mut diagnostics,
                 )),
                 JsxOutputMode::Vapor => JsxComponent::Vapor(compile_root_to_vapor(
@@ -314,16 +347,4 @@ pub fn compile_jsx_with_babel_options(
         source: String::from(source),
         diagnostics,
     }
-}
-
-/// Babel allocates a fresh helper binding when the source already declares
-/// `_transformOn`. A conservative source-text check gives the generated module
-/// the same collision safety without coupling this option to a second semantic
-/// analysis pass.
-fn collision_free_transform_on_helper(source: &str) -> String {
-    let mut helper = String::from("_transformOn");
-    while source.contains(helper.as_str()) {
-        helper.push('_');
-    }
-    helper
 }
