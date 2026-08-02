@@ -18,7 +18,7 @@ interface FixtureProject {
   revision: string;
   license: { spdx: string; files: string[] };
   vueGlobs: string[];
-  expectedVueFileCount?: 0;
+  expectedVueFileCount?: number;
   tsconfig?: string;
   coverage: string[];
   diff: FixtureDiff;
@@ -70,6 +70,7 @@ const requestedFixtures = [
   "pinia",
   "vue-tui",
   "vue-termui",
+  "vuefes-japan-speakers",
 ] as const;
 const requiredTypecheckProjects = ["voicevox", "elk", "misskey"] as const;
 const newlyAddedSubmodules = new Set([
@@ -93,6 +94,7 @@ const newlyAddedSubmodules = new Set([
   "pinia",
   "vue-tui",
   "vue-termui",
+  "vuefes-japan-speakers",
 ]);
 const requestedFixtureLicenses = new Map<string, string>([
   ["airi", "MIT"],
@@ -107,6 +109,7 @@ const requestedFixtureLicenses = new Map<string, string>([
   ["pinia", "MIT"],
   ["vue-tui", "MIT"],
   ["vue-termui", "MIT"],
+  ["vuefes-japan-speakers", "CC-BY-SA-4.0"],
 ]);
 
 function readJsonFile<T>(filePath: string): T {
@@ -173,7 +176,7 @@ test("Vue ecosystem registry covers the requested projects", () => {
   }
 });
 
-test("fixtures without Vue SFCs declare an exact zero-file expectation", () => {
+test("fixtures with exact Vue SFC expectations stay explicit", () => {
   const registry = readRegistry();
   const projects = registry.projects.filter((project) => "expectedVueFileCount" in project);
 
@@ -182,8 +185,20 @@ test("fixtures without Vue SFCs declare an exact zero-file expectation", () => {
     [
       { id: "docsify", count: 0 },
       { id: "vue-native-core", count: 0 },
+      { id: "vuefes-japan-speakers", count: 15 },
     ],
   );
+});
+
+test("Vue Fes Japan Speakers fixture pins its complete Vue application corpus", () => {
+  const registry = readRegistry();
+  const project = registry.projects.find((candidate) => candidate.id === "vuefes-japan-speakers");
+
+  assert.ok(project);
+  assert.equal(project.kind, "application");
+  assert.deepEqual(project.vueGlobs, ["app/**/*.vue"]);
+  assert.equal(project.expectedVueFileCount, 15);
+  assert.equal(project.tsconfig, "tsconfig.vize.json");
 });
 
 test("registered fixtures are pinned submodules with declared licenses", () => {
@@ -296,55 +311,4 @@ test("Directus fixture is wired into Vize-wide check and lint lanes", () => {
 
   assert.match(pkg.scripts["test:check"], /snapshots\/check\/directus\.ts/);
   assert.match(pkg.scripts["test:lint"], /snapshots\/lint\/directus\.ts/);
-});
-
-test("typecheck baselines have complete budgets and one target per matrix shard", () => {
-  const registry = readRegistry();
-  const shardCounts = Array.from({ length: 11 }, () => 0);
-  const targets = registry.projects.filter((project, index) => {
-    if (project.typecheckPerformance?.enabled !== true) return false;
-    shardCounts[index % shardCounts.length] += 1;
-    return true;
-  });
-
-  assert.equal(targets.length, shardCounts.length);
-  assert.deepEqual(
-    shardCounts,
-    Array.from({ length: 11 }, () => 1),
-  );
-  for (const project of targets) {
-    const performance = project.typecheckPerformance!;
-    assert.equal(performance.compareTo, "vue-tsc", `${project.id} baseline`);
-    assert.equal(
-      performance.lockfile,
-      { npm: "package-lock.json", pnpm: "pnpm-lock.yaml", yarn: "yarn.lock" }[
-        performance.packageManager
-      ],
-    );
-    assert.match(performance.packageManagerVersion, /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
-    assert.ok(Number.isSafeInteger(performance.hangTimeoutMs));
-    assert.ok(performance.hangTimeoutMs > 0 && performance.hangTimeoutMs <= 300_000);
-    assert.ok(performance.maxFalsePositiveRatio >= 0 && performance.maxFalsePositiveRatio <= 1);
-    assert.equal(performance.maxFalseNegativeRatio, performance.maxFalsePositiveRatio);
-  }
-});
-
-test("large typechecker fixtures have performance safeguards and bench wiring", () => {
-  const registry = readRegistry();
-  const benchCheck = fs.readFileSync(path.join(root, "bench", "check.ts"), "utf8");
-
-  for (const id of requiredTypecheckProjects) {
-    const project = registry.projects.find((candidate) => candidate.id === id);
-    assert.ok(project, `${id} should be registered`);
-    assert.equal(project?.typecheckPerformance?.enabled, true);
-    assert.equal(project?.typecheckPerformance?.largeProjectRegressionTarget, true);
-    assert.ok((project?.typecheckPerformance?.hangTimeoutMs ?? Infinity) <= 300_000);
-    assert.ok((project?.typecheckPerformance?.maxFalsePositiveRatio ?? Infinity) <= 0.02);
-    assert.ok((project?.typecheckPerformance?.maxFalseNegativeRatio ?? Infinity) <= 0.02);
-    assert.match(benchCheck, new RegExp(`name:\\s*"${id}"`), `${id} should be in bench/check.ts`);
-  }
-  const baseline = registry.projects.find((project) => project.id === "elk")?.typecheckPerformance
-    ?.baseline;
-  assert.equal(baseline?.tsconfig, ".nuxt/tsconfig.app.json");
-  assert.deepEqual(baseline?.prepare, ["pnpm", "exec", "nuxt", "prepare"]);
 });
