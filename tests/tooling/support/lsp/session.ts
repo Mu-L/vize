@@ -211,28 +211,48 @@ export class LspSession {
     try {
       await this.request("shutdown", undefined, 10000);
     } finally {
-      const exited = new Promise<void>((resolve) => {
-        if (this.process.exitCode != null || this.process.signalCode != null) {
-          resolve();
-          return;
-        }
-
-        const timeout = setTimeout(() => {
-          if (!this.process.kill("SIGKILL")) {
-            resolve();
-          }
-        }, 5000);
-
-        this.process.once("exit", () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-      });
-
+      const exited = this.waitForExit(5000);
       this.notify("exit", undefined);
       this.process.stdin.end();
-      await exited;
+      if (!(await exited)) {
+        await this.kill().catch(() => undefined);
+      }
     }
+  }
+
+  /**
+   * Abruptly terminate the production server and wait until the child is
+   * actually gone. Restart oracles use this instead of racing a fresh server
+   * against an old process that has only received a signal.
+   */
+  async kill(signal: NodeJS.Signals = "SIGKILL"): Promise<void> {
+    if (this.process.exitCode != null || this.process.signalCode != null) {
+      return;
+    }
+
+    const exited = this.waitForExit(5000);
+    assert.ok(this.process.kill(signal), `Failed to send ${signal} to vize lsp`);
+    assert.ok(await exited, `Timed out waiting for vize lsp to exit after ${signal}`);
+  }
+
+  /** Resolve `true` once the child exits, or `false` if it is still alive after `timeoutMs`. */
+  private waitForExit(timeoutMs: number): Promise<boolean> {
+    if (this.process.exitCode != null || this.process.signalCode != null) {
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      const onExit = () => {
+        clearTimeout(timeout);
+        resolve(true);
+      };
+      const timeout = setTimeout(() => {
+        this.process.off("exit", onExit);
+        resolve(false);
+      }, timeoutMs);
+
+      this.process.once("exit", onExit);
+    });
   }
 
   private send(message: JsonRpcMessage): void {
