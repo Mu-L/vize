@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -10,12 +8,11 @@ import {
   resolveNuxtMuseaStaticPublicAsset,
 } from "./musea-static.ts";
 
-const NUXT2_SAFE_KIT_VERSION = "3.11.2";
-
 void test("Nuxt module entry avoids loader-unsafe syntax and static kit imports", () => {
   const fixtures = [
     ["src/index.ts", new URL("./index.ts", import.meta.url)],
     ["dist/index.mjs", new URL("../dist/index.mjs", import.meta.url)],
+    ["dist/nuxt2-entry.cjs", new URL("../dist/nuxt2-entry.cjs", import.meta.url)],
     ["src/resolver.ts", new URL("./resolver.ts", import.meta.url)],
   ] as const;
 
@@ -28,6 +25,7 @@ void test("Nuxt module entry avoids loader-unsafe syntax and static kit imports"
   assert.deepEqual(offsetsByFile, [
     ["src/index.ts", []],
     ["dist/index.mjs", []],
+    ["dist/nuxt2-entry.cjs", []],
     ["src/resolver.ts", []],
   ]);
 });
@@ -169,36 +167,6 @@ void test("Nuxt Musea static public asset preserves root base path", () => {
     dir: path.join("/tmp/.nuxt", "dist", "client"),
     baseURL: "/",
   });
-});
-
-void test("packed Nuxt module depends on the Nuxt 2-safe kit line", () => {
-  const packageRoot = new URL("..", import.meta.url);
-  const packDir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-nuxt-pack-"));
-
-  try {
-    execFileSync("pnpm", ["pack", "--pack-destination", packDir], {
-      cwd: packageRoot,
-      stdio: "pipe",
-    });
-
-    const tarballs = fs.readdirSync(packDir).filter((name) => name.endsWith(".tgz"));
-    assert.equal(tarballs.length, 1);
-
-    const packedPackageJson = JSON.parse(
-      execFileSync("tar", ["-xOf", path.join(packDir, tarballs[0]), "package/package.json"], {
-        encoding: "utf8",
-      }),
-    ) as { dependencies?: Record<string, string> };
-    const packedKitVersion = packedPackageJson.dependencies?.["@nuxt/kit"];
-
-    assert.equal(packedKitVersion, NUXT2_SAFE_KIT_VERSION);
-    assert.ok(
-      !packedKitVersion?.startsWith("4."),
-      "Nuxt 2 must not load @nuxt/kit 4.x through @vizejs/nuxt",
-    );
-  } finally {
-    fs.rmSync(packDir, { recursive: true, force: true });
-  }
 });
 
 function importMetaOffsets(source: string): string[] {
