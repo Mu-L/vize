@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -7,11 +7,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(packageDir, "../../..");
 const pluginEntry = path.join(workspaceRoot, "npm/oxint/dist/index.mjs");
+const cliEntry = path.join(workspaceRoot, "npm/oxint/dist/cli.mjs");
 const fixtureDir = path.join(workspaceRoot, "target", "vize-tests", "oxlint-plugin-vize-nuxt-test");
 const configPath = path.join(fixtureDir, ".oxlintrc.json");
 const optionsApiVuePath = path.join(fixtureDir, "OptionsApi.vue");
 const processFlagsVuePath = path.join(fixtureDir, "ProcessFlags.vue");
 const pageMetaVuePath = path.join(fixtureDir, "PageMeta.vue");
+const internalLinkVuePath = path.join(fixtureDir, "InternalLink.vue");
 const nuxtConfigPath = path.join(fixtureDir, "nuxt.config.ts");
 const ansiEscapePattern = new RegExp(String.raw`\u001B\[[0-9;]*m`, "gu");
 const { configs } = await import(pathToFileURL(pluginEntry).href);
@@ -26,6 +28,8 @@ assert.equal(configs.nuxt["vize/nuxt/no-nuxt-config-test-key"], "error");
 assert.equal(configs.opinionated["vize/nuxt/no-nuxt-config-test-key"], undefined);
 assert.equal(configs.nuxt["vize/nuxt/nuxt-config-keys-order"], "error");
 assert.equal(configs.opinionated["vize/nuxt/nuxt-config-keys-order"], undefined);
+assert.equal(configs.nuxt["vize/ecosystem/nuxt-prefer-nuxt-link"], "warn");
+assert.equal(configs.ecosystem["vize/ecosystem/nuxt-prefer-nuxt-link"], undefined);
 
 fs.rmSync(fixtureDir, { force: true, recursive: true });
 fs.mkdirSync(fixtureDir, { recursive: true });
@@ -58,6 +62,14 @@ fs.writeFileSync(
   `<script setup lang="ts">
 definePageMeta({ title: useRoute().path })
 </script>
+`,
+);
+
+fs.writeFileSync(
+  internalLinkVuePath,
+  `<template>
+  <a href="/settings">Settings</a>
+</template>
 `,
 );
 
@@ -116,6 +128,21 @@ assert.match(
   /PageMeta\.vue[\s\S]*2:25[\s\S]*`useRoute\(\)` requires a Nuxt\/Vue runtime context[\s\S]*vize\(nuxt\/no-page-meta-runtime-values\)/u,
 );
 
+// `InternalLink.vue` has no script block, so it has to go through the
+// `oxlint-vize` CLI: plain Oxlint never hands scriptless SFCs to JS plugins.
+const internalLinkRun = runOxlintVize([
+  "-c",
+  ".oxlintrc.json",
+  "-f",
+  "stylish",
+  "InternalLink.vue",
+]);
+assert.equal(internalLinkRun.exitCode, 0, "NuxtLink preference is a warning by default");
+assert.match(
+  internalLinkRun.output,
+  /InternalLink\.vue[\s\S]*2:6[\s\S]*Use NuxtLink for internal links[\s\S]*vize\(ecosystem\/nuxt-prefer-nuxt-link\)/u,
+);
+
 const nuxtConfigRun = runOxlint(["-c", ".oxlintrc.json", "-f", "stylish", "nuxt.config.ts"]);
 assert.notEqual(nuxtConfigRun.exitCode, 0, "nuxt preset should reject the config test key");
 assert.match(
@@ -148,34 +175,31 @@ function findOxlintBin() {
 }
 
 function runOxlint(args: string[]) {
+  return runCommand(findOxlintBin(), args);
+}
+
+function runOxlintVize(args: string[]) {
+  return runCommand(process.execPath, [cliEntry, ...args]);
+}
+
+function runCommand(executable: string, args: string[]) {
   const env = { ...process.env };
   delete env.GITHUB_ACTIONS;
 
-  try {
-    const stdout = execFileSync(findOxlintBin(), args, {
-      cwd: fixtureDir,
-      encoding: "utf8",
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { exitCode: 0, output: normalizeOutput(stdout) };
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      "stdout" in error &&
-      "stderr" in error
-    ) {
-      const processError = error as { status: number | null; stdout: string; stderr: string };
-      return {
-        exitCode: processError.status ?? 1,
-        output: normalizeOutput(`${processError.stdout}${processError.stderr}`),
-      };
-    }
-
-    throw error;
+  const result = spawnSync(executable, args, {
+    cwd: fixtureDir,
+    encoding: "utf8",
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) {
+    throw result.error;
   }
+
+  return {
+    exitCode: result.status ?? 1,
+    output: normalizeOutput(`${result.stdout}${result.stderr}`),
+  };
 }
 
 function normalizeOutput(output: string): string {
