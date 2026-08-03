@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import { testAndBenchmarkTasks } from "../../tools/vite-plus/tasks/test-benchmark.ts";
-import { readRepoFile } from "./support/github-workflows.ts";
+import { readRepoFile, root } from "./support/github-workflows.ts";
 
 // Guardrails for the #3457 real-server editor scenarios. A scenario nobody
 // executes is not coverage, so these assert the wiring that makes CI run them,
@@ -25,6 +29,34 @@ function actionSteps(action: string): Array<{ name: string; run: string }> {
     });
 }
 
+// Packs `editors/vim` the way `package:vim-extension` does — optionally
+// dropping entries first — and runs the packaging guard over the archive, so
+// tests can assert what the guard accepts and rejects instead of its source.
+function runVimPackageGuard(omit: string[] = []): { status: number; output: string } {
+  const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "vim-vize-package-"));
+  try {
+    const editors = path.join(workdir, "editors");
+    fs.cpSync(path.join(root, "editors", "vim"), path.join(editors, "vim"), { recursive: true });
+    for (const entry of omit) {
+      fs.rmSync(path.join(editors, entry));
+    }
+
+    const archive = path.join(workdir, "vim-vize-extension.tar.gz");
+    execFileSync("tar", ["-czf", archive, "-C", editors, "vim"], {
+      env: { ...process.env, COPYFILE_DISABLE: "1", LC_ALL: "C", LANG: "C" },
+    });
+
+    const guard = spawnSync(
+      process.execPath,
+      [path.join(root, "tools", "vim-vize", "assert-vim-package.mjs"), archive],
+      { encoding: "utf8" },
+    );
+    return { status: guard.status ?? 1, output: `${guard.stdout ?? ""}${guard.stderr ?? ""}` };
+  } finally {
+    fs.rmSync(workdir, { force: true, recursive: true });
+  }
+}
+
 test("the Neovim real-server scenario has a task that runs its Node launcher", () => {
   assert.equal(
     taskCommand("test:nvim-extension:real-server"),
@@ -44,13 +76,12 @@ test("CI runs all real-server editor scenarios from one built server binary", ()
 
   // One `cargo build` feeds all scenarios; each must consume that binary.
   assert.match(action, /run: cargo build --profile ci -p vize/);
-  assert.deepEqual(
-    action.match(/VIZE_SERVER_PATH: \$\{\{ github\.workspace \}\}\/target\/ci\/vize/g),
-    [
-      "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
-      "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
-      "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
-    ],
+  const serverPathUses =
+    action.match(/VIZE_SERVER_PATH: \$\{\{ github\.workspace \}\}\/target\/ci\/vize/g) ?? [];
+  assert.equal(
+    serverPathUses.length,
+    3,
+    "every real-server scenario must consume the one built binary",
   );
   assert.match(action, /vp run --workspace-root test:vscode-extension:host-real/);
   assert.match(action, /vp run --workspace-root test:nvim-extension:real-server/);
@@ -151,11 +182,22 @@ test("the packaged Neovim archive ships the real-server scenario", () => {
 });
 
 test("the packaged Vim archive ships the real-server scenario", () => {
-  const assertion = readRepoFile("tools", "vim-vize", "assert-vim-package.mjs");
+  const packaged = runVimPackageGuard();
+  assert.equal(packaged.status, 0, packaged.output);
 
-  assert.match(assertion, /"vim\/test\/vize_e2e_expected\.vim"/);
-  assert.match(assertion, /"vim\/test\/vize_e2e_spec\.vim"/);
-  assert.match(assertion, /\^vim\\\/test\\\/vize_e2e_\(\?:expected\|spec\)\\\.vim\$/);
+  for (const scenarioFile of ["vim/test/vize_e2e_expected.vim", "vim/test/vize_e2e_spec.vim"]) {
+    const withoutScenario = runVimPackageGuard([scenarioFile]);
+    assert.notEqual(
+      withoutScenario.status,
+      0,
+      `the packaging guard accepted an archive without ${scenarioFile}`,
+    );
+    assert.match(withoutScenario.output, /missing required file/);
+    assert.ok(
+      withoutScenario.output.includes(scenarioFile),
+      `the packaging guard must name the missing ${scenarioFile}`,
+    );
+  }
 });
 
 test("the Vim real-server scenario pins complete host responses", () => {
