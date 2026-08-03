@@ -1,5 +1,5 @@
 name: Editor real-server end-to-end
-description: Run VS Code and Neovim real-server scenarios plus Neovim and Vim headless specs
+description: Run VS Code, Neovim, and Vim real-server scenarios plus packaged editor specs
 
 runs:
   using: composite
@@ -61,7 +61,27 @@ runs:
 
     - name: Ensure Vim is available
       shell: bash
-      run: command -v vim || (sudo apt-get update && sudo apt-get install -y vim)
+      run: |
+        set -euo pipefail
+        if ! command -v vim || ! vim --version | grep -F '+timers' >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y vim-nox
+        fi
+        vim --version | sed -n '1,2p'
+        vim --version | grep -F '+timers' >/dev/null
+
+    - name: Install pinned vim-lsp
+      shell: bash
+      env:
+        VIM_LSP_COMMIT: 474c656659b5fb51eec6770309e0211c8aa49b5b
+      run: |
+        set -euo pipefail
+        git init "${RUNNER_TEMP}/vim-lsp"
+        git -C "${RUNNER_TEMP}/vim-lsp" remote add origin https://github.com/prabirshrestha/vim-lsp.git
+        git -C "${RUNNER_TEMP}/vim-lsp" fetch --depth 1 origin "${VIM_LSP_COMMIT}"
+        git -C "${RUNNER_TEMP}/vim-lsp" checkout --detach FETCH_HEAD
+        cd "${RUNNER_TEMP}/vim-lsp"
+        test "$(git rev-parse HEAD)" = "${VIM_LSP_COMMIT}"
 
     - name: Ensure Emacs is available
       shell: bash
@@ -98,3 +118,11 @@ runs:
         NODE_OPTIONS: "--disable-warning=DEP0040 --disable-warning=DEP0169"
         VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize
       run: vp run --workspace-root test:nvim-extension:real-server
+
+    - name: Run the Vim scenario against the real server
+      shell: bash
+      env:
+        NODE_OPTIONS: "--disable-warning=DEP0040 --disable-warning=DEP0169"
+        VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize
+        VIZE_TEST_VIM_LSP_PATH: ${{ runner.temp }}/vim-lsp
+      run: vp run --workspace-root test:vim-extension:real-server

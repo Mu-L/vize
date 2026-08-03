@@ -134,6 +134,7 @@ export const testAndBenchmarkTasks = defineTasks({
   "test:vim-extension:headless": noCacheTask(
     "vim -Nu NONE -n -es -S editors/vim/test/vize_spec.vim",
   ),
+  "test:vim-extension:real-server": noCacheTask("node tools/vim-vize/run-real-server.mjs"),
   "test:vim-extension:package": noCacheTask("vp run --workspace-root package:vim-extension"),
   "test:helix-extension:package": noCacheTask("vp run --workspace-root package:helix-extension"),
   "test:emacs-extension:headless": noCacheTask(

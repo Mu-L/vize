@@ -67,7 +67,10 @@ endfunction
 
 function! vize#setup(...) abort
   let l:config = vize#normalize(a:0 ? a:1 : {})
-  if exists('*lsp#register_server')
+  " vim-lsp defines its public functions through autoload, so checking only
+  " exists('*lsp#register_server') misses the normal startup order where its
+  " plugin commands are loaded before an autoload function is first called.
+  if exists('*lsp#register_server') || exists(':LspStatus') == 2
     call lsp#register_server(vize#vim_lsp_config(l:config))
   else
     echohl WarningMsg
