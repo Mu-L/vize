@@ -34,6 +34,41 @@ fn nuxt_preset_reports_fixable_config_order() {
 }
 
 #[test]
+fn nuxt_preset_keeps_explicit_nuxt_two_config_order_quiet() {
+    let source = "export default defineNuxtConfig({ plugins: [], buildModules: [], modules: [], vize: { compatibility: { nuxtVersion: 2 } } })";
+    let result = Linter::with_preset(LintPreset::Nuxt).lint_script(source, "nuxt.config.ts");
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.rule_name != "nuxt/nuxt-config-keys-order"),
+        "{:#?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn nuxt_preset_fails_closed_for_nested_compatibility_duplicates() {
+    for properties in [
+        "vize: { compatibility: { nuxtVersion: 3 }, compatibility: { nuxtVersion: 2 } }",
+        "vize: { compatibility: { nuxtVersion: 3, nuxtVersion: 2 } }",
+    ] {
+        let source = format!(
+            "export default defineNuxtConfig({{ plugins: [], modules: [], {properties} }})"
+        );
+        let result = Linter::with_preset(LintPreset::Nuxt).lint_script(&source, "nuxt.config.ts");
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.rule_name == "nuxt/nuxt-config-keys-order"),
+            "{source}: {:#?}",
+            result.diagnostics
+        );
+    }
+}
+
+#[test]
 fn nuxt_preset_ignores_unrelated_default_export_configs() {
     let linter = Linter::with_preset(LintPreset::Nuxt);
     for (filename, source) in [

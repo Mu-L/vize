@@ -54,6 +54,14 @@ impl ScriptRule for NuxtConfigKeysOrder {
             let Some(object) = exported_object(&export.declaration) else {
                 continue;
             };
+            // Nuxt 2's official create-nuxt-app template orders `plugins`
+            // before `buildModules` and `modules`, unlike the Nuxt 3 oracle
+            // implemented by this rule. When the project explicitly opts into
+            // Vize's Nuxt 2 compatibility mode, staying quiet is safer than
+            // applying a contradictory Nuxt 3 fix.
+            if declares_nuxt_2_compatibility(object) {
+                continue;
+            }
             report_sort(object, source, offset, result);
             report_environment_sorts(object, source, offset, result);
         }
@@ -91,6 +99,80 @@ fn object_from_expression<'a>(expression: &'a Expression<'a>) -> Option<&'a Obje
         Expression::CallExpression(call) => first_object_argument(call),
         Expression::ParenthesizedExpression(parenthesized) => {
             object_from_expression(&parenthesized.expression)
+        }
+        _ => None,
+    }
+}
+
+fn declares_nuxt_2_compatibility(object: &ObjectExpression<'_>) -> bool {
+    object_property_object(object, "vize")
+        .and_then(|vize| object_property_object(vize, "compatibility"))
+        .and_then(|compatibility| object_property_value(compatibility, "nuxtVersion"))
+        .is_some_and(expression_is_numeric_two)
+}
+
+fn object_property_object<'a>(
+    object: &'a ObjectExpression<'a>,
+    name: &str,
+) -> Option<&'a ObjectExpression<'a>> {
+    object_property_value(object, name).and_then(object_from_expression)
+}
+
+fn object_property_value<'a>(
+    object: &'a ObjectExpression<'a>,
+    name: &str,
+) -> Option<&'a Expression<'a>> {
+    // Read from the end so a later spread or computed key makes the value
+    // unknown. Duplicate static declarations are also treated as ambiguous:
+    // compatibility mode should only suppress this rule for unambiguous input.
+    let mut value = None;
+    for entry in object.properties.iter().rev() {
+        let ObjectPropertyKind::ObjectProperty(property) = entry else {
+            value?;
+            continue;
+        };
+        if property.computed {
+            value?;
+            continue;
+        }
+        if static_key_name(&property.key) == Some(name) {
+            if value.is_some() {
+                return None;
+            }
+            value = Some(&property.value);
+        }
+    }
+    value
+}
+
+fn expression_is_numeric_two(expression: &Expression<'_>) -> bool {
+    match expression {
+        Expression::NumericLiteral(literal) => literal.value == 2.0,
+        Expression::ParenthesizedExpression(parenthesized) => {
+            expression_is_numeric_two(&parenthesized.expression)
+        }
+        _ => false,
+    }
+}
+
+fn static_key_name<'a>(key: &'a PropertyKey<'a>) -> Option<&'a str> {
+    match key {
+        PropertyKey::StaticIdentifier(identifier) => Some(identifier.name.as_str()),
+        PropertyKey::Identifier(identifier) => Some(identifier.name.as_str()),
+        PropertyKey::StringLiteral(literal) => Some(literal.value.as_str()),
+        PropertyKey::ParenthesizedExpression(parenthesized) => {
+            static_expression_name(&parenthesized.expression)
+        }
+        _ => None,
+    }
+}
+
+fn static_expression_name<'a>(expression: &'a Expression<'a>) -> Option<&'a str> {
+    match expression {
+        Expression::Identifier(identifier) => Some(identifier.name.as_str()),
+        Expression::StringLiteral(literal) => Some(literal.value.as_str()),
+        Expression::ParenthesizedExpression(parenthesized) => {
+            static_expression_name(&parenthesized.expression)
         }
         _ => None,
     }
