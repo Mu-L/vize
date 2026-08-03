@@ -1,9 +1,11 @@
+mod keyed_template_names;
 mod options_api;
 mod setup_scoped;
 mod template_bindings;
 mod template_names;
 mod with_defaults;
-use super::helpers::{is_reserved_identifier, to_safe_identifier};
+use super::helpers::to_safe_identifier;
+use keyed_template_names::collect_keyed_template_prop_names;
 pub(crate) use options_api::OptionsApiPropsSource;
 pub(crate) use options_api::append_default_props;
 use options_api::emit_options_api_props_type;
@@ -63,35 +65,6 @@ fn emit_unchecked_template_prop_binding(ts: &mut String, prop_name: &str) {
     append!(*ts, "  void {binding_name};\n");
 }
 
-fn can_emit_keyed_template_prop_binding(prop_name: &str) -> bool {
-    let mut chars = prop_name.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    (first.is_ascii_alphabetic() || first == '_' || first == '$')
-        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
-        && !prop_name.starts_with('$')
-        && !is_reserved_identifier(prop_name)
-}
-fn collect_keyed_template_prop_names(
-    summary: &Croquis,
-    emitted_names: &FxHashSet<String>,
-) -> Vec<String> {
-    let mut names = FxHashSet::default();
-    for undef in &summary.undefined_refs {
-        let name = undef.name.as_str();
-        if emitted_names.contains(name)
-            || should_skip_template_prop_binding(summary, name)
-            || !can_emit_keyed_template_prop_binding(name)
-        {
-            continue;
-        }
-        names.insert(name.into());
-    }
-    let mut names: Vec<String> = names.into_iter().collect();
-    names.sort_unstable();
-    names
-}
 fn should_emit_keyed_template_prop_bindings(
     summary: &Croquis,
     type_name: &str,
