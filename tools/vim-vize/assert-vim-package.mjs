@@ -37,6 +37,8 @@ const requiredFiles = [
   "vim/autoload/vize.vim",
   "vim/ftdetect/vize.vim",
   "vim/plugin/vize.vim",
+  "vim/test/vize_e2e_expected.vim",
+  "vim/test/vize_e2e_spec.vim",
   "vim/test/vize_spec.vim",
 ];
 
@@ -56,6 +58,7 @@ const allowedEntries = [
   /^vim\/plugin\/$/,
   /^vim\/plugin\/vize\.vim$/,
   /^vim\/test\/$/,
+  /^vim\/test\/vize_e2e_(?:expected|spec)\.vim$/,
   /^vim\/test\/vize_spec\.vim$/,
 ];
 

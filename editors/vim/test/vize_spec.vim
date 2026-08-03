@@ -92,6 +92,26 @@ call assert_equal(['/tmp/vize', 'lsp'], s:custom_lsp_config.cmd({}))
 call assert_equal(['art-vue'], s:custom_lsp_config.allowlist)
 call assert_equal({'hover': v:true}, s:custom_lsp_config.initialization_options)
 
+" vim-lsp exposes commands from plugin/lsp.vim before its autoload functions
+" exist. Verify vize#setup() recognizes that ordinary startup order and lets
+" Vim autoload lsp#register_server on demand.
+let s:lsp_stub_root = tempname()
+call mkdir(s:lsp_stub_root . '/autoload', 'p')
+call writefile([
+      \ 'function! lsp#register_server(config) abort',
+      \ '  let g:vize_test_registered_server = a:config',
+      \ 'endfunction',
+      \ ], s:lsp_stub_root . '/autoload/lsp.vim')
+execute 'set runtimepath^=' . fnameescape(s:lsp_stub_root)
+command! LspStatus echo 'stub'
+call vize#setup({'profile': 'lint'})
+call assert_equal('vize', g:vize_test_registered_server.name)
+call assert_equal({'lint': v:true}, g:vize_test_registered_server.initialization_options)
+delcommand LspStatus
+execute 'set runtimepath-=' . fnameescape(s:lsp_stub_root)
+call delete(s:lsp_stub_root, 'rf')
+unlet g:vize_test_registered_server
+
 try
   call vize#profile('missing')
   call assert_report('expected unknown profile to fail')

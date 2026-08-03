@@ -32,20 +32,29 @@ test("the Neovim real-server scenario has a task that runs its Node launcher", (
   );
 });
 
-test("CI runs both real-server editor scenarios from one built server binary", () => {
+test("the Vim real-server scenario has a task that runs its Node launcher", () => {
+  assert.equal(
+    taskCommand("test:vim-extension:real-server"),
+    "node tools/vim-vize/run-real-server.mjs",
+  );
+});
+
+test("CI runs all real-server editor scenarios from one built server binary", () => {
   const action = readRepoFile(".github", "actions", "vscode-host-smoke", "action.yml");
 
-  // One `cargo build` feeds both scenarios; both must consume that binary.
+  // One `cargo build` feeds all scenarios; each must consume that binary.
   assert.match(action, /run: cargo build --profile ci -p vize/);
   assert.deepEqual(
     action.match(/VIZE_SERVER_PATH: \$\{\{ github\.workspace \}\}\/target\/ci\/vize/g),
     [
       "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
       "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
+      "VIZE_SERVER_PATH: ${{ github.workspace }}/target/ci/vize",
     ],
   );
   assert.match(action, /vp run --workspace-root test:vscode-extension:host-real/);
   assert.match(action, /vp run --workspace-root test:nvim-extension:real-server/);
+  assert.match(action, /vp run --workspace-root test:vim-extension:real-server/);
 
   // The scenario needs a Neovim with a Lua LSP client, pinned and checksummed.
   assert.match(action, /NVIM_VERSION: v\d+\.\d+\.\d+/);
@@ -76,6 +85,30 @@ test("CI runs both headless editor specs", () => {
   assert.match(action, /vp run --workspace-root test:nvim-extension:headless/);
   assert.match(action, /vp run --workspace-root test:vim-extension:headless/);
   assert.match(action, /command -v vim/);
+  assert.match(action, /vim --version \| grep -F '\+timers'/);
+  assert.match(action, /sudo apt-get install -y vim-nox/);
+});
+
+test("CI pins vim-lsp before running the Vim real-server scenario", () => {
+  const action = readRepoFile(".github", "actions", "vscode-host-smoke", "action.yml");
+  const installAt = action.indexOf("- name: Install pinned vim-lsp");
+  const scenarioAt = action.indexOf("- name: Run the Vim scenario against the real server");
+
+  assert.ok(installAt >= 0, "editor host CI must install vim-lsp");
+  assert.ok(scenarioAt > installAt, "vim-lsp must be pinned before the scenario starts");
+
+  const install = action.slice(installAt, scenarioAt);
+  assert.match(install, /VIM_LSP_COMMIT: [0-9a-f]{40}/);
+  assert.match(
+    install,
+    /git -C "\$\{RUNNER_TEMP\}\/vim-lsp" fetch --depth 1 origin "\$\{VIM_LSP_COMMIT\}"/,
+  );
+  assert.match(install, /test "\$\(git rev-parse HEAD\)" = "\$\{VIM_LSP_COMMIT\}"/);
+
+  const scenario = action.slice(scenarioAt);
+  assert.match(scenario, /VIZE_TEST_VIM_LSP_PATH: \$\{\{ runner\.temp \}\}\/vim-lsp/);
+  assert.match(scenario, /VIZE_SERVER_PATH: \$\{\{ github\.workspace \}\}\/target\/ci\/vize/);
+  assert.match(scenario, /vp run --workspace-root test:vim-extension:real-server/);
 });
 
 test("CI executes the packaged Emacs ERT suite", () => {
@@ -115,6 +148,33 @@ test("the packaged Neovim archive ships the real-server scenario", () => {
   assert.match(assertion, /"nvim\/test\/vize_e2e_expected\.lua"/);
   assert.match(assertion, /"nvim\/test\/vize_e2e_spec\.lua"/);
   assert.match(assertion, /\^nvim\\\/test\\\/vize_e2e_\(\?:expected\|spec\)\\\.lua\$/);
+});
+
+test("the packaged Vim archive ships the real-server scenario", () => {
+  const assertion = readRepoFile("tools", "vim-vize", "assert-vim-package.mjs");
+
+  assert.match(assertion, /"vim\/test\/vize_e2e_expected\.vim"/);
+  assert.match(assertion, /"vim\/test\/vize_e2e_spec\.vim"/);
+  assert.match(assertion, /\^vim\\\/test\\\/vize_e2e_\(\?:expected\|spec\)\\\.vim\$/);
+});
+
+test("the Vim real-server scenario pins complete host responses", () => {
+  const scenario = readRepoFile("editors", "vim", "test", "vize_e2e_spec.vim");
+
+  for (const method of [
+    "textDocument/completion",
+    "textDocument/hover",
+    "textDocument/codeAction",
+    "textDocument/formatting",
+    "textDocument/semanticTokens/full",
+    "textDocument/rename",
+  ]) {
+    assert.match(scenario, new RegExp(method.replace("/", "\\/")));
+  }
+  assert.match(scenario, /assert_equal\(s:expected\.diagnostics, s:diagnostics\(s:uri\)\)/);
+  assert.match(scenario, /assert_equal\(a:expected, l:response\.result, a:method\)/);
+  assert.doesNotMatch(scenario, /\.includes\(|\.contains\(/);
+  assert.doesNotMatch(scenario, /\/dev\/(?:stdout|stderr)/);
 });
 
 test("the Neovim real-server scenario pins completion and hover responses", () => {
