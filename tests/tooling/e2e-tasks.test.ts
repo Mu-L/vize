@@ -124,6 +124,15 @@ test("fast app readiness aliases use bounded pinned fixtures", () => {
   assertExists("tests", "app", "dev", "misskey.spec.ts");
   assertExists("tests", "app", "dev", "nuxt-ui.spec.ts");
 
+  const nuxtUiDevSpec = readRepoFile("tests", "app", "dev", "nuxt-ui.spec.ts");
+  assert.match(
+    nuxtUiDevSpec,
+    /test\("authored component source hot-updates without reloading"/,
+    "the pinned Nuxt readiness spec must exercise authored-source HMR",
+  );
+  assert.match(nuxtUiDevSpec, /verifyNuxtUiAuthoredSourceHmr/);
+  assertExists("tests", "app", "dev", "nuxt-ui-hmr.ts");
+
   for (const fixture of ["elk", "misskey", "npmx.dev", "nuxt-ui", "reka-ui"]) {
     const snapshotName = fixture === "npmx.dev" ? "npmx" : fixture;
     assertExists("tests", "snapshots", "check", `${snapshotName}.ts`);

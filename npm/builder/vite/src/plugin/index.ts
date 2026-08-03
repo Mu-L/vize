@@ -18,10 +18,11 @@ import { compileAll } from "./precompile-run.ts";
 import { resolveIdHook } from "./resolve.ts";
 import { loadHook, transformHook } from "./load.ts";
 import {
-  handleHotUpdateHook,
   handleGenerateBundleHook,
+  handleHotUpdateHook,
   resolveComponentsCssFileName,
 } from "./hmr.ts";
+import { handleHotUpdateEnvironmentHook } from "./hot-update-environment.ts";
 import {
   createPostTransformPlugin,
   createStylePostTransformPlugin,
@@ -314,6 +315,12 @@ export function vize(options: VizeOptions = {}): Plugin[] {
       return transformHook(state, code, id, transformOptions);
     },
 
+    async hotUpdate(options) {
+      return handleHotUpdateEnvironmentHook(state, this.environment, options);
+    },
+
+    // Vite 7.3+ prefers `hotUpdate` when both hooks exist. Keep this deprecated
+    // shim for plugin-vue drop-in compatibility and older Vite integrations.
     async handleHotUpdate(ctx) {
       return handleHotUpdateHook(state, ctx);
     },
