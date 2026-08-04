@@ -138,6 +138,27 @@ fn tsx_generic_component_keeps_its_type_parameters_on_setup() {
 }
 
 #[test]
+fn async_component_keeps_its_async_modifier_on_setup() {
+    let bump = Bump::new();
+    let out = compile_jsx(
+        &bump,
+        r#"
+        const AsyncPanel = async ({ id }) => {
+          const data = await load(id);
+          return <div>{data}</div>;
+        };
+        "#,
+        JsxLang::Jsx,
+        &JsxCompileConfig::default(),
+    );
+    let module = out.module_code();
+
+    // Dropping `async` would leave `await` inside a synchronous method.
+    assert!(module.contains("async setup({ id }) {"), "{module}");
+    assert!(module.contains("const data = await load(id);"), "{module}");
+}
+
+#[test]
 fn module_code_forwards_plain_props_and_context_parameters_to_setup() {
     let bump = Bump::new();
     let out = compile_jsx(
@@ -239,4 +260,24 @@ fn jsx_in_a_parameter_default_falls_back_to_plain_render_exports() {
     // stateful wrapper is skipped and no raw JSX can leak into `setup(...)`.
     assert!(!module.contains("_defineComponent"), "{module}");
     assert!(!module.contains("setup("), "{module}");
+}
+
+#[test]
+fn module_code_leaves_synchronous_components_without_an_async_setup() {
+    let bump = Bump::new();
+    let out = compile_jsx(
+        &bump,
+        r#"
+        const SyncApp = () => {
+          const data = load();
+          return <div>{data}</div>;
+        };
+        "#,
+        JsxLang::Jsx,
+        &JsxCompileConfig::default(),
+    );
+    let module = out.module_code();
+
+    assert!(module.contains("  setup() {"), "{module}");
+    assert!(!module.contains("async setup"), "{module}");
 }
