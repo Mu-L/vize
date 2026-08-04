@@ -1,6 +1,6 @@
 {
   "name": "@vizejs/nuxt-lint-config",
-  "version": "0.324.0",
+  "version": "0.325.0",
   "description": "Shareable Nuxt-aware lint preset core for the Vize toolchain",
   "keywords": [
     "config",
