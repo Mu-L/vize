@@ -111,13 +111,45 @@ fn push_component_wrapper(
     module.push_str(name);
     module.push_str(" = _defineComponent({\n  name: \"");
     module.push_str(&escape_js_string(name));
-    module.push_str("\",\n  setup() {\n");
+    module.push_str("\",\n  setup");
+    let type_params = setup_type_params(source, setup);
+    if !type_params.is_empty() {
+        module.push('<');
+        module.push_str(type_params);
+        module.push('>');
+    }
+    module.push('(');
+    module.push_str(setup_params(source, setup));
+    module.push_str(") {\n");
 
     let setup_source = &source[setup.setup_start as usize..setup.setup_end as usize];
     push_indented_trimmed(module, setup_source, "    ");
     push_indented_trimmed(module, render, "    ");
 
     module.push_str("    return render\n  }\n});");
+}
+
+/// The component function's own parameter list, reused verbatim as the `setup()`
+/// signature.
+///
+/// Vue calls `setup(props, ctx)`, which is exactly the JSX component contract, so
+/// destructured props and their defaults keep working instead of becoming free
+/// variables in the render closure (#3856).
+fn setup_params<'a>(source: &'a str, setup: &crate::ComponentSetupSpan) -> &'a str {
+    source
+        .get(setup.params_start as usize..setup.params_end as usize)
+        .map_or("", str::trim)
+}
+
+/// The component function's own type parameter list, re-emitted as a generic
+/// `setup<T>()` method.
+///
+/// Without it, a generic component's forwarded parameter annotations would
+/// reference type names that the replaced declaration no longer binds.
+fn setup_type_params<'a>(source: &'a str, setup: &crate::ComponentSetupSpan) -> &'a str {
+    source
+        .get(setup.type_params_start as usize..setup.type_params_end as usize)
+        .map_or("", str::trim)
 }
 
 fn push_indented_trimmed(out: &mut String, block: &str, indent: &str) {

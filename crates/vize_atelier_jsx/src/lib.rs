@@ -116,6 +116,21 @@ pub struct ComponentSetupSpan {
     /// End of the declaration span. A following semicolon may be consumed by the
     /// module renderer.
     pub declaration_end: u32,
+    /// Start of the component function's formal parameter list, excluding the
+    /// enclosing parentheses. The parameters become the generated `setup()`
+    /// signature so destructured props keep their bindings (#3856).
+    pub params_start: u32,
+    /// End of the formal parameter list. Equal to [`Self::params_start`] when the
+    /// component declares no parameters.
+    pub params_end: u32,
+    /// Start of the component function's type parameter list, excluding the
+    /// enclosing angle brackets. A generic component keeps its declaration on the
+    /// generated `setup<T>()` method so type names used by the forwarded
+    /// parameter annotations stay bound (#3856).
+    pub type_params_start: u32,
+    /// End of the type parameter list. Equal to [`Self::type_params_start`] when
+    /// the component is not generic.
+    pub type_params_end: u32,
     /// Start of setup statements inside the component body.
     pub setup_start: u32,
     /// End of setup statements, immediately before the `return <jsx>` statement.
