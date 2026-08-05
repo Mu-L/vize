@@ -470,24 +470,23 @@ mod event_type_tests {
     }
 }
 
-/// Convert kebab-case or PascalCase prop name to camelCase.
-/// Vue normalizes prop names to camelCase internally.
-/// Examples: "my-prop" -> "myProp", "MyProp" -> "myProp"
+/// Resolve a template attribute name to the prop key Vue matches it against.
+///
+/// Mirrors Vue's `camelize` (`str.replace(/-(\w)/g, …)`) exactly: a hyphen is
+/// dropped and the character after it uppercased, nothing else changes. The
+/// leading character keeps its case and `_` is not a separator; renaming either
+/// way looks up a key no declared prop matches, so a bound prop reads as missing
+/// (#3863). `"my-prop"` -> `"myProp"`, `"MyProp"` -> `"MyProp"`, `"my_prop"` -> `"my_prop"`.
 pub(crate) fn to_camel_case(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut capitalize_next = false;
-    let mut first = true;
 
     for c in s.chars() {
-        if c == '-' || c == '_' {
+        if c == '-' {
             capitalize_next = true;
         } else if capitalize_next {
             result.push(c.to_ascii_uppercase());
             capitalize_next = false;
-        } else if first {
-            // First character should be lowercase
-            result.push(c.to_ascii_lowercase());
-            first = false;
         } else {
             result.push(c);
         }
