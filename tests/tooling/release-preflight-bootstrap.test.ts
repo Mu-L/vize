@@ -87,8 +87,8 @@ test("release gate plans bind exact SHAs to expected evidence titles", () => {
         workflowName: "Fuzz",
         workflowId: "fuzz.yml",
         ref: "v1.2.3",
-        inputs: { "max-total-time": "120" },
-        expectedRunName: `Fuzz 120s @ ${releaseSha}`,
+        inputs: { mode: "replay" },
+        expectedRunName: `Fuzz replay @ ${releaseSha}`,
       },
     ],
   );
@@ -154,11 +154,12 @@ test("App E2E dispatch identifies the suite and immutable target", () => {
   assert.match(e2e["run-name"] ?? "", /github\.sha/);
 });
 
-test("Fuzz dispatch identifies its duration and target", () => {
+test("Fuzz dispatch identifies its mode and target", () => {
   const fuzz = readWorkflow(findReleasePlan("Fuzz").workflowId);
   assert.equal(fuzz.on?.workflow_dispatch?.inputs?.["max-total-time"]?.default, "120");
   assert.match(fuzz["run-name"] ?? "", /^Fuzz /);
   assert.match(fuzz["run-name"] ?? "", /inputs\.max-total-time/);
+  assert.match(fuzz["run-name"] ?? "", /inputs\.mode/);
   assert.match(fuzz["run-name"] ?? "", /github\.sha/);
 });
 
