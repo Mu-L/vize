@@ -12,6 +12,7 @@ mod component_spread_prop_order;
 mod define_props_scope;
 mod generic_module_type_exports;
 mod legacy_nuxt2_page_context;
+mod model_update_payload;
 mod no_check_template_bindings;
 mod options_api_instance;
 mod options_api_props_spread;
@@ -21,9 +22,7 @@ mod slot_component_bindings;
 mod unused_refs;
 mod vif_chain;
 fn assert_virtual_ts_snapshot(name: &str, value: &str) {
-    insta::with_settings!({
-        snapshot_path => "../../snapshots"
-    }, {
+    insta::with_settings!({ snapshot_path => "../../snapshots" }, {
         insta::assert_snapshot!(name, value);
     });
 }
