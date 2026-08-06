@@ -16,6 +16,8 @@ use tower_lsp::lsp_types::GotoDefinitionResponse;
 #[cfg(feature = "native")]
 use vize_canon::CorsaBridge;
 
+mod import_target;
+
 use super::{IdeContext, helpers, module_specifier, script, template};
 #[cfg(feature = "native")]
 use crate::ide::corsa_support;
@@ -197,6 +199,13 @@ impl super::DefinitionService {
         corsa_bridge: Option<Arc<CorsaBridge>>,
     ) -> Option<GotoDefinitionResponse> {
         if let Some(definition) = module_specifier::definition(ctx) {
+            return Some(definition);
+        }
+
+        // An imported name unwraps to the exported declaration before any
+        // checker round-trip: the checker answers with the local alias — the
+        // import statement itself — which reads as a self-jump (#3893).
+        if let Some(definition) = import_target::definition(ctx) {
             return Some(definition);
         }
 
