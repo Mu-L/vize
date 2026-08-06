@@ -7,10 +7,9 @@ use oxc_span::SourceType;
 use vize_carton::{FxHashMap, FxHashSet, String, cstr};
 
 use super::bridge::normalize_document_uri;
+use super::vue_dependency_paths::{normalize_path, resolve_relative_script_import};
 use super::vue_dependency_specifiers::collect_relative_ts_specifiers;
-use super::vue_document::{
-    CorsaVueVirtualDocumentOptions, GeneratedVueDocument, generate_vue_document,
-};
+use super::vue_document::{CorsaVueVirtualDocumentOptions, GeneratedVueDocument};
 use crate::batch::ImportRewriter;
 use crate::file_uri::path_to_file_uri;
 
@@ -22,6 +21,7 @@ pub(super) fn collect_dependency_documents(
     host: &GeneratedVueDocument,
     options: CorsaVueVirtualDocumentOptions,
     rewriter: &ImportRewriter,
+    alias_context: &super::vue_dependencies_alias::AliasContext,
     overlays: &FxHashMap<PathBuf, &str>,
 ) {
     let mut visited_vue = FxHashSet::<PathBuf>::default();
@@ -50,6 +50,7 @@ pub(super) fn collect_dependency_documents(
                 },
                 options,
                 rewriter,
+                alias_context,
                 &dir,
                 &pre_rewrite_code,
                 source_type,
@@ -68,6 +69,7 @@ pub(super) fn collect_dependency_documents(
                 },
                 options,
                 rewriter,
+                alias_context,
                 &parent_dir(&path),
                 &content,
                 source_type,
@@ -76,15 +78,15 @@ pub(super) fn collect_dependency_documents(
     }
 }
 
-struct ImportQueue<'a> {
-    documents: &'a mut Vec<(String, String)>,
-    queue: &'a mut VecDeque<DependencyScan>,
-    visited_vue: &'a mut FxHashSet<PathBuf>,
-    visited_ts: &'a mut FxHashSet<PathBuf>,
-    overlays: &'a FxHashMap<PathBuf, &'a str>,
+pub(super) struct ImportQueue<'a> {
+    pub(super) documents: &'a mut Vec<(String, String)>,
+    pub(super) queue: &'a mut VecDeque<DependencyScan>,
+    pub(super) visited_vue: &'a mut FxHashSet<PathBuf>,
+    pub(super) visited_ts: &'a mut FxHashSet<PathBuf>,
+    pub(super) overlays: &'a FxHashMap<PathBuf, &'a str>,
 }
 
-enum DependencyScan {
+pub(super) enum DependencyScan {
     Vue {
         dir: PathBuf,
         source_type: SourceType,
@@ -101,57 +103,102 @@ fn queue_imports(
     mut imports: ImportQueue<'_>,
     options: CorsaVueVirtualDocumentOptions,
     rewriter: &ImportRewriter,
+    alias_context: &super::vue_dependencies_alias::AliasContext,
     dir: &Path,
     code: &str,
     source_type: SourceType,
 ) {
-    queue_vue_imports(&mut imports, options, rewriter, dir, code, source_type);
-    queue_ts_imports(&mut imports, rewriter, dir, code, source_type);
+    queue_vue_imports(
+        &mut imports,
+        options,
+        rewriter,
+        alias_context,
+        dir,
+        code,
+        source_type,
+    );
+    queue_ts_imports(
+        &mut imports,
+        rewriter,
+        alias_context,
+        dir,
+        code,
+        source_type,
+    );
+    super::vue_dependencies_alias::queue_alias_imports(
+        &mut imports,
+        options,
+        rewriter,
+        alias_context,
+        dir,
+        code,
+        source_type,
+    );
 }
 
 fn queue_vue_imports(
     imports: &mut ImportQueue<'_>,
     options: CorsaVueVirtualDocumentOptions,
     rewriter: &ImportRewriter,
+    alias_context: &super::vue_dependencies_alias::AliasContext,
     dir: &Path,
     code: &str,
     source_type: SourceType,
 ) {
     for specifier in rewriter.collect_relative_vue_specifiers(code, source_type, Some(dir)) {
         let path = normalize_path(&dir.join(specifier.as_str()));
-        let key = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
-        if !imports.visited_vue.insert(key) {
-            continue;
-        }
-        let Some(content) = dependency_content(&path, imports.overlays) else {
-            continue;
-        };
-        let generated = match generate_vue_document(&path, &content, options, rewriter) {
-            Ok(generated) => generated,
-            Err(_) => {
-                imports.documents.push((
-                    fallback_vue_virtual_uri(&path),
-                    VUE_DEPENDENCY_FALLBACK.into(),
-                ));
-                continue;
-            }
-        };
-        imports.documents.push((
-            generated.virtual_uri.clone(),
-            generated.generated.code.clone(),
-        ));
-        if generated.generated.virtual_suffix == ".tsx" {
-            imports.documents.push(tsx_vue_import_shim(&path));
-        }
-        imports.queue.push_back(DependencyScan::Vue {
-            dir: parent_dir(&generated.source_path),
-            source_type: generated.generated.source_type,
-            pre_rewrite_code: generated.generated.pre_rewrite_code,
-        });
+        queue_vue_dependency(imports, options, rewriter, alias_context, &path);
     }
 }
 
-fn fallback_vue_virtual_uri(path: &Path) -> String {
+/// Generate one resolved `.vue` dependency, push its document, and queue the
+/// component's own imports. Shared with the alias walk so both spellings of a
+/// dependency produce the same document and the same ambient fallback.
+pub(super) fn queue_vue_dependency(
+    imports: &mut ImportQueue<'_>,
+    options: CorsaVueVirtualDocumentOptions,
+    rewriter: &ImportRewriter,
+    alias_context: &super::vue_dependencies_alias::AliasContext,
+    path: &Path,
+) {
+    let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    if !imports.visited_vue.insert(key) {
+        return;
+    }
+    let Some(content) = dependency_content(path, imports.overlays) else {
+        return;
+    };
+    let generated = match super::vue_document::generate_vue_document_with_alias(
+        path,
+        &content,
+        options,
+        rewriter,
+        alias_context,
+    ) {
+        Ok(generated) => generated,
+        Err(_) => {
+            imports.documents.push((
+                fallback_vue_virtual_uri(path),
+                VUE_DEPENDENCY_FALLBACK.into(),
+            ));
+            return;
+        }
+    };
+    imports.documents.push((
+        generated.virtual_uri.clone(),
+        generated.generated.code.clone(),
+    ));
+    if generated.generated.virtual_suffix == ".tsx" {
+        imports.documents.push(tsx_vue_import_shim(path));
+    }
+    imports.queue.push_back(DependencyScan::Vue {
+        dir: parent_dir(&generated.source_path),
+        source_type: generated.generated.source_type,
+        pre_rewrite_code: generated.generated.pre_rewrite_code,
+    });
+}
+
+pub(super) fn fallback_vue_virtual_uri(path: &Path) -> String {
     let virtual_path = path.with_file_name(cstr!(
         "{}.ts",
         path.file_name()
@@ -184,6 +231,7 @@ pub(super) fn tsx_vue_import_shim(path: &Path) -> (String, String) {
 fn queue_ts_imports(
     imports: &mut ImportQueue<'_>,
     rewriter: &ImportRewriter,
+    alias_context: &super::vue_dependencies_alias::AliasContext,
     dir: &Path,
     code: &str,
     source_type: SourceType,
@@ -200,8 +248,11 @@ fn queue_ts_imports(
             continue;
         };
         let dependency_source_type = source_type_for_path(&path);
+        let script_dir = parent_dir(&path);
         let rewritten = rewriter
-            .rewrite(&content, dependency_source_type, path.parent())
+            .rewrite_with_alias_resolver(&content, dependency_source_type, path.parent(), &|spec| {
+                alias_context.resolve_specifier_to_mirror_path(spec, &script_dir)
+            })
             .code;
         let uri = normalize_document_uri(path_to_file_uri(&path).as_str());
         imports.documents.push((uri, rewritten));
@@ -213,7 +264,10 @@ fn queue_ts_imports(
     }
 }
 
-fn dependency_content(path: &Path, overlays: &FxHashMap<PathBuf, &str>) -> Option<String> {
+pub(super) fn dependency_content(
+    path: &Path,
+    overlays: &FxHashMap<PathBuf, &str>,
+) -> Option<String> {
     let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     overlays
         .get(&key)
@@ -221,111 +275,12 @@ fn dependency_content(path: &Path, overlays: &FxHashMap<PathBuf, &str>) -> Optio
         .or_else(|| std::fs::read_to_string(path).ok().map(Into::into))
 }
 
-fn resolve_relative_script_import(dir: &Path, specifier: &str) -> Option<PathBuf> {
-    let base = dir.join(specifier);
-    if base.extension().is_some() {
-        return known_script_path(&base).then(|| normalize_path(&base));
-    }
-
-    for ext in [
-        "ts", "tsx", "mts", "cts", "d.ts", "d.mts", "d.cts", "js", "jsx", "mjs", "cjs",
-    ] {
-        let candidate = base.with_extension(ext);
-        if candidate.exists() {
-            return Some(normalize_path(&candidate));
-        }
-    }
-    for name in [
-        "index.ts",
-        "index.tsx",
-        "index.mts",
-        "index.cts",
-        "index.js",
-        "index.jsx",
-        "index.mjs",
-        "index.cjs",
-        "index.d.ts",
-        "index.d.mts",
-        "index.d.cts",
-    ] {
-        let candidate = base.join(name);
-        if candidate.exists() {
-            return Some(normalize_path(&candidate));
-        }
-    }
-    None
-}
-
-fn known_script_path(path: &Path) -> bool {
-    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-        return false;
-    };
-    path.exists()
-        && (name.ends_with(".ts")
-            || name.ends_with(".tsx")
-            || name.ends_with(".mts")
-            || name.ends_with(".cts")
-            || name.ends_with(".js")
-            || name.ends_with(".jsx")
-            || name.ends_with(".mjs")
-            || name.ends_with(".cjs"))
-}
-
-fn source_type_for_path(path: &Path) -> SourceType {
+pub(super) fn source_type_for_path(path: &Path) -> SourceType {
     SourceType::from_path(path).unwrap_or_else(|_| SourceType::ts())
 }
 
-fn parent_dir(path: &Path) -> PathBuf {
+pub(super) fn parent_dir(path: &Path) -> PathBuf {
     path.parent()
         .map(Path::to_path_buf)
         .unwrap_or_else(|| path.to_path_buf())
-}
-
-fn normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                if !normalized.pop() {
-                    normalized.push("..");
-                }
-            }
-            other => normalized.push(other.as_os_str()),
-        }
-    }
-    normalized
-}
-
-#[cfg(test)]
-mod tests {
-    use super::resolve_relative_script_import;
-
-    #[test]
-    fn resolves_directory_module_declaration_indices() {
-        let project = tempfile::TempDir::new().expect("temp project");
-        let src = project.path().join("src");
-        std::fs::create_dir_all(src.join("esm")).expect("esm dir");
-        std::fs::create_dir_all(src.join("cjs")).expect("cjs dir");
-
-        let esm = src.join("esm").join("index.d.mts");
-        let cjs = src.join("cjs").join("index.d.cts");
-        let schema = src.join("schema.d.ts");
-        std::fs::write(&esm, "export type Value = string;\n").expect("esm dts");
-        std::fs::write(&cjs, "export type Value = string;\n").expect("cjs dts");
-        std::fs::write(&schema, "export type Schema = { id: string };\n").expect("schema dts");
-
-        assert_eq!(
-            resolve_relative_script_import(&src, "./esm").as_deref(),
-            Some(esm.as_path())
-        );
-        assert_eq!(
-            resolve_relative_script_import(&src, "./cjs").as_deref(),
-            Some(cjs.as_path())
-        );
-        assert_eq!(
-            resolve_relative_script_import(&src, "./schema").as_deref(),
-            Some(schema.as_path())
-        );
-    }
 }

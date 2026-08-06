@@ -20,64 +20,19 @@ use collect::ModuleSpecifierCollector;
 
 #[path = "import_rewriter_virtual.rs"]
 mod virtual_rewrite;
+pub(super) use virtual_rewrite::rewrite_relative_vue_specifier;
 use virtual_rewrite::{
     absolute_import_needs_virtual_rewrite, is_rewritable_project_specifier,
-    is_rewritable_vue_specifier, rewrite_relative_vue_specifier,
+    is_rewritable_vue_specifier,
 };
 
 #[path = "import_rewriter_dts.rs"]
 mod dts_rewrite;
 use dts_rewrite::rewrite_relative_dts_specifier;
 
-#[derive(Debug, Clone)]
-pub struct OffsetAdjustment {
-    pub original_offset: u32,
-    pub adjustment: i32,
-}
-
-#[derive(Debug)]
-pub struct RewriteResult {
-    pub code: String,
-    pub source_map: ImportSourceMap,
-}
-
-#[derive(Debug, Default)]
-pub struct ImportSourceMap {
-    adjustments: Vec<OffsetAdjustment>,
-}
-
-impl ImportSourceMap {
-    pub fn new(adjustments: Vec<OffsetAdjustment>) -> Self {
-        Self { adjustments }
-    }
-
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    pub fn get_original_offset(&self, virtual_offset: u32) -> u32 {
-        let mut cumulative: i32 = 0;
-        for adj in &self.adjustments {
-            let adjusted = (adj.original_offset as i32 + cumulative) as u32;
-            if virtual_offset < adjusted {
-                break;
-            }
-            cumulative += adj.adjustment;
-        }
-        (virtual_offset as i32 - cumulative) as u32
-    }
-
-    pub fn get_virtual_offset(&self, original_offset: u32) -> u32 {
-        let mut cumulative: i32 = 0;
-        for adj in &self.adjustments {
-            if original_offset < adj.original_offset {
-                break;
-            }
-            cumulative += adj.adjustment;
-        }
-        (original_offset as i32 + cumulative) as u32
-    }
-}
+#[path = "import_rewriter_source_map.rs"]
+mod source_map;
+pub use source_map::{ImportSourceMap, OffsetAdjustment, RewriteResult};
 
 pub struct ImportRewriter;
 
@@ -151,7 +106,7 @@ impl ImportRewriter {
         })
     }
 
-    fn rewrite_with<F>(
+    pub(super) fn rewrite_with<F>(
         &self,
         source: &str,
         source_type: SourceType,
@@ -260,7 +215,11 @@ impl ImportRewriter {
         specifiers
     }
 
-    fn rewrite_module_specifier(&self, path: &str, source_dir: Option<&Path>) -> Option<String> {
+    pub(super) fn rewrite_module_specifier(
+        &self,
+        path: &str,
+        source_dir: Option<&Path>,
+    ) -> Option<String> {
         if let Some(collision) = authored_vue_ts_collides_with_sfc(path, source_dir) {
             let marker = match collision {
                 VueTsCollision::Unresolved => AUTHORED_VUE_TS_SENTINEL,

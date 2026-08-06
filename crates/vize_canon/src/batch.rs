@@ -9,6 +9,7 @@ mod declaration_path;
 mod error;
 mod executor;
 mod import_rewriter;
+pub(crate) mod import_rewriter_alias;
 #[cfg(test)]
 mod import_rewriter_authored_vue_ts_tests;
 #[cfg(test)]
@@ -24,7 +25,7 @@ mod materialize_lock;
 mod runtime_deps;
 mod source_map;
 mod type_checker;
-mod virtual_project;
+pub(crate) mod virtual_project;
 mod virtual_specifier_message;
 mod virtual_ts;
 

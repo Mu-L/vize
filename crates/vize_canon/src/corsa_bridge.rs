@@ -8,8 +8,12 @@ mod bridge;
 mod session;
 mod types;
 mod vue_dependencies;
+mod vue_dependencies_alias;
+mod vue_dependency_paths;
 mod vue_dependency_specifiers;
 mod vue_document;
+#[cfg(test)]
+mod vue_document_alias_tests;
 #[cfg(test)]
 mod vue_document_tests;
 mod worker;

@@ -33,12 +33,15 @@ pub use content_mapper::{
 };
 mod css_var_usage;
 mod declaration_emit;
-mod dependency_scan;
+pub(crate) mod dependency_scan;
 mod document;
 pub use document::{
     VueDocumentVirtualTs, VueDocumentVirtualTsOptions, generate_vue_document_virtual_ts,
     generate_vue_document_virtual_ts_with_options,
 };
+// Crate-scoped: the `alias_resolver` parameter names
+// `import_rewriter_alias::AliasSpecifierResolver`, which is `pub(crate)`.
+pub(crate) use document::generate_vue_document_virtual_ts_with_options_and_alias_resolver;
 mod diagnostics;
 mod external_mirror;
 mod javascript_sfc;
