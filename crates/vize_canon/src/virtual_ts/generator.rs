@@ -3,6 +3,7 @@ mod component_constructors;
 mod component_export;
 mod css_modules;
 mod emits;
+mod entry;
 mod generics;
 mod global_components;
 mod imports;
@@ -23,6 +24,10 @@ use self::component_constructors::{ComponentInstanceAliases, emit_component_cons
 use self::component_export::emit_default_export_declaration;
 use self::css_modules::CssModuleAssertions;
 use self::emits::{emit_emit_props_helper, emit_emits_type, emit_exposed_type, emit_slots_type};
+pub use self::entry::{
+    generate_virtual_ts, generate_virtual_ts_with_offsets,
+    generate_virtual_ts_with_offsets_options_api,
+};
 use self::generics::{HoistedGenericAliases, generic_injection_point, references_any_identifier};
 use self::global_components::GlobalComponentPlan;
 use self::imports::{
@@ -57,71 +62,6 @@ use super::{
 };
 use vize_carton::{FxHashMap, FxHashSet, String, append, cstr, profile};
 use vize_croquis::{Croquis, ScopeData, ScopeKind};
-/// Generate virtual TypeScript from Vue SFC analysis.
-///
-/// This ensures compiler macros like defineProps are ONLY valid in setup scope.
-pub fn generate_virtual_ts(
-    summary: &Croquis,
-    script_content: Option<&str>,
-    template_ast: Option<&vize_relief::RootNode<'_>>,
-    template_offset: u32,
-) -> VirtualTsOutput {
-    generate_virtual_ts_with_offsets(
-        summary,
-        script_content,
-        template_ast,
-        0,
-        template_offset,
-        &VirtualTsOptions::default(),
-    )
-}
-/// Generate virtual TypeScript with explicit script and template offsets.
-///
-/// `script_offset` is the byte offset of the script content within the SFC file.
-/// `template_offset` is the byte offset of the template content within the SFC file.
-/// When these are provided, source mappings point to SFC-absolute positions.
-/// `options` controls template globals and other generation settings.
-pub fn generate_virtual_ts_with_offsets(
-    summary: &Croquis,
-    script_content: Option<&str>,
-    template_ast: Option<&vize_relief::RootNode<'_>>,
-    script_offset: u32,
-    template_offset: u32,
-    options: &VirtualTsOptions,
-) -> VirtualTsOutput {
-    generate_virtual_ts_with_offsets_and_checks(
-        summary,
-        script_content,
-        template_ast,
-        script_offset,
-        template_offset,
-        options,
-        VirtualTsGenerationOptions::default(),
-    )
-}
-/// Generate virtual TypeScript with Vue 3 Options API binding resolution
-/// enabled (opt-in, standard build — no `legacy` feature required).
-pub fn generate_virtual_ts_with_offsets_options_api(
-    summary: &Croquis,
-    script_content: Option<&str>,
-    template_ast: Option<&vize_relief::RootNode<'_>>,
-    script_offset: u32,
-    template_offset: u32,
-    options: &VirtualTsOptions,
-) -> VirtualTsOutput {
-    generate_virtual_ts_with_offsets_and_checks(
-        summary,
-        script_content,
-        template_ast,
-        script_offset,
-        template_offset,
-        options,
-        VirtualTsGenerationOptions {
-            options_api: true,
-            ..Default::default()
-        },
-    )
-}
 
 pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     summary: &Croquis,
@@ -309,6 +249,10 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     };
 
     namespace_hoist.emit_ambient_captures(&mut ts, &named_value_exports);
+    // Whether a default-export rewrite declared `__default__`, tracked as
+    // state: grepping the generated text would match helper type positions
+    // and user code that merely mentions the name (#3888).
+    let mut declared_default_alias = false;
     if let Some(script) = script_content {
         profile!("canon.virtual_ts.emit_module_statements", {
             // Emit each module-level statement with source mapping
@@ -371,12 +315,15 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
                     };
                     let span_relative_object = default_export_object.and_then(rebase);
                     let span_relative_expr = default_export_expr.and_then(rebase);
-                    let text = rewrite_export_default_for_module_scope(
+                    let rewritten = rewrite_export_default_for_module_scope(
                         text,
                         span_relative_object,
                         span_relative_expr,
                     );
-                    ts.push_str(&text);
+                    // Every rewrite shape declares the alias; a span with no
+                    // rewriteable default export comes back untouched.
+                    declared_default_alias |= rewritten.as_str() != text;
+                    ts.push_str(&rewritten);
                     ts.push_str("void __default__;\n");
                 } else {
                     ts.push_str(text);
@@ -567,6 +514,7 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
                     .filter(|rest| options_api_support::follows_default_keyword(rest))
                 {
                     emitted_default_alias = true;
+                    declared_default_alias = true;
                     let leading_ws = &output_line[..output_line.len() - trimmed_line.len()];
                     // A class default export (the class-component shape) stays
                     // a real class declaration so `@Component()` decorators
@@ -801,6 +749,9 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
                             template_ast,
                             check_unresolved_global_components: global_components.component_check(),
                             legacy_vue2,
+                            options_api,
+                            has_default_alias: declared_default_alias,
+                            script_content,
                         },
                     )
                 );

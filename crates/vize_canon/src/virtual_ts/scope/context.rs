@@ -54,6 +54,19 @@ pub(crate) struct ScopeGenerationOptions<'a, 'template> {
     pub(crate) template_ast: Option<&'a vize_relief::RootNode<'template>>,
     pub(crate) check_unresolved_global_components: GlobalComponentCheck,
     pub(crate) legacy_vue2: bool,
+    /// Options API generation declares `__default__`; template names outside
+    /// the known bindings then resolve on the public instance (#3888).
+    pub(crate) options_api: bool,
+    /// Whether the default-export rewrite declared the `__default__` alias. The
+    /// public-instance form reads `typeof __default__`, so it stays off for a
+    /// shape that never produced one (a re-exported default, no default export
+    /// at all).
+    pub(crate) has_default_alias: bool,
+    /// Plain `<script>` content, when the component has one. Names it declares
+    /// stay resolvable from template scope (a relocated `namespace`, a class, a
+    /// plain binding), so those keep the free-name emission instead of the
+    /// public-instance property access.
+    pub(crate) script_content: Option<&'a str>,
 }
 
 /// Context for recursive component prop checks inside v-for scopes.
