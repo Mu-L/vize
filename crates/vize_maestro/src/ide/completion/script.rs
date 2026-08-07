@@ -38,6 +38,51 @@ use crate::ide::cursor_context::CursorContext;
 pub(crate) use self::lists::{composition_api_completions, macro_completions};
 pub(crate) use self::reactive_infer::infer_reactive_value_type;
 
+/// Extras merged after the checker's answer in script positions — the Vue
+/// composition APIs, plus compiler macros in `<script setup>`. After `.` or
+/// `?.` only the accessed type's members belong, the list tsserver and Volar
+/// show, so member-access positions get none (#3933).
+pub(crate) fn script_extras(ctx: &IdeContext, is_setup: bool) -> Vec<CompletionItem> {
+    if completes_a_member(&ctx.content, ctx.offset) {
+        return Vec::new();
+    }
+    let mut extras = composition_api_completions();
+    if is_setup {
+        extras.extend(macro_completions());
+    }
+    extras
+}
+
+/// Whether the cursor completes a member name: right after a `.` (the shared
+/// detector's shape) or inside the partial identifier following one
+/// (`rootContext.fil|`), which `CursorContext` classifies as a plain
+/// identifier. The receiver is classified like `complete_script` does, so an
+/// in-progress decimal literal (`1.`) is not a member position. The scan is
+/// ASCII-conservative — an exotic identifier falls back to including the
+/// extras, today's behavior.
+fn completes_a_member(content: &str, offset: usize) -> bool {
+    let clamped = offset.min(content.len());
+    let Some(before_cursor) = content.get(..clamped) else {
+        return false;
+    };
+    let prefix_start = before_cursor
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '$'))
+        .map_or(0, |index| index + 1);
+    let Some(before_dot) = before_cursor[..prefix_start].trim_end().strip_suffix('.') else {
+        return false;
+    };
+    // `?.` can only be optional chaining, never a numeric literal.
+    if before_dot.ends_with('?') {
+        return true;
+    }
+    let receiver_start = before_dot
+        .rfind(|c: char| {
+            !(c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.' || c == ']')
+        })
+        .map_or(0, |index| index + 1);
+    receiver_is_member_chain(&before_dot[receiver_start..])
+}
+
 /// Get completions for script context.
 pub(crate) fn complete_script(ctx: &IdeContext, is_setup: bool) -> Vec<CompletionItem> {
     if is_setup
