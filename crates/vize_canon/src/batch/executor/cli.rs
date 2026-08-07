@@ -17,10 +17,12 @@ mod checkers;
 mod diagnostic_paths;
 mod import_resolution;
 mod project_diagnostics;
+mod shard_sizing;
 
 use checkers::{checker_count, rejects_checkers_flag};
 use diagnostic_paths::normalize_cli_path;
 use import_resolution::resolve_virtual_import;
+use shard_sizing::shard_count;
 
 pub(super) fn check_with_cli(
     corsa_path: &Path,
@@ -106,9 +108,6 @@ pub(super) fn check_with_cli_sharded(
 }
 
 /// Pick the shard count for a project when the caller did not request one.
-/// Corsa's checker pool uses ~4 cores per process; sharding only pays off
-/// once there are enough Vue files to amortize each extra program's fixed
-/// parse/bind cost.
 pub(super) fn auto_server_count(project: &VirtualProject) -> usize {
     let vue_files = project
         .virtual_files_sorted()
@@ -118,7 +117,7 @@ pub(super) fn auto_server_count(project: &VirtualProject) -> usize {
     let threads = std::thread::available_parallelism()
         .map(std::num::NonZero::get)
         .unwrap_or(1);
-    threads.div_ceil(4).min(4).min(vue_files / 64).clamp(1, 8)
+    shard_count(threads, checker_count(), vue_files)
 }
 
 struct ShardPlan<'a> {
