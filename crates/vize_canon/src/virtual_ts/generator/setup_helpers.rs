@@ -7,25 +7,55 @@
 //! setup scopes.
 
 use vize_carton::{String, append};
+use vize_relief::RootNode;
 
 use crate::virtual_ts::helpers::{VUE_SETUP_HELPERS, VUE_SETUP_HELPERS_HOISTED};
 
 mod boolean_keys;
+mod template_ref_registry;
 
 use boolean_keys::{DefinePropsBooleanKeys, collect_define_props_boolean_keys};
+use template_ref_registry::template_ref_registry;
 
 pub(super) fn emit_setup_helpers(
     ts: &mut String,
     script_content: Option<&str>,
     generic_param: Option<&str>,
     hoist_shared_preamble: bool,
+    template_ast: Option<&RootNode<'_>>,
 ) {
+    // Static `ref="name"` attributes on plain elements, keyed for
+    // `useTemplateRef` (#3896): the registry exists only to retype this
+    // scope's shim, so it is collected here rather than by the caller.
+    let registry = template_ref_registry(script_content, template_ast);
+    let template_refs = registry.as_deref();
+    if let Some(registry) = template_refs {
+        // `NativeElements` maps tags to their *props* for template checking;
+        // a template ref holds the mounted DOM node, so the registry resolves
+        // through the DOM tag-name maps instead (#3896).
+        //
+        // `_Svg` selects the map, and neither branch falls back to the other.
+        // The two overlap on `a`, `script`, `style` and `title`, so an
+        // HTML-first lookup would pin `<svg><a ref="link" /></svg>` to
+        // `HTMLAnchorElement`, whose `href` is a `string` where `SVGAElement`
+        // has an `SVGAnimatedString`; symmetrically, an SVG-map fallback in the
+        // HTML branch would hand an element the parser placed in the HTML
+        // namespace an SVG interface it cannot have (a custom renderer forces
+        // HTML even for SVG tag names). A tag missing from its own map stops at
+        // `Element`, which is what a custom element resolves to.
+        append!(
+            *ts,
+            "  type __VizeDomElement<_Tag extends string, _Svg extends boolean = false> = _Svg extends true ? (_Tag extends keyof SVGElementTagNameMap ? SVGElementTagNameMap[_Tag] : Element) : (_Tag extends keyof HTMLElementTagNameMap ? HTMLElementTagNameMap[_Tag] : Element);\n  type __VizeTemplateRefs = {{{registry}}};\n  type __VizeUseTemplateRef = {{ <_K extends string>(_key: _K): Readonly<import('vue').ShallowRef<(_K extends keyof __VizeTemplateRefs ? __VizeTemplateRefs[_K] : any) | null>>; <_T>(_key: string): Readonly<import('vue').ShallowRef<_T | null>>; }};\n"
+        );
+    }
+    let shims_start = ts.len();
     if generic_param.is_none() {
         ts.push_str(if hoist_shared_preamble {
             VUE_SETUP_HELPERS_HOISTED
         } else {
             VUE_SETUP_HELPERS
         });
+        retype_use_template_ref(ts, shims_start, template_refs);
         return;
     }
 
@@ -35,14 +65,38 @@ pub(super) fn emit_setup_helpers(
         } else {
             VUE_SETUP_HELPERS
         });
+        retype_use_template_ref(ts, shims_start, template_refs);
         return;
     };
     emit_define_props_boolean_keys_type(ts, &boolean_keys);
+    let shims_start = ts.len();
     if hoist_shared_preamble {
         emit_hoisted_setup_helpers(ts);
     } else {
         emit_embedded_setup_helpers(ts);
     }
+    retype_use_template_ref(ts, shims_start, template_refs);
+}
+
+/// Swap the untyped `useTemplateRef` shim for one keyed by the template's
+/// static ref registry (#3896). A keyed call resolves the registered element
+/// (making `.value` `| null`-checked exactly like vue-tsc); an unregistered
+/// key stays `any`, and an explicit type argument keeps the second call
+/// signature. When no registry exists, the shims are left untouched.
+fn retype_use_template_ref(ts: &mut String, shims_start: usize, template_refs: Option<&str>) {
+    if template_refs.is_none() {
+        return;
+    }
+    const ALIAS_SHIM: &str = "  const useTemplateRef = __vize_useTemplateRef;";
+    const ALIAS_TYPED: &str =
+        "  const useTemplateRef = __vize_useTemplateRef as unknown as __VizeUseTemplateRef;";
+    const EMBEDDED_SHIM: &str = "  function useTemplateRef<_T = any>(_key: string): __ShallowRef<_T | null> { void _key; return undefined as unknown as __ShallowRef<_T | null>; }";
+    const EMBEDDED_TYPED: &str = "  const useTemplateRef = (undefined as unknown as __VizeUseTemplateRef); void ((_key: string) => useTemplateRef(_key));";
+    let tail = ts[shims_start..]
+        .replace(ALIAS_SHIM, ALIAS_TYPED)
+        .replace(EMBEDDED_SHIM, EMBEDDED_TYPED);
+    ts.truncate(shims_start);
+    ts.push_str(&tail);
 }
 
 fn emit_define_props_boolean_keys_type(ts: &mut String, collection: &DefinePropsBooleanKeys) {
