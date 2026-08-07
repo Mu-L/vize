@@ -1,3 +1,4 @@
+mod checkers_support;
 use super::{is_cli_diagnostic_line, is_global_diagnostic_line, parse_cli_diagnostics};
 use crate::batch::VirtualProject;
 use crate::batch::executor::diagnostics::DiagnosticMapper;
