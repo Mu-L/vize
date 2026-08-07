@@ -159,3 +159,99 @@ fn a_type_only_import_keeps_the_checker_answer() {
         Some("```typescript\nimport Widget\n```")
     );
 }
+
+#[test]
+fn a_marker_less_imported_tag_hover_rewrites_var_to_property() {
+    let script = "import { Primitive } from '@/Primitive'\nconst n = 1\n";
+    let content = "<script setup lang=\"ts\">\nimport { Primitive } from '@/Primitive'\nconst n = 1\n</script>\n<template>\n  <Primitive as=\"button\" />\n  {{ Primitive }}\n</template>\n";
+    let hover = "```typescript\nvar Primitive: DefineComponent<{ as: string }>\n```";
+    let on_tag = content.find("<Primitive").unwrap() + 4;
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            hover,
+            content,
+            on_tag,
+            script,
+            Some("ts"),
+            "Primitive"
+        )
+        .as_deref(),
+        Some("```typescript\n(property) Primitive: DefineComponent<{ as: string }>\n```"),
+    );
+
+    // The same identifier in an interpolation keeps the checker's answer.
+    let in_expression = content.find("{{ Primitive").unwrap() + 5;
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            hover,
+            content,
+            in_expression,
+            script,
+            Some("ts"),
+            "Primitive"
+        ),
+        None,
+    );
+
+    // Not import-bound: keep the checker's answer.
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            hover,
+            content,
+            on_tag,
+            "const x = 1\n",
+            Some("ts"),
+            "Primitive"
+        ),
+        None,
+    );
+
+    // A type-only import never backs a runtime tag.
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            hover,
+            content,
+            on_tag,
+            "import type { Primitive } from '@/Primitive'\n",
+            Some("ts"),
+            "Primitive"
+        ),
+        None,
+    );
+}
+
+#[test]
+fn a_non_ascii_imported_tag_name_still_rewrites_var_to_property() {
+    let script = "import { ÅButton } from '@/ÅButton'\n";
+    let content = "<script setup lang=\"ts\">\nimport { ÅButton } from '@/ÅButton'\n</script>\n<template>\n  <ÅButton as=\"button\" />\n</template>\n";
+    let hover = "```typescript\nvar ÅButton: DefineComponent<{ as: string }>\n```";
+    // Land inside the name past the two-byte leading letter.
+    let on_tag = content.find("<ÅButton").unwrap() + "<Å".len() + 1;
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            hover,
+            content,
+            on_tag,
+            script,
+            Some("ts"),
+            "ÅButton"
+        )
+        .as_deref(),
+        Some("```typescript\n(property) ÅButton: DefineComponent<{ as: string }>\n```"),
+    );
+
+    // A non-ASCII letter directly after the word means the quick info names a
+    // longer identifier — decline rather than rewrite someone else's keyword.
+    let longer = "```typescript\nvar ÅButtonÅ: DefineComponent<{ as: string }>\n```";
+    assert_eq!(
+        super::imported_tag::imported_tag_property_keyword(
+            longer,
+            content,
+            on_tag,
+            script,
+            Some("ts"),
+            "ÅButton"
+        ),
+        None,
+    );
+}
