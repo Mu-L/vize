@@ -399,6 +399,14 @@ fn parse_src_candidate(code: &str, cursor: usize) -> Option<SrcCandidate> {
     let bytes = code.as_bytes();
     let key_end =
         if bytes.get(cursor) == Some(&b's') && bytes.get(cursor..cursor + 3) == Some(&b"src"[..]) {
+            // A bare `src` key must start at an identifier boundary, or the
+            // tail of `data_src`/`lazysrc` props would be rewritten too. Any
+            // non-ASCII byte is part of a multi-byte character that may itself
+            // be an identifier tail (`ésrc`), so reject it as well.
+            let preceding = cursor.checked_sub(1).map(|index| bytes[index]);
+            if preceding.is_some_and(|byte| !byte.is_ascii() || is_define_tail_byte(byte)) {
+                return None;
+            }
             cursor + 3
         } else if bytes.get(cursor) == Some(&b'"')
             && bytes.get(cursor + 1..cursor + 4) == Some(&b"src"[..])
@@ -421,10 +429,40 @@ fn parse_src_candidate(code: &str, cursor: usize) -> Option<SrcCandidate> {
 
     let value_start = quote_index + 1;
     let mut value_end = value_start;
-    while value_end < bytes.len() && bytes[value_end] != quote {
-        value_end += 1;
+    let mut has_escape = false;
+    while value_end < bytes.len() {
+        if bytes[value_end] == b'\\' {
+            // A backslash escapes the next byte, so an escaped quote does not
+            // terminate the literal (`src: '/images/a\', b.jpg'`).
+            has_escape = true;
+            value_end += 2;
+        } else if bytes[value_end] == quote {
+            break;
+        } else {
+            value_end += 1;
+        }
     }
-    (value_end < bytes.len()).then_some(SrcCandidate {
+    if value_end >= bytes.len() {
+        return None;
+    }
+    // An escaped literal is not a plain path: its raw slice would be emitted as
+    // an import specifier with the backslash still in it.
+    if has_escape {
+        return None;
+    }
+    // Only a fully static value may become an import. A bound expression like
+    // `:src="'/images/x-' + suffix"` compiles to a concatenation whose FIRST
+    // string literal would otherwise be hoisted as half a filename (#3945);
+    // the literal is the whole value only when the property ends right after
+    // its closing quote.
+    let after_value = skip_ascii_ws(bytes, value_end + 1);
+    if !matches!(
+        after_value.map(|index| bytes[index]),
+        None | Some(b',') | Some(b'}') | Some(b')')
+    ) {
+        return None;
+    }
+    Some(SrcCandidate {
         prefix_start: cursor,
         value_prefix_end: quote_index,
         value_start,
@@ -553,94 +591,4 @@ fn is_define_tail_byte(byte: u8) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rewrites_static_asset_src_values() {
-        let rules = [DynamicImportAliasRule {
-            from_prefix: "@/".into(),
-            to_prefix: "/src/".into(),
-        }];
-        let code = r#"const node = { src: "@/assets/logo.svg", other: true };"#;
-
-        insta::assert_snapshot!(rewrite_static_asset_urls(code, &rules), @r###"
-        import __vize_static_0 from "@/assets/logo.svg";
-        const node = { src: __vize_static_0, other: true };
-        "###);
-    }
-
-    #[test]
-    fn skips_script_asset_src_values() {
-        let rules = [DynamicImportAliasRule {
-            from_prefix: "@/".into(),
-            to_prefix: "/src/".into(),
-        }];
-        let code = r#"const node = { src: "@/entry.ts" };"#;
-
-        assert_eq!(rewrite_static_asset_urls(code, &rules), code);
-    }
-
-    #[test]
-    fn rewrites_dynamic_template_imports() {
-        let rules = [DynamicImportAliasRule {
-            from_prefix: "@/".into(),
-            to_prefix: "/src/".into(),
-        }];
-        let code = "const image = import(`@/assets/${name}.svg`);";
-
-        assert_eq!(
-            rewrite_dynamic_template_imports(code, &rules).as_str(),
-            "const image = import(/* @vite-ignore */ `/src/assets/${name}.svg`);"
-        );
-    }
-
-    #[test]
-    fn rewrites_import_meta_glob_relative_patterns() {
-        let code = r#"const modules = import.meta.glob("./demos/*.vue", { eager: true });"#;
-
-        assert_eq!(
-            rewrite_import_meta_glob_base(code, "/project/src/App.vue", "/project").as_str(),
-            r#"const modules = import.meta.glob("/src/demos/*.vue", { eager: true });"#
-        );
-    }
-
-    #[test]
-    fn rewrites_import_meta_glob_array_and_negated_patterns() {
-        let code = r#"const modules = import.meta.glob<{ default: unknown }>(["./demos/*.vue", "!../legacy/*.vue", "/src/stable/*.vue"]);"#;
-
-        assert_eq!(
-            rewrite_import_meta_glob_base(code, "/project/src/App.vue", "/project").as_str(),
-            r#"const modules = import.meta.glob<{ default: unknown }>(["/src/demos/*.vue", "!/legacy/*.vue", "/src/stable/*.vue"]);"#
-        );
-    }
-
-    #[test]
-    fn skips_non_calls_and_non_relative_import_meta_globs() {
-        let code = r#"const text = "import.meta.glob('./demos/*.vue')"; const modules = import.meta.glob("/src/demos/*.vue");"#;
-
-        assert_eq!(
-            rewrite_import_meta_glob_base(code, "/project/src/App.vue", "/project").as_str(),
-            code
-        );
-    }
-
-    #[test]
-    fn applies_define_replacements_longest_first() {
-        let defines = [
-            DefineReplacement {
-                key: "import.meta.env".into(),
-                value: "{}".into(),
-            },
-            DefineReplacement {
-                key: "import.meta.env.MODE".into(),
-                value: "\"test\"".into(),
-            },
-        ];
-
-        assert_eq!(
-            apply_define_replacements("const mode = import.meta.env.MODE;", &defines).as_str(),
-            "const mode = \"test\";"
-        );
-    }
-}
+mod tests;
