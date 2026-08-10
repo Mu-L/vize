@@ -103,6 +103,22 @@ fn a_self_closing_v_pre_element_opens_no_region() {
 }
 
 #[test]
+fn self_closing_named_raw_elements_open_no_region() {
+    for tag in ["pre", "textarea", "listing"] {
+        let source = format!("<{tag} />\n<div>\n  y\n</div>");
+        assert_eq!(mask(&source), [false, false, false, false], "{tag}");
+    }
+}
+
+#[test]
+fn pascal_case_raw_names_open_no_native_raw_region() {
+    for tag in ["Pre", "Textarea", "Listing"] {
+        let source = format!("<{tag}>\n  value\n</{tag}>\n<span>y</span>");
+        assert_eq!(mask(&source), [false, false, false, false], "{tag}");
+    }
+}
+
+#[test]
 fn a_v_pre_look_alike_attribute_opens_no_region() {
     let source = "<div data-v-pre>\n  a\n</div>";
     assert_eq!(mask(source), [false, false, false]);

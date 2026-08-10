@@ -5,6 +5,7 @@
 
 use super::TemplateFormatter;
 use crate::template::{
+    WHITESPACE_SIGNIFICANT_NATIVE_ELEMENTS,
     attributes::ParsedAttribute,
     helpers::{find_bytes, is_void_element_str},
 };
@@ -53,11 +54,14 @@ impl TemplateFormatter<'_> {
 }
 
 /// Returns true if the element's content must be preserved byte-for-byte:
-/// `<pre>`, `<textarea>`, or any element with the `v-pre` directive.
+/// `<pre>`, `<textarea>`, `<listing>`, or any element with the `v-pre`
+/// directive.
 /// Whitespace and interpolations inside these regions are rendered as-is
 /// at runtime, so the formatter must not touch them. (#963)
 pub(super) fn is_whitespace_significant_element(tag_name: &str, attrs: &[ParsedAttribute]) -> bool {
-    if tag_name.eq_ignore_ascii_case("pre") || tag_name.eq_ignore_ascii_case("textarea") {
+    // Vue resolves tags containing uppercase ASCII as components. Only the
+    // lowercase native spelling owns HTML whitespace-significant semantics.
+    if WHITESPACE_SIGNIFICANT_NATIVE_ELEMENTS.contains(&tag_name) {
         return true;
     }
     attrs
