@@ -24,6 +24,10 @@ import { createRequire } from "node:module";
 
 import { expressionSignature } from "./babel-expression-signature.ts";
 import type { ExpressionNode } from "./babel-expression-signature.ts";
+import { compareBlocks, condense, parseErrorSignatures } from "./sfc-equivalence/blocks.ts";
+import type { SfcDescriptor, TemplateNode, TemplateProp } from "./sfc-equivalence/blocks.ts";
+
+export type { TemplateNode } from "./sfc-equivalence/blocks.ts";
 
 const require = createRequire(import.meta.url);
 // Resolved from tests/node_modules (pinned devDependency of @vize/tests).
@@ -37,37 +41,6 @@ const { parse } = require("@vue/compiler-sfc") as {
   };
 };
 
-type SfcBlock = {
-  type: string;
-  lang?: string;
-  attrs: Record<string, string | true>;
-  content: string;
-};
-type SfcDescriptor = {
-  template: (SfcBlock & { ast?: TemplateNode }) | null;
-  script: SfcBlock | null;
-  scriptSetup: SfcBlock | null;
-  styles: SfcBlock[];
-  customBlocks: SfcBlock[];
-};
-type TemplateNode = {
-  type: number;
-  tag?: string;
-  ns?: number;
-  tagType?: number;
-  props?: TemplateProp[];
-  children?: TemplateNode[];
-  content?: string | { content: string };
-};
-type TemplateProp = {
-  type: number;
-  name: string;
-  value?: { content: string } | null;
-  arg?: ExpressionNode | null;
-  exp?: ExpressionNode | null;
-  modifiers?: Array<{ content: string }>;
-};
-
 /** Compare original and formatted SFC sources; returns human-readable diffs. */
 export function compareSfcEquivalence(
   original: string,
@@ -78,12 +51,8 @@ export function compareSfcEquivalence(
   const after = parse(formatted, { filename, sourceMap: false });
   const differences: string[] = [];
 
-  const beforeErrors = before.errors
-    .map((error) => String(error.code ?? error.message))
-    .sort((left, right) => left.localeCompare(right));
-  const afterErrors = after.errors
-    .map((error) => String(error.code ?? error.message))
-    .sort((left, right) => left.localeCompare(right));
+  const beforeErrors = parseErrorSignatures(before.errors);
+  const afterErrors = parseErrorSignatures(after.errors);
   if (JSON.stringify(beforeErrors) !== JSON.stringify(afterErrors)) {
     differences.push(
       `parse errors changed: [${beforeErrors.join(", ")}] -> [${afterErrors.join(", ")}]`,
@@ -100,88 +69,37 @@ export function compareSfcEquivalence(
   return differences;
 }
 
-function compareBlocks(before: SfcDescriptor, after: SfcDescriptor, differences: string[]): void {
-  for (const kind of ["template", "script", "scriptSetup"] as const) {
-    const beforeBlock = before[kind];
-    const afterBlock = after[kind];
-    if ((beforeBlock == null) !== (afterBlock == null)) {
-      differences.push(`${kind} block ${beforeBlock == null ? "appeared" : "disappeared"}`);
-    } else if (beforeBlock != null && afterBlock != null) {
-      compareAttrs(kind, beforeBlock, afterBlock, differences);
-    }
+/** Compare only the SFC envelope; a non-HTML language owns its template AST. */
+export function compareSfcBlockStructure(
+  original: string,
+  formatted: string,
+  filename: string,
+): string[] {
+  const before = parse(original, { filename, sourceMap: false });
+  const after = parse(formatted, { filename, sourceMap: false });
+  const differences: string[] = [];
+  const beforeErrors = parseErrorSignatures(before.errors);
+  const afterErrors = parseErrorSignatures(after.errors);
+  if (JSON.stringify(beforeErrors) !== JSON.stringify(afterErrors)) {
+    differences.push(
+      `parse errors changed: [${beforeErrors.join(", ")}] -> [${afterErrors.join(", ")}]`,
+    );
+    return differences;
   }
-  for (const kind of ["styles", "customBlocks"] as const) {
-    const beforeBlocks = before[kind];
-    const afterBlocks = after[kind];
-    if (beforeBlocks.length !== afterBlocks.length) {
-      differences.push(`${kind} count changed: ${beforeBlocks.length} -> ${afterBlocks.length}`);
-      continue;
-    }
-    const signature = (block: SfcBlock): string =>
-      JSON.stringify([
-        block.type,
-        semanticAttrEntries(kind === "styles" ? "style" : "customBlock", block),
-        kind === "customBlocks" ? condense(block.content) : null,
-      ]);
-    const beforeSignatures = beforeBlocks.map(signature).sort();
-    const afterSignatures = afterBlocks.map(signature).sort();
-    for (let index = 0; index < beforeSignatures.length; index += 1) {
-      if (beforeSignatures[index] !== afterSignatures[index]) {
-        differences.push(
-          `${kind} changed: ${beforeSignatures[index]} -> ${afterSignatures[index]}`,
-        );
-        break;
-      }
-    }
-  }
+  compareBlocks(before.descriptor, after.descriptor, differences);
+  return differences;
 }
 
-function compareAttrs(
-  label: "template" | "script" | "scriptSetup",
-  before: SfcBlock,
-  after: SfcBlock,
-  differences: string[],
-): void {
-  const beforeEntries = JSON.stringify(semanticAttrEntries(label, before));
-  const afterEntries = JSON.stringify(semanticAttrEntries(label, after));
-  if (beforeEntries !== afterEntries) {
-    differences.push(`${label} block attrs changed: ${beforeEntries} -> ${afterEntries}`);
-  }
+/** Compare template ASTs already produced by one pinned compiler baseline. */
+export function compareTemplateAstEquivalence(before: TemplateNode, after: TemplateNode): string[] {
+  const differences: string[] = [];
+  compareChildren(before, after, "template", false, differences);
+  return differences;
 }
 
-// These are the attributes compiler-sfc itself consumes by presence: each
-// parser branch coerces the raw value to truthiness or assigns a descriptor
-// slot/boolean. Keep this block-kind table closed so module, lang, src,
-// generic, and custom attributes remain value-sensitive.
-const compilerPresenceAttrs = {
-  template: ["functional", "vapor"],
-  script: [],
-  scriptSetup: ["setup", "vapor"],
-  style: ["scoped"],
-  customBlock: [],
-} as const;
-
-function semanticAttrEntries(
-  kind: keyof typeof compilerPresenceAttrs,
-  block: SfcBlock,
-): Array<[string, string | true]> {
-  const presenceAttrs = compilerPresenceAttrs[kind];
-  if (
-    !presenceAttrs.some(
-      (attribute) => Object.hasOwn(block.attrs, attribute) && block.attrs[attribute] !== true,
-    )
-  ) {
-    return sortedAttrEntries(block.attrs);
-  }
-  const attrs = { ...block.attrs };
-  for (const attribute of presenceAttrs) {
-    if (Object.hasOwn(attrs, attribute)) attrs[attribute] = true;
-  }
-  return sortedAttrEntries(attrs);
-}
-
-function sortedAttrEntries(attrs: Record<string, string | true>): Array<[string, string | true]> {
-  return Object.entries(attrs).sort(([left], [right]) => left.localeCompare(right));
+/** Stable semantic signature used only for evidence hashes, never source maps. */
+export function templateAstSemanticSignature(root: TemplateNode): string {
+  return JSON.stringify(semanticTree(root, false));
 }
 
 const ELEMENT = 1;
@@ -268,6 +186,16 @@ function summarizeNode(node: TemplateNode, preserveWhitespace: boolean): string 
   return JSON.stringify(["node", node.type]);
 }
 
+function semanticTree(node: TemplateNode, preserveWhitespace: boolean): unknown {
+  const children = normalizedChildren(node, preserveWhitespace).map(({ node: child, summary }) => [
+    summary,
+    child.type === ELEMENT
+      ? semanticTree(child, preserveWhitespace || isWhitespacePreservingTag(child.tag))
+      : null,
+  ]);
+  return children;
+}
+
 /**
  * Group props into segments split at no-arg v-bind / v-on spreads. Segments
  * are compared as sorted multisets (glyph sorts attributes by default) while
@@ -316,8 +244,4 @@ function describeNode(child: NormalizedChild | undefined): string {
 
 function isWhitespacePreservingTag(tag: string | undefined): boolean {
   return tag === "pre" || tag === "textarea" || tag === "listing";
-}
-
-function condense(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
 }

@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -255,6 +256,50 @@ export function loadKnownViolationLedger() {
 /** Load the checked-in waiver ledger entries for one corpus property. */
 export function loadKnownViolations(property) {
   return loadKnownViolationLedger().filter((entry) => entry.property === property);
+}
+
+/** Publish per-file Pug semantic-oracle provenance for a hydrated matrix shard. */
+export function writeGlyphPugSemanticEvidence(
+  { projectIds, baseline, files },
+  reportDir = process.env.FIXTURE_REPORT_DIR,
+) {
+  if (reportDir == null || reportDir === "") return null;
+  // Code-point ordering, not localeCompare: the artifact must be byte-identical
+  // across runners regardless of the host's ICU locale data.
+  const byCodePoint = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+  const sortedFiles = [...files].sort(
+    (left, right) => byCodePoint(left.project, right.project) || byCodePoint(left.path, right.path),
+  );
+  const identities = new Set();
+  for (const file of sortedFiles) {
+    const identity = `${file.project}\0${file.path}`;
+    if (identities.has(identity)) throw new Error(`duplicate Pug oracle evidence: ${identity}`);
+    identities.add(identity);
+  }
+  const artifact = {
+    schema: "vize.glyphPugSemanticEvidence",
+    version: 1,
+    sourceCommit: process.env.GITHUB_SHA ?? null,
+    projectIds: [...projectIds].sort(byCodePoint),
+    baseline,
+    // Enforced regressions, unusable baselines, and accepted waivers are three
+    // distinct outcomes; collapsing them would hide why a shard is not clean.
+    summary: {
+      evaluatedPugFileCount: sortedFiles.length,
+      cleanFileCount: sortedFiles.filter((file) => file.verdict === "clean" && !file.waived).length,
+      violationCount: sortedFiles.filter((file) => file.verdict === "violation" && !file.waived)
+        .length,
+      baselineUnusableCount: sortedFiles.filter(
+        (file) => file.verdict === "baseline-unusable" && !file.waived,
+      ).length,
+      waivedCount: sortedFiles.filter((file) => file.waived === true).length,
+    },
+    files: sortedFiles,
+  };
+  const output = resolve(reportDir, "glyph-pug-semantics.json");
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`);
+  return output;
 }
 
 /** Track exact waiver consumption so a fixed path makes its old waiver fail. */

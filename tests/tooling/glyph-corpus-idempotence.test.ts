@@ -34,6 +34,7 @@ type CorpusProject = {
 
 type Violation = { project: string; file: string; detail: string };
 
+const indentedPug = "\n    main\n      //- keep\n      | pipe  text\n      pre.\n        a  b\n";
 const property = "idempotence";
 const projects = loadGlyphCorpusProjects() as CorpusProject[];
 const knownViolations = loadKnownViolations(property);
@@ -141,16 +142,19 @@ test("glyph corpus idempotence machinery accepts the real formatter", () => {
   const project = makeSyntheticProject([
     ["src/App.vue", '<template>\n  <div   :class="foo">hi</div>\n</template>\n'],
     ["src/Card.vue", "<script setup>\nconst x=1\n</script>\n"],
+    ["src/Pug.vue", '<template lang="pug">\nmain\n  //- keep\n  | pipe  text\n</template>\n'],
+    // A non-canonical outer indent must rebase to a fixed point, or pass two moves bytes.
+    ["src/PugIndented.vue", `<template lang="pug">${indentedPug}</template>\n`],
   ]);
   try {
     const launch = resolveGlyphLaunch();
     const files = collectProjectVueFiles(project) as string[];
-    assert.deepEqual(files, ["src/App.vue", "src/Card.vue"]);
+    assert.deepEqual(files, ["src/App.vue", "src/Card.vue", "src/Pug.vue", "src/PugIndented.vue"]);
     const violations: Violation[] = [];
     const counters = { files: 0, skipped: 0 };
     sweepProject(project, launch, violations, counters);
     assert.deepEqual(violations, []);
-    assert.equal(counters.files, 2);
+    assert.equal(counters.files, 4);
   } finally {
     fs.rmSync(project.fixtureDir, { recursive: true, force: true });
   }

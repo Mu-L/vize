@@ -5,13 +5,13 @@
 mod block_indent;
 mod custom_block;
 mod raw_mask;
+mod template_block;
 mod template_indent;
 
 use crate::error::FormatError;
 use crate::options::FormatOptions;
 use crate::script;
 use crate::style;
-use crate::template;
 use std::borrow::Cow;
 use vize_atelier_sfc::{SfcParseOptions, parse_sfc};
 use vize_carton::{Allocator, FxHashMap, String, ToCompactString};
@@ -236,37 +236,7 @@ impl<'a> GlyphFormatter<'a> {
         output: &mut Vec<u8>,
         block: &vize_atelier_sfc::SfcTemplateBlock<'_>,
     ) -> Result<(), FormatError> {
-        let formatted_content = template::format_template_content(&block.content, self.options)?;
-
-        // Build the opening tag
-        output.extend_from_slice(b"<template");
-        if let Some(lang) = &block.lang {
-            write_attr(output, "lang", Some(lang));
-        }
-        write_remaining_attrs(output, &block.attrs, &["lang"]);
-        output.push(b'>');
-        output.extend_from_slice(self.options.newline_bytes());
-
-        // Template content is always indented by one level from the template
-        // tag — except inside whitespace-significant regions (`<pre>`,
-        // `<textarea>`, `v-pre`) where the inner content must round-trip
-        // byte-for-byte. The inner template formatter already preserves
-        // those regions verbatim; here we make sure the SFC layer doesn't
-        // re-indent each of their inner lines on top. (#963)
-        let indent = self.options.indent_bytes();
-        let trimmed = formatted_content
-            .trim_end_matches('\n')
-            .trim_end_matches('\r');
-        template_indent::write_indented_template(
-            output,
-            trimmed,
-            indent,
-            self.options.newline_bytes(),
-        );
-
-        output.extend_from_slice(b"</template>");
-
-        Ok(())
+        template_block::write_template_block(output, block, self.options)
     }
 
     /// Format a style block using lightningcss for CSS

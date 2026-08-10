@@ -4,128 +4,68 @@
 // multiset with attrs, and template AST shape modulo whitespace-only
 // differences (exact inside <pre>-like elements). See
 // tests/tooling/support/sfc-equivalence.ts for the strength/normalization
-// decisions. Absent fixtures are skipped; the weekly Real Project Matrix
-// hydrates the full registry shard by shard.
+// decisions, and tests/tooling/support/glyph-corpus-sweep.ts for the sweep
+// machinery. The Pug semantic oracle has its own unit coverage in
+// tests/tooling/glyph-pug-oracle.test.ts. Absent fixtures are skipped; the
+// weekly Real Project Matrix hydrates the full registry shard by shard.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { test } from "node:test";
 
 import {
-  collectProjectVueFiles,
   createKnownViolationConsumption,
   loadGlyphCorpusProjects,
   loadKnownViolations,
   renderViolations,
   resolveGlyphLaunch,
-  withFormattedWorkspace,
+  writeGlyphPugSemanticEvidence,
   writeGlyphCorpusPropertyEvidence,
 } from "../../tools/fixtures/glyph-corpus.mjs";
-import { compareSfcEquivalence } from "./support/sfc-equivalence.ts";
-
-type CorpusProject = {
-  id: string;
-  fixtureDir: string;
-  hydrated: boolean;
-  vueGlobs: string[];
-};
-
-type Violation = { project: string; file: string; detail: string };
+import {
+  compareFile,
+  makeSyntheticProject,
+  sweepProject,
+  violationCategory,
+} from "./support/glyph-corpus-sweep.ts";
+import type { CorpusProject, PugEvidence, Violation } from "./support/glyph-corpus-sweep.ts";
+import { PUG_ORACLE_BASELINE } from "./support/pug-template-equivalence.ts";
 
 const property = "parse-preservation";
 const projects = loadGlyphCorpusProjects() as CorpusProject[];
 const knownViolations = loadKnownViolations(property);
 const waiverConsumption = createKnownViolationConsumption(knownViolations);
 
-function violationCategory(
-  original: string,
-  differences: string[],
-): "semantic-diff" | "baseline-unusable" | "oracle-unavailable" {
-  if (/<template(?=[\s>])[^>]*\blang\s*=\s*(["'])pug\1/i.test(original)) {
-    return "oracle-unavailable";
-  }
-  if (differences.some((difference) => difference.startsWith("comparison failed:"))) {
-    return "baseline-unusable";
-  }
-  return "semantic-diff";
-}
-
-test("glyph corpus classifies unavailable and crashed reference oracles precisely", () => {
-  assert.equal(
-    violationCategory('<template lang="pug">\ndiv hi\n</template>\n', ["different"]),
-    "oracle-unavailable",
-  );
-  assert.equal(
-    violationCategory("<template><p /></template>\n", ["comparison failed: parser crashed"]),
-    "baseline-unusable",
-  );
-  assert.equal(
-    violationCategory("<template><p /></template>\n", ["block disappeared"]),
-    "semantic-diff",
-  );
+test("glyph corpus classifies crashed reference oracles precisely", () => {
+  assert.equal(violationCategory(["comparison failed: parser crashed"]), "baseline-unusable");
+  assert.equal(violationCategory(["block disappeared"]), "semantic-diff");
 });
-
-function compareFile(original: string, formatted: string, filename: string): string[] {
-  try {
-    return compareSfcEquivalence(original, formatted, filename);
-  } catch (error) {
-    return [`comparison failed: ${error instanceof Error ? error.message : String(error)}`];
-  }
-}
-
-function sweepProject(
-  project: CorpusProject,
-  launch: { command: string; prefix: string[] },
-  violations: Violation[],
-  counters: { files: number; skipped: number },
-  waivedViolations: Array<Violation & { waiver: object }> = [],
-): void {
-  const files = collectProjectVueFiles(project) as string[];
-  if (files.length === 0) return;
-  withFormattedWorkspace(project, files, launch, (workspace: { workspaceDir: string }) => {
-    for (const file of files) {
-      const original = fs.readFileSync(path.join(project.fixtureDir, file), "utf8");
-      const formatted = fs.readFileSync(path.join(workspace.workspaceDir, file), "utf8");
-      const differences = compareFile(original, formatted, path.basename(file));
-      if (differences.length === 0) {
-        counters.files += 1;
-        continue;
-      }
-      const detail = differences.map((difference) => `  ${difference}`).join("\n");
-      const waiver = waiverConsumption.consume(
-        project.id,
-        file,
-        null,
-        violationCategory(original, differences),
-      );
-      if (waiver) {
-        waivedViolations.push({ project: project.id, file, detail, waiver });
-        counters.skipped += 1;
-        continue;
-      }
-      violations.push({
-        project: project.id,
-        file,
-        detail,
-      });
-    }
-  });
-}
 
 test("glyph corpus parse-preservation holds for every hydrated fixture", () => {
   const hydrated = projects.filter((project) => project.hydrated);
   if (hydrated.length === 0) {
-    // Per-PR lanes run without hydrated fixtures; the machinery subtests below
-    // still exercise the property end-to-end on synthetic projects.
+    // Per-PR lanes run without hydrated fixtures. Still publish a valid empty
+    // Pug artifact so the workflow can distinguish an empty shard from a
+    // missing or crashed oracle.
+    writeGlyphPugSemanticEvidence({
+      projectIds: [],
+      baseline: PUG_ORACLE_BASELINE,
+      files: [],
+    });
     return;
   }
   const launch = resolveGlyphLaunch();
   const violations: Violation[] = [];
   const waivedViolations: Array<Violation & { waiver: object }> = [];
+  const pugEvidence: PugEvidence[] = [];
   const counters = { files: 0, skipped: 0 };
   for (const project of hydrated) {
-    sweepProject(project, launch, violations, counters, waivedViolations);
+    sweepProject(project, launch, {
+      waiverConsumption,
+      violations,
+      counters,
+      waivedViolations,
+      pugEvidence,
+    });
   }
   let waiverValidationError: string | null = null;
   try {
@@ -139,6 +79,11 @@ test("glyph corpus parse-preservation holds for every hydrated fixture", () => {
     violations,
     waivedViolations,
     waiverValidationError,
+  });
+  writeGlyphPugSemanticEvidence({
+    projectIds: hydrated.map((project) => project.id),
+    baseline: PUG_ORACLE_BASELINE,
+    files: pugEvidence,
   });
   assert.equal(waiverValidationError, null, waiverValidationError ?? undefined);
   process.stderr.write(
@@ -166,7 +111,7 @@ test("glyph corpus parse-preservation machinery accepts the real formatter", () 
   try {
     const violations: Violation[] = [];
     const counters = { files: 0, skipped: 0 };
-    sweepProject(project, resolveGlyphLaunch(), violations, counters);
+    sweepProject(project, resolveGlyphLaunch(), { waiverConsumption, violations, counters });
     assert.deepEqual(violations, []);
     assert.equal(counters.files, 1);
   } finally {
@@ -318,17 +263,3 @@ test("glyph corpus normalizes only compiler-defined presence attributes", () => 
     assert.notDeepEqual(compareFile(before, after, "App.vue"), []);
   }
 });
-
-function makeSyntheticProject(files: Array<[string, string]>): CorpusProject {
-  const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-glyph-corpus-"));
-  for (const [file, content] of files) {
-    fs.mkdirSync(path.dirname(path.join(fixtureDir, file)), { recursive: true });
-    fs.writeFileSync(path.join(fixtureDir, file), content);
-  }
-  return {
-    id: "synthetic-parse-preservation",
-    fixtureDir,
-    hydrated: true,
-    vueGlobs: ["src/**/*.vue"],
-  };
-}

@@ -9,6 +9,7 @@ import {
   auditKnownViolationIssues,
   createKnownViolationConsumption,
   validateKnownViolationEntries,
+  writeGlyphPugSemanticEvidence,
   writeGlyphCorpusPropertyEvidence,
 } from "../../tools/fixtures/glyph-corpus.mjs";
 import { createWaiverIssueAudit } from "../../tools/fixtures/glyph-corpus-waiver-audit.mjs";
@@ -234,6 +235,115 @@ test("formatter property artifacts retain waived and unwaived difference details
     });
     assert.equal(artifact.waivedDifferences[0].detail, "full comparator evidence");
     assert.equal(artifact.violations[0].detail, "block changed");
+  } finally {
+    fs.rmSync(reportDir, { recursive: true, force: true });
+  }
+});
+
+test("Pug semantic artifacts preserve fixed-baseline provenance and exact file identity", () => {
+  const reportDir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-pug-evidence-"));
+  const file = {
+    project: "fixture-a",
+    path: "src/App.vue",
+    verdict: "clean",
+    waived: false,
+    differences: [],
+    oracle: {
+      contextSha256: "context",
+      pristine: { pugBodySha256: "before", dependencies: [] },
+      formatted: { pugBodySha256: "after", dependencies: [] },
+      sourceMapMoved: true,
+      templateOffsetsMoved: true,
+    },
+    fixedPoint: { sourceBytesEqual: true, differences: [] },
+  };
+  const baseline = {
+    pug: { package: "pug", version: "3.0.4", integrity: "sha512-pinned" },
+    vueCompiler: { package: "@vue/compiler-dom", version: "3.5.35" },
+    dialectContext: "fixed-vue3",
+    mapBasis: "preprocessed-html",
+    authoredPugMapAvailable: false,
+  };
+  try {
+    const output = writeGlyphPugSemanticEvidence(
+      { projectIds: ["fixture-b", "fixture-a"], baseline, files: [file] },
+      reportDir,
+    );
+    assert.equal(output, path.join(reportDir, "glyph-pug-semantics.json"));
+    const artifact = JSON.parse(fs.readFileSync(output!, "utf8"));
+    assert.equal(artifact.schema, "vize.glyphPugSemanticEvidence");
+    assert.equal(artifact.version, 1);
+    assert.deepEqual(artifact.projectIds, ["fixture-a", "fixture-b"]);
+    assert.deepEqual(artifact.baseline, baseline);
+    assert.deepEqual(artifact.summary, {
+      evaluatedPugFileCount: 1,
+      cleanFileCount: 1,
+      violationCount: 0,
+      baselineUnusableCount: 0,
+      waivedCount: 0,
+    });
+    assert.deepEqual(artifact.files, [file]);
+    const waived = { ...file, path: "src/Aaa.vue", verdict: "violation", waived: true };
+    const unusable = {
+      ...file,
+      project: "aaa-fixture",
+      path: "src/Zzz.vue",
+      verdict: "baseline-unusable",
+    };
+    const waivedUnusable = {
+      ...file,
+      project: "zzz-fixture",
+      path: "src/WaivedUnusable.vue",
+      verdict: "baseline-unusable",
+      waived: true,
+    };
+    const orderedOutput = writeGlyphPugSemanticEvidence(
+      {
+        projectIds: ["fixture-a"],
+        baseline,
+        files: [file, waived, unusable, waivedUnusable],
+      },
+      reportDir,
+    );
+    const ordered = JSON.parse(fs.readFileSync(orderedOutput!, "utf8"));
+    assert.deepEqual(
+      ordered.files.map((entry: { project: string; path: string }) => [entry.project, entry.path]),
+      [
+        ["aaa-fixture", "src/Zzz.vue"],
+        ["fixture-a", "src/Aaa.vue"],
+        ["fixture-a", "src/App.vue"],
+        ["zzz-fixture", "src/WaivedUnusable.vue"],
+      ],
+    );
+    assert.deepEqual(ordered.summary, {
+      evaluatedPugFileCount: 4,
+      cleanFileCount: 1,
+      violationCount: 0,
+      baselineUnusableCount: 1,
+      waivedCount: 2,
+    });
+
+    const emptyOutput = writeGlyphPugSemanticEvidence(
+      { projectIds: [], baseline, files: [] },
+      reportDir,
+    );
+    const empty = JSON.parse(fs.readFileSync(emptyOutput!, "utf8"));
+    assert.deepEqual([empty.projectIds, empty.files], [[], []]);
+    assert.deepEqual(Object.values(empty.summary), [0, 0, 0, 0, 0]);
+
+    assert.equal(writeGlyphPugSemanticEvidence({ projectIds: [], baseline, files: [] }, ""), null);
+    assert.equal(
+      writeGlyphPugSemanticEvidence({ projectIds: [], baseline, files: [] }, null),
+      null,
+    );
+    assert.throws(
+      () =>
+        writeGlyphPugSemanticEvidence(
+          { projectIds: ["fixture-a"], baseline, files: [file, file] },
+          reportDir,
+        ),
+      /duplicate Pug oracle evidence/,
+    );
   } finally {
     fs.rmSync(reportDir, { recursive: true, force: true });
   }
