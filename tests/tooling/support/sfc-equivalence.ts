@@ -1,31 +1,17 @@
-// Structural SFC equivalence for the glyph parse-preservation property.
-//
-// Both sides are parsed with @vue/compiler-sfc (the reference Vue parser, so
-// the check is independent of vize's own parser) and compared on:
-//   - parse error codes (formatting must not add or remove parse errors),
-//   - the block multiset: kind, lang, and attrs (glyph reorders blocks into
-//     canonical order by default, so order is compared per kind only),
-//   - template AST shape: tags, structure, text (exact inside <pre>-like
-//     elements, whitespace-condensed elsewhere), interpolations, comments,
-//   - expressions by Babel AST signature (glyph legitimately reprints
-//     expressions via oxc, so token spacing and quote style may change while
-//     the parsed AST must not); expressions the Vue parser leaves unparsed
-//     fall back to a whitespace-stripped text comparison,
-//   - props as per-spread-segment multisets: glyph sorts attributes inside a
-//     priority group by default, but moving a prop across a no-arg v-bind /
-//     v-on spread changes merge semantics and is reported.
-// Script content is intentionally not compared (glyph reprints scripts via
-// oxc; text-level comparison cannot separate reformatting from corruption)
-// and style content is intentionally not compared (glyph canonicalizes CSS
-// values via lightningcss, which is not whitespace-only). Those blocks are
-// still compared by kind and attrs, and script/style corruption stays visible
-// through the compile-facing oracles and the lint-agreement property.
+// Vue 3 semantic signatures keep structure and spread/pre boundaries exact.
+// Script/style bodies use separate compile/lint oracles; this comparator keeps
+// their block identity and attrs because text alone cannot separate reprints.
 import { createRequire } from "node:module";
 
 import { expressionSignature } from "./babel-expression-signature.ts";
 import type { ExpressionNode } from "./babel-expression-signature.ts";
-import { compareBlocks, condense, parseErrorSignatures } from "./sfc-equivalence/blocks.ts";
+import {
+  compareBlocks,
+  parseErrorSignatures,
+  sfcEnvelopeSemanticSignature,
+} from "./sfc-equivalence/blocks.ts";
 import type { SfcDescriptor, TemplateNode, TemplateProp } from "./sfc-equivalence/blocks.ts";
+import { findSfcOpeningTagEnd } from "./sfc-opening-tag.ts";
 
 export type { TemplateNode } from "./sfc-equivalence/blocks.ts";
 
@@ -90,6 +76,18 @@ export function compareSfcBlockStructure(
   return differences;
 }
 
+/** Canonical Vue 3 semantic signature used by dialect evidence hashes. */
+export function sfcSemanticSignature(source: string, filename: string): string {
+  const parsed = parse(source, { filename, sourceMap: false });
+  return JSON.stringify([
+    parseErrorSignatures(parsed.errors),
+    sfcEnvelopeSemanticSignature(parsed.descriptor),
+    parsed.descriptor.template?.ast == null
+      ? null
+      : semanticTree(parsed.descriptor.template.ast, false),
+  ]);
+}
+
 /** Compare template ASTs already produced by one pinned compiler baseline. */
 export function compareTemplateAstEquivalence(before: TemplateNode, after: TemplateNode): string[] {
   const differences: string[] = [];
@@ -107,7 +105,6 @@ const TEXT = 2;
 const COMMENT = 3;
 const INTERPOLATION = 5;
 const ATTRIBUTE = 6;
-const DIRECTIVE = 7;
 
 function compareChildren(
   before: TemplateNode,
@@ -140,10 +137,9 @@ function compareChildren(
         left.node,
         right.node,
         childPath,
-        preserveWhitespace || isWhitespacePreservingTag(left.node.tag),
+        preserveWhitespace || preservesAuthoredWhitespace(left.node),
         differences,
       );
-      // Report at most one template difference per file to keep output small.
       if (differences.length > baseline) return;
     }
   }
@@ -165,14 +161,16 @@ function normalizedChildren(node: TemplateNode, preserveWhitespace: boolean): No
 function summarizeNode(node: TemplateNode, preserveWhitespace: boolean): string | null {
   if (node.type === TEXT) {
     const content = node.content as string;
-    if (!preserveWhitespace && content.trim() === "") return null;
-    return JSON.stringify(["text", preserveWhitespace ? content : condense(content)]);
+    const authored = preserveWhitespace
+      ? (node.loc?.source ?? content)
+      : content.replace(/\s+/g, " ");
+    return JSON.stringify(["text", authored]);
   }
   if (node.type === INTERPOLATION) {
     return JSON.stringify(["interpolation", expressionSignature(node.content as ExpressionNode)]);
   }
   if (node.type === COMMENT) {
-    return JSON.stringify(["comment", condense(node.content as string)]);
+    return JSON.stringify(["comment", node.content as string]);
   }
   if (node.type === ELEMENT) {
     return JSON.stringify([
@@ -190,33 +188,34 @@ function semanticTree(node: TemplateNode, preserveWhitespace: boolean): unknown 
   const children = normalizedChildren(node, preserveWhitespace).map(({ node: child, summary }) => [
     summary,
     child.type === ELEMENT
-      ? semanticTree(child, preserveWhitespace || isWhitespacePreservingTag(child.tag))
+      ? semanticTree(child, preserveWhitespace || preservesAuthoredWhitespace(child))
       : null,
   ]);
   return children;
 }
 
-/**
- * Group props into segments split at no-arg v-bind / v-on spreads. Segments
- * are compared as sorted multisets (glyph sorts attributes by default) while
- * the segment boundaries pin every prop's position relative to each spread,
- * because crossing a spread changes runtime merge behavior.
- */
+/** Sort unique static runs; directives and duplicate literals stay fixed. */
 function normalizeProps(props: TemplateProp[]): unknown[] {
-  const segments: string[][] = [[]];
+  const normalized: unknown[] = [];
+  let literals: TemplateProp[] = [];
+  const flushLiterals = (): void => {
+    if (literals.length === 0) return;
+    const names = literals.map((prop) => prop.name.toLowerCase());
+    const unique = new Set(names).size === names.length;
+    const entries = literals.map((prop) => JSON.stringify(normalizeProp(prop)));
+    normalized.push(...(unique ? entries.sort() : entries));
+    literals = [];
+  };
   for (const prop of props) {
-    const normalized = normalizeProp(prop);
-    if (
-      prop.type === DIRECTIVE &&
-      prop.arg == null &&
-      (prop.name === "bind" || prop.name === "on")
-    ) {
-      segments.push([JSON.stringify(normalized)], []);
-    } else {
-      segments[segments.length - 1].push(JSON.stringify(normalized));
+    if (prop.type === ATTRIBUTE) {
+      literals.push(prop);
+      continue;
     }
+    flushLiterals();
+    normalized.push(JSON.stringify(normalizeProp(prop)));
   }
-  return segments.map((segment, index) => (index % 2 === 1 ? segment : [...segment].sort()));
+  flushLiterals();
+  return normalized;
 }
 
 function normalizeProp(prop: TemplateProp): unknown {
@@ -242,6 +241,14 @@ function describeNode(child: NormalizedChild | undefined): string {
   return `#node${node.type}`;
 }
 
-function isWhitespacePreservingTag(tag: string | undefined): boolean {
-  return tag === "pre" || tag === "textarea" || tag === "listing";
+function preservesAuthoredWhitespace(node: TemplateNode): boolean {
+  if (node.tag === "pre" || node.tag === "textarea" || node.tag === "listing") {
+    return true;
+  }
+  const source = node.loc?.source;
+  if (source == null) return false;
+  const end = findSfcOpeningTagEnd(source, 1);
+  if (end < 0) return false;
+  const openingTag = source.slice(0, end + 1);
+  return /(?:^|\s)v-pre(?:\s|=|\/?>)/u.test(openingTag);
 }

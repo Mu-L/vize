@@ -5,6 +5,8 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import type { SfcDialect } from "./support/sfc-baseline-routes.ts";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const registryPath = path.join(root, "tests", "_fixtures", "vue-ecosystem-fixtures.json");
 type FixtureKind = "application" | "component-library" | "library" | "tooling";
@@ -18,6 +20,11 @@ interface FixtureProject {
   revision: string;
   license: { spdx: string; files: string[] };
   vueGlobs: string[];
+  sfcDialectRoutes?: Array<{
+    id: string;
+    dialect: SfcDialect;
+    globs: string[];
+  }>;
   expectedVueFileCount?: number;
   tsconfig?: string;
   coverage: string[];
@@ -168,7 +175,7 @@ test("Vue ecosystem registry covers the requested projects", () => {
   const registry = readRegistry();
   const ids = new Set(registry.projects.map((project) => project.id));
 
-  assert.equal(registry.schemaVersion, 6);
+  assert.equal(registry.schemaVersion, 7);
   for (const id of requestedFixtures) {
     assert.ok(ids.has(id), `${id} should be registered`);
   }
@@ -187,6 +194,18 @@ test("fixtures with exact Vue SFC expectations stay explicit", () => {
       { id: "docsify", count: 0 },
       { id: "vue-native-core", count: 0 },
       { id: "vuefes-japan-speakers", count: 15 },
+    ],
+  );
+});
+
+test("GoGoCode declares its mixed Vue formatter baseline routes", () => {
+  const project = readRegistry().projects.find((candidate) => candidate.id === "gogocode");
+  assert.ok(project);
+  assert.deepEqual(
+    project.sfcDialectRoutes?.map(({ id, dialect }) => ({ id, dialect })),
+    [
+      { id: "vue2", dialect: "2" },
+      { id: "vue3", dialect: "3" },
     ],
   );
 });
