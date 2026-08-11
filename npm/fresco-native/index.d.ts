@@ -101,7 +101,12 @@ export declare function getLastRenderLayouts(): Array<LayoutResultNapi>
 /** Get layout result for a node. */
 export declare function getLayout(id: number): LayoutResultNapi | null
 
-/** Get terminal info. */
+/**
+ * Resolve the complete standard-output capability profile.
+ *
+ * Size discovery falls back to positive `COLUMNS` and `LINES` values, then
+ * 80x24. The result therefore remains available for redirected output.
+ */
 export declare function getTerminalInfo(): TerminalInfoNapi
 
 /** Hide cursor. */
@@ -311,6 +316,24 @@ export interface TerminalInfoNapi {
   colors: boolean
   /** Whether true color (24-bit) is supported */
   trueColor: boolean
+  /** Maximum color depth: monochrome, ansi-16, ansi-256, or true-color */
+  colorDepth: string
+  /** Stable explanation for the selected color depth */
+  colorReason: string
+  /** Whether Unicode presentation is enabled */
+  unicode: boolean
+  /** Stable explanation for Unicode or ASCII presentation */
+  unicodeReason: string
+  /** Whether interactive terminal modes are safe */
+  interactive: boolean
+  /** Stable explanation for interactive-mode selection */
+  interactiveReason: string
+  /** Whether standard output is redirected */
+  redirected: boolean
+  /** Whether the current viewport selects the narrow layout */
+  narrow: boolean
+  /** Width below which the narrow layout is selected */
+  narrowWidth: number
 }
 
 /** Terminal initialization options for NAPI. */
