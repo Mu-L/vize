@@ -27,9 +27,10 @@ use std::{
     },
     time::Duration,
 };
-use vize_carton::{FxHashMap, String, cstr};
+use vize_carton::{FxHashMap, FxHashSet, String, cstr};
 
 mod client;
+mod readiness;
 mod requests;
 #[cfg(test)]
 mod tests;
@@ -48,6 +49,15 @@ pub(super) struct EditorLspSession {
     closed: bool,
     /// Last text mirrored into the server, keyed by session document URI.
     documents: FxHashMap<String, String>,
+    /// Latest notification generation written to this transport.
+    document_generation: u64,
+    /// Generation acknowledged by a response-backed semantic request.
+    ready_generation: Option<u64>,
+    /// Documents opened or changed since the acknowledged generation.
+    dirty_documents: FxHashSet<String>,
+    /// A close cannot be diagnosed directly, so the next query must act as
+    /// the response-backed barrier for that topology change.
+    query_barrier_required: bool,
 }
 
 impl EditorLspSession {
@@ -73,6 +83,10 @@ impl EditorLspSession {
             responder: Some(responder),
             closed: false,
             documents: Default::default(),
+            document_generation: 0,
+            ready_generation: None,
+            dirty_documents: Default::default(),
+            query_barrier_required: false,
         })
     }
 
@@ -100,6 +114,8 @@ impl EditorLspSession {
             }
         }
         self.documents.insert(document_uri.into(), text.into());
+        self.dirty_documents.insert(document_uri.into());
+        self.advance_document_generation();
         Ok(uri)
     }
 
@@ -119,21 +135,14 @@ impl EditorLspSession {
                 cstr!("Failed to close editor LSP overlay for {document_uri}: {error}")
             })?;
             self.documents.remove(document_uri.as_str());
+            self.dirty_documents.remove(document_uri.as_str());
+            self.query_barrier_required = true;
+            self.advance_document_generation();
         }
         for (document_uri, text) in documents {
             self.mirror(document_uri, text)?;
         }
         Ok(())
-    }
-
-    fn document_uri(&self, document_uri: &str) -> Result<Uri, String> {
-        if !self.documents.contains_key(document_uri) {
-            return Err(cstr!(
-                "Editor LSP virtual project does not contain {document_uri}"
-            ));
-        }
-        Uri::from_str(document_uri)
-            .map_err(|error| cstr!("Invalid LSP document URI {document_uri}: {error}"))
     }
 
     fn hover(
@@ -142,7 +151,7 @@ impl EditorLspSession {
         line: u32,
         character: u32,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(self.client.request::<RawHoverRequest>(serde_json::json!({
             "textDocument": { "uri": uri },
             "position": { "line": line, "character": character },
@@ -156,7 +165,7 @@ impl EditorLspSession {
         line: u32,
         character: u32,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(
             self.client
                 .request::<RawCompletionRequest>(serde_json::json!({
@@ -174,7 +183,7 @@ impl EditorLspSession {
         line: u32,
         character: u32,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(
             self.client
                 .request::<RawDefinitionRequest>(serde_json::json!({
@@ -192,7 +201,7 @@ impl EditorLspSession {
         character: u32,
         include_declaration: bool,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(
             self.client
                 .request::<RawReferencesRequest>(serde_json::json!({
@@ -210,7 +219,7 @@ impl EditorLspSession {
         line: u32,
         character: u32,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(
             self.client
                 .request::<RawPrepareRenameRequest>(serde_json::json!({
@@ -228,7 +237,7 @@ impl EditorLspSession {
         character: u32,
         new_name: &str,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(self.client.request::<RawRenameRequest>(serde_json::json!({
             "textDocument": { "uri": uri },
             "position": { "line": line, "character": character },
@@ -244,7 +253,7 @@ impl EditorLspSession {
         character: u32,
         context: Option<Value>,
     ) -> Result<Option<Value>, String> {
-        let uri = self.document_uri(document_uri)?;
+        let uri = self.ready_document_uri(document_uri)?;
         block_on(
             self.client
                 .request::<RawSignatureHelpRequest>(signature_help_request_params(
