@@ -60,8 +60,8 @@
         }
       },
       "batchCheckBudget": {
-        "coldMs": 300000,
-        "warmMs": 300000
+        "coldMs": 600000,
+        "warmMs": 600000
       },
       "batchIncrementalBudget": {
         "coldMs": 15000,
