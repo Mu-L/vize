@@ -1,6 +1,6 @@
 use std::{path::Path, sync::atomic::AtomicUsize};
 
-use super::write_nuxt_fallback_tsconfig;
+use super::write_nuxt_fallback_tsconfig_in_cache;
 use crate::commands::check::nuxt::NuxtPathAlias;
 
 fn case_dir(name: &str) -> std::path::PathBuf {
@@ -33,7 +33,8 @@ fn inherited_config_uses_the_typescript_compatibility_floor() {
     )
     .unwrap();
 
-    let wrapper = write_nuxt_fallback_tsconfig(
+    let cache = tempfile::tempdir().unwrap();
+    let wrapper = write_nuxt_fallback_tsconfig_in_cache(
         Some(&tsconfig),
         &root,
         &root,
@@ -41,10 +42,11 @@ fn inherited_config_uses_the_typescript_compatibility_floor() {
             pattern: "~/*".into(),
             targets: vec!["./*".into()],
         }],
+        cache.path(),
     )
     .unwrap();
     let wrapper: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(wrapper).unwrap()).unwrap();
+        serde_json::from_str(&std::fs::read_to_string(wrapper.path().unwrap()).unwrap()).unwrap();
 
     assert_eq!(
         wrapper["compilerOptions"]["ignoreDeprecations"],
@@ -60,7 +62,8 @@ fn wrapper_without_an_inherited_config_adds_no_compatibility_option() {
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
 
-    let wrapper = write_nuxt_fallback_tsconfig(
+    let cache = tempfile::tempdir().unwrap();
+    let wrapper = write_nuxt_fallback_tsconfig_in_cache(
         None,
         &root,
         &root,
@@ -68,10 +71,11 @@ fn wrapper_without_an_inherited_config_adds_no_compatibility_option() {
             pattern: "~/*".into(),
             targets: vec!["./*".into()],
         }],
+        cache.path(),
     )
     .unwrap();
     let wrapper: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(wrapper).unwrap()).unwrap();
+        serde_json::from_str(&std::fs::read_to_string(wrapper.path().unwrap()).unwrap()).unwrap();
 
     assert!(
         wrapper["compilerOptions"]
