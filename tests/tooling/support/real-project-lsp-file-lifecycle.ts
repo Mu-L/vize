@@ -27,10 +27,8 @@ import type {
 
 type OracleDocument = { source: string; uri: string };
 type SymbolInformation = { location?: { range?: LspRange; uri?: string }; name?: string };
-type DocumentChange = {
-  edits?: Array<{ newText: string; range: LspRange }>;
-  textDocument?: { uri?: string };
-};
+type DocumentEdit = { newText: string; range: LspRange };
+type DocumentChange = { edits?: DocumentEdit[]; textDocument?: { uri?: string } };
 
 export async function exerciseAuthoredFileLifecycle(
   session: OracleSession,
