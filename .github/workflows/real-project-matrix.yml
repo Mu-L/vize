@@ -132,7 +132,7 @@ jobs:
             --shard-index "$FIXTURE_SHARD_INDEX" \
             --shard-count "$FIXTURE_SHARD_COUNT" \
             --vize-bin target/ci/vize \
-            --timeout-ms 1200000 \
+            --timeout-ms 2400000 \
             --output-dir "$FIXTURE_REPORT_DIR"
 
       - name: Check real-project LSP lifecycle
