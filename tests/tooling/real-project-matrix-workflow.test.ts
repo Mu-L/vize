@@ -267,6 +267,7 @@ test("real-project workflow hydrates only its shard and runs every core tool", (
   assert.equal(verdict.if, "${{ always() }}");
   assert.equal(verdict.shell, "bash");
   assert.deepEqual(verdict.env, {
+    BUDGET_MODE: "${{ inputs.budget_mode || 'enforce' }}",
     CORE_TOOLS_MODE: "${{ inputs.core_tools_mode || 'enforce' }}",
     LSP_MODE: "${{ inputs.lsp_mode || 'enforce' }}",
     VIZE_WAIVER_AUDIT_OUTCOME: "${{ steps.waiver_audit.outcome }}",
@@ -284,12 +285,20 @@ test("real-project workflow hydrates only its shard and runs every core tool", (
   assert.match(verdict.run ?? "", /--surface "core-tools=\$core_tools_verdict"/);
   assert.match(verdict.run ?? "", /lsp_verdict="\$VIZE_LSP_OUTCOME"/);
   assert.match(verdict.run ?? "", /\[\[ "\$LSP_MODE" == "record-only"/);
+  assert.match(
+    verdict.run ?? "",
+    /typecheck_divergence_verdict="\$VIZE_TYPECHECK_DIVERGENCE_OUTCOME"/,
+  );
+  assert.match(verdict.run ?? "", /\[\[ "\$BUDGET_MODE" == "record-only"/);
+  assert.match(
+    verdict.run ?? "",
+    /--surface "typecheck-divergence=\$typecheck_divergence_verdict"/,
+  );
   for (const [surface, variable] of [
     ["waiver-audit", "VIZE_WAIVER_AUDIT_OUTCOME"],
     ["typecheck-dependencies", "VIZE_TYPECHECK_DEPENDENCIES_OUTCOME"],
     ["syntax-highlighter", "VIZE_SYNTAX_HIGHLIGHTER_OUTCOME"],
     ["glyph", "VIZE_GLYPH_OUTCOME"],
-    ["typecheck-divergence", "VIZE_TYPECHECK_DIVERGENCE_OUTCOME"],
   ]) {
     assert.match(verdict.run ?? "", new RegExp(`--surface "${surface}=\\$${variable}"`));
   }

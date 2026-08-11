@@ -235,6 +235,7 @@ jobs:
         if: ${{ always() }}
         shell: bash
         env:
+          BUDGET_MODE: ${{ inputs.budget_mode || 'enforce' }}
           CORE_TOOLS_MODE: ${{ inputs.core_tools_mode || 'enforce' }}
           LSP_MODE: ${{ inputs.lsp_mode || 'enforce' }}
           VIZE_WAIVER_AUDIT_OUTCOME: ${{ steps.waiver_audit.outcome }}
@@ -253,6 +254,10 @@ jobs:
           if [[ "$LSP_MODE" == "record-only" && "$lsp_verdict" == "failure" ]]; then
             lsp_verdict=success
           fi
+          typecheck_divergence_verdict="$VIZE_TYPECHECK_DIVERGENCE_OUTCOME"
+          if [[ "$BUDGET_MODE" == "record-only" && "$typecheck_divergence_verdict" == "failure" ]]; then
+            typecheck_divergence_verdict=success
+          fi
           node tools/fixtures/real-project-surface-verdict.mjs \
             --output "$FIXTURE_REPORT_DIR/surface-verdict.json" \
             --surface "waiver-audit=$VIZE_WAIVER_AUDIT_OUTCOME" \
@@ -261,7 +266,7 @@ jobs:
             --surface "lsp=$lsp_verdict" \
             --surface "syntax-highlighter=$VIZE_SYNTAX_HIGHLIGHTER_OUTCOME" \
             --surface "glyph=$VIZE_GLYPH_OUTCOME" \
-            --surface "typecheck-divergence=$VIZE_TYPECHECK_DIVERGENCE_OUTCOME"
+            --surface "typecheck-divergence=$typecheck_divergence_verdict"
 
       - name: Publish shard summary
         if: ${{ always() }}
