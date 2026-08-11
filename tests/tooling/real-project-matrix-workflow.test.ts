@@ -165,7 +165,7 @@ test("real-project workflow hydrates only its shard and runs every core tool", (
   assert.match(waiverAudit.run ?? "", /glyph-waiver-issues\.json/);
   assert.match(run?.run ?? "", /tools\/fixtures\/tool-matrix-report\.mjs/);
   assert.match(run?.run ?? "", /--vize-bin target\/ci\/vize/);
-  assert.match(run?.run ?? "", /--timeout-ms 600000/);
+  assert.match(run?.run ?? "", /--timeout-ms 1200000/);
   assert.match(run?.run ?? "", /--output-dir "\$FIXTURE_REPORT_DIR"/);
   for (const [step, id] of [
     [run, "core_tools"],
