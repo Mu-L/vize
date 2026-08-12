@@ -10,6 +10,12 @@ use super::{
 };
 use vize_carton::{String, ToCompactString, profile};
 
+use self::import_scan::{
+    code_line_starts, find_relative_import_from_range, import_statement_end, join_statement_lines,
+};
+
+mod import_scan;
+
 impl VirtualTsGenerator {
     /// Extract setup scope info from ScopeChain.
     fn extract_setup_info(scopes: &ScopeChain) -> (Option<CompactString>, bool) {
@@ -165,12 +171,18 @@ impl VirtualTsGenerator {
     pub(crate) fn emit_module_imports(&mut self, content: &str, from_file: Option<&Path>) {
         self.write_line("// Module-level imports");
 
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("import ") {
-                let resolved_line = self.resolve_import_line(line, from_file);
-                self.write_line(&resolved_line);
-            }
+        let lines: Vec<&str> = content.lines().collect();
+        let code_starts = code_line_starts(&lines);
+        let mut index = 0;
+        while index < lines.len() {
+            let Some(end) = import_statement_end(&lines, &code_starts, index) else {
+                index += 1;
+                continue;
+            };
+            let statement = join_statement_lines(&lines[index..=end]);
+            let resolved_line = self.resolve_import_line(&statement, from_file);
+            self.write_line(&resolved_line);
+            index = end + 1;
         }
         self.write_line("");
     }
@@ -355,13 +367,18 @@ impl VirtualTsGenerator {
     /// Emit the setup body (script content minus imports).
     pub(crate) fn emit_setup_body(&mut self, content: &str) {
         self.emit_line("// User setup code");
-        for line in content.lines() {
-            let trimmed = line.trim();
-            // Skip import statements (already emitted at module level)
-            if trimmed.starts_with("import ") {
+        let lines: Vec<&str> = content.lines().collect();
+        let code_starts = code_line_starts(&lines);
+        let mut index = 0;
+        while index < lines.len() {
+            // Skip import statements (already emitted at module level),
+            // including the continuation lines of a wrapped import.
+            if let Some(end) = import_statement_end(&lines, &code_starts, index) {
+                index = end + 1;
                 continue;
             }
-            self.emit_line(line);
+            self.emit_line(lines[index]);
+            index += 1;
         }
     }
 
@@ -426,92 +443,5 @@ impl VirtualTsGenerator {
     pub(crate) fn generate_emits_type(&mut self, _bindings: &BindingMetadata) {
         self.emit_line("// Emits type");
         self.emit_line("type __Emits = {};");
-    }
-}
-
-/// Find a relative `from "./..."` import range with a byte scanner.
-///
-/// Script virtual-TS generation calls this for every import-looking line. A
-/// regex was measurably expensive in that loop, and the grammar we need is
-/// intentionally narrow: skip to `from`, require whitespace, accept a quoted
-/// path that begins with `.`, then return the path slice boundaries.
-fn find_relative_import_from_range(line: &str) -> Option<(usize, usize, usize, usize)> {
-    let bytes = line.as_bytes();
-    let mut search_start = 0;
-
-    while let Some(offset) = line[search_start..].find("from") {
-        let from_start = search_start + offset;
-        let mut cursor = from_start + 4;
-
-        if !bytes
-            .get(cursor)
-            .is_some_and(|byte| byte.is_ascii_whitespace())
-        {
-            search_start = cursor;
-            continue;
-        }
-
-        while bytes
-            .get(cursor)
-            .is_some_and(|byte| byte.is_ascii_whitespace())
-        {
-            cursor += 1;
-        }
-
-        let Some(quote @ (b'\'' | b'"')) = bytes.get(cursor).copied() else {
-            search_start = cursor.saturating_add(1);
-            continue;
-        };
-        let path_start = cursor + 1;
-        if bytes.get(path_start) != Some(&b'.') {
-            search_start = path_start;
-            continue;
-        }
-
-        let mut path_end = path_start + 1;
-        while bytes.get(path_end).is_some_and(|byte| *byte != quote) {
-            path_end += 1;
-        }
-        if bytes.get(path_end) != Some(&quote) {
-            return None;
-        }
-
-        return Some((from_start, path_start, path_end, path_end));
-    }
-
-    None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::find_relative_import_from_range;
-
-    fn relative_path(line: &str) -> Option<&str> {
-        find_relative_import_from_range(line).map(|(_, start, end, _)| &line[start..end])
-    }
-
-    #[test]
-    fn finds_relative_import_paths() {
-        assert_eq!(
-            relative_path("import Foo from './Foo.vue';"),
-            Some("./Foo.vue")
-        );
-        assert_eq!(
-            relative_path("import type { Foo } from \"../types\";"),
-            Some("../types")
-        );
-    }
-
-    #[test]
-    fn ignores_non_relative_import_paths() {
-        assert_eq!(relative_path("import { ref } from 'vue';"), None);
-    }
-
-    #[test]
-    fn skips_from_inside_imported_names() {
-        assert_eq!(
-            relative_path("import { fromNow } from './time';"),
-            Some("./time")
-        );
     }
 }
