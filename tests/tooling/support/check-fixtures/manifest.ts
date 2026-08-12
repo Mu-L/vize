@@ -62,6 +62,7 @@ export const checkFixturePhases: readonly CheckFixturePhase[] = [
   "snapshots/check/vue-benchmarks-correctness-plants.ts",
   "snapshots/check/javascript-sfc-checkjs-oracle.ts",
   "snapshots/check/vue-benchmarks-lsp-ref-unwrap-oracle.ts",
+  "snapshots/check/template-ref-unwrap-oracle.ts",
   "snapshots/check/vue-benchmarks-scaled-corpus-plants.ts",
   "snapshots/check/vue-router-patch-oracle.ts",
   "snapshots/check/vue-router-formatter-oracle.ts",

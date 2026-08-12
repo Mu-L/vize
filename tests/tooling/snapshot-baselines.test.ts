@@ -43,6 +43,8 @@ const assertionOnlyCheckTests = {
     "template-global oracle asserts exact vue-tsc agreement on declared, undeclared, and repaired Nuxt instance globals",
   "pinia-generic-store-oracle":
     "library patch oracle asserts generic store inference and dependency refresh behavior",
+  "template-ref-unwrap-oracle":
+    "ref-unwrap oracle builds throwaway workspaces and asserts exact vue-tsc parity plus identical diagnostics for imported and auto-imported composables",
   "typescript-go-module-resolution-determinism":
     "module-resolution determinism gate asserts the pinned tsgo build and byte-identical output across fresh processes",
   "typescript-project-references-oracle":
