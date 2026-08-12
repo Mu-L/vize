@@ -167,6 +167,19 @@ jobs:
             tests/tooling/real-project-lsp.test.ts
           test -s "$FIXTURE_REPORT_DIR/lsp-lifecycle-summary.json"
 
+      - name: Measure real-project lint divergence
+        id: lint_divergence
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          node tools/fixtures/lint-divergence-report.mjs \
+            --shard-index "$FIXTURE_SHARD_INDEX" \
+            --shard-count "$FIXTURE_SHARD_COUNT" \
+            --vize-bin target/ci/vize \
+            --timeout-ms 600000 \
+            --output-dir "$FIXTURE_REPORT_DIR"
+          test -s "$FIXTURE_REPORT_DIR/lint-divergence-summary.json"
+
       - name: Check real-project syntax highlighting
         id: syntax_highlighter
         if: ${{ !cancelled() }}
@@ -242,6 +255,7 @@ jobs:
           VIZE_TYPECHECK_DEPENDENCIES_OUTCOME: ${{ steps.typecheck_dependencies.outcome }}
           VIZE_CORE_TOOLS_OUTCOME: ${{ steps.core_tools.outcome }}
           VIZE_LSP_OUTCOME: ${{ steps.lsp.outcome }}
+          VIZE_LINT_DIVERGENCE_OUTCOME: ${{ steps.lint_divergence.outcome }}
           VIZE_SYNTAX_HIGHLIGHTER_OUTCOME: ${{ steps.syntax_highlighter.outcome }}
           VIZE_GLYPH_OUTCOME: ${{ steps.glyph.outcome }}
           VIZE_TYPECHECK_DIVERGENCE_OUTCOME: ${{ steps.typecheck_divergence.outcome }}
@@ -264,6 +278,7 @@ jobs:
             --surface "typecheck-dependencies=$VIZE_TYPECHECK_DEPENDENCIES_OUTCOME" \
             --surface "core-tools=$core_tools_verdict" \
             --surface "lsp=$lsp_verdict" \
+            --surface "lint-divergence=$VIZE_LINT_DIVERGENCE_OUTCOME" \
             --surface "syntax-highlighter=$VIZE_SYNTAX_HIGHLIGHTER_OUTCOME" \
             --surface "glyph=$VIZE_GLYPH_OUTCOME" \
             --surface "typecheck-divergence=$typecheck_divergence_verdict"
@@ -271,55 +286,7 @@ jobs:
       - name: Publish shard summary
         if: ${{ always() }}
         shell: bash
-        run: |
-          if [[ -f "$FIXTURE_REPORT_DIR/summary.md" ]]; then
-            cat "$FIXTURE_REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No fixture tool report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          lsp_report="$FIXTURE_REPORT_DIR/lsp-lifecycle-summary.json"
-          if [[ -s "$lsp_report" ]]; then
-            jq -r '"LSP lifecycle: \(.summary.projectCount) project(s), \(.summary.actualFileCount) actual file(s), \(.summary.authoredFeatureProjectCount) authored feature oracle(s), \(.summary.vueFileCount) Vue file(s), \(.summary.failedProjectCount) failed project(s); missing authored oracles: \(.summary.missingAuthoredFeatureProjectIds | join(", "))"' \
-              "$lsp_report" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No LSP lifecycle report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          syntax_report="$FIXTURE_REPORT_DIR/syntax-highlighter-summary.json"
-          if [[ -f "$syntax_report" ]]; then
-            jq -r '"Syntax highlighter: \(.summary.projectCount) project(s), \(.summary.fileCount) file(s), \(.summary.lineCount) line(s), \(.summary.failedProjectCount) failed project(s)"' \
-              "$syntax_report" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No syntax-highlighter report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          syntax_divergence="$FIXTURE_REPORT_DIR/syntax-highlighter-divergence.md"
-          if [[ -s "$syntax_divergence" ]]; then
-            cat "$syntax_divergence" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No syntax-highlighter divergence report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          mapfile -t divergence_reports < <(
-            find "$FIXTURE_REPORT_DIR" -maxdepth 1 -type f \
-              -name '*-typecheck-divergence.md' -print | sort
-          )
-          if (( ${#divergence_reports[@]} == 1 )); then
-            cat "${divergence_reports[0]}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No unique typecheck divergence report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          waiver_report="$FIXTURE_REPORT_DIR/glyph-waiver-issues.json"
-          if [[ -s "$waiver_report" ]]; then
-            jq -r '"Formatter waivers: \(.waiverCount) precise waiver(s), \(.issues | length) open owner Issue(s)"' \
-              "$waiver_report" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No formatter waiver owner report was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          surface_verdict="$FIXTURE_REPORT_DIR/surface-verdict.json"
-          if [[ -s "$surface_verdict" ]]; then
-            jq -r '"Surface verdict: \(.status); failed: \(.failedSurfaceNames | join(", "))"' \
-              "$surface_verdict" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No real-project surface verdict was produced." >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: bash tools/github/publish-real-project-shard-summary.sh
 
       - name: Upload shard report
         if: ${{ always() }}
