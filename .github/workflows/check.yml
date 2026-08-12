@@ -535,15 +535,12 @@ jobs:
       - build-js-packages
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
       # Rust is always needed for @vizejs/native (used by vite-plugin-vize)
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: wasm32-unknown-unknown
-
       - uses: ./.github/actions/setup-moonbit
-
       - uses: ./.github/actions/setup-rust-sticky-cache
         with:
           key: playground-test
@@ -560,7 +557,7 @@ jobs:
         if: steps.cache-wasm.outputs.cache-hit != 'true'
         uses: taiki-e/install-action@184183c2401be73c3bf42c2e61268aa5855379c1 # v2
         with:
-          tool: wasm-bindgen-cli@0.2.121
+          tool: wasm-bindgen-cli@0.2.127
 
       - name: Build WASM
         if: steps.cache-wasm.outputs.cache-hit != 'true'
@@ -591,7 +588,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.cache-playwright.outputs.cache-hit != 'true'
-        run: moon run --target native tools/moon/cmd/github/install_playwright_browsers --
+        uses: ./.github/actions/install-playwright-browsers
 
       - name: Run playground tests
         run: vp run --filter './playground' test:browser

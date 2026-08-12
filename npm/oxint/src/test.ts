@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { extractSfcBlocks, formatBlockLabel, getDiagnosticBlock } from "./sfc-blocks.ts";
+import { resetFixtureDir } from "./test-support/fixture-dir.ts";
 
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(packageDir, "../../..");
@@ -59,8 +60,7 @@ function findOxlintBin() {
 }
 
 const oxlintBin = findOxlintBin();
-fs.rmSync(fixtureDir, { force: true, recursive: true });
-fs.mkdirSync(fixtureDir, { recursive: true });
+resetFixtureDir(fixtureDir);
 
 fs.writeFileSync(
   configPath,
@@ -554,7 +554,7 @@ assert.doesNotMatch(
 );
 assert.match(
   defaultRun.output,
-  /(?:^  [|│]     Help:|%0A    Help:)/mu,
+  /Help:(?:%0A|\s|[|│])*Why:/u,
   "Default output should still include help text",
 );
 
