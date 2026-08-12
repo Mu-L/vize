@@ -7,9 +7,10 @@
 //! diagnostic list — file, code, line, column, severity and message — so a
 //! regression cannot hide behind a substring match.
 
-use std::path::Path;
+#[path = "support/jsx_component_props_project.rs"]
+mod project;
 
-use vize_canon::{BatchTypeChecker, BatchTypeCheckerTrait};
+use project::{consumer_diagnostics, create_project};
 
 /// `Counter.vue`: one required `count: number`.
 const COUNTER_SFC: &str = "<script setup lang=\"ts\">\ndefineProps<{ count: number }>()\n</script>\n\n<template><div /></template>\n";
@@ -152,6 +153,37 @@ fn render_prop_scoped_slot_child_stays_clean() {
     assert_eq!(diagnostics, vec![]);
 }
 
+/// The slot payload is *inferred* from the host's declared slots, not `any`.
+///
+/// Every other scoped-slot case here annotates its callback parameter, so all of
+/// them would still pass if `__VizeJsxSlotPayload` degraded to `any`. This one
+/// leaves the parameter unannotated and reads a member the declared `string`
+/// payload does not have: `any` accepts that silently, the real payload rejects
+/// it. Only the code and the message are asserted; the authored position is
+/// already pinned by the oracle-verified cases above.
+#[test]
+fn unannotated_scoped_slot_payload_is_typed_from_the_declared_slots() {
+    let project = create_project(&[
+        ("src/Widget.vue", WIDGET_SFC),
+        (
+            "src/Consumer.tsx",
+            "import Widget from \"./Widget.vue\";\nexport const view = <Widget fooBar=\"ok\">{{ default: (props) => props.item.zzTop }}</Widget>;\n",
+        ),
+    ]);
+    let Some(diagnostics) = consumer_diagnostics(project.path()) else {
+        return;
+    };
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let (file, code, message) = &diagnostics[0];
+    assert_eq!(file, "src/Consumer.tsx");
+    assert_eq!(*code, Some(2339));
+    assert!(
+        message.contains("Property 'zzTop' does not exist on type 'string'."),
+        "{message}"
+    );
+}
+
 /// Native DOM listener fallthrough on a component is a **deliberate divergence
 /// from vue-tsc**, pinned by `crates/vize/tests/check_jsx_component_contract_cli.rs`:
 /// Vue forwards such a listener to the fallthrough root at runtime, so vize
@@ -208,107 +240,4 @@ fn declared_emit_listener_stays_accepted() {
     };
 
     assert_eq!(diagnostics, vec![]);
-}
-
-// ---------------------------------------------------------------------------
-
-/// Diagnostics for the JSX/TSX consumer, as
-/// `(relative path, code, "line:column severity message")` with 1-based
-/// positions, sorted for a stable full-equality comparison.
-///
-/// Returns `None` when no type checker is available in this environment, which
-/// mirrors the sibling batch integration tests.
-fn consumer_diagnostics(project_root: &Path) -> Option<Vec<(String, Option<u32>, String)>> {
-    let mut checker = BatchTypeChecker::new(project_root).ok()?;
-    checker.enable_jsx_typecheck();
-    checker.scan_project().ok()?;
-    let result = checker.check_project().ok()?;
-
-    // The temporary root and the reported path can differ by a symlinked prefix
-    // (`/tmp` -> `/private/tmp` on macOS), so canonicalize before stripping.
-    let root = std::fs::canonicalize(project_root).unwrap_or_else(|_| project_root.to_path_buf());
-    let mut diagnostics: Vec<_> = result
-        .diagnostics
-        .into_iter()
-        .map(|diagnostic| {
-            let file =
-                std::fs::canonicalize(&diagnostic.file).unwrap_or_else(|_| diagnostic.file.clone());
-            (
-                file.strip_prefix(&root)
-                    .map(|path| path.display().to_string())
-                    .unwrap_or_else(|_| file.display().to_string()),
-                diagnostic.code,
-                format!(
-                    "{}:{} {} {}",
-                    diagnostic.line + 1,
-                    diagnostic.column + 1,
-                    match diagnostic.severity {
-                        1 => "error",
-                        2 => "warning",
-                        3 => "info",
-                        _ => "hint",
-                    },
-                    diagnostic.message
-                ),
-            )
-        })
-        .collect();
-    diagnostics.sort();
-    Some(diagnostics)
-}
-
-fn create_project(files: &[(&str, &str)]) -> tempfile::TempDir {
-    let project = tempfile::tempdir().expect("temp project should be created");
-    write_file(
-        project.path(),
-        "tsconfig.json",
-        r#"{
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
-    "jsx": "preserve",
-    "jsxImportSource": "vue",
-    "strict": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "noEmit": true
-  },
-  "include": ["src/**/*"]
-}"#,
-    );
-    write_file(
-        project.path(),
-        "node_modules/vue/package.json",
-        r#"{ "name": "vue", "types": "index.d.ts" }"#,
-    );
-    write_file(
-        project.path(),
-        "node_modules/vue/index.d.ts",
-        r#"export interface Ref<T = unknown> {
-  value: T;
-}
-
-export function ref<T>(value: T): Ref<T>;
-
-export interface ComponentPublicInstance {
-  $attrs: Record<string, unknown>;
-  $slots: Record<string, unknown>;
-  $refs: Record<string, unknown>;
-  $emit: (...args: unknown[]) => void;
-}
-"#,
-    );
-    for (path, source) in files {
-        write_file(project.path(), path, source);
-    }
-    project
-}
-
-fn write_file(project_root: &Path, path: &str, source: &str) {
-    let path = project_root.join(path);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).unwrap();
-    }
-    std::fs::write(path, source).unwrap();
 }
