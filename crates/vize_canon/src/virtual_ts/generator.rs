@@ -805,7 +805,7 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     setup_props_plan.push_return_field(&mut setup_artifact_return_fields);
     setup_return_fields.extend(setup_artifact_return_fields.into_iter().map(String::from));
     let preserve_authored_component =
-        declared_default_alias && generation_options.preserve_authored_component;
+        generation_options.preserves_authored_component(declared_default_alias, has_script_setup);
     if preserve_authored_component
         && !setup_return_fields
             .iter()
