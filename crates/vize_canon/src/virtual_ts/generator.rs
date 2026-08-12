@@ -18,7 +18,7 @@ mod script_blocks;
 mod script_module;
 mod setup_helpers;
 mod setup_props;
-mod setup_scope;
+pub(super) mod setup_scope;
 mod setup_type_exports;
 mod spans;
 mod template_refs;
@@ -673,12 +673,7 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
             let maps = &mut mappings;
             let src = prop_source(maps, summary, script_content, &script_source_offset);
             profile!("canon.virtual_ts.generate_props_variables", {
-                setup_props_plan.generate_props_variables(
-                    &mut ts,
-                    src,
-                    generic_param,
-                    check_props && !legacy_vue2,
-                )
+                setup_props_plan.generate_props_variables(&mut ts, src, check_props && !legacy_vue2)
             });
             if options_api {
                 profile!(
