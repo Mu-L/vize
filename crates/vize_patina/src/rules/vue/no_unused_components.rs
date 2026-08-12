@@ -28,6 +28,11 @@
 
 #![allow(clippy::disallowed_macros)]
 
+mod dynamic_is;
+#[cfg(test)]
+mod tests;
+
+use self::dynamic_is::has_dynamic_is_binding;
 use crate::context::LintContext;
 use crate::diagnostic::Severity;
 use crate::rule::{Rule, RuleCategory, RuleMeta};
@@ -134,9 +139,12 @@ impl Rule for NoUnusedComponents {
         &META
     }
 
-    fn run_on_template<'a>(&self, ctx: &mut LintContext<'a>, _root: &RootNode<'a>) {
+    fn run_on_template<'a>(&self, ctx: &mut LintContext<'a>, root: &RootNode<'a>) {
         // Skip if no analysis available
         if !ctx.has_analysis() {
+            return;
+        }
+        if has_dynamic_is_binding(&root.children) {
             return;
         }
 
@@ -340,25 +348,5 @@ impl<'a> Visit<'a> for ScriptSetupComponentImportVisitor {
 impl ScriptSetupComponentImportVisitor {
     fn is_shadowed(&self, name: &str) -> bool {
         self.scopes.iter().rev().any(|scope| scope.contains(name))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::NoUnusedComponents;
-    use crate::rule::{Rule, RuleCategory};
-
-    #[test]
-    fn test_meta() {
-        let rule = NoUnusedComponents::default();
-        assert_eq!(rule.meta().name, "vue/no-unused-components");
-        assert_eq!(rule.meta().category, RuleCategory::Essential);
-    }
-
-    #[test]
-    fn test_should_ignore() {
-        let rule = NoUnusedComponents::default();
-        assert!(rule.should_ignore("_Internal"));
-        assert!(!rule.should_ignore("MyComponent"));
     }
 }
