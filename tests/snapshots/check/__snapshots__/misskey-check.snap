@@ -2168,9 +2168,7 @@
     },
     {
       "file": "src/pages/settings/notifications.notification-config.vue",
-      "diagnostics": [
-        "error:32:13 [TS2300] Duplicate identifier 'NotificationConfig'."
-      ]
+      "diagnostics": []
     },
     {
       "file": "src/pages/settings/notifications.vue",
