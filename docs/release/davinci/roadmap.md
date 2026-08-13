@@ -93,6 +93,11 @@ pipeline's**.
 - Structured emitters (S4) replace string-append codegen; **SSR and Vapor gain
   source maps**; SFC-level text-matching map recovery retires.
 
+- Metamorphic test suite: semantics-preserving SFC mutations (attribute
+  reorder, pass-through wrappers, text-node splits) must produce S3 folios
+  identical modulo ids; the IVM oracle (incremental update ≡ from-scratch
+  render) runs over S3 fixtures.
+
 **Exit gate:** Vapor + SSR corpus parity; source-map coverage measured across all
 three backends; Vapor compile bench improves (it stops paying for VDOM).
 

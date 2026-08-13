@@ -54,7 +54,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | 12 | pug | **First-class S1 dialect** — compile, lint, format, and type-check all flow through the same lanes. |
 | 13 | Style bindings | `v-bind()` in CSS is **visible as S2 ops** — lint, the reactivity lattice, and projections see style-block references. |
 | 14 | Foreign-expression type checking | The **virtual host-language projection (emit + span links) is part of the expression-dialect contract**; dialects that cannot provide it get boundary-typed integration only. Projection data serves the tsgo/Corsa API, the content-mapper protocol, and Maestro from one mapping model. |
-| 15 | Contract linking | **Two tiers**: first-party dialects compiled in behind traits + cargo features (zero-cost `legacy` pattern); external dialects out-of-process over the serialized contract. |
+| 15 | Contract linking | **Two tiers**: first-party dialects compiled in behind traits + cargo features (zero-cost `legacy` pattern); external dialects over the serialized contract, transported via the **WASM component model (WIT)** with coarse-grained interfaces — hostable out-of-process or in-process under wasmtime. |
 | 16 | DevTool | A **compiler DevTool is a first-class product** ([devtool.md](./devtool.md)): stage ladder, pass timeline with Folio diffs, provenance, fact browser, decision remarks, flame views — rendered from the same artifacts tests and AI consume. |
 | 17 | Deep analysis products | The semantic engine ships **complexity metrics over real template CFGs (crossing file boundaries via the component graph)**, **app-level facts** (Vue Router typed params, `definePageMeta`, route trees), and **HTML conformance including cross-component content-model checks**. |
 | 18 | Portability | Davinci-owned crates are **`no_std + alloc` from birth**; `wasm32-wasip2` is a CI target. `std` is gated to the edges (fs, threads, process). |
@@ -70,6 +70,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike, app-level facts, complexity and HTML-conformance products |
 | [DevTool](./devtool.md) | The observability surface: stage ladder, pass timeline, provenance, fact browser, decision remarks, flame views |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
+| [Prior Art](./prior-art.md) | Practices imported from rustc/MIR/Polonius/salsa, LLVM/MLIR, React Compiler, MoonBit, Unison, Effekt, and recent PL research — with anti-lessons |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |
 
 ## Relationship to the mission

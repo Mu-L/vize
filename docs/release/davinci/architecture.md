@@ -138,6 +138,16 @@ decisions" and belong in one place — while SSR, which has no update phase,
 takes a thin S2→S4 path and reads the static partition as semantic-engine
 facts. Phase 3 measurements retain veto power over this split.
 
+Three design commitments from the literature (see [Prior Art](./prior-art.md)):
+ordering constraints are **explicit state edges** (RVSDG-style), not implicit
+walk order, so partition and grouping decisions are local graph queries;
+placement alternatives (hoisted / cached / inline / grouped-effect) stay
+explicit on the node and are resolved at **one cost-driven extraction point**
+(the Cranelift aegraph discipline); and correctness has a mechanical oracle
+from the IVM framing — *incremental update output ≡ from-scratch render* —
+with patch flags and SSR plans derived from operator linearity (a keyed
+`v-for` is a linear operator; non-linear mixes are where cache ops belong).
+
 ### S4 — Emission (output targets)
 
 A structured emitter layer replaces string-append codegen: targets build a span-
@@ -200,7 +210,12 @@ child list) forces the re-visits that a region-owning `ui.if` op never needs.
   fused non-salsa pipeline. Same stage contracts, two execution modes — the
   rust-analyzer/rustc precedent. The salsa tier carries explicit memory bounds
   (interning + LRU) so it never reproduces the "language server ate my RAM"
-  failure mode.
+  failure mode. Its firewall is the **per-SFC summary** (exported props /
+  emits / slots types, component references): the only cross-file salsa
+  dependency, so a template-body edit never leaves the file unless the summary
+  durably changes. Incrementalization is hybrid — only genuinely recursive
+  fact groups (graph reachability, route typing, transitive slots) are
+  incremental; block-local facts recompute from content-keyed artifacts.
 
 ## Extension contracts (decision 1)
 
@@ -218,7 +233,13 @@ additive vs breaking. **Decided linking model — two tiers:** first-party
 dialects (Vue family, pug) are compiled in behind Rust traits and cargo
 features (the `legacy` pattern: zero cost when off, no dynamic dispatch);
 external dialects attach out-of-process over the serialized contract, which
-sidesteps Rust ABI instability and keeps "in-tree is Vue-only" honest.
+sidesteps Rust ABI instability and keeps "in-tree is Vue-only" honest. The
+external-tier transport is the **WASM component model (WIT interfaces)** —
+typed, versioned, ~6× JSON-RPC throughput, and thanks to the `wasm32-wasip2`
+core target the same contract hosts a dialect out-of-process or in-process
+under wasmtime. Interfaces are coarse-grained (whole block in, surface tree
+out): the canonical ABI copies at every boundary, so per-node chatter is
+banned by design.
 
 ## Performance guardrails
 
