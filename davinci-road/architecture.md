@@ -374,6 +374,8 @@ unattended without lowering the bar.
 
 New crates start at the `experimental` stability tier and obey the existing
 discipline: `vize_carton` string/collection types (clippy bans), the 350-line
-source guard, fixtures-first change classes from
+source guard (**explicitly reaffirmed for Davinci crates** — charter #22's
+complexity license and file splitting are orthogonal; small files serve
+reviewability, which serves correctness), fixtures-first change classes from
 `docs/content/architecture/language-engineering-practices.md`, and snapshot
 diffs as reviewed contracts — which the Folio dumps are designed to serve.

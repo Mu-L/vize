@@ -48,7 +48,10 @@ The rearchitecture cannot start blind. No behavior changes in this phase.
   measuring time **and memory**: allocation counts (promoting the profiler's
   allocation tracking to CI metrics), peak RSS per run, and node-size
   static assertions on hot types.
-- Committed corpus baseline snapshot to diff every later phase against.
+- Committed corpus baseline snapshot to diff every later phase against, plus
+  the first **corpus expansion round** (charter #31): audit construct coverage
+  against the matrices and add real projects for pug, JSX, Vapor, and
+  petite-vue usage; every later phase re-audits for the surfaces it touches.
 - Committed **Croquis consumption matrix** (which analysis products have which
   consumers — the [Semantic Engine](./semantic-engine.md#the-problem-measured)
   table becomes a tracked artifact) and a **rule-parity matrix** (which Patina

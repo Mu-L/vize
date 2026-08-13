@@ -33,6 +33,12 @@ none of those three buckets is a design defect, not a bug.
   (local, artifact-only, Lean-kernel discipline); `render(S1) == source`
   bytes; incremental ≡ from-scratch over the corpus; the IVM oracle
   (incremental update ≡ full render); Folio `--full` round-trip injectivity.
+- **When it fails anyway, it fails loudly and reproducibly.** The operational
+  definition of an ICE (charter #30): a file-scoped failure that continues the
+  rest of the build, emits an automatic repro package (last-good Folio +
+  pipeline string + config, replayable via `vize repro`), and **never**
+  degrades to possibly-wrong output — silent degradation is the one behavior
+  the creed forbids absolutely.
 
 ## 2. Edge cases must not exist — elimination by enumeration
 
