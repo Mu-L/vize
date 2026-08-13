@@ -8,8 +8,10 @@
 
 1. **Never fail.**
 2. **Edge cases must not exist.**
-3. **Every conceivable pattern is tested.**
-4. **Tests are strict — nothing passes on partial matching.**
+3. **No false positives. No false negatives.**
+4. **Never regress.**
+5. **Every conceivable pattern is tested.**
+6. **Tests are strict — nothing passes on partial matching.**
 
 "Never" is not a wish; it is a translation table. A failure mode is either
 **impossible by construction** (the type system cannot express it), or
@@ -39,6 +41,100 @@ none of those three buckets is a design defect, not a bug.
   pipeline string + config, replayable via `vize repro`), and **never**
   degrades to possibly-wrong output — silent degradation is the one behavior
   the creed forbids absolutely.
+
+## No false positives, no false negatives — verdicts are proofs
+
+Rice's theorem says zero-FP *and* zero-FN over arbitrary programs is
+undecidable — but Davinci's domain is not arbitrary programs. Templates are a
+small, closed, structured language; the reactivity API surface is finite;
+heavy inference exists only at the JS boundary. Domain restriction is what
+made Astrée's zero-false-alarm record possible, and it is what makes this
+creed credible here. The mechanisms:
+
+- **Three-valued facts, fire-on-proof.** Every semantic fact is
+  `proven / refuted / unknown` (the staged-precision shape from the Polonius
+  import). Policy, enforced by the rule SDK's types: **error-severity
+  diagnostics fire only on `proven`** — zero FP by construction. `unknown`
+  never produces an error; it produces silence, or an explicitly-labeled
+  hint/suggestion severity that *says* it is not a proof. A rule cannot
+  express "error on maybe".
+- **Witness-carrying diagnostics.** An error must carry its witness — the
+  concrete fact chain that proves the violation (binding → escape → effect
+  edge, with spans via provenance). The witness is machine-checkable against
+  the fact base, so a false positive is not a matter of opinion: it is a
+  witness that fails verification, caught by the same verifier
+  infrastructure as everything else. No witness, no diagnostic.
+- **Precision tiers as rule metadata.** Every rule declares
+  `exact` (decidable domain — zero FP and zero FN required and testable:
+  HTML content model, template CFG, structural rules) /
+  `sound` (no-FN over its declared domain) / `complete` (no-FP) /
+  `heuristic`. Heuristic rules are barred from error severity by policy, the
+  tier renders in the docs, and the declared domain is part of the rule's
+  contract — "no FN" always means *no FN within the declared domain*, and
+  shrinking the domain silently is a breaking change.
+- **Seeded-defect recall — the FN oracle.** FN rates are measured, not
+  assumed: the construct matrices generate corpora with *known injected
+  defects* (remove the provider, break the prop type, drop a `key`, race the
+  await), and in-domain defect classes require **100% detection** at the
+  phase gate. A defect class we claim to catch, we catch every time.
+- **Suppression telemetry — the FP oracle.** Real projects carry
+  suppressions (`eslint-disable`, waivers). Corpus runs track every vize
+  diagnostic on lines users suppressed for the analogous upstream rule, and
+  every new suppression Real World Testing users add against *our*
+  diagnostics — each is an FP candidate triaged to `fixed` or
+  `justified-with-witness`, never left ambient.
+- **Divergence is justified or it is a bug.** Charter #23 already bans silent
+  divergence from vue-tsc/eslint behavior; under this creed, an unjustified
+  divergence is *classified* — it is either our FP/FN or theirs, and the
+  ledger records which, with the witness.
+
+## Never regress — ratchets, not dashboards
+
+A regression is a state transition the system must not be able to make
+silently. The mechanisms are one-way:
+
+- **Ratchets.** Budgets and quality metrics only tighten. The repo already
+  has the pattern (`tests/_helpers/compat-ratchet.ts`); Davinci generalizes
+  it: bench numbers, RSS ceilings, mutation score, rule fact-adoption rate,
+  source-map coverage, FP/FN ledger counts — each is a ratchet whose
+  loosening requires a charter-level written decision, never a CI tweak.
+- **Every fixed bug becomes a permanent test.** Fuzz crashes land with their
+  deterministic reproducer (already policy); corpus incidents land as
+  fixtures; FP/FN triage outcomes land in the seeded-defect or suppression
+  suites. The test outlives the fix and the code it fixed.
+- **A deleted failure class stays deleted.** Its reappearance reopens the
+  phase that deleted it — not a ticket (standing gate). Remarks-diff over the
+  corpus catches *optimization* regressions the output diff can't see.
+- **Baselines are committed artifacts.** Corpus snapshots, bench baselines,
+  consumption matrices — diffs against them are reviewed like code, so drift
+  is a PR conversation, not an archaeology project.
+
+## Formal methods — surgical, not total
+
+Formal verification is applied where the domain is small, closed, and the
+payoff is a load-bearing guarantee — and nowhere else (the Effekt retreat is
+the cautionary tale for formalism as a lifestyle). The targets, in order:
+
+1. **S3's executable reference semantics in Lean.** The MIR anti-lesson says
+   pin down what an Impeto effect *means* before optimizing; the React-tRace
+   precedent says make the semantics executable and differential-test the
+   optimized implementation against it. Writing that reference in Lean makes
+   it simultaneously the spec, a test oracle, and a proof substrate.
+2. **Theorems on the small models.** The reactivity lattice's lattice laws
+   (classification monotonicity, join correctness); effect-grouping
+   preserves the dependency edge set; the IVM linearity claim (a keyed
+   `v-for` patch plan ≡ recompute-from-scratch on the reference semantics).
+   Small, closed statements — exactly Lean's sweet spot.
+3. **An independent Folio checker.** Because Folio round-trips, stage
+   invariants can be verified out-of-process by a second implementation that
+   shares no code with the compiler (the Lean4Lean discipline) — potentially
+   *written in Lean*, parsing folios and checking S2/S3 invariants in CI.
+4. **Decidable checkers proved total.** The HTML content-model checker and
+   region well-formedness are finite, decidable domains where `exact`
+   precision (zero FP/FN) is a provable property, not an aspiration.
+
+Rust-side proofs (e.g. Kani/Creusot on `unsafe` islands) are evaluated
+case-by-case where charter #22's complexity license gets exercised.
 
 ## 2. Edge cases must not exist — elimination by enumeration
 

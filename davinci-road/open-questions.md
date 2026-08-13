@@ -85,12 +85,10 @@ transport (charter #15) — evaluate against the prior-art findings.
 
 ## AI optimization loop guardrails
 
-Charter #16/#19 make profiles and Folio diffs agent-consumable and gates the
-oracle. Open: what an unattended agent may do autonomously (propose PRs only?
-merge behind gates?), how optimization experiments are sandboxed against the
-corpus, and where the human review line sits. Needs a written policy before
-the loop runs unattended; the gates themselves are necessary but not
-sufficient.
+**Decided** → charter #32: optimization PRs auto-merge on full gate passage;
+contract/semantics changes stay maintainer-reviewed. Remaining detail for the
+implementation roadmap: the sandboxing of optimization experiments (worktree
+isolation, corpus-run quotas) and the audit trail format for auto-merged PRs.
 
 ## JS plugin API shape
 

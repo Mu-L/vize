@@ -125,6 +125,10 @@ pipeline's**.
   reorder, pass-through wrappers, text-node splits) must produce S3 folios
   identical modulo ids; the IVM oracle (incremental update ≡ from-scratch
   render) runs over S3 fixtures.
+- The **executable S3 reference semantics lands in Lean** (charter #36) as
+  the op reference's formal companion — spec, differential oracle against
+  both backends, and the substrate for the lattice / effect-grouping /
+  IVM-linearity theorems.
 
 **Exit gate:** Vapor + SSR corpus parity; source-map coverage measured across all
 three backends; Vapor compile bench improves (it stops paying for VDOM).
