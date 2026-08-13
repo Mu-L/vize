@@ -47,6 +47,19 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | 5 | Semantic engine | Analyses become **demand-driven facts behind one query API** — the [Semantic Engine](./semantic-engine.md) — read by every consumer: Vapor **and** VDOM **and** SSR compilation, lint, type checking, LSP, Doctor. A fact group with no consumer is demand-gated off, not computed. Croquis's trackers become the population passes. |
 | 6 | Stages vs passes | **Stages are contracts, passes are execution plans.** The pass manager fuses single-visit passes; the compile path's traversal count must not exceed the pre-Davinci pipeline's. Materialization is per-product: `build` fuses, lint/check/LSP materialize and cache. |
 | 7 | Fair-abstraction S2 | The S2 neutral core is **not Vue-shaped**; Vue lowers into it like any dialect. The lint rule engine targets the neutral core so one rule corpus serves SFC and JSX at parity — and transfers to Svelte/Solid through the input-dialect contract. |
+| 8 | Fact API | **Static demand declarations** with a debug-build detector for undeclared access. Consumers declare fact groups as const data; runs compute exactly the demanded union. |
+| 9 | S3 routing | **DOM and Vapor lower through S3 Impeto; SSR takes a thin S2→S4 path** reading the static partition as facts. Phase 3 measurements keep veto power. |
+| 10 | Incrementality | **salsa, resident tier only**: Maestro / check-server / watch run stages as salsa queries with explicit memory bounds; one-shot CLI stays on the fused non-salsa pipeline (rust-analyzer/rustc two-tier precedent). Stage artifact keys are the shared identity. |
+| 11 | Naming | S2 = **Disegno** (`vize_disegno`), S3 = **Impeto** (`vize_impeto`), shared infra = **vize_davinci**, textual dumps = **Folio** (Codex was rejected for its AI-product name collision). The croquis "VIR" dump is absorbed as the croquis folio with a deprecation alias. Croquis survives as the semantic engine's name. |
+| 12 | pug | **First-class S1 dialect** — compile, lint, format, and type-check all flow through the same lanes. |
+| 13 | Style bindings | `v-bind()` in CSS is **visible as S2 ops** — lint, the reactivity lattice, and projections see style-block references. |
+| 14 | Foreign-expression type checking | The **virtual host-language projection (emit + span links) is part of the expression-dialect contract**; dialects that cannot provide it get boundary-typed integration only. Projection data serves the tsgo/Corsa API, the content-mapper protocol, and Maestro from one mapping model. |
+| 15 | Contract linking | **Two tiers**: first-party dialects compiled in behind traits + cargo features (zero-cost `legacy` pattern); external dialects out-of-process over the serialized contract. |
+| 16 | DevTool | A **compiler DevTool is a first-class product** ([devtool.md](./devtool.md)): stage ladder, pass timeline with Folio diffs, provenance, fact browser, decision remarks, flame views — rendered from the same artifacts tests and AI consume. |
+| 17 | Deep analysis products | The semantic engine ships **complexity metrics over real template CFGs (crossing file boundaries via the component graph)**, **app-level facts** (Vue Router typed params, `definePageMeta`, route trees), and **HTML conformance including cross-component content-model checks**. |
+| 18 | Portability | Davinci-owned crates are **`no_std + alloc` from birth**; `wasm32-wasip2` is a CI target. `std` is gated to the edges (fs, threads, process). |
+| 19 | Performance & footprint | Beyond throughput: **CI-tracked ceilings for RSS, cold start, keystroke latency, idle CPU, and distribution size** (native / wasm / npm). The named anti-goals: rust-analyzer-style heaviness, cargo-style slowness. |
+| 20 | Editor neutrality | **Strict LSP conformance** — full function on Neovim, Helix, Zed, Emacs, not just VS Code; conformance and multi-client smoke tests gate the LSP phase. |
 
 ## Documents
 
@@ -54,7 +67,8 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | -------- | -------- |
 | [Motivation](./motivation.md) | Current-state fault lines with file-path evidence, and the existing assets Davinci builds on |
 | [Architecture](./architecture.md) | The stage model (S0–S4), stage fusion, shared infrastructure, dialect and target contracts, performance guardrails |
-| [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike |
+| [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike, app-level facts, complexity and HTML-conformance products |
+| [DevTool](./devtool.md) | The observability surface: stage ladder, pass timeline, provenance, fact browser, decision remarks, flame views |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |
 

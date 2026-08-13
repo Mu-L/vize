@@ -60,6 +60,14 @@ The semantic engine is the S2 side-table layer of the
 4. **A fact with no consumer is gated off, not computed.** The consumption
    matrix above becomes a tracked artifact; orphans are either productized or
    demand-gated to zero cost.
+5. **App-level facts.** Not everything completes within a file, and not
+   everything comes from source text: filesystem routing conventions, Vue
+   Router typed route params, Nuxt `definePageMeta`, i18n catalogs. Convention
+   providers (in-tree: Vue Router / Nuxt, generalizing Maestro's existing
+   `ecosystem` services) contribute project-level fact groups — the route tree,
+   per-route meta, typed params — on the same query API, so route-param types
+   flow into the virtual-TS projection and route-level checks become ordinary
+   lint/type diagnostics.
 
 ## The reactivity lattice — one analysis, every backend
 
@@ -101,6 +109,24 @@ cross-file graph × native type information, on one base.
 - **Mode advisories** — Vapor-readiness of a component (which constructs would
   block or degrade Vapor compilation), derived from the same lattice, serving
   migration between non-Vapor and Vapor.
+- **Complexity metrics over the real control flow** — S2 regions give templates
+  a genuine CFG, so cyclomatic/cognitive complexity is computed on what the
+  component actually does (`v-if`/`v-for`/slots as branches and loops), and the
+  cross-file component graph lets complexity **cross file boundaries**: a
+  template's effective complexity includes the branching of the components it
+  composes. Lands as Patina rules and Doctor findings, growing out of
+  `vize_curator`'s existing complexity module and the cross-file-complexity
+  guide.
+- **Ecosystem contract checks** — typed route params validated at `router.push`
+  / `<RouterLink>` sites, `definePageMeta` shape and reachability, dead routes
+  — from the app-level fact providers above.
+- **HTML conformance across component boundaries** — the template is checked as
+  the HTML it will produce: content-model legality (no `<div>` inside `<p>`,
+  void elements, implied end tags, table anatomy), and — via the cross-file
+  render tree — violations that only materialize through composition, e.g. a
+  component whose root `<div>` is rendered into a parent's `<p>`. Per-file HTML
+  rules exist in Patina today; the composed check is only possible on the
+  project-level fact base.
 
 Each lands as ordinary Patina rules / Doctor findings / Canon diagnostics —
 the engine is infrastructure, the products stay where users already look.
