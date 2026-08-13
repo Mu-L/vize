@@ -24,6 +24,43 @@ Candidates on the table:
 - Whether new crates are `vize_davinci_*`, per-stage names (`vize_disegno`), or
   extensions of existing crates, phase by phase.
 
+## Fusion depth for the build path
+
+How far can `vize build` fuse before diagnostics quality suffers? Emitting S2
+during parse and skipping S1 materialization assumes spans + source text are
+enough for error rendering (they should be — excerpts derive from `Span` +
+source). The riskier line is fusing semantic-fact population into lowering:
+synthesized attributes fuse cleanly, but anything needing lookahead (sibling
+`v-else`, slot collection) must stay region-local. Needs a phase-2 prototype
+measuring walk count and instruction locality against the phase-0 baselines.
+
+## Fact query API shape
+
+Typed accessors per fact group vs a demanded-fact-group declaration resolved at
+pipeline build time; how Corsa-derived type facts join the surface (sync
+snapshot vs async session); whether rules declare fact demands statically so
+lint runs compute exactly the union of demanded groups. Decide alongside the
+phase-4 Patina migration — the 26-of-345 croquis adoption number is the
+baseline this API has to beat.
+
+## Orphan analyses: productize or cut
+
+`RaceConditionTracker` and `ProvideInjectTracker` have zero consumers;
+`EffectGraph` has one (Doctor). The semantic-engine plan gives each a product
+(async-race rules, cross-file provide/inject pairing, Vapor effect grouping) —
+but each needs corpus evidence that the analysis is sound at scale before it
+ships as a rule. Any product that doesn't earn corpus trust gets its fact group
+demand-gated to zero cost rather than deleted, per decision 5.
+
+## Rule-corpus fairness measurement
+
+Decision 7 needs a metric: of Patina's 345 rule files, which are neutral-core
+(should run on SFC + JSX + external dialects), which are Vue-dialect-bound
+(`v-model` modifiers), and which are container-bound (SFC block structure)?
+The phase-0 rule-parity matrix defines the classification; phase 4's exit gate
+consumes it. Open: whether the classification is declared per rule (a
+`dialect_scope` field) or derived from the fact groups the rule demands.
+
 ## S3 scope
 
 Do DOM and SSR lower through S3, or take a thinner S2→S4 path? The shared

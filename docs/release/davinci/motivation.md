@@ -83,7 +83,26 @@ regenerates every virtual document for the file. Block-level virtual-TS reuse
 waiting on structure that does not exist. What caching does exist is a scatter of
 ad-hoc result caches keyed on content hashes.
 
-### 8. The rearchitected pipeline has no regression instrumentation
+### 8. The lint rule corpus is dialect-asymmetric, and the analyzer is stranded
+
+Patina's rule corpus is SFC-rich — 345 rule files — but JSX receives only the
+subset migrated onto the markup facade, and the facade's JSX hot path
+deliberately bypasses the JSX→Relief lowering (`MarkupDocument::from_jsx`)
+because Relief is Vue-shaped. Sharing by *lowering into Vue's tree* makes every
+other dialect a second-class citizen; the rules need a genuinely neutral
+abstraction to target.
+
+The same strandedness holds for semantic analysis itself. Croquis computes ~25
+tracker products, and most have no consumer: `RaceConditionTracker` and
+`ProvideInjectTracker` are read by **nobody** outside croquis, `EffectGraph`
+reaches only Doctor — never the Vapor backend, its natural consumer (Vapor
+imports exactly one croquis helper, `builtins::is_global_allowed`, and the
+transform lane's `Option<&Croquis>` is `None` on the Vapor path). Only 26 of
+patina's 345 rule files reference croquis at all; type-aware rules bypass it
+for direct Corsa sessions. Full measurement in
+[Semantic Engine](./semantic-engine.md#the-problem-measured).
+
+### 9. The rearchitected pipeline has no regression instrumentation
 
 No crate in the template pipeline (`vize_armature`, `vize_relief`,
 `vize_croquis`, `vize_atelier_core`, `_dom`, `_vapor`, `_ssr`) has a criterion

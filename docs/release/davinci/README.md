@@ -44,13 +44,17 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | 2 | IR representation | **Typed dialects** — each stage is a concrete Rust enum with its own type family. What is shared across stages is *infrastructure* (spans, node ids, pass manager, diagnostics, textual dumps), never a uniform dynamic `Operation` structure. MLIR is borrowed as philosophy, not machinery. |
 | 3 | Migration strategy | **Strangler with corpus gates.** New foundation crates are introduced and existing surfaces move over one at a time. Every phase must pass the 134-project real-project corpus parity checks and hold the end-to-end benchmark budget before it merges. No long-lived parallel pipeline, no big-bang switch. |
 | 4 | "non-JS" meaning | All three readings are in scope as extension points: alternate template languages at the surface stage, non-JS host ecosystems at the container/emit stages, and **foreign expression languages (e.g. MoonBit) inside templates** at the semantic stage. The last one shapes the expression representation: see [Architecture](./architecture.md#expression-dialects). |
+| 5 | Semantic engine | Analyses become **demand-driven facts behind one query API** — the [Semantic Engine](./semantic-engine.md) — read by every consumer: Vapor **and** VDOM **and** SSR compilation, lint, type checking, LSP, Doctor. A fact group with no consumer is demand-gated off, not computed. Croquis's trackers become the population passes. |
+| 6 | Stages vs passes | **Stages are contracts, passes are execution plans.** The pass manager fuses single-visit passes; the compile path's traversal count must not exceed the pre-Davinci pipeline's. Materialization is per-product: `build` fuses, lint/check/LSP materialize and cache. |
+| 7 | Fair-abstraction S2 | The S2 neutral core is **not Vue-shaped**; Vue lowers into it like any dialect. The lint rule engine targets the neutral core so one rule corpus serves SFC and JSX at parity — and transfers to Svelte/Solid through the input-dialect contract. |
 
 ## Documents
 
 | Document | Contents |
 | -------- | -------- |
 | [Motivation](./motivation.md) | Current-state fault lines with file-path evidence, and the existing assets Davinci builds on |
-| [Architecture](./architecture.md) | The stage model (S0–S4), shared infrastructure, dialect and target contracts, performance guardrails |
+| [Architecture](./architecture.md) | The stage model (S0–S4), stage fusion, shared infrastructure, dialect and target contracts, performance guardrails |
+| [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |
 

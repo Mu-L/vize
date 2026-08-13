@@ -63,13 +63,26 @@ The normalized, input-neutral representation of UI semantics, and the **primary
 consumer surface**: element/component/text/interpolation nodes, structured
 control flow (`if`/`for` as regions, not directive attributes), normalized slots,
 normalized bindings (`bind`/`on`/`model` semantics rather than `v-bind`/`v-on`
-spellings), with binding metadata from Croquis attached via side tables. JSX
-`<Show>`-style patterns, `v-if`, and pug conditionals all normalize to the same
-ops. Framework-specific constructs that must survive (custom directives, vue2
-filters) ride along as dialect ops.
+spellings), with semantic facts attached via side tables (the
+[Semantic Engine](./semantic-engine.md)). JSX `<Show>`-style patterns, `v-if`,
+and pug conditionals all normalize to the same ops. Framework-specific
+constructs that must survive (custom directives, vue2 filters) ride along as
+dialect ops.
 
-Consumers: the linter (Patina's markup facade becomes a zero-copy view over S2),
-virtual-language projection for type checking, Musea, Doctor, and LSP features.
+**The neutral core is a fair abstraction, not Vue's AST renamed.** Vue lowers
+into it exactly the way JSX or an external dialect does; whatever is genuinely
+Vue-specific stays a `vue.*` dialect op instead of shaping the core. The litmus
+test: a lint rule written against the neutral core runs unchanged on SFC and on
+JSX — and on Svelte/Solid through the input-dialect contract — wherever the
+underlying semantics exist. Today fails that test: Patina's SFC rule corpus is
+rich (345 rule files) while JSX gets a migrated subset, and the JSX hot path
+deliberately bypasses the JSX→Relief lowering (`MarkupDocument::from_jsx`)
+because Relief is Vue-shaped. Lowering *into a Vue-shaped tree* is the wrong
+fix; a genuinely neutral S2 is the right one.
+
+Consumers: the linter (Patina's markup facade becomes a zero-copy view over S2,
+and the rule engine targets the neutral core), virtual-language projection for
+type checking, Musea, Doctor, and LSP features.
 
 ### Expression dialects
 
@@ -102,9 +115,10 @@ to Corsa today).
 The generalization of today's Vapor IR: flat, id-based operations
 (`SetText`/`SetProp`/`InsertNode`/…), static template partition, effect grouping
 by dependency set, and hoist/cache decisions as explicit operations rather than
-codegen-time inference. The static/dynamic partition analysis runs once on
-S2→S3 lowering and serves all three backends: Vapor consumes effect grouping,
-VDOM derives patch flags and hoisting from the same partition, SSR derives its
+codegen-time inference. The partition derives from the semantic engine's
+[reactivity lattice](./semantic-engine.md#the-reactivity-lattice--one-analysis-every-backend),
+computed once and serving all three backends: Vapor consumes effect grouping,
+VDOM derives patch flags and hoisting from the same facts, SSR derives its
 static string plan. Whether DOM/SSR lower through S3 or take a thinner S2 path
 is an open question ([Open Questions](./open-questions.md#s3-scope)).
 
@@ -117,12 +131,38 @@ DOM, SSR, and Vapor alike — replacing the text-matching recovery in
 virtual TS / virtual host-language projections, `.d.ts`, and non-JS host targets
 (the Volt/Elixir pattern) through the same contract.
 
+## Stages are contracts, passes are execution plans
+
+The stage model is **logical**. S0–S4 define data contracts, dump formats, and
+consumer surfaces; they do not mandate five traversals. Passes declare
+themselves **fusable** (single-visit, local, synthesized-attribute style) or
+**barrier** (needs whole-tree or fixpoint facts), and the pass manager fuses
+adjacent fusable passes into one walk. Physical plans then differ per product:
+
+- **`vize build` fuses aggressively.** Parsing can emit S2 directly — S1 is a
+  *capability*, materialized only when a consumer needs losslessness (the
+  formatter, lint autofix). Cheap semantic facts are computed as synthesized
+  attributes during lowering; emission runs as the exit action of the final
+  walk where the target allows. The budget is explicit: the fused compile path
+  must not walk the tree more times than today's pipeline — which is already
+  parse + transform + hoist + codegen plus 20+ per-expression re-parses, and
+  for Vapor an additional discarded transform and re-lower. Multi-stage IR done
+  right *reduces* traversals here; it does not add them.
+- **`vize check`, lint, and the LSP materialize.** They query S2 and fact
+  tables repeatedly and incrementally, so artifact caching (phase 5) dominates,
+  not traversal count.
+
+Region-structured control flow in S2 is what makes fusion tractable: today's
+enter/exit sibling-mutation dance (merging `v-else` branches on the parent's
+child list) forces the re-visits that a region-owning `ui.if` op never needs.
+
 ## Shared infrastructure (what stages have in common)
 
 - **Pass manager** — each product (compile-dom, compile-vapor, compile-ssr,
   lint, typecheck-projection, format) is a declared pipeline of statically-known
-  passes. Debug builds interleave stage verifiers; `profile!` spans wrap each
-  pass automatically. No registry of trait objects; pipelines are const data.
+  passes, each marked fusable or barrier as above. Debug builds interleave stage
+  verifiers; `profile!` spans wrap each pass automatically. No registry of
+  trait objects; pipelines are const data.
 - **Codex dumps** — the textual format for every stage (working name; the
   existing croquis "VIR" debug dump needs a rename or absorption plan). Snapshot
   tests pin any stage; the Compiler Inspector renders the same dumps.
@@ -164,6 +204,9 @@ Non-negotiable, inherited from "Be Fast Above All":
    (15k SFC ≈ 330ms compile) is a merge gate, and phase 0 adds the per-crate
    microbenches the pipeline currently lacks so regressions localize.
 5. **Verification never ships.** Stage verifiers are debug/fixture-only.
+6. **Traversal count is budgeted.** The fused compile path must not exceed the
+   current pipeline's number of tree walks; phase-0 microbenches make fusion
+   regressions localizable.
 
 ## Fit with workspace culture
 

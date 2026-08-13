@@ -24,6 +24,10 @@ The rearchitecture cannot start blind. No behavior changes in this phase.
 - Criterion microbenches for the template pipeline: `vize_armature`,
   `vize_croquis`, `vize_atelier_core`, `_dom`, `_vapor`, `_ssr` (today: none).
 - Committed corpus baseline snapshot to diff every later phase against.
+- Committed **Croquis consumption matrix** (which analysis products have which
+  consumers — the [Semantic Engine](./semantic-engine.md#the-problem-measured)
+  table becomes a tracked artifact) and a **rule-parity matrix** (which Patina
+  rules run on SFC vs JSX today).
 - `Span { u32, u32 }` type and the `SourceLocation` diet plan (deprecation path
   for per-node owned `source` strings and dead line/column fields).
 - Codex dump harness skeleton (stage-dump → insta snapshot workflow) and the
@@ -52,20 +56,26 @@ holds or improves — this phase should be a measurable win, not a wash.
 ## Phase 2 — S2 semantic IR and the pass manager
 
 - Introduce the S2 typed dialect and the pass manager (const pipelines, debug
-  verifiers, `profile!` per pass).
+  verifiers, `profile!` per pass, **fusable/barrier pass declarations with
+  fusion of adjacent single-visit passes**).
 - Port the core transform lane: structured control flow replaces in-place
   directive rewriting; the codegen-node universe separates from the surface AST;
   raw `*mut` traversal is replaced by id-based traversal.
 - The **DOM backend** is the first strangler target: it lowers from S2 while SSR
   and Vapor still run the old lane.
 
-**Exit gate:** DOM corpus parity; Codex dumps for S1/S2 in fixtures; bench budget.
+**Exit gate:** DOM corpus parity; Codex dumps for S1/S2 in fixtures; bench
+budget; **fused compile-path traversal count measured at ≤ the pre-Davinci
+pipeline's**.
 
 ## Phase 3 — S3 reactivity IR and backend convergence
 
-- Generalize the Vapor IR into S3; Vapor lowers S2→S3 with full Croquis context
-  — deleting the run-then-discard double transform and the duplicated directive
-  transforms.
+- Generalize the Vapor IR into S3; Vapor lowers S2→S3 with full semantic
+  context — deleting the run-then-discard double transform and the duplicated
+  directive transforms. Vapor becomes the first consumer of the
+  [reactivity lattice](./semantic-engine.md#the-reactivity-lattice--one-analysis-every-backend)
+  and effect facts (`EffectGraph` finally reaches a backend); VDOM patch flags
+  and SSR static planning derive from the same facts.
 - SSR moves onto the shared lowering (through S3 or a thin S2 path — resolve
   [S3 scope](./open-questions.md#s3-scope) here with measurements).
 - Structured emitters (S4) replace string-append codegen; **SSR and Vapor gain
@@ -79,14 +89,20 @@ three backends; Vapor compile bench improves (it stops paying for VDOM).
 - **One virtual-language projection** on S2 replaces the two virtual-TS
   generators (canon + maestro) and unifies their source-map models; diagnostic
   assembly becomes a single post-pass over finished diagnostics.
-- Patina's markup facade re-bases as a zero-copy S2 view (keeping its lint-rule
-  API); reserved Svelte/Astro variants map to the input-dialect contract.
+- Patina's markup facade re-bases as a zero-copy S2 view, and the **rule engine
+  re-targets the neutral core through the semantic-engine query API** — one
+  rule corpus for SFC and JSX, with per-rule opt-outs only where semantics
+  genuinely diverge. Reserved Svelte/Astro variants map to the input-dialect
+  contract. Consumers stop reading `Croquis` fields directly; facts become
+  demand-driven.
 - Glyph formats from lossless S1 (byte scanner retires; pug arrives as an S1
   dialect); Musea's art parser moves onto S0/S1.
 
 **Exit gate:** `vize check` corpus parity; corpus lint-agreement; Glyph's four
 corpus properties (idempotence, parse-preservation, lint-agreement, pug) hold
-with an empty waiver ledger.
+with an empty waiver ledger; the rule-parity matrix shows SFC/JSX convergence
+(neutral-core rules run on both); **every computed fact group has ≥1 consumer
+or is demand-gated off**.
 
 ## Phase 5 — Incrementality substrate
 
