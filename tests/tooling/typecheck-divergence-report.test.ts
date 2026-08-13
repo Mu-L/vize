@@ -8,12 +8,10 @@ import {
   cleanup,
   commitSha,
   readJson,
-  root,
   run,
   setup,
   updateJson,
   writeJson,
-  writeVueTsc,
 } from "./_helpers/typecheck-divergence-report-fixture.ts";
 
 test("typecheck divergence report binds baseline evidence to the matrix artifact", () => {
@@ -38,7 +36,10 @@ test("typecheck divergence report binds baseline evidence to the matrix artifact
       "baseline",
       "budget",
       "divergence",
+      "enforcement",
       "evidence",
+      "mutationOracle",
+      "preparation",
       "project",
       "revision",
       "schema",
@@ -47,9 +48,31 @@ test("typecheck divergence report binds baseline evidence to the matrix artifact
       "version",
     ]);
     assert.equal(artifact.schema, "vize.fixtureTypecheckDivergenceRun");
-    assert.equal(artifact.version, 3);
+    assert.equal(artifact.version, 4);
     assert.equal(artifact.tsconfig, ".generated/tsconfig.json");
     assert.equal(artifact.evidence.commitSha, commitSha);
+    assert.deepEqual(artifact.enforcement, { budgetMode: "enforce" });
+    const dependencyPath = path.join(fixture.reportDir, "fixture-typecheck-dependencies.json");
+    assert.deepEqual(artifact.preparation, {
+      schema: "vize.fixtureTypecheckPreparationEvidence",
+      version: 1,
+      payloadSha256: createHash("sha256").update(fs.readFileSync(dependencyPath)).digest("hex"),
+      packageManager: { name: "pnpm", version: "10.0.0" },
+      lockfile: {
+        path: "pnpm-lock.yaml",
+        sizeBytes: fs.readFileSync(path.join(fixture.fixtureRoot, "pnpm-lock.yaml")).byteLength,
+        sha256: createHash("sha256")
+          .update(fs.readFileSync(path.join(fixture.fixtureRoot, "pnpm-lock.yaml")))
+          .digest("hex"),
+      },
+      install: {
+        command: ["pnpm", "install", "--frozen-lockfile", "--ignore-scripts", "--prefer-offline"],
+        exitCode: 0,
+        stdoutSha256: createHash("sha256").update("installed").digest("hex"),
+        stderrSha256: createHash("sha256").update("").digest("hex"),
+      },
+      baselinePrepare: null,
+    });
     assert.deepEqual(artifact.source, {
       payloadSha256: createHash("sha256").update(fs.readFileSync(fixture.outputPath)).digest("hex"),
       fileCount: 1,
@@ -107,6 +130,23 @@ test("typecheck divergence report binds baseline evidence to the matrix artifact
     assert.equal(artifact.divergence.summary.sharedCount, 1);
     assert.equal(artifact.divergence.summary.falsePositiveCount, 0);
     assert.equal(artifact.divergence.summary.falseNegativeCount, 0);
+    assert.equal(artifact.mutationOracle.schema, "vize.fixtureTypecheckSeededMutationOracle");
+    assert.equal(artifact.mutationOracle.version, 1);
+    assert.equal(artifact.mutationOracle.verdict, "passed");
+    assert.equal(artifact.mutationOracle.passed, true);
+    assert.equal(artifact.mutationOracle.file, "src/App.vue");
+    assert.deepEqual(artifact.mutationOracle.span, { line: 3, column: 1 });
+    assert.deepEqual(
+      artifact.mutationOracle.states.map((state) => state.name),
+      ["clean", "broken", "repaired"],
+    );
+    assert.equal(artifact.mutationOracle.states[1].sharedCount, 1);
+    assert.equal(artifact.mutationOracle.states[1].falsePositiveCount, 0);
+    assert.equal(artifact.mutationOracle.states[1].falseNegativeCount, 0);
+    assert.equal(
+      artifact.mutationOracle.states[2].sourceSha256,
+      artifact.mutationOracle.states[0].sourceSha256,
+    );
     const invocation = readJson(fixture.invocationPath);
     const baselineProject = path.join(fixture.reportDir, "fixture-vue-tsc.tsconfig.json");
     assert.deepEqual(invocation, {
@@ -140,6 +180,7 @@ test("typecheck divergence report binds baseline evidence to the matrix artifact
       "utf8",
     );
     assert.match(markdown, /vue-tsc excluded project-level: 0/);
+    assert.match(markdown, /Seeded mutation oracle: passed \(src\/App\.vue:3:1\)/);
     assert.match(markdown, new RegExp(`Digest: ${artifact.divergence.sha256}`));
   } finally {
     cleanup(fixture);
@@ -155,171 +196,6 @@ test("typecheck divergence report requires a false-negative budget", () => {
     const result = run(fixture);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /maxFalseNegativeRatio must be a finite number/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report fails closed on mismatched matrix artifacts", () => {
-  const fixture = setup();
-  try {
-    const payloadPath = path.join(fixture.reportDir, "fixture-typechecker.json");
-    updateJson(payloadPath, (payload) => (payload.project = "wrong-project"));
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /artifact identity is invalid/);
-    assert.equal(
-      fs.existsSync(path.join(fixture.reportDir, "fixture-typecheck-divergence.json")),
-      false,
-    );
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects evidence from another commit", () => {
-  const fixture = setup();
-  try {
-    const result = run(fixture, { GITHUB_SHA: "c".repeat(40) });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /commit does not match GITHUB_SHA/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects parsed output that differs from stdout", () => {
-  const fixture = setup();
-  try {
-    const payloadPath = path.join(fixture.reportDir, "fixture-typechecker.json");
-    updateJson(payloadPath, (payload) => (payload.parsed.errorCount = 2));
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /stdout does not match parsed output/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects a mismatched matrix file count", () => {
-  const fixture = setup();
-  try {
-    const summaryPath = path.join(fixture.reportDir, "summary.json");
-    updateJson(summaryPath, (summary) => (summary.projects[0].runs[0].fileCount = 2));
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /file count is inconsistent/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects mutated raw typechecker coverage", () => {
-  const fixture = setup();
-  try {
-    updateJson(fixture.outputPath, (payload) => {
-      payload.typecheckerCoverage.checked.sha256 = "0".repeat(64);
-    });
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /typechecker coverage is inconsistent/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects mutated summary coverage", () => {
-  const fixture = setup();
-  try {
-    const summaryPath = path.join(fixture.reportDir, "summary.json");
-    updateJson(summaryPath, (summary) => {
-      summary.projects[0].runs[0].coverage.requestedFileCount = 0;
-    });
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /summary coverage is inconsistent/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects a mismatched matrix status", () => {
-  const fixture = setup();
-  try {
-    const summaryPath = path.join(fixture.reportDir, "summary.json");
-    updateJson(summaryPath, (summary) => (summary.projects[0].runs[0].status = "ok"));
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /status is inconsistent/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects an artifact outside the reported directory", () => {
-  const fixture = setup();
-  try {
-    const summaryPath = path.join(fixture.reportDir, "summary.json");
-    updateJson(
-      summaryPath,
-      (summary) =>
-        (summary.projects[0].runs[0].outputPath = path.relative(
-          root,
-          path.join(fixture.reportDir, "nested", "fixture-typechecker.json"),
-        )),
-    );
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /output path is invalid/);
-  } finally {
-    cleanup(fixture);
-  }
-});
-
-test("typecheck divergence report rejects invalid performance budgets", () => {
-  for (const [field, value, message] of [
-    ["hangTimeoutMs", 0, /hangTimeoutMs must be a positive safe integer/],
-    ["maxFalsePositiveRatio", Number.NaN, /maxFalsePositiveRatio must be a finite number/],
-    ["maxFalseNegativeRatio", 1.1, /maxFalseNegativeRatio must be a finite number/],
-  ] as const) {
-    const fixture = setup();
-    try {
-      const registry = readJson(fixture.registryPath);
-      registry.projects[0].typecheckPerformance[field] = value;
-      writeJson(fixture.registryPath, registry);
-      const result = run(fixture);
-      assert.equal(result.status, 1);
-      assert.match(result.stderr, message);
-    } finally {
-      cleanup(fixture);
-    }
-  }
-});
-
-test("typecheck divergence report rejects unsupported baseline exits and output", () => {
-  for (const [body, message] of [
-    ["process.exit(1);", /unsupported status 1/],
-    ["process.stderr.write('prefix error TS1: bad\\n'); process.exit(2);", /unparseable/],
-  ] as const) {
-    const fixture = setup();
-    try {
-      writeVueTsc(fixture.vueTsc, body);
-      const result = run(fixture);
-      assert.equal(result.status, 1);
-      assert.match(result.stderr, message);
-    } finally {
-      cleanup(fixture);
-    }
-  }
-});
-
-test("typecheck divergence report requires one performance project per shard", () => {
-  const fixture = setup();
-  try {
-    fs.writeFileSync(fixture.registryPath, '{"projects":[]}\n');
-    const result = run(fixture);
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /Expected exactly one.*found 0/);
   } finally {
     cleanup(fixture);
   }

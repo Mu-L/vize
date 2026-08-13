@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { downloadArtifactEntries } from "./release-preflight-artifact-entries.mjs";
 import {
   bootstrapRequiredWorkflowRuns,
   createReleaseGateDispatchPlans,
@@ -25,6 +26,10 @@ import {
   workflowRequiresJobEvidence,
 } from "./release-preflight-evidence.mjs";
 import { githubApiPages, githubApiRequest } from "./release-preflight-github.mjs";
+import {
+  assertRealProjectMatrixReleaseArtifacts,
+  requireRealProjectMatrixRun,
+} from "./release-preflight-matrix-evidence.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const releasePackageRoots = ["editors", "npm"];
@@ -224,6 +229,21 @@ export async function verifyReleasePreflight(env = process.env, { bootstrap = tr
         });
         assertRequiredWorkflowJobs(workflowName, jobs);
       }),
+    (async () => {
+      const run = requireRealProjectMatrixRun(selectedRuns);
+      const artifacts = await githubApiPages({
+        apiUrl,
+        repository,
+        token,
+        resource: `actions/runs/${run.id}/artifacts`,
+        collection: "artifacts",
+      });
+      await assertRealProjectMatrixReleaseArtifacts({
+        run,
+        artifacts,
+        readArtifactEntries: (artifact) => downloadArtifactEntries({ artifact, token }),
+      });
+    })(),
   ]);
   const blockers = findReleaseBlockers(issues, tag);
   if (blockers.length > 0) {
