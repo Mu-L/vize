@@ -4,7 +4,7 @@ on:
   issues:
     types: [opened, edited, reopened]
   pull_request_target:
-    branches: [main]
+    branches: [main, davinci]
     types: [opened, edited, reopened, synchronize, ready_for_review]
 
 concurrency:

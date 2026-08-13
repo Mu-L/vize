@@ -2,9 +2,9 @@ name: Check
 
 on:
   push:
-    branches: [main]
+    branches: [main, davinci]
   pull_request:
-    branches: [main]
+    branches: [main, davinci]
   # Daily cadence for nix-flake and source-coverage; both skip pull requests.
   schedule:
     # 03:11 UTC daily (~12:11 JST). Offset from native-smoke and e2e to spread

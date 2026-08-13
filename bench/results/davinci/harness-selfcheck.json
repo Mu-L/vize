@@ -1,0 +1,12 @@
+{
+  "bench_id": "harness-selfcheck",
+  "fixture": "synthetic:vec-fill-1024",
+  "wall_ns": {
+    "p50": 593,
+    "p95": 630
+  },
+  "allocs": 1,
+  "alloc_bytes_peak": 8192,
+  "rss_peak_bytes": 35389440,
+  "harness_version": "0.348.0"
+}

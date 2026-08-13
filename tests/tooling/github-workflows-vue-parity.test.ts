@@ -27,9 +27,11 @@ test("the typecheck divergence ratchet runs on every pull request", () => {
   // pull requests with exactly such a guard for runtime reasons. Adding one to
   // vue-parity would silently un-gate the ledger with every other assertion in
   // this file still passing, so pin the trigger and the absence of the guard.
+  // The davinci integration branch carries the same required gates, so its
+  // PRs ride the identical trigger (davinci-road/roadmap.md standing gates).
   const workflow = readRepoFile(".github", "workflows", "check.yml");
 
-  assert.match(workflow, /\n  pull_request:\n    branches: \[main\]\n/);
+  assert.match(workflow, /\n  pull_request:\n    branches: \[main, davinci\]\n/);
   assert.doesNotMatch(
     workflowJobBody(workflow, "vue-parity"),
     /^ {4}if:/m,
