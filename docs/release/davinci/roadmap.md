@@ -4,7 +4,13 @@
 > Phases are ordered, not scheduled. No calendar commitments. A phase is done
 > when its exit gate passes, and every phase merges to `main` continuously —
 > there is no long-lived Davinci branch (decision 3: strangler with corpus
-> gates).
+> gates). **The phases culminate in the v1 alpha go/no-go** (charter #24):
+> v1 ships on the Davinci substrate. Work items are written for the
+> agent-implements / maintainer-reviews regime (charter #25) with
+> machine-checkable acceptance criteria. During migration, a replaced lane
+> survives behind a flag only within its phase and is deleted at exit
+> (charter #26); Fresco and Marquette are feature-frozen for the duration
+> (charter #27).
 
 ## Standing gates (every phase)
 
@@ -170,12 +176,20 @@ smoke suite passes (Neovim headless, Helix, Zed alongside VS Code)**.
 
 - Publish the three contracts (input dialect, expression dialect, output target)
   with marquette-style versioning and compatibility classification.
-- One reference foreign consumer validates each boundary: a MoonBit expression-
-  dialect prototype (feature-gated or out-of-tree) and a non-JS host target
-  exercise with Volt.
+- One reference foreign consumer validates each boundary: the **MoonBit
+  expression dialect** (charter #28 — its first real implementation, and the
+  first external validation of the `ExprRef` abstraction; budget review time
+  for abstraction fixes discovered here) and a non-JS host target exercise
+  with Volt.
+
+- The **JS plugin tier** (charter #29) GAs alongside: the custom-rule SDK over
+  the S2 neutral-core view and fact query API (napi batched execution,
+  per-plugin cost attribution, content-keyed caching), validated by real
+  user-land rules; spiked earlier during phase 4/5 consumer work.
 
 **Exit gate:** contracts documented with semver policy; at least one external
-consumer builds against a tagged release without patching vize internals.
+consumer builds against a tagged release without patching vize internals; one
+real-world JS custom rule runs cached and cost-attributed.
 
 ## Risks
 

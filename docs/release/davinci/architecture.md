@@ -254,6 +254,16 @@ Three narrow, published contracts; in-tree implementations are Vue-family only:
 | Input dialect | S1 parser + S1→S2 lowering | Vue 3, Vue 2 (`legacy`), SFC, JSX, pug | Svelte, Solid, Astro |
 | Expression dialect | S2 `ExprRef` capability set | JS/TS (oxc) | MoonBit, Elixir-hosted |
 | Output target | S3/S2 → S4 emitter | VDOM, Vapor, SSR, virtual TS, `.d.ts` | Volt (Elixir), other hosts |
+| **JS plugins / custom rules** (charter #29) | S2 neutral-core view + fact query API, via napi/vitrine | rule authoring SDK | user-land lint rules, project-local plugins |
+
+The JS tier serves end users (Vue developers write JS, not Rust): custom
+rules see the same neutral-core S2 view and declare fact demands exactly like
+Rust rules, but execute **outside the fused walks** in a batched pass —
+node-visit batches cross the napi boundary in bulk, never per-node chatter.
+Each plugin's cost is attributed in output (a slow rule is visible), and JS
+rule results are content-key cached so user rules participate in
+incrementality. The fused compile path and the Rust rule corpus never wait on
+user JS.
 
 Contract stability follows the `vize_marquette` precedent: versioned,
 deterministic serialization at the boundary, compatibility classified as

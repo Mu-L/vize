@@ -50,7 +50,7 @@ constraint that keeps the tool honest.
 
 ## Naming
 
-Open — candidates in the Leonardo register: *Studiolo* (the Renaissance study
-room where works were examined) or *Spolvero* (the pounced transfer of a
-disegno onto the wall — "how the design got there"). Tracked in
-[Open Questions](./open-questions.md).
+**Decided: Spolvero** (charter round, 2026-08-13) — the pounced transfer of a
+disegno onto the wall. The DevTool shows how the Disegno got transferred into
+what runs: the name and the mechanism are the same statement. Transport and
+protocol details remain open ([Open Questions](./open-questions.md)).

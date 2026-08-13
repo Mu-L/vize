@@ -55,14 +55,14 @@ consumes it. Open: whether the classification is declared per rule (a
 static demand declarations (charter #8) the derived form is nearly free, so
 lean derived unless rule authors need overrides.
 
-## DevTool naming and protocol
+## DevTool protocol
 
-The [DevTool](./devtool.md) needs a name (candidates in the Leonardo register:
-*Studiolo*, *Spolvero*) and a transport decision: the constraint is already
-fixed — it renders only artifacts that tests and agents also consume (Folio,
-profiler export, remarks, fact tables) — but whether the local server streams
-them over JSON lines, serves them as files, or exposes the content-mapper-style
-JSON-RPC needs a phase-2 spike alongside the observer API.
+The DevTool's name is decided — **Spolvero** ([devtool.md](./devtool.md)) —
+but the transport is not: it renders only artifacts that tests and agents also
+consume (Folio, profiler export, remarks, fact tables), and whether the local
+server streams them over JSON lines, serves them as files, or exposes the
+content-mapper-style JSON-RPC needs a phase-2 spike alongside the observer
+API.
 
 ## Complexity metric definition
 
@@ -91,6 +91,17 @@ merge behind gates?), how optimization experiments are sandboxed against the
 corpus, and where the human review line sits. Needs a written policy before
 the loop runs unattended; the gates themselves are necessary but not
 sufficient.
+
+## JS plugin API shape
+
+Charter #29 commits to user-land JS plugins/custom rules; the API shape is
+open: serialized visit batches vs proxy objects over napi; sync napi calls vs
+a worker pool; how a JS rule's declared fact demands are expressed in the JS
+SDK; how rule output caching keys include the plugin's own version/content;
+and whether the same SDK surface doubles for the WASM tier (one authoring
+model, two runtimes). ESLint-compatibility (running existing eslint-plugin-vue
+rules unchanged) is explicitly *not* the goal — the SDK targets the
+neutral-core view. Needs a phase-4/5 spike with a real custom-rule case.
 
 ## App-level fact provider contract
 
