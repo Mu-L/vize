@@ -11,11 +11,14 @@
 - **Corpus parity** — the 134-project corpus (`tools/fixtures/tool-matrix-report.mjs`)
   passes with no new failures for every surface the phase touches. Output changes
   are byte-identical unless a waiver documents why the new output is correct;
-  waiver ledgers start and end each phase empty. This is a **regression
-  oracle, not a compatibility promise** (charter #23): vize-internal APIs,
-  CLI internals, and dump/cache formats may break freely until contracts GA —
-  what the gate protects is Vue-semantics correctness and Real World Testing
-  users, not interface stability.
+  waiver ledgers start and end each phase empty. The bar is per-surface
+  (charter #23): **compile surfaces hold the hard byte-parity bar** — emitted
+  code behaves identically to Vue semantics, and compile waivers get the
+  strictest review; **analysis surfaces (lint / check / semantics) gate on
+  correctness and robustness** — documented, justified divergence from
+  vue-tsc/eslint-plugin-vue behavior is acceptable, silent divergence is not.
+  Vize-internal APIs, CLI internals, and dump/cache formats may break freely
+  until contracts GA.
 - **Benchmark budget** — end-to-end benches hold or improve; from phase 1 on,
   the phase-0 microbenches must localize any regression before merge.
 - **No behavior change without a fixture** — per the language-engineering change
