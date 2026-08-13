@@ -1,0 +1,47 @@
+# Davinci budgets — the normative definition of every performance/quality gate.
+# Ratchet rule (assurance doctrine): numbers only tighten. Loosening any value
+# requires a reviewed PR whose description references a charter decision.
+#
+# This file is seeded with the one gate that exists today (the end-to-end
+# compile envelope, from the committed Blacksmith snapshot). Per-crate bench
+# budgets land via plan task P0-4; mutation scores via P0-12; walk counts via
+# P2-12; source-map coverage via P3-9; resource ceilings via P5-11.
+
+schema_version = 1
+
+[envelope.compile-15k-sfc]
+# The merge-gate envelope referenced by architecture.md ("every phase holds
+# the budget"). Fields define the measurement so CI runs are comparable.
+description = "End-to-end SFC compile over the 15k-file benchmark corpus"
+machine = "blacksmith-32vcpu-ubuntu-2404"
+source_snapshot = "bench/results/tool-benchmark-latest.json"
+statistic = "median"
+runs = 5
+cache_state = "cold"
+parallelism = "rayon default (all cores)"
+target = "release binary (vize build)"
+baseline_ms = 329.2
+# Tolerance for run-to-run noise on the reference runner; a PR breaching
+# baseline_ms * (1 + tolerance) fails the gate. Tightened at P0-4 once the
+# per-crate benches localize variance.
+tolerance = 0.05
+
+[bench]
+# Per-crate microbench budgets: {wall_p50_ns, allocs, rss_peak_bytes} per
+# bench id. Populated by P0-4 from the recorded baselines.
+
+[mutation]
+# cargo-mutants minimum scores per crate. Populated by P0-12.
+
+[traversal]
+# Fused compile-path walk-count ceilings per fixture. Populated by P2-12.
+
+[sourcemap]
+# Minimum coverage per backend and mapping category. Populated before P3-9
+# merges; deletion of the legacy recovery requires new-path coverage >= the
+# old heuristic's measured coverage.
+
+[resource]
+# Resident-tier ceilings: rss_peak_bytes per machine preset, cold_start_ms,
+# idle_cpu_pct (mean over a 60 s idle window), keystroke_p95_ms — with the
+# measurement methodology documented next to each number. Populated by P5-11.

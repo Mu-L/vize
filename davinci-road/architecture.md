@@ -353,10 +353,12 @@ Non-negotiable, inherited from "Be Fast Above All":
    arenas are reused across files (`Allocator::reset`), not reallocated.
 4. **Every phase holds the budget.** The end-to-end benchmark envelope
    (15k SFC ≈ 330ms compile today) is a merge gate whose **normative
-   definition lives in `davinci-road/plan/budgets.toml`** (exact bench
-   command, reference runner, corpus revision, thresholds — established by
-   plan task P0-4), and phase 0 adds the per-crate microbenches the pipeline
-   currently lacks so regressions localize.
+   definition lives in [`plan/budgets.toml`](../davinci-road/plan/budgets.toml)**
+   — seeded now with the envelope's machine, statistic, run count, cache
+   state, parallelism, baseline, and tolerance (from the committed Blacksmith
+   snapshot); per-crate budgets land via plan task P0-4 — and phase 0 adds
+   the per-crate microbenches the pipeline currently lacks so regressions
+   localize.
 5. **Verification never ships.** Stage verifiers are debug/fixture-only.
 6. **Traversal count is budgeted.** The fused compile path must not exceed the
    current pipeline's number of tree walks; phase-0 microbenches make fusion

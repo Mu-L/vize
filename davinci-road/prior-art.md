@@ -54,11 +54,14 @@ graph), interned ids, **durability layers** (library inputs vs open buffers),
 and **firewall queries** — small stable derived values that stop edit noise via
 backdating. The warning about per-entity tracking comes from the **March 2025
 port** (pre-0.28 salsa; the figures belong to that version, hardware
-unspecified): analysis memory roughly quadrupled
-([#19402](https://github.com/rust-lang/rust-analyzer/issues/19402)) and
-`parallel_prime_caches` went from ~26 s to ~112 s
-([#19404](https://github.com/rust-lang/rust-analyzer/issues/19404)) before
-tuning — workload: rust-analyzer analyzing its own repo.
+unspecified), from two distinct private-codebase reports:
+[#19402](https://github.com/rust-lang/rust-analyzer/issues/19402) — memory
+rising from **5–6 GB to ~22 GB** shortly after startup and up to **~30 GB**
+in use, on a private Bazel-based codebase of ~700 crates (~2,800 including
+external deps); and
+[#19404](https://github.com/rust-lang/rust-analyzer/issues/19404) —
+`parallel_prime_caches` going from **~26 s to ~112 s** in a different private
+monorepo of ~100 workspace crates. Both were subsequently tuned down.
 *Import:* block content keys as the firewall query; durability =
 `node_modules`/tsconfig high, buffers low; track at block granularity with
 arena-packed stage values inside; deterministic ordering in every query result
