@@ -3,6 +3,8 @@
 use std::ops::Range;
 use vize_carton::{FxHashSet, String, config::VueVersion, cstr};
 
+use super::semantic_links::VizeSemanticLink;
+
 /// A mapping from generated virtual TS position to SFC source position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VizeMapping {
@@ -330,4 +332,6 @@ pub struct VirtualTsOutput {
     pub code: String,
     /// Source mappings from virtual TS positions to SFC positions.
     pub mappings: Vec<VizeMapping>,
+    /// Stable semantic links between generated ranges.
+    pub semantic_links: Vec<VizeSemanticLink>,
 }

@@ -22,7 +22,7 @@ pub(super) mod setup_scope;
 mod setup_type_exports;
 mod spans;
 mod template_refs;
-use self::anchors::{emit_props_shadow_anchor, emit_setup_binding_anchors};
+use self::anchors::emit_setup_binding_anchors;
 use self::auto_import_stubs::emit_auto_import_stubs;
 use self::component_constructors::{ComponentInstanceAliases, emit_component_constructors};
 use self::component_export::{emit_authored_component_aliases, emit_default_export_declaration};
@@ -87,6 +87,7 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     let hoist_shared_preamble = generation_options.hoist_shared_preamble;
     let mut ts = String::default();
     let mut mappings: Vec<VizeMapping> = Vec::new();
+    let mut semantic_links = Vec::new();
     let preserve_unused_diagnostics = generation_options.preserve_unused_diagnostics;
     let (template_usage_names, has_template_scope) =
         template_usage(summary, template_ast, generation_options);
@@ -645,23 +646,18 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
         profile!("canon.virtual_ts.emit_template_scope", {
             ts.push_str("  // ========== Template Scope (inherits from setup) ==========\n");
 
-            let template_ref_unwraps = template_refs::TemplateRefUnwraps::collect(
+            let template_ref_unwraps = template_refs::collect_and_emit_scope_preamble(
+                &mut ts,
                 summary,
                 options_api,
-                Some(&template_usage_names),
+                &template_usage_names,
                 script_content,
                 &imported_names,
                 options,
                 generation_options,
+                generic_param.is_some(),
+                &mut semantic_links,
             );
-            template_ref_unwraps.emit_type_captures(&mut ts);
-
-            emit_props_shadow_anchor(&mut ts, summary, &template_usage_names);
-            // Semicolon prevents ASI issues when user script doesn't end with `;`
-            // (e.g., `console.log(x)\n(function...)` would be parsed as a call)
-            ts.push_str("  ;(function __template() {\n");
-
-            template_ref_unwraps.emit_template_variables(&mut ts, generic_param.is_some());
 
             // Vue template context (available in template expressions)
             let template_context = profile!(
@@ -882,5 +878,9 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     );
     component_export::emit_component_default_export(&mut ts, generation_options.component_name);
 
-    VirtualTsOutput { code: ts, mappings }
+    VirtualTsOutput {
+        code: ts,
+        mappings,
+        semantic_links,
+    }
 }

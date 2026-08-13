@@ -44,6 +44,64 @@ const emoji = "😀"
 }
 
 #[test]
+fn emits_stable_semantic_links_for_ref_unwraps() {
+    let source = r#"<script setup lang="ts">
+import { ref } from 'vue'
+const café = ref(1)
+</script>
+<template>{{ café }}</template>
+"#;
+    let result = generate_vue_content_mapper_transform(Path::new("UnicodeRef.vue"), source)
+        .expect("transform");
+    let link = result
+        .semantic_links
+        .iter()
+        .find(|link| {
+            &result.text.as_str()[link.source_start..link.source_start + link.source_length]
+                == "café"
+                && &result.text.as_str()[link.target_start..link.target_start + link.target_length]
+                    == "café"
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "expected a semantic link for café ref unwrap:\ntext:\n{}\nlinks:\n{:#?}",
+                result.text, result.semantic_links
+            )
+        });
+
+    assert_eq!(link.kind, "vueSetupTemplateRefUnwrap");
+}
+
+#[test]
+fn keeps_tsx_semantic_link_ranges_aligned_after_jsx_reference_prefix() {
+    let source = r#"<script setup lang="tsx">
+import { ref } from 'vue'
+const café = ref(<span />)
+</script>
+<template>{{ café }}</template>
+"#;
+    let result = generate_vue_content_mapper_transform(Path::new("UnicodeRef.vue"), source)
+        .expect("transform");
+    let source_starts = result
+        .semantic_links
+        .iter()
+        .filter(|link| {
+            &result.text.as_str()[link.source_start..link.source_start + link.source_length]
+                == "café"
+                && &result.text.as_str()[link.target_start..link.target_start + link.target_length]
+                    == "café"
+        })
+        .count();
+
+    assert!(
+        source_starts > 0,
+        "expected both semantic-link endpoints to point at generated café ranges:\ntext:\n{}\nlinks:\n{:#?}",
+        result.text,
+        result.semantic_links
+    );
+}
+
+#[test]
 fn maps_synthetic_prop_bindings_to_the_authored_declaration() {
     let source = r#"<script setup lang="ts">
 defineProps<{ count: number }>();

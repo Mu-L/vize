@@ -3,7 +3,6 @@
 use std::ops::Range;
 use std::path::Path;
 
-use serde::Serialize;
 use vize_atelier_core::TemplateSyntaxMode;
 use vize_atelier_sfc::{SfcError, SfcParseOptions, parse_sfc};
 use vize_carton::{String as CompactString, ToCompactString, config::VueVersion};
@@ -15,6 +14,13 @@ use crate::virtual_ts::{VirtualTsCheckOptions, VirtualTsOptions, VizeMapping, to
 #[path = "content_mapper_alias.rs"]
 mod alias;
 use alias::{is_alias_projection, is_synthetic_content_mapper_identifier};
+
+#[path = "content_mapper_protocol.rs"]
+mod protocol;
+use protocol::protocol_semantic_links;
+pub use protocol::{
+    ContentMapperDiagnostic, ContentMapperSemanticLink, ContentMapperSpan, ContentMapperTransform,
+};
 
 use super::build::{
     descriptor_uses_jsx_script, prepend_vue_jsx_reference, virtual_ts_options_for_descriptor,
@@ -35,15 +41,6 @@ enum ContentMapperSpanKind {
     Verbatim = 0,
     Atom = 1,
     Alias = 2,
-}
-
-/// A TypeScript content-mapper transform result.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContentMapperTransform {
-    pub text: CompactString,
-    pub mappings: Vec<ContentMapperSpan>,
-    pub diagnostics: Vec<ContentMapperDiagnostic>,
 }
 
 /// Settings resolved from a TypeScript content-mapper entry and its declared
@@ -88,20 +85,6 @@ impl ContentMapperTransformOptions {
     }
 }
 
-/// A protocol v1 span tuple:
-/// `[generatedStart, generatedLength, originalStart, originalLength, kind, featureMask]`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub struct ContentMapperSpan(pub [usize; 6]);
-
-/// A diagnostic expressed in the mapper's negotiated UTF-8 coordinates.
-#[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContentMapperDiagnostic {
-    pub message_text: CompactString,
-    pub start: usize,
-    pub length: usize,
-}
-
 /// Generate self-contained TypeScript and protocol-v1 mappings for one Vue SFC.
 ///
 /// Authored parse failures are returned as mapper diagnostics with a safe
@@ -136,6 +119,7 @@ pub fn generate_vue_content_mapper_transform_with_options(
             return Ok(ContentMapperTransform {
                 text: invalid_sfc_fallback_virtual_ts(),
                 mappings: Vec::new(),
+                semantic_links: Vec::new(),
                 diagnostics: vec![sfc_parse_diagnostic(content, &error)],
             });
         }
@@ -147,6 +131,7 @@ pub fn generate_vue_content_mapper_transform_with_options(
     let GeneratedVueFile {
         mut code,
         mut mappings,
+        mut semantic_links,
         diagnostics,
     } = generate_vue_virtual_ts(
         path,
@@ -170,11 +155,12 @@ pub fn generate_vue_content_mapper_transform_with_options(
     )?;
 
     if use_tsx {
-        prepend_vue_jsx_reference(&mut code, &mut mappings);
+        prepend_vue_jsx_reference(&mut code, &mut mappings, &mut semantic_links);
     }
 
     Ok(ContentMapperTransform {
         mappings: protocol_spans(content, &code, &mappings),
+        semantic_links: protocol_semantic_links(&semantic_links),
         diagnostics: diagnostics
             .iter()
             .map(|diagnostic| generated_diagnostic(content, diagnostic))
