@@ -1,24 +1,94 @@
 # Phase 6 — Extension Contracts GA (provisional decomposition)
 
 > [!WARNING]
-> Provisional; re-cut at phase-5 exit.
+> Provisional; re-cut at phase-5 exit. Suites referenced as TS-n from
+> [test-suites.md](./test-suites.md).
 
 ## TODO index
 
-- [ ] P6-1 WIT worlds for the three contracts (input dialect, expression dialect, output target) with the capability handshake (protocol version + feature strings) and a **written compatibility policy** (Swift-macro lesson)
-- [ ] P6-2 Prebuilt, versioned extension SDK artifacts from day one (the Swift build-time-crisis countermeasure); coarse-grained interfaces only (canonical-ABI copy cost)
-- [ ] P6-3 In-process wasmtime hosting lane (feature-gated per charter #39) sharing the out-of-process contract
-- [ ] P6-4 MoonBit expression dialect (charter #28): pinned `moonc.wasm` in wasmtime over a virtual FS; generated `.mbti` binding environment; projected `.mbt` bodies; span-mapped diagnostics; moonc version in fact cache keys
-- [ ] P6-5 `ExprRef` abstraction validation report from P6-4 — budgeted review time for abstraction fixes discovered by the second implementation
-- [ ] P6-6 Volt (Elixir) non-JS host target exercise against the output-target contract
-- [ ] P6-7 JS plugin SDK GA (charter #29, all four families): batched napi execution, per-plugin cost attribution, content-keyed caching; validated by real-world custom rules
-- [ ] P6-8 Contract versioning: marquette-style canonical serialization + additive/breaking classification; semver policy documented
-- [ ] P6-9 External-consumer validation: at least one third party builds against a tagged release without patching vize internals
-- [ ] P6-10 Davinci completion metrics review (charter #35): pinned numbers vs achieved, published in the go/no-go input
-- [ ] P6-11 v1 alpha go/no-go input package (charter #24): parity matrices, budgets, ledgers, conformance results
-- [ ] P6-12 Communications decision revisit (charter #45) — review point
-- [ ] P6-13 Phase exit: contracts documented + externally validated; JS rule cached and cost-attributed in production use; completion metrics reconciled
+- [ ] P6-1 WIT worlds + capability handshake + compat policy
+- [ ] P6-2 Prebuilt versioned extension SDK
+- [ ] P6-3 In-process wasmtime hosting lane
+- [ ] P6-4 MoonBit expression dialect
+- [ ] P6-5 `ExprRef` validation report
+- [ ] P6-6 Volt non-JS host exercise
+- [ ] P6-7 JS plugin SDK GA
+- [ ] P6-8 Contract versioning + semver policy
+- [ ] P6-9 External-consumer validation
+- [ ] P6-10 Completion-metrics review
+- [ ] P6-11 v1 go/no-go input package
+- [ ] P6-12 Communications revisit
+- [ ] P6-13 Phase exit
 
-Key acceptance themes: the contracts are only "GA" when a stranger has built
-against them; MoonBit is the proof for expressions, Volt for targets,
-user-land JS rules for the plugin tier.
+---
+
+**P6-1 WIT worlds.** `contracts/wit/` defining three worlds (input dialect:
+block in → S1/S2 surface tree out; expression dialect: env + body in →
+analysis facts + projection out; output target: canonical S3/S2 in → emitted
+document out) — coarse-grained interfaces only (canonical-ABI copy cost);
+`get-capability` handshake with integer protocol version + feature strings
+(Swift import); `davinci-road/contracts-compat-policy.md` written before GA.
+*Accept:* TS-48 golden exchanges; policy reviewed.
+
+**P6-2 Prebuilt SDK.** Versioned, prebuilt artifacts of the contract types
+(WIT bindings + Rust SDK crate + JS/TS types) published per release — no
+consumer ever compiles vize internals (the Swift macro crisis
+countermeasure). *Accept:* a hello-world dialect builds against the SDK
+tarball alone.
+
+**P6-3 wasmtime lane.** Feature-gated (`extension-host`, charter #39)
+in-process hosting of contract guests under wasmtime, sharing the WIT
+contract with out-of-process transport; resource limits (fuel/memory) per
+guest. *Accept:* same guest binary passes TS-48 in both hosting modes.
+
+**P6-4 MoonBit dialect.** Vendored pinned `moonc.wasm` under wasmtime with a
+virtual FS; generated `.mbti` binding environment from S2 scope facts
+(props/refs/composables as MoonBit signatures); template expressions
+projected to `.mbt` bodies; `moonc build-package` check-only; diagnostics
+span-mapped back; moonc version inside the fact cache key. *Accept:* TS-49;
+matrix fixtures for MoonBit expressions compile/check end-to-end.
+
+**P6-5 `ExprRef` validation report.** What the second expression
+implementation revealed about the abstraction (capability set gaps, span
+model fit, projection contract adequacy) — budgeted fix time included
+(charter #28's accepted late-validation risk gets its bill here). *Accept:*
+report committed; abstraction fixes merged or explicitly deferred with
+rationale.
+
+**P6-6 Volt exercise.** With the Volt (Elixir) maintainer: an output-target
+guest emitting for the Elixir host through the WIT contract; findings feed
+the contract before GA freeze. *Accept:* documented end-to-end run;
+contract-change list resolved.
+
+**P6-7 JS plugin GA.** The P4-16 spike hardened per charter #29: four hook
+families, batched napi visits, per-plugin cost attribution in lint output,
+content-keyed caching (P5-13); authoring docs + `@vizejs/plugin-sdk` package;
+transform hooks locked to the pre-canonical S2 point with determinism checks
+(same input twice ⇒ same output, CI-enforced). *Accept:* TS-51 with ≥2
+real-world rules and 1 transform hook; parity bar unbroken (TS-11).
+
+**P6-8 Versioning.** Marquette-style canonical serialization + additive/
+breaking classification for contract payloads; semver policy doc; contract
+conformance suite versioned alongside. *Accept:* a deliberately-breaking
+change is flagged by the classification tooling.
+
+**P6-9 External validation.** At least one third party (not the maintainer)
+builds a working extension against a tagged release using only published
+SDK + docs. *Accept:* TS-50; their friction list triaged.
+
+**P6-10 Metrics review.** Charter #35's pinned numbers vs achieved (compile
+throughput, peak memory, keystroke p95, fact adoption, source-map coverage);
+misses explained or remediated. *Accept:* review doc committed.
+
+**P6-11 v1 package.** Go/no-go input assembled: parity matrices, budgets
+history, waiver/FP/FN ledgers, conformance results, corpus coverage — wired
+into `docs/release/v1-alpha-go-no-go.md`'s checklist (charter #24).
+*Accept:* review point — maintainer accepts the package.
+
+**P6-12 Communications revisit.** Charter #45 decision point: publish the
+architecture docs / blog note or stay internal. *Accept:* decision recorded.
+
+**P6-13 Phase exit.**
+- [ ] TS-48..51 green; contracts documented with semver policy
+- [ ] MoonBit + Volt + JS-rule validations complete; `ExprRef` report closed
+- [ ] Completion metrics reconciled; v1 package delivered

@@ -1,27 +1,121 @@
 # Phase 3 — Impeto and Backend Convergence (provisional decomposition)
 
 > [!WARNING]
-> Provisional; re-cut at phase-2 exit.
+> Provisional; re-cut at phase-2 exit. Suites referenced as TS-n from
+> [test-suites.md](./test-suites.md).
 
 ## TODO index
 
-- [ ] P3-1 `vize_impeto` crate: flat id ops, explicit state edges, named phases (`built → partitioned → scheduled`) + between-pass validator
-- [ ] P3-2 Reactivity lattice fact group v1 (React-Compiler effect vocabulary; escape-analysis demotion; three-valued verdicts)
-- [ ] P3-3 S2→S3 lowering with the shared static/dynamic partition analysis
-- [ ] P3-4 Lean executable reference semantics for S3 (charter #36) + differential runner in CI
-- [ ] P3-5 Impeto op reference doc (what each effect means under Vapor and VDOM interpretation) — written **before** optional passes land (MIR anti-lesson)
-- [ ] P3-6 Vapor backend on S3, upstream `@vue/runtime-vapor` APIs (charter #38), behind in-phase flag — deletes run-then-discard + duplicated directive transforms
-- [ ] P3-7 VDOM patch flags derived from lattice facts (replaces codegen-time inference)
-- [ ] P3-8 SSR thin S2→S4 path reading partition facts (charter #9)
-- [ ] P3-9 S4 structured emitter + unified SourceMapBuilder; **SSR and Vapor source maps**; SFC text-matching map recovery deleted
-- [ ] P3-10 Try-measure-commit extraction with per-component budgets (Flambda2 model); optimization tiers as budget constants
-- [ ] P3-11 IVM oracle (incremental ≡ from-scratch on reference semantics) + metamorphic S3 suite
-- [ ] P3-12 Behavioral (sprout-style) runner: mount compiled Vapor + VDOM against scripted interactions, **including IME composition scripts for `ui.model` realizations** (charter #40)
-- [ ] P3-13 Optimization remarks (applied/missed, structured args) + corpus remarks-diff job
-- [ ] P3-14 `folio-reduce` (SFC reduction via S1 subtree deletion; oracle scripts over diagnostics/remarks/folios)
-- [ ] P3-15 Lattice/effect-grouping/IVM-linearity theorems in Lean (as they stabilize)
-- [ ] P3-16 Phase exit: Vapor behavioral + SSR byte parity; source-map coverage metric; Vapor bench win; old lanes deleted
+- [ ] P3-1 `vize_impeto` crate + phase validator
+- [ ] P3-2 Reactivity lattice fact group v1
+- [ ] P3-3 S2→S3 lowering + shared partition
+- [ ] P3-4 Lean reference semantics + differential runner
+- [ ] P3-5 Impeto op reference doc (before optional passes)
+- [ ] P3-6 Vapor backend on S3
+- [ ] P3-7 VDOM patch flags from lattice facts
+- [ ] P3-8 SSR thin path
+- [ ] P3-9 S4 structured emitter + universal source maps
+- [ ] P3-10 Try-measure-commit extraction
+- [ ] P3-11 IVM oracle
+- [ ] P3-12 Behavioral (sprout) runner incl. IME scripts
+- [ ] P3-13 Optimization remarks + corpus remarks-diff
+- [ ] P3-14 `folio-reduce`
+- [ ] P3-15 Lean theorems (lattice / grouping / IVM linearity)
+- [ ] P3-16 Phase exit
 
-Key acceptance themes: Vapor gates are behavioral (charter #23 experimental
-tier) while SSR stays byte-parity; `EffectGraph` finally consumed by a
-backend; remarks-diff clean across the corpus at exit.
+---
+
+**P3-1 `vize_impeto`.** Flat id-based ops (generalizing
+`vize_atelier_vapor/src/ir.rs`'s 16 variants), **explicit state edges** for
+DOM/effect ordering, named phases `built → partitioned → scheduled` with a
+between-pass validator (edges resolve, regions nest, effects well-scoped —
+TS-27), `no_std + alloc`, folio from birth (TS-16). *Accept:* TS-16/24/27;
+size asserts.
+
+**P3-2 Reactivity lattice v1.** Fact group classifying bindings/expressions
+(static → props-stable → reactive → unstable) using the React-Compiler effect
+vocabulary (`Freeze`/`Capture`/`MutateGlobal`…) as per-binding summaries over
+retained oxc ASTs; escape analysis drives demotion; `provide/inject`-derived
+bindings cap at `reactive` (Effekt lexical/dynamic rule); three-valued
+verdicts. *Accept:* declarative rule spec + naive evaluator committed
+(TS-34 pattern); lattice folio page.
+
+**P3-3 S2→S3 lowering.** Total, no-rollback; static/dynamic partition
+computed once here and exported as facts (SSR reads them without S3). ANF-ish
+discipline: pure expressions vs effectful ops separated. *Accept:* TS-17
+pass snapshots; TS-20 totality fuzz extended to S2→S3.
+
+**P3-4 Lean reference + differential.** `formal/impeto/` Lean package
+(CI-lenient lane per charter #39): executable small-step semantics for S3 ops
+under both Vapor and VDOM interpretations; runner compares compiled-output
+behavior traces vs reference on S3 fixtures (TS-28). *Accept:* runner in CI
+on the fixture ladder.
+
+**P3-5 Op reference doc.** `davinci-road/plan/impeto-ops.md`: every op's
+meaning under both interpretations, written **before any optional pass
+lands** (MIR anti-lesson); Lean file is the normative companion; Folio is the
+concrete syntax. *Accept:* review point — signed off; doc cross-linked from
+rustdoc.
+
+**P3-6 Vapor on S3.** `vize_atelier_vapor` lowers S2→S3→generate with full
+semantic context; deletes the run-then-discard double transform
+(`compile.rs`) and the duplicated directive transforms
+(`transforms/{v_if,v_for,v_on,v_bind,v_model,v_show,transform_slot,transform_text}.rs`);
+calls upstream `@vue/runtime-vapor` APIs only (charter #38). In-phase flag
+for fallback. *Accept:* TS-33 behavioral parity; TS-30 traces; vapor bench
+improvement (the P0-3 double-transform number is the floor to beat).
+
+**P3-7 VDOM patch flags from facts.** `patch_flag.rs` inference replaced by
+lattice-fact consumption; flags become explicit S3 decisions (or S2→S4
+annotations if S3 detour measures badly — decide by TS-22). *Accept:* corpus
+DOM byte-parity (TS-11 empty); patch-flag equivalence fixtures.
+
+**P3-8 SSR thin path.** S2→S4 string-plan lowering reading partition facts;
+`vize_atelier_ssr` codegen re-targets. *Accept:* SSR corpus byte-parity
+(TS-11 empty for ssr).
+
+**P3-9 S4 emitter + source maps.** Structured span-carrying emission document
+replaces `CodegenContext.code` string appends across dom/vapor/ssr; one
+`SourceMapBuilder`; **SSR and Vapor emit source maps**; delete
+`crates/vize_atelier_sfc/src/source_map.rs` text-matching recovery.
+*Accept:* TS-31 coverage budget; TS-11 empty (maps are additive artifacts).
+
+**P3-10 Try-measure-commit.** Placement alternatives (hoist/cache/inline/
+group) kept explicit on S3 nodes; extraction pass performs candidates,
+locally simplifies with fact approximations in scope, measures (emitted
+size, reactive-edge count, update-path length), commits on positive benefit
+under a decrementing per-component budget; `-O` tiers = budget constants in
+`budgets.toml`. *Accept:* TS-17 snapshots of decisions; TS-32 remarks record
+applied/missed; no output regression (TS-11/TS-33).
+
+**P3-11 IVM oracle.** Incremental-update ≡ from-scratch render on the Lean
+reference for keyed/unkeyed `v-for`, conditional toggles, mixed non-linear
+expressions (TS-29). *Accept:* suite green over matrix fixtures.
+
+**P3-12 Behavioral runner.** Sprout-style: mount compiled VDOM + Vapor
+against scripted prop/interaction traces in a headless DOM; **IME composition
+scripts pin `ui.model` realizations** (charter #40): compositionstart →
+intermediate input → compositionend, `.lazy`/`.number`/`.trim`, checkbox
+arrays, select-multiple (TS-30). *Accept:* trace equality across backends and
+vs reference.
+
+**P3-13 Remarks.** `{pass, kind: applied|missed, span, args}` structured
+remarks through the observer; corpus remarks-diff job (TS-32); missed-remarks
+feed C-13. *Accept:* remarks render in Spolvero (C-5); diff job wired.
+
+**P3-14 `folio-reduce`.** Interestingness-script driver (llvm-reduce model)
+with S1-subtree deletion vocabulary; oracles composable from diagnostics /
+remarks / folio content / budget breaches. *Accept:* reduces a seeded crash
+fixture to ≤ 20% size while preserving the oracle.
+
+**P3-15 Lean theorems.** Lattice laws (classification monotonicity, join),
+effect-grouping preserves dependency edges, keyed-`v-for` IVM linearity —
+proved against the P3-4 semantics as they stabilize. *Accept:* theorems in
+CI-lenient lane; failures block S3-semantics changes, not unrelated PRs.
+
+**P3-16 Phase exit.**
+- [ ] Vapor: TS-33 behavioral parity green; SSR: TS-11 byte-empty
+- [ ] TS-31 source-map coverage ≥ budget on all three backends
+- [ ] Vapor compile bench beats the pinned double-transform floor
+- [ ] TS-32 remarks-diff clean; old vapor/ssr lanes + flags deleted
+- [ ] TS-27/28/29/30 all mandatory-green

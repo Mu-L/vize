@@ -1,26 +1,110 @@
 # Phase 5 — Incrementality Substrate (provisional decomposition)
 
 > [!WARNING]
-> Provisional; re-cut at phase-4 exit.
+> Provisional; re-cut at phase-4 exit. Suites referenced as TS-n from
+> [test-suites.md](./test-suites.md).
 
 ## TODO index
 
-- [ ] P5-1 Stage artifact keys: block-granular, span-relative, normalized-structure hashes with schema versions (Unison discipline); two-platform key-equality CI oracle (Lake incident)
-- [ ] P5-2 Per-SFC summary: per-declaration fingerprints + consumers record used declarations (GHC `.hi` rule); body/code-shape elision **by type construction**
-- [ ] P5-3 Global summary for orphan-equivalent facts (app-level provide/inject, global components, dialect-wide directives)
-- [ ] P5-4 salsa DB, resident tier only (charter #10): inputs, block-key firewall queries, durability layers (`node_modules`/tsconfig high, buffers low), interning GC + memory bounds
-- [ ] P5-5 Lean-style snapshot tree **under** salsa: joints at header/block/S2-region; adoption rule (old syntax ≡ new ⇒ adopt); cascade-cancellation tokens through stage tasks
-- [ ] P5-6 Maestro request paths onto cached artifacts — the 63 `parse_sfc` sites, in waves, with keystroke-cost perf tests per wave
-- [ ] P5-7 #698: block-level virtual-projection reuse on stage keys
-- [ ] P5-8 #699: Corsa session reuse keyed by project identity
-- [ ] P5-9 Incremental ≡ from-scratch equivalence in CI over the corpus, from the first salsa-backed release (rustc 1.52.1 lesson)
-- [ ] P5-10 Fault-tolerant analysis: facts computed for well-formed regions of broken files; LSP features stay live on parse errors (Lean `PartialTermInfo` pattern)
-- [ ] P5-11 Resource budgets enforced: RSS ceiling presets + LRU at cap (charter #44), cold-start, idle-CPU ~0, keystroke p95 targets (charter #35 numbers pinned here)
-- [ ] P5-12 LSP conformance + multi-client smoke suite: Neovim headless, Helix, Zed alongside VS Code (charter #20)
-- [ ] P5-13 JS plugin caching integration (plugin results under content keys with plugin-version salt)
-- [ ] P5-14 Phase exit: latency/RSS/idle budgets green on large corpus projects; equivalence green; conformance suite green; cache-hit accounting in perf tests
+- [ ] P5-1 Stage artifact keys
+- [ ] P5-2 Per-SFC summary (declaration fingerprints)
+- [ ] P5-3 Global summary (orphan-equivalent facts)
+- [ ] P5-4 salsa DB, resident tier
+- [ ] P5-5 Snapshot tree under salsa
+- [ ] P5-6 Maestro onto cached artifacts (63 sites)
+- [ ] P5-7 #698 block-level projection reuse
+- [ ] P5-8 #699 Corsa session reuse
+- [ ] P5-9 Incremental ≡ clean CI
+- [ ] P5-10 Fault-tolerant analysis
+- [ ] P5-11 Resource budgets enforced
+- [ ] P5-12 LSP conformance multi-client
+- [ ] P5-13 JS plugin caching integration
+- [ ] P5-14 Phase exit
 
-Key acceptance themes: predictability over adaptivity (no heuristic cache
-sizing); every cache has an explicit invalidation reason (doctor
-`cache_identity` heritage); "language server ate my RAM" is a named, tested
-anti-goal.
+---
+
+**P5-1 Artifact keys.** Content keys per stage artifact at block granularity:
+normalized-structure hash (spans externalized to S0 side tables — identity
+excludes presentation), schema version inside every key, span-relative
+hashing so edits above a block change zero keys; ambient inputs (tsconfig,
+toolchain, feature flags, platform) declared in key manifests — an undeclared
+input is a cache-corruption bug. *Accept:* TS-43 two-platform equality +
+edit-locality cases; key manifests documented per artifact.
+
+**P5-2 Per-SFC summary.** α-form export (P4-2) becomes the summary: exported
+component signature, prop/emit/slot types, reactivity classes, component
+refs — **fingerprinted per declaration** (GHC `.hi`), consumers record used
+declarations, invalidation = any used fingerprint changed; **S3 code-shape
+decisions type-cannot enter** (body elision by construction). *Accept:*
+summary round-trip tests; a hot-path optimization change provably does not
+ripple recompilation (fixture scenario).
+
+**P5-3 Global summary.** Orphan-equivalent facts (app-level provide/inject,
+global components, dialect-wide directives) in a dedicated global summary
+with its own fingerprint — never smuggled into per-file summaries. *Accept:*
+scenario test: adding a global component invalidates exactly the consumers
+that resolve it.
+
+**P5-4 salsa resident tier.** `crates/vize_maestro` (+ check-server/watch)
+moves stage execution onto salsa (0.28+ pinned per charter #39): inputs =
+file texts + project config; firewall queries = block content keys + P5-2
+summaries (backdating stops edit noise); durability layers (`node_modules`/
+tsconfig high, open buffers low); interning GC (`revisions`) + LRU memory
+bounds from `budgets.toml`. One-shot CLI stays salsa-free (charter #10).
+*Accept:* TS-42 wiring starts here; RSS ceiling respected under a synthetic
+10k-file session (TS-44).
+
+**P5-5 Snapshot tree.** Under salsa, Lean-style snapshot tasks at joints
+(SFC header → block → S2 region): reuse rule = old syntax ≡ new syntax ⇒
+adopt old subtree; cascade-cancellation tokens through stage tasks;
+threads + catch-unwind isolation (not per-file processes). *Accept:* TS-46
+adoption/cancellation scenarios with cache-hit accounting.
+
+**P5-6 Maestro migration.** The 63 `parse_sfc` request-path sites consume
+cached S1/S2 artifacts via the salsa layer, migrated in waves (hover/
+completion → diagnostics → semantic tokens/inlay → the rest), keystroke-cost
+perf test per wave. *Accept:* per-wave TS-44 improvements recorded;
+`IdeContext::with_content` string-passing retired.
+
+**P5-7 #698.** Block-level virtual-projection reuse on stage keys —
+`VirtualTsCacheKey`'s stubbed `only_template_changed()` logic becomes real
+against the P4-5 single projection. *Accept:* template-only edit reuses
+script projection segments (cache-hit assert, TS-46 pattern).
+
+**P5-8 #699.** Corsa `ProjectSession` reuse keyed by project identity
+(`CorsaSessionKey` stub realized): spawn/idle-teardown lifecycle, session
+survives across `vize check` runs via check-server. *Accept:* second check
+run skips TS project init (timed assert).
+
+**P5-9 Incremental ≡ clean.** CI job: for a corpus shard, apply scripted
+edit sequences, compare every resident-tier artifact + diagnostic against a
+from-scratch run — **from the first salsa-backed release** (rustc 1.52.1
+lesson). *Accept:* TS-42 mandatory-green; divergence = release blocker.
+
+**P5-10 Fault tolerance.** Analysis proceeds past errors: facts computed for
+well-formed regions of broken files (S1 `Unexpected`/`Missing` feed partial
+S2 fragments, Lean `PartialTermInfo` pattern); LSP features stay live mid-
+edit. *Accept:* TS-47 scenarios (hover/completion on a file with a parse
+error elsewhere).
+
+**P5-11 Budgets enforced.** `budgets.toml` gains resident-tier ceilings: RSS
+presets by machine scale, cold-start, idle-CPU (~0 asserted via /proc or
+equivalent sampling), keystroke p95 targets — the charter #35 numbers get
+pinned here against P0 baselines. *Accept:* TS-44 green on the two largest
+corpus projects (Misskey-class).
+
+**P5-12 Multi-client conformance.** Scenario suite runs against Neovim
+(headless `nvim --headless` + lsp attach), Helix, Zed, VS Code: initialize/
+hover/completion/diagnostics/rename/formatting exact expectations per client
+(TS-45); divergences fixed in vize, not worked around per client. *Accept:*
+TS-45 mandatory-green in CI (client versions pinned).
+
+**P5-13 JS plugin caching.** Plugin results enter the artifact-key world:
+content key × plugin version × declared demands; invalidation shared with
+Rust rules. *Accept:* TS-51 determinism/caching pre-check (GA in P6).
+
+**P5-14 Phase exit.**
+- [ ] TS-42 incremental≡clean green; TS-43 key stability green
+- [ ] TS-44 latency/RSS/idle budgets green on large projects; TS-45 conformance green
+- [ ] TS-46 adoption accounting; TS-47 fault tolerance
+- [ ] #698/#699 closed; `parse_sfc`-per-request pattern gone (grep ceiling: 0 request-path sites)

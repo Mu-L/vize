@@ -39,10 +39,13 @@ plan file in the same PR (the plan is code).
 | [phase-5.md](./phase-5.md) | Incrementality substrate | Drafted, provisional — re-cut at P4 exit |
 | [phase-6.md](./phase-6.md) | Extension contracts GA | Drafted, provisional — re-cut at P5 exit |
 | [continuous.md](./continuous.md) | Cross-phase workstreams (Spolvero, AI loop, corpus, assurance, formal) | Drafted — items trigger on their substrate |
+| [test-suites.md](./test-suites.md) | The canonical suite registry (TS-1..51): commands, oracles, and the phase → mandatory-suite map | Drafted |
 
-P0 and P1 carry full per-task acceptance criteria. P2–P6 are enumerated to
-maximum known detail but marked **provisional**: each is re-cut when its
+P0 and P1 carry full per-task **Steps** sub-checklists (concrete paths,
+commands, type names). P2–P6 are enumerated to maximum known detail as
+per-task blocks but marked **provisional**: each is re-cut when its
 predecessor exits, so measured reality — not today's guesses — sets the final
-task boundaries. Every phase file keeps a checkbox TODO index at the top;
-checking a box happens in the PR that satisfies the task's acceptance
-criteria, never before.
+task boundaries. Suites are referenced by TS-id from the registry — a gate
+naming an unregistered suite is a plan bug. Every phase file keeps a checkbox
+TODO index at the top; checking a box happens in the PR that satisfies the
+task's acceptance criteria, never before.

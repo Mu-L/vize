@@ -3,7 +3,8 @@
 > [!NOTE]
 > The highest-leverage phase: expressions parsed once, strings out of nodes,
 > one lifetime. Exit requires a measurable performance **win**, not parity.
-> Dependency chain is real here — order matters.
+> Dependency chain is real here — order matters. In-phase fallback flags per
+> charter #26; all deleted at P1-13.
 
 ## TODO index
 
@@ -21,122 +22,130 @@
 - [ ] P1-12 Performance-doc truth pass
 - [ ] P1-13 Phase exit: budgets pinned, old paths deleted
 
+---
+
 ## P1-1 — Arena unification in carton
 
-**Deliverable:** `vize_carton::Allocator` becomes `oxc_allocator::Allocator`
-(re-export or newtype), with `Box`/`Vec` aliases mapped and a compatibility
-audit of bumpalo-API differences (documented, shimmed where trivial).
-**Acceptance:** workspace compiles and all tests pass with the unified arena;
-P0 benches hold within noise; node-size asserts unchanged.
+**Steps:**
+- [ ] `crates/vize_carton/src/allocator.rs`: `Allocator` becomes a re-export/newtype of `oxc_allocator::Allocator` (already bumpalo-backed; the workspace pins the oxc rev in root `Cargo.toml`); keep `vize_carton::{Box, Vec}` aliases pointing at the oxc arena types
+- [ ] Audit bumpalo-API deltas used in-tree (`alloc_str`, `reset`, iteration helpers) — shim what's trivial, list what isn't in the PR description
+- [ ] Node-size static asserts from P0-9 unchanged
+
+**Acceptance:** workspace compiles, full test suite green, P0 benches within noise, `tools/davinci/corpus-diff.mjs` empty.
 **Deps:** P0-4, P0-9.
 
 ## P1-2 — Allocator plumbing
 
-**Deliverable:** `&'a Allocator` threaded through `vize_armature` parse entry
-points and the atelier lanes so template structures and (future) oxc ASTs can
-share `'a`. No representation changes yet.
-**Acceptance:** corpus baseline diff empty; benches hold.
+**Steps:**
+- [ ] Thread `&'a Allocator` through `vize_armature` entry points (`crates/vize_armature/src/parser/entry.rs`, `parser.rs`) and the atelier lanes (`vize_atelier_core::lane::transform`, sfc `compile_template`) so template structures and future oxc ASTs share `'a`
+- [ ] `vize_atelier_jsx` (already oxc-based) switches its local allocator to the caller-provided one
+
+**Acceptance:** corpus-diff empty; benches hold; no public-API regressions the CLI/vitrine can't absorb (charter #23: internal breakage is free).
 **Deps:** P1-1.
 
 ## P1-3 — Retire per-node `source` strings
 
-**Deliverable:** `SourceLocation.source` removed; all consumers (P0-9
-inventory) read via `Span` + source text lookup. Error/diagnostic rendering
-switches to span-derived excerpts.
-**Acceptance:** corpus byte parity (compiler + diagnostics text identical);
-node-size asserts shrink and are re-pinned; alloc counts drop in P0-2 benches.
+**Steps:**
+- [ ] `SourceLocation` (in `crates/vize_relief/src/relief/core.rs`): remove `source: String`; add `span: Span` (P0-9 type); every consumer from `davinci-road/plan/sourcelocation-inventory.md` switches to `Span::slice(source_text)` — inventory rows checked off in the PR
+- [ ] Diagnostic excerpt rendering reads via span + the file's source text (threaded where missing)
+- [ ] Re-pin node-size static asserts (they shrink)
+
+**Acceptance:** corpus byte parity **including diagnostic text**; alloc counts drop in P0-2 benches (record the delta); inventory file updated to all-migrated.
 **Deps:** P1-2, P0-9.
 
 ## P1-4 — Retire dead line/column
 
-**Deliverable:** `Position` reduced to offset (line/column derived at
-diagnostic-render and source-map `finish()` time only, where it already
-re-derives).
-**Acceptance:** corpus parity including source maps; node-size asserts
-re-pinned smaller.
+**Steps:**
+- [ ] `Position` reduced to `offset: u32` (or `Position` deleted in favor of `Span`); line/col derived only in diagnostic rendering and `SourceMapBuilder::finish()` (`crates/vize_atelier_core/src/codegen/source_map.rs` — it already re-derives from offsets because parser line info was unreliable)
+- [ ] Delete the parser's vestigial line-tracking fields
+
+**Acceptance:** corpus parity including source maps; node sizes re-pinned smaller.
 **Deps:** P1-3.
 
 ## P1-5 — Retained expressions: parse-once storage
 
-**Deliverable:** `JsExpression` becomes a retained `&'a oxc_ast::Expression<'a>`
-parsed exactly once (at template parse or first semantic touch — decide by
-bench), stored on `SimpleExpressionNode`. A profiler counter
-(`davinci.expr.parses`) asserts the per-compile parse count.
-**Acceptance:** counter == number of distinct expressions on fixture ladder;
-corpus parity; benches hold or improve (retention must beat reparse already).
+**Steps:**
+- [ ] `crates/vize_relief/src/relief/expressions.rs`: `JsExpression<'a>` replaces the `raw: String + PhantomData` stub with `ast: &'a oxc_ast::ast::Expression<'a>` (+ `raw: &'a str` slice for display); decide parse point by bench — during template parse (armature) vs first semantic touch (croquis) — record the measurement in the PR
+- [ ] Parse via `oxc_parser` with the shared arena from P1-2; template-expression parse errors keep today's diagnostic behavior (differential-checked)
+- [ ] Profiler counter `davinci.expr.parses` incremented at the single parse site; exported via P0-11
+
+**Acceptance:** counter == distinct-expression count on the P0-2 fixture ladder; corpus parity; benches hold or improve.
 **Deps:** P1-2.
 
 ## P1-6 — Consumer migration wave A (croquis)
 
-**Deliverable:** croquis input layer (charter #37) reads retained ASTs:
-identifier enumeration, scope resolution helpers, `v-for` parsing — the
-`identifiers/{fast,slow}.rs` call sites route through the retained AST behind
-a differential check (old vs new results compared in CI for one release).
-**Acceptance:** differential check green over the corpus; reparse counter
-drops accordingly; croquis benches improve.
+**Steps:**
+- [ ] `crates/vize_croquis/src/drawer/helpers/identifiers/slow.rs` — reads the retained AST instead of re-parsing (its local `Allocator::default()` dies)
+- [ ] `crates/vize_croquis/src/drawer/helpers/v_for/oxc.rs`, `visit_element/second_pass.rs` — same
+- [ ] Differential lane: for one release, CI compares old-path vs new-path results (identifier sets, v-for destructure shapes) over the corpus; divergences are bugs in one side — investigate, don't average
+- [ ] Charter #37 note: only the *input layer* moves; tracker internals untouched
+
+**Acceptance:** differential lane green over the corpus; `davinci.expr.parses` drops (record); croquis bench improves.
 **Deps:** P1-5.
 
 ## P1-7 — Consumer migration wave B (atelier)
 
-**Deliverable:** `patch_flag.rs`, `v_for` helpers, `transform_expression`
-inputs, and the remaining ~20 reparse sites (P0-9 inventory drives the
-checklist) consume retained ASTs.
-**Acceptance:** `davinci.expr.parses` reaches its floor (== distinct
-expressions, zero re-parses) on the corpus; parity holds.
+**Steps:**
+- [ ] `crates/vize_atelier_core/src/codegen/patch_flag.rs` — retained AST, local arena dies
+- [ ] Remaining reparse sites from the P0-3 counter baseline (~20 in `vize_atelier_core`), checklist generated from that baseline and checked off per site
+- [ ] Same differential-lane pattern as P1-6
+
+**Acceptance:** `davinci.expr.parses` reaches its floor (== distinct expressions) on the corpus — asserted in CI from the profiler export; parity holds.
 **Deps:** P1-5 (parallel with P1-6).
 
 ## P1-8 — Delete the fast/slow scanner split
 
-**Deliverable:** the byte-scanner fast path and oxc slow path are replaced by
-retained-AST walks; the scanner code is deleted (charter: deletion is part of
-the gate).
-**Acceptance:** grep zero for the scanner modules; corpus parity; croquis
-benches hold or improve (if the scanner was load-bearing for speed, the walk
-must match it — measured, not assumed).
+**Steps:**
+- [ ] Pre-deletion differential run: byte-scanner (`identifiers/fast.rs`) vs retained-AST walk over the whole corpus — committed report proving agreement (or documenting scanner bugs the AST walk fixes; those are waiver-reviewed)
+- [ ] Delete `identifiers/{fast,slow}.rs` and the dispatch; single AST-walk implementation remains
+- [ ] Bench check: if the scanner was faster on `stress-*` fixtures, the walk must close the gap before deletion merges (measured, not assumed)
+
+**Acceptance:** grep zero for the deleted modules; corpus parity; croquis benches hold or improve.
 **Deps:** P1-6, P1-7.
 
 ## P1-9 — Identifier prefixing as AST transform
 
-**Deliverable:** `_ctx.`/`$setup.` prefixing implemented as an AST-level
-transform over retained expressions with span-preserving emission, replacing
-string rewriting (`transform_expression/{prefix,rewrite,nesting}.rs`).
-**Acceptance:** corpus byte parity on all three backends (prefixing output is
-highly visible — this is the riskiest parity task in the phase; its waiver
-budget is zero); source-map assertions for rewritten identifiers added.
+**Steps:**
+- [ ] Replace string rewriting in `crates/vize_atelier_core/src/transforms/transform_expression/{prefix,rewrite,nesting}.rs` with an AST-level transform over retained expressions (scope-aware via croquis bindings) and span-preserving emission
+- [ ] Source-map assertions for rewritten identifiers added to the P0 fixture set
+- [ ] **Waiver budget: zero.** Prefixing output is the most visible codegen surface; any corpus diff is a bug in this task
+
+**Acceptance:** corpus byte parity on dom/vapor/ssr; new source-map assertions green.
 **Deps:** P1-7.
 
 ## P1-10 — Node strings to `&'a str` / atoms; delete manual `Drop`s
 
-**Deliverable:** node name/tag/content fields become source slices or
-arena-interned atoms (interner lands in carton); per-node `CompactString`s
-retired; `ensure_sufficient_stack` `Drop` impls deleted (arena drop is free).
-**Acceptance:** grep zero for manual `Drop` on node types; alloc counts drop
-measurably (pin the number); deep-nesting stress fixture passes without the
-stack guard; corpus parity.
+**Steps:**
+- [ ] Interner in `vize_carton` (arena-backed atoms for names appearing repeatedly: tags, directive names, well-known attrs); node fields (`name`, `tag`, `content`) become `&'a str` slices or atoms — per-field decision recorded in the PR
+- [ ] Delete `ensure_sufficient_stack` `Drop` impls: `crates/vize_relief/src/relief/elements.rs`, `relief/control_flow.rs`, `crates/vize_atelier_vapor/src/ir_drop.rs` (arena drop is free once nothing owns heap strings)
+- [ ] `stress-deep.vue` fixture passes without the stack guard (the guard's reason is gone, prove it)
+- [ ] The `docs/content/architecture/performance.md` interning claim becomes true — note for P1-12
+
+**Acceptance:** grep zero for manual `Drop` on node types; alloc counts drop (pin the number as the new ratchet); corpus parity.
 **Deps:** P1-3.
 
 ## P1-11 — Arena reuse across files
 
-**Deliverable:** batch CLI compiles reuse pooled allocators
-(`Allocator::reset`) instead of fresh arenas per file.
-**Acceptance:** peak RSS on the corpus batch drops (pin the number); no
-cross-file data escapes (miri/asan lane on the pool).
+**Steps:**
+- [ ] Pool in the CLI batch path (`crates/vize/src/commands/build/`): per-rayon-worker `Allocator` reset between files (`Allocator::reset()`), not reallocated
+- [ ] Escape check: asan/miri lane over the pool (nothing borrows across `reset`), plus a `#[cfg(debug_assertions)]` arena-generation counter that panics on cross-file survivals
+
+**Acceptance:** peak RSS on the corpus batch drops (pin as ratchet); asan/miri lane green.
 **Deps:** P1-10.
 
 ## P1-12 — Performance-doc truth pass
 
-**Deliverable:** `docs/content/architecture/performance.md` updated so every
-claim (interning, arenas, allocation behavior) is true of the shipped code,
-with numbers from the phase's benches.
-**Acceptance:** review point — maintainer signs off claims against measurements.
+**Steps:**
+- [ ] `docs/content/architecture/performance.md`: every claim (interning, arenas, allocation behavior, string handling) rewritten to match shipped code, with numbers from this phase's benches; the stale pre-Davinci claims deleted
+
+**Acceptance:** review point — maintainer signs off claims against `bench/results/davinci/`.
 **Deps:** P1-10, P1-11.
 
 ## P1-13 — Phase exit
 
-**Acceptance (all machine-checkable, then delete-and-close):**
 - [ ] Corpus compile parity: byte-identical, waiver ledger empty
-- [ ] `davinci.expr.parses` == distinct expressions (zero reparse) in CI
-- [ ] Compile bench improvement ≥ target pinned at phase start from P0 baselines
+- [ ] `davinci.expr.parses` == distinct expressions (zero reparse) asserted in CI
+- [ ] Compile bench improvement ≥ target pinned at phase start (set from P0-3's double-transform + reparse baselines; record the target in `budgets.toml` before P1-5 merges)
 - [ ] Alloc count / peak RSS improvements pinned as new ratchet baselines
 - [ ] Scanner split, string-rewrite prefixing, manual `Drop`s: deleted (grep zero)
 - [ ] In-phase fallback flags removed (charter #26)
