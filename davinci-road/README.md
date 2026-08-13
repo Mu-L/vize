@@ -80,9 +80,11 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | 38 | Vapor runtime | Vapor-generated code **calls upstream `@vue/runtime-vapor` public APIs** — emitted shape is free (per #23's experimental tier), the runtime surface is shared. Vize-bundled vapor helpers are off the table unless phase 3 measurements reopen the question. |
 | 39 | Dependency policy | **Runtime dependencies are strictly curated** (pin + audit + feature isolation — wasmtime only behind resident/extension features; salsa resident-tier only; oxc-style rev-pinning), **CI-only tooling is admitted leniently** (cargo-mutants, the Lean toolchain) under a separate supply-chain lane. |
 | 40 | v-model semantics | **Contract vs realization, confirmed.** `ui.model` carries only the binding contract in the neutral core (reads, writes, value-type flow; element kind and modifiers as attributes); realization — IME composition guards, checkbox arrays, `.lazy` — is **runtime-owned by declaration**, selected per target at S4 lowering, never expanded in S2 and never reimplemented by the compiler. Pinned by behavioral tests with IME event scripts. |
-| 41 | Formatter redesign | Glyph's phase-4 reimplementation on S1 **redesigns the output style intentionally at the same time**. The oracle is *not* byte-compatibility with old Glyph: the four corpus properties (idempotence, parse-preservation, lint-agreement, pug) remain the exact invariant gates, plus a **written style specification** whose fixtures pin every intentional decision; churn against old output is reported for review, not gated. |
+| 41 | Formatter redesign | Glyph's phase-4 reimplementation on S1 **redesigns the output style intentionally at the same time**. The oracle is *not* byte-compatibility with old Glyph: the four corpus properties (idempotence, parse-preservation, lint-agreement, pug) remain the exact invariant gates, plus a **written style specification** whose fixtures pin every intentional decision; churn against old output is reported for review, not gated. The style direction itself is a **blank-slate phase-4 discussion** — no direction is pre-committed. |
 | 42 | Diagnostics UX | **rustc/Elm-grade structured diagnostics as a first-class goal**: span labels, help text, fix suggestions, and witness-derived "why" expansion (#21's witnesses double as the explanation data), with **i18n (en/ja/zh) extended to all diagnostics** on the unified channel. |
 | 43 | Browser type checking | **Deferred beyond phase 6.** Projection emission stays wasm-capable (consistent with #18), but in-browser check execution waits on the tsgo-in-wasm landscape; the playground shows projections without executing the checker. |
+| 44 | Memory vs latency default | **Latency-first inside a hard RSS ceiling.** Every execution form carries an RSS cap (machine-scale presets, user-configurable); within the cap, spend memory for latency freely; at the cap, LRU eviction — never cap-less growth, never adaptive heuristics that make behavior unreproducible. |
+| 45 | Communications | Davinci stays **repository-internal for now** — no site publication, no blog announcement. Revisit when the maintainer chooses; nothing in the docs assumes public visibility. |
 
 ## Documents
 
@@ -95,6 +97,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | [Assurance](./assurance.md) | The quality doctrine: impossibility by construction, input-space enumeration, the test tier ladder, strict oracles, mutation-tested tests |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
 | [Prior Art](./prior-art.md) | Practices imported from rustc/MIR/Polonius/salsa, LLVM/MLIR, Swift (SwiftSyntax/SIL/macros), GHC (Core Lint/interface files), OCaml Flambda2, Lean 4, React Compiler, MoonBit, Unison, Effekt, and recent PL research — with anti-lessons |
+| [Implementation Plan](./plan/README.md) | PR-granular task decomposition per phase, with machine-checkable acceptance criteria ([phase-0](./plan/phase-0.md) drafted) |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |
 
 ## Relationship to the mission
