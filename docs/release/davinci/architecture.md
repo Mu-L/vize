@@ -1,0 +1,174 @@
+# Davinci — Architecture
+
+> [!NOTE]
+> This is the design-phase architecture. Names of stages and crates are
+> provisional (see [Open Questions](./open-questions.md#naming)). The decided
+> positions it implements are recorded in the [charter](./README.md#decided-positions).
+
+## What we take from MLIR, and what we refuse
+
+**Taken as philosophy:**
+
+- **Progressive lowering** — several IRs, each optimized for what its consumers
+  ask of it, connected by explicit lowering passes. Never one tree that mutates
+  itself into its own output.
+- **Dialect coexistence** — do not force premature unification. A normalized core
+  (`ui.if`, `ui.for`, `ui.element`) can carry framework-specific operations
+  (`vue.custom_directive`, vue2 filters) alongside it, lowered later or passed
+  through to a consumer that understands them.
+- **Verification** — each stage has an invariant checker that runs between passes
+  in debug builds and in fixtures, never in release hot paths.
+- **Textual round-trip for testing** — every stage dumps to a stable, readable
+  text format so fixtures and snapshots can pin any intermediate step, not just
+  final output.
+
+**Refused as machinery:** the uniform `Operation` structure, dynamic dialect
+registries, and runtime-extensible type systems. In Rust those cost memory
+locality, branch prediction, and type safety on every hot loop, and they fight
+the workspace's clippy discipline. Each stage is a concrete typed enum.
+
+## Stage model
+
+```
+S0  Source model      container + spans + arena
+S1  Surface trees     lossless per-dialect syntax (what the author wrote)
+S2  Semantic IR       normalized, input-neutral UI semantics (what it means)
+S3  Reactivity IR     static/dynamic partition, effects (how it updates)
+S4  Emission          structured emitters per target (what we produce)
+```
+
+### S0 — Source model
+
+The container layer: SFC descriptor, block boundaries, one **span coordinate
+system** (`Span { start: u32, end: u32 }`, byte offsets into the authored file),
+and **one arena per compile**. The arena is `oxc_allocator` (bumpalo underneath),
+shared by template structures and oxc JS ASTs so both live under the same
+lifetime `'a`. Strings are `&'a str` slices of the source or arena-interned
+atoms — no owned strings in nodes, which also deletes the manual-`Drop`
+stack-overflow class entirely. Line/column exist only at diagnostic-rendering
+time, derived from offsets.
+
+### S1 — Surface trees (input dialects)
+
+One lossless syntax tree per input dialect: Vue template, oxc program for
+script/JSX, pug. Lossless means the formatter and lint autofixes can be written
+against S1 without a private re-scan — this is what retires the `vize_glyph`
+byte scanner and the `vize_musea` hand parser. Vue 2 is an S1/S2 dialect using
+the existing `legacy` capability model (resolve once per file, feature-gated,
+zero cost when off).
+
+### S2 — Semantic IR (the pivot)
+
+The normalized, input-neutral representation of UI semantics, and the **primary
+consumer surface**: element/component/text/interpolation nodes, structured
+control flow (`if`/`for` as regions, not directive attributes), normalized slots,
+normalized bindings (`bind`/`on`/`model` semantics rather than `v-bind`/`v-on`
+spellings), with binding metadata from Croquis attached via side tables. JSX
+`<Show>`-style patterns, `v-if`, and pug conditionals all normalize to the same
+ops. Framework-specific constructs that must survive (custom directives, vue2
+filters) ride along as dialect ops.
+
+Consumers: the linter (Patina's markup facade becomes a zero-copy view over S2),
+virtual-language projection for type checking, Musea, Doctor, and LSP features.
+
+### Expression dialects
+
+Because expression languages are themselves pluggable (decision 4 — MoonBit,
+Elixir-hosted expressions), S2 does not hard-wire expressions to oxc:
+
+```rust
+enum ExprRef<'a> {
+    /// Fast path: JS/TS parsed by oxc into the shared arena. In-tree default.
+    Js(&'a oxc_ast::ast::Expression<'a>),
+    /// Foreign expression dialects, feature-gated like `legacy`.
+    Foreign(&'a ForeignExpr<'a>), // dialect id + source slice + span + side tables
+}
+```
+
+Every expression dialect implements one capability contract, resolved per file,
+never dyn-dispatched per node: enumerate referenced bindings (drives scope
+analysis, patch flags, effect dependencies), classify static/const-ness, map
+spans, and emit for a given target. For JS these are direct oxc AST walks — the
+fast/slow byte-scanner split disappears because the parsed AST is simply kept.
+
+Type checking generalizes the same way: canon's virtual TS becomes the JS
+instance of a general **virtual host-language projection** — an S4 target that
+emits checkable code plus span links for any expression dialect (virtual MoonBit
+for MoonBit expressions, delegated to the host toolchain the way TS is delegated
+to Corsa today).
+
+### S3 — Reactivity IR
+
+The generalization of today's Vapor IR: flat, id-based operations
+(`SetText`/`SetProp`/`InsertNode`/…), static template partition, effect grouping
+by dependency set, and hoist/cache decisions as explicit operations rather than
+codegen-time inference. The static/dynamic partition analysis runs once on
+S2→S3 lowering and serves all three backends: Vapor consumes effect grouping,
+VDOM derives patch flags and hoisting from the same partition, SSR derives its
+static string plan. Whether DOM/SSR lower through S3 or take a thinner S2 path
+is an open question ([Open Questions](./open-questions.md#s3-scope)).
+
+### S4 — Emission (output targets)
+
+A structured emitter layer replaces string-append codegen: targets build a span-
+carrying document, and source maps fall out of emission for **every** target —
+DOM, SSR, and Vapor alike — replacing the text-matching recovery in
+`vize_atelier_sfc/src/source_map.rs`. Targets are: VDOM JS, Vapor JS, SSR JS,
+virtual TS / virtual host-language projections, `.d.ts`, and non-JS host targets
+(the Volt/Elixir pattern) through the same contract.
+
+## Shared infrastructure (what stages have in common)
+
+- **Pass manager** — each product (compile-dom, compile-vapor, compile-ssr,
+  lint, typecheck-projection, format) is a declared pipeline of statically-known
+  passes. Debug builds interleave stage verifiers; `profile!` spans wrap each
+  pass automatically. No registry of trait objects; pipelines are const data.
+- **Codex dumps** — the textual format for every stage (working name; the
+  existing croquis "VIR" debug dump needs a rename or absorption plan). Snapshot
+  tests pin any stage; the Compiler Inspector renders the same dumps.
+- **One diagnostics channel** — diagnostics carry a `Span`, a stage of origin,
+  and structured parts; all rendering (CLI, LSP, JSON, corpus reports) consumes
+  the same finished `Vec<Diagnostic>`. This structurally removes the
+  two-independent-assembly-paths failure mode in canon.
+- **Node ids + side tables** — cross-stage references and analysis results are
+  `NodeId`-keyed tables, not fat nodes and not raw `*mut` traversal.
+- **Stage artifact keys** — every stage output has a content-derived identity
+  (Doctor's `cache_identity` pattern, promoted), at SFC-block granularity. This
+  is the substrate #698 (block-level virtual TS reuse) and #699 (session reuse)
+  are waiting for, and what lets Maestro stop re-parsing per request.
+
+## Extension contracts (decision 1)
+
+Three narrow, published contracts; in-tree implementations are Vue-family only:
+
+| Contract | Plugs in at | In-tree | External (examples) |
+| -------- | ----------- | ------- | ------------------- |
+| Input dialect | S1 parser + S1→S2 lowering | Vue 3, Vue 2 (`legacy`), SFC, JSX, pug | Svelte, Solid, Astro |
+| Expression dialect | S2 `ExprRef` capability set | JS/TS (oxc) | MoonBit, Elixir-hosted |
+| Output target | S3/S2 → S4 emitter | VDOM, Vapor, SSR, virtual TS, `.d.ts` | Volt (Elixir), other hosts |
+
+Contract stability follows the `vize_marquette` precedent: versioned,
+deterministic serialization at the boundary, compatibility classified as
+additive vs breaking.
+
+## Performance guardrails
+
+Non-negotiable, inherited from "Be Fast Above All":
+
+1. **No dyn dispatch in per-node hot loops.** Dialect and pass dispatch happen
+   per file or per pipeline, never per node.
+2. **One arena, zero re-parses.** An expression is parsed exactly once per
+   compile; keeping the AST must be cheaper than today's parse-copy-reparse.
+3. **Spans are two u32s.** No owned strings, no eagerly-computed line/column.
+4. **Every phase holds the budget.** The end-to-end benchmark envelope
+   (15k SFC ≈ 330ms compile) is a merge gate, and phase 0 adds the per-crate
+   microbenches the pipeline currently lacks so regressions localize.
+5. **Verification never ships.** Stage verifiers are debug/fixture-only.
+
+## Fit with workspace culture
+
+New crates start at the `experimental` stability tier and obey the existing
+discipline: `vize_carton` string/collection types (clippy bans), the 350-line
+source guard, fixtures-first change classes from
+`docs/content/architecture/language-engineering-practices.md`, and snapshot
+diffs as reviewed contracts — which the Codex dumps are designed to serve.
