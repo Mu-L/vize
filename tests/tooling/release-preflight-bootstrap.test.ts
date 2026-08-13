@@ -182,16 +182,15 @@ test("Real Project Matrix dispatch identifies its immutable target", () => {
     "budget_mode",
     "core_tools_mode",
     "core_tools_timeout_ms",
+    "lint_divergence_mode",
     "lsp_mode",
   ]);
-  assert.equal(dispatchInputs.budget_mode?.default, "enforce");
-  assert.deepEqual(dispatchInputs.budget_mode?.options, ["enforce", "record-only"]);
-  assert.equal(dispatchInputs.core_tools_mode?.default, "enforce");
-  assert.deepEqual(dispatchInputs.core_tools_mode?.options, ["enforce", "record-only"]);
+  for (const mode of ["budget_mode", "core_tools_mode", "lint_divergence_mode", "lsp_mode"]) {
+    assert.equal(dispatchInputs[mode]?.default, "enforce");
+    assert.deepEqual(dispatchInputs[mode]?.options, ["enforce", "record-only"]);
+  }
   assert.equal(dispatchInputs.core_tools_timeout_ms?.default, "2400000");
   assert.equal(dispatchInputs.core_tools_timeout_ms?.type, "string");
-  assert.equal(dispatchInputs.lsp_mode?.default, "enforce");
-  assert.deepEqual(dispatchInputs.lsp_mode?.options, ["enforce", "record-only"]);
   assert.match(matrix["run-name"] ?? "", /^Real Project Matrix @ /);
   assert.match(matrix["run-name"] ?? "", /github\.sha/);
 });
@@ -282,13 +281,10 @@ test("release gate bootstrap dispatches only missing gates and waits for exact e
     pollIntervalMs: 1_000,
   });
 
-  assert.deepEqual(dispatched, [
-    "Benchmark",
-    "App E2E",
-    "Native Smoke",
-    "Real Project Matrix",
-    "Fuzz",
-  ]);
+  assert.deepEqual(
+    dispatched,
+    plans.map((plan) => plan.workflowName),
+  );
   assert.deepEqual([...selected.keys()], requiredReleaseWorkflows);
 });
 
@@ -308,13 +304,10 @@ test("release gate bootstrap attempts every missing dispatch before reporting fa
     }),
     /Failed to dispatch release gates:[\s\S]*Benchmark: dispatch denied[\s\S]*Fuzz: dispatch denied/,
   );
-  assert.deepEqual(attempts, [
-    "Benchmark",
-    "App E2E",
-    "Native Smoke",
-    "Real Project Matrix",
-    "Fuzz",
-  ]);
+  assert.deepEqual(
+    attempts,
+    releasePlans().map((plan) => plan.workflowName),
+  );
 });
 
 test("release gate bootstrap never retries or hides a red latest run", async () => {
