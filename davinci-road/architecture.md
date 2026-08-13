@@ -85,6 +85,21 @@ deliberately bypasses the JSX→Relief lowering (`MarkupDocument::from_jsx`)
 because Relief is Vue-shaped. Lowering *into a Vue-shaped tree* is the wrong
 fix; a genuinely neutral S2 is the right one.
 
+**Two-way binding — contract vs realization.** `v-model` is the instructive
+boundary case: it is *not* sugar for `:value` + `@input` — the runtime
+realization guards IME composition events, handles checkbox arrays, `.lazy`'s
+change-vs-input switch, and select-multiple. So the neutral core carries
+`ui.model` as the **binding contract only** (what is read, what is written,
+the value-type flow — which is all lint, the lattice, and type projection
+need, and which Svelte's `bind:` lowers to identically), with element kind
+and dialect modifiers riding as attributes. **Realization is never expanded
+in S2**: each S4 target picks it at lowering — VDOM emits runtime directive
+references (as Vue does today), Vapor calls upstream vapor helpers, SSR
+renders attributes. IME/composition handling is **runtime-owned by
+declaration**; the compiler's obligation is to select the correct realization
+and preserve the contract, never to reimplement composition. Composition
+behavior is pinned by behavioral-tier tests with IME event scripts.
+
 S2 also crosses SFC block boundaries where semantics do: `v-bind()` in CSS
 appears as S2 binding ops, so the linter, the reactivity lattice, and the
 type-check projection see style-block references instead of leaving them a

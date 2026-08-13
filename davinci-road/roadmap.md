@@ -81,6 +81,10 @@ The highest-leverage single change; everything later depends on it.
   lifetime; `vize_carton` re-exports accordingly.
 - `JsExpression` becomes a real, retained oxc AST parsed **once**; delete the
   parse-copy-reparse round trips (20+ sites) and the fast/slow scanner split.
+- **Croquis's input layer is rewritten wholesale onto retained oxc ASTs**
+  (charter #37) — expression access, identifier enumeration, prefixing
+  consumers; tracker internals stay put until their phase-4 fact-group
+  migration.
 - Identifier prefixing (`_ctx.`, `$setup.`) moves from string rewriting to AST
   transformation.
 - Node strings become `&'a str` / arena atoms; per-node owned strings and the
