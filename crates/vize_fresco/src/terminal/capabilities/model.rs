@@ -40,6 +40,13 @@ impl ColorSupport {
 }
 
 /// Why one resolved capability has its current value.
+///
+/// Reasons are intentionally part of the public contract. They accompany the
+/// [`CapabilityDecision`] values exposed for color, Unicode, and interactivity;
+/// redirected output and narrow layout remain plain boolean flags without
+/// reasons. Diagnostic presentations should report these values when color,
+/// Unicode, or interactivity is unavailable or forced, instead of deriving
+/// unsupported capability reasons from escape sequences or rendered glyphs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CapabilityReason {
@@ -149,6 +156,11 @@ pub enum FeaturePreference {
 }
 
 /// Stable inputs controlling capability resolution.
+///
+/// Defaults resolve color, Unicode, and interactivity automatically and mark
+/// viewports narrower than 60 columns as narrow. Automatic resolution never
+/// upgrades redirected output or `TERM=dumb` to interactive mode, even when
+/// callers request [`FeaturePreference::Always`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminalProfileOptions {
     /// Color preference. Defaults to [`ColorPreference::Auto`].
@@ -300,6 +312,11 @@ impl TerminalCapabilityProbe {
 }
 
 /// Complete presentation profile resolved for one terminal viewport.
+///
+/// Each capability includes both the resolved value and a stable
+/// [`CapabilityReason`]. This lets diagnostic and inspection tools expose why a
+/// terminal is monochrome, ASCII-only, non-interactive, redirected, or narrow
+/// without touching process-global terminal state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TerminalCapabilities {
     pub(super) width: u16,
