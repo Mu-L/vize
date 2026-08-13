@@ -104,9 +104,14 @@ cross-file graph × native type information, on one base.
   semantics.)
 - **Component contract checking** — props/emits/slots usage vs declaration
   across the project (`component_usages` generalized project-wide), keyed by
-  **resolved component identity** through the module graph — never by local
-  import names or paths, so aliased imports, re-exports, and same-name
-  components in different directories resolve correctly.
+  **(caller file, resolved component identity)** through the module graph —
+  never by local import names or paths alone, so aliased imports, re-exports,
+  and same-name components in different directories resolve correctly and two
+  parents importing different same-basename components never share facts.
+  Edges are registration-order independent, and **stale edges are removed on
+  re-resolution** — with regression coverage for both child registration
+  orders and the stale-edge case, so diagnostics never attach to an old
+  target.
 - **Reactivity flow** — where reactivity is lost, effects that never fire,
   writes no effect observes. (`EffectGraph`, `RaceConditionTracker`
   productized as async-setup race rules.)
