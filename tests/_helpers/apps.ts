@@ -8,6 +8,16 @@ import {
   ensureLocalVizePackagesBuilt,
   ensureSymlink,
 } from "./vize-local-packages.ts";
+import {
+  FRONTEND_PHPCON_E2E_ENV,
+  NPMX_E2E_ENV,
+  VUEFES_E2E_ENV,
+  execNpxCommand,
+  npmxGeneratorTaskArgs,
+  patchNuxtPrerenderForE2E,
+  readDotenvValue,
+  writeFrontendPhpconStaffRoute,
+} from "./app-fixture-runtime.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,18 +65,6 @@ export interface AppConfig {
 
 // --- Setup helpers ---
 const MISSKEY_FLUENT_EMOJI_RE = /\/fluent-emoji(?:s)?\/([0-9a-z-]+\.png)\b/g;
-const NPMX_E2E_ENV = {
-  NUXT_SESSION_PASSWORD: "e2e-test-dummy-session-password-32chars!",
-  VIZE_E2E_DISABLE_LUNARIA: "1",
-} as const;
-const VUEFES_E2E_ENV = {
-  AUTH_SECRET: "e2e-test-dummy-auth-secret-32chars!",
-  NEXTAUTH_SECRET: "e2e-test-dummy-auth-secret-32chars!",
-} as const;
-const FRONTEND_PHPCON_E2E_ENV = {
-  NUXT_PUBLIC_API_BASE: "/__vize_e2e/api",
-  NUXT_TELEMETRY_DISABLED: "1",
-} as const;
 const VUE_BETA_OVERRIDES = {
   "@vue/compiler-core": "3.6.0-beta.10",
   "@vue/compiler-dom": "3.6.0-beta.10",
@@ -83,20 +81,19 @@ const TRANSPARENT_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P8z/C/HwAFgwJ/lE6nWQAAAABJRU5ErkJggg==",
   "base64",
 );
+
 interface PnpmInstallOptions {
   env?: NodeJS.ProcessEnv;
   ignoreScripts?: boolean;
   timeout?: number;
 }
+
 export function installPnpmDependencies(cwd: string, options: PnpmInstallOptions = {}): void {
   console.log(`[vize:setup] pnpm install in ${cwd}...`);
   const args = ["-y", "pnpm@10", "install", "--no-frozen-lockfile"];
   if (options.ignoreScripts) args.push("--ignore-scripts");
   args.push("--prefer-offline");
-  const executable = process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : "npx";
-  const executableArgs =
-    process.platform === "win32" ? ["/d", "/s", "/c", "npx.cmd", ...args] : args;
-  execFileSync(executable, executableArgs, {
+  execNpxCommand(args, {
     cwd,
     env: {
       ...process.env,
@@ -105,7 +102,6 @@ export function installPnpmDependencies(cwd: string, options: PnpmInstallOptions
       HUSKY: "0",
       SKIP_INSTALL_SIMPLE_GIT_HOOKS: "1",
     },
-    stdio: "inherit",
     timeout: options.timeout ?? 600_000,
   });
 }
@@ -649,6 +645,8 @@ const VOICEVOX_DIR = path.join(GIT_DIR, "voicevox");
 
 const ELK_E2E_ENV = {
   NUXT_STORAGE_DRIVER: "fs",
+  CONTEXT: "dev",
+  MOCK_USER: readDotenvValue(path.join(GIT_DIR, "elk", ".env.mock"), "MOCK_USER") ?? "",
   VIZE_E2E_BUILD_TIME: "1767225600000",
 } as const;
 
@@ -675,6 +673,7 @@ function setupElkWorktree(opts?: { enableVize?: boolean; variant?: string }): st
     vite: "^8.0.0",
   });
   patchElkBuildEnvTime(path.join(elkDir, "modules", "build-env.ts"));
+  patchNuxtPrerenderForE2E(path.join(elkDir, "nuxt.config.ts"));
 
   installPnpmDependencies(elkDir, {
     timeout: 300_000,
@@ -1168,11 +1167,10 @@ function setupNpmxWorktree(opts?: { enableVize?: boolean; variant?: string }): s
     ignoreScripts: true,
     timeout: 300_000,
   });
-  for (const script of ["generate:lexicons", "generate:sprite"]) {
-    console.log(`[npmx.dev:${enableVize ? "candidate" : "reference"}:setup] pnpm ${script}...`);
-    execSync(`npx -y pnpm@10 ${script}`, {
+  for (const task of ["generate:lexicons", "generate:sprite"] as const) {
+    console.log(`[npmx.dev:${enableVize ? "candidate" : "reference"}:setup] vp run ${task}...`);
+    execNpxCommand(npmxGeneratorTaskArgs(task), {
       cwd: npmxDir,
-      stdio: "inherit",
       timeout: 120_000,
       env: {
         ...process.env,
@@ -1424,6 +1422,7 @@ function patchFrontendPhpconVisualFixture(frontendDir: string): void {
 }));
 `,
   );
+  writeFrontendPhpconStaffRoute(frontendDir, ensureFileContent);
 
   for (const imageDir of [
     path.join(frontendDir, "public", "individual-sponsors"),

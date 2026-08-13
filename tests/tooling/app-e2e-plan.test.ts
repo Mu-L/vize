@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  FRONTEND_PHPCON_E2E_API_BASE,
+  FRONTEND_PHPCON_STAFF_ROUTE_RELATIVE_PATH,
+  npmxGeneratorTaskArgs,
+  patchNuxtPrerenderForE2E,
+  readDotenvValue,
+} from "../_helpers/app-fixture-runtime.ts";
+import { elkApp, frontendPhpconApp, npmxApp } from "../_helpers/apps.ts";
 import {
   createAppE2ePlanEvidence,
   fullAppE2eRows,
@@ -89,6 +98,52 @@ test("full and readiness plans preserve every isolated execution row", () => {
     readinessRows.find((row) => row.shard === "lint")?.timeout,
     "5m",
     "updated fixture setup must fit inside the readiness lint budget",
+  );
+});
+
+test("upstream app fixtures keep deterministic CI setup", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-dotenv-"));
+  const dotenvPath = path.join(tempDir, ".env.mock");
+  fs.writeFileSync(dotenvPath, 'MOCK_USER=\'{"id":"e2e"}\'\nPLAIN=value\n');
+
+  assert.equal(readDotenvValue(dotenvPath, "MOCK_USER"), '{"id":"e2e"}');
+  assert.equal(readDotenvValue(dotenvPath, "PLAIN"), "value");
+  assert.equal(readDotenvValue(path.join(tempDir, "missing.env"), "MOCK_USER"), undefined);
+  assert.equal(elkApp.env?.CONTEXT, "dev");
+  assert.equal(typeof elkApp.env?.MOCK_USER, "string");
+  assert.match(elkApp.args.join(" "), /pnpm@10 exec nuxt dev/);
+  const nuxtConfigPath = path.join(tempDir, "nuxt.config.ts");
+  fs.writeFileSync(nuxtConfigPath, "'/': { prerender: true },\ncrawlLinks: true,\n");
+  patchNuxtPrerenderForE2E(nuxtConfigPath);
+  assert.equal(
+    fs.readFileSync(nuxtConfigPath, "utf-8"),
+    "'/': { prerender: false },\ncrawlLinks: false,\n",
+  );
+
+  assert.deepEqual(npmxGeneratorTaskArgs("generate:lexicons"), [
+    "-y",
+    "pnpm@10",
+    "exec",
+    "vp",
+    "run",
+    "--no-cache",
+    "generate:lexicons",
+  ]);
+  assert.deepEqual(npmxGeneratorTaskArgs("generate:sprite"), [
+    "-y",
+    "pnpm@10",
+    "exec",
+    "vp",
+    "run",
+    "--no-cache",
+    "generate:sprite",
+  ]);
+  assert.equal(npmxApp.env?.VIZE_E2E_DISABLE_LUNARIA, "1");
+
+  assert.equal(frontendPhpconApp.env?.NUXT_PUBLIC_API_BASE, FRONTEND_PHPCON_E2E_API_BASE);
+  assert.equal(
+    FRONTEND_PHPCON_STAFF_ROUTE_RELATIVE_PATH,
+    path.join("server", "routes", "__vize_e2e", "api", "staff.get.ts"),
   );
 });
 
