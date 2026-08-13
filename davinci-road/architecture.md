@@ -230,7 +230,10 @@ child list) forces the re-visits that a region-owning `ui.if` op never needs.
 - **One diagnostics channel** — diagnostics carry a `Span`, a stage of origin,
   and structured parts; all rendering (CLI, LSP, JSON, corpus reports) consumes
   the same finished `Vec<Diagnostic>`. This structurally removes the
-  two-independent-assembly-paths failure mode in canon.
+  two-independent-assembly-paths failure mode in canon. The UX bar is
+  **rustc/Elm-grade** (charter #42): span labels, help, fix suggestions, and a
+  witness-derived "why" expansion — the assurance witnesses double as the
+  explanation data — with i18n (en/ja/zh) across every diagnostic.
 - **Node ids + side tables** — cross-stage references and analysis results are
   `NodeId`-keyed tables, not fat nodes and not raw `*mut` traversal.
 - **Stage artifact keys** — every stage output has a content-derived identity

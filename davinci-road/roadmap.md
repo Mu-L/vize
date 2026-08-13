@@ -148,8 +148,12 @@ three backends; Vapor compile bench improves (it stops paying for VDOM).
   genuinely diverge. Reserved Svelte/Astro variants map to the input-dialect
   contract. Consumers stop reading `Croquis` fields directly; facts become
   demand-driven.
-- Glyph formats from lossless S1 (byte scanner retires; pug arrives as an S1
-  dialect); Musea's art parser moves onto S0/S1.
+- Glyph is reimplemented on lossless S1 **with an intentional style redesign**
+  (charter #41): the four corpus properties are the invariant exact gates, a
+  written style spec pins every intentional decision as fixtures, and churn
+  against old output is reported for review rather than gated. The byte
+  scanner retires; pug arrives as an S1 dialect. Musea's art parser moves
+  onto S0/S1.
 - The projection's span-link model serves the tsgo/Corsa API, the
   content-mapper protocol, and Maestro from one implementation; deep analysis
   products land on the fact base: complexity over real template CFGs
