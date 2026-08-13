@@ -5,15 +5,9 @@ mod handler_context;
 mod reference;
 
 use vize_carton::{FxHashSet, String, append, cstr};
-use vize_croquis::croquis::PassedProp;
-use vize_croquis::{
-    Croquis, EventHandlerScopeData, Scope, analyzer::strip_js_comments, naming::to_pascal_case,
-};
+use vize_croquis::{Croquis, EventHandlerScopeData, Scope, naming::to_pascal_case};
 
-use crate::virtual_ts::{
-    expressions::rewrite_reserved_template_prop,
-    helpers::{to_safe_identifier, to_safe_identifier_fragment},
-};
+use crate::virtual_ts::helpers::{to_safe_identifier, to_safe_identifier_fragment};
 use generic_inference::{
     EmitInferenceContext, find_component_usage_for_event, generate_inferred_emit_args,
 };
@@ -28,15 +22,31 @@ pub(super) struct ComponentEventTypes {
     pub(super) listener_type_expr: String,
 }
 
+pub(super) struct ComponentEventTypeContext<'a> {
+    pub(super) summary: &'a Croquis,
+    pub(super) data: &'a EventHandlerScopeData,
+    pub(super) scope: &'a Scope,
+    pub(super) template_prop_names: &'a FxHashSet<String>,
+    pub(super) legacy_vue2: bool,
+    pub(super) needs_typed_handler_assignment: bool,
+    pub(super) allows_bivariant_handler_assignment: bool,
+    pub(super) indent: &'a str,
+}
+
 pub(super) fn generate_component_event_types(
     ts: &mut String,
-    summary: &Croquis,
-    data: &EventHandlerScopeData,
-    scope: &Scope,
-    template_prop_names: &FxHashSet<String>,
-    legacy_vue2: bool,
-    indent: &str,
+    ctx: ComponentEventTypeContext<'_>,
 ) -> Option<ComponentEventTypes> {
+    let ComponentEventTypeContext {
+        summary,
+        data,
+        scope,
+        template_prop_names,
+        legacy_vue2,
+        needs_typed_handler_assignment,
+        allows_bivariant_handler_assignment,
+        indent,
+    } = ctx;
     let component_name = data.target_component.as_ref()?;
     let scope_id = scope.id.as_u32();
     let safe_event_name = to_safe_identifier(data.event_name.as_str());
@@ -158,9 +168,25 @@ pub(super) fn generate_component_event_types(
             "unknown[] extends {args_type} ? ((...args: any[]) => any) : ((...args: {listener_args_type}) => any)"
         )
     };
+    let requires_unresolved_handler =
+        requires_unresolved_handler_implicit_any(summary, component_name, data, scope);
     let handler_type_expr = (!legacy_vue2
-        && requires_unresolved_handler_implicit_any(summary, component_name, data, scope))
-    .then(|| cstr!("unknown[] extends {args_type} ? unknown : {listener_type}"));
+        && needs_typed_handler_assignment
+        && (allows_bivariant_handler_assignment || requires_unresolved_handler))
+        .then(|| {
+        let assignment_type = if allows_bivariant_handler_assignment {
+            cstr!(
+                "typeof {component_ref} extends {{ __vizeEmitProps?: any }} ? {listener_type} : {{ bivarianceHack(...args: {listener_args_type}): any }}[\"bivarianceHack\"]"
+            )
+        } else {
+            listener_type.clone()
+        };
+        if requires_unresolved_handler {
+            cstr!("unknown[] extends {args_type} ? unknown : {assignment_type}")
+        } else {
+            cstr!("unknown[] extends {args_type} ? {listener_type} : {assignment_type}")
+        }
+    });
     let handler_type = handler_type_expr
         .as_ref()
         .map(|_| cstr!("__{component_type_name}_{scope_id}_{safe_event_name}_handler"));
@@ -171,42 +197,4 @@ pub(super) fn generate_component_event_types(
         listener_type,
         listener_type_expr,
     })
-}
-
-fn push_ts_string_literal(out: &mut String, value: &str) {
-    out.push('"');
-    for ch in value.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(ch),
-        }
-    }
-    out.push('"');
-}
-
-pub(super) fn generated_prop_value(
-    prop: &PassedProp,
-    template_prop_names: &FxHashSet<String>,
-) -> Option<String> {
-    if !prop.is_dynamic {
-        let mut value = String::default();
-        if let Some(static_value) = prop.value.as_ref() {
-            push_ts_string_literal(&mut value, static_value.as_str());
-        } else {
-            value.push_str("true");
-        }
-        return Some(value);
-    }
-
-    let value = strip_js_comments(prop.value.as_ref()?.as_str());
-    let trimmed_value = value.as_ref().trim();
-    let rewritten_value = rewrite_reserved_template_prop(trimmed_value, template_prop_names);
-    Some(rewritten_value.as_ref().map_or_else(
-        || String::from(value.as_ref()),
-        |s| String::from(s.as_str()),
-    ))
 }

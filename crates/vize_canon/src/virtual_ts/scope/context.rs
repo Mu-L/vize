@@ -9,6 +9,8 @@ use vize_croquis::{Croquis, EventHandlerScopeData, ScopeId, analysis::ComponentU
 use crate::virtual_ts::expressions::{ComponentPropSource, TemplateValueChecks};
 use crate::virtual_ts::types::{VirtualTsCheckOptions, VirtualTsOptions};
 
+use super::slot_outlet_props::SlotOutletChecks;
+
 #[derive(Clone, Copy)]
 pub(crate) enum GlobalComponentCheck {
     None,
@@ -31,14 +33,16 @@ impl GlobalComponentCheck {
 }
 
 /// Context for recursive scope generation, bundling shared parameters.
-pub(crate) struct ScopeGenContext<'a> {
+pub(crate) struct ScopeGenContext<'a, 'template> {
     pub(crate) summary: &'a Croquis,
     pub(crate) virtual_ts_options: &'a VirtualTsOptions,
     pub(crate) expressions_by_scope: &'a FxHashMap<u32, Vec<&'a vize_croquis::TemplateExpression>>,
     pub(crate) skipped_expression_ranges: &'a FxHashSet<(u32, u32)>,
     pub(crate) children_map: &'a FxHashMap<u32, Vec<ScopeId>>,
+    pub(crate) slot_outlets: &'a SlotOutletChecks,
     pub(crate) template_prop_names: &'a FxHashSet<String>,
     pub(crate) checks: TemplateValueChecks<'a>,
+    pub(crate) template_ast: Option<&'a vize_relief::RootNode<'template>>,
     pub(crate) template_source: Option<&'a str>,
     pub(crate) template_offset: u32,
     pub(crate) check_options: VirtualTsCheckOptions,

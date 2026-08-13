@@ -89,6 +89,24 @@ fn invalid_terminal_descriptor_is_closed_without_publishing_a_snapshot() {
     assert_eq!(unsafe { libc::fcntl(fd, libc::F_GETFD) }, -1);
 }
 
+#[test]
+fn second_owned_fd_does_not_replace_or_modify_active_snapshot() {
+    let _serial = raw_mode_test_guard();
+    let mut first = PtyFixture::open();
+    let first_raw_fd = first.take_terminal_fd();
+    enable_raw_mode_on_owned_fd(first_raw_fd).unwrap();
+
+    let mut second = PtyFixture::open();
+    let second_fd = second.take_terminal_fd();
+    enable_raw_mode_on_owned_fd(second_fd).unwrap();
+
+    second.assert_restored();
+    assert!(emergency_restore_raw_mode());
+    first.assert_restored();
+    second.assert_restored();
+    disable_raw_mode().unwrap();
+}
+
 fn raw_mode_test_guard() -> MutexGuard<'static, ()> {
     RAW_MODE_TEST
         .lock()

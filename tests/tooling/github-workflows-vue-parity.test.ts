@@ -69,6 +69,21 @@ test("Vue parity structurally gates compiler fixtures and incremental LSP behavi
   // always-uploaded artifact exists even when a later step is killed by the
   // spawn exhaustion this lane is guarding against (#4126).
   assert.equal(steps[0]?.name, "Record runner process budget baseline");
+  assert.match(
+    steps[0]?.run ?? "",
+    /export RAYON_NUM_THREADS=4/,
+    "vue-parity must cap Vize's Rayon fan-out under the runner task budget",
+  );
+  assert.match(
+    steps[0]?.run ?? "",
+    /echo "RAYON_NUM_THREADS=\$RAYON_NUM_THREADS" >> "\$GITHUB_ENV"/,
+    "the Rayon cap must apply to every later composite-action step",
+  );
+  assert.match(
+    steps[0]?.run ?? "",
+    /echo "rayon_num_threads=\$RAYON_NUM_THREADS"/,
+    "the runner baseline must record the emitted Rayon cap",
+  );
   for (const fact of ["nproc", "ulimit -u", "ulimit -Hu", "pids.current", "pids.max", "Threads:"]) {
     assert.ok((steps[0]?.run ?? "").includes(fact), `the runner baseline must record ${fact}`);
   }

@@ -2,43 +2,23 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parse } from "yaml";
 
-import { projectEnv } from "../../tools/npm/smoke-release-init-project.mjs";
+import {
+  managerCommand,
+  managerEnv,
+  projectEnv,
+  runManager,
+} from "../../tools/npm/smoke-release-init-project.mjs";
 import { PACKAGE_MANAGERS } from "../../tools/npm/smoke-release-init-managers.mjs";
 import { FRESH_INIT_MATRIX, PROJECT_SHAPES } from "../../tools/npm/smoke-release-init-shapes.mjs";
 import { readRepoFile } from "./support/github-workflows.ts";
+import {
+  COREPACK_MANAGER_SPECS,
+  MANAGER_KEYS,
+  SHAPE_KEYS,
+  byCodeUnit,
+} from "./support/release-smoke-init-contract.ts";
 
-const SHAPE_KEYS = [
-  "addedScripts",
-  "createdFiles",
-  "detection",
-  "expectedDevDependencies",
-  "expectedFiles",
-  "expectedScripts",
-  "features",
-  "initFlags",
-  "plannedDependencies",
-  "reconfiguredDetection",
-  "reconfiguredFeatures",
-  "requires",
-  "updatedFiles",
-];
-
-/** Code-unit order, matching the driver's own comparison of installed names. */
-const byCodeUnit = (left: string, right: string): number =>
-  left < right ? -1 : left > right ? 1 : 0;
-
-const MANAGER_KEYS = [
-  "bootstrapArgs",
-  "corsaInstallCommand",
-  "detectedPackageManager",
-  "installArgs",
-  "installFlags",
-  "lockfile",
-  "projectFiles",
-  "redirect",
-  "redirectPlannedDependencies",
-  "runScriptArgs",
-];
+const RUNTIME_PACKAGE_MANAGER_ACTION = "./.github/actions/setup-runtime-package-managers";
 
 test("the fresh-project matrix is data, so new cells need no driver change", () => {
   assert.ok(FRESH_INIT_MATRIX.length > 0, "the fresh-project matrix must run at least one cell");
@@ -84,6 +64,37 @@ test("the fresh-project matrix covers every documented package manager", () => {
   for (const manager of documented) {
     assert.ok(matrixManagers.has(manager), `fresh-project matrix does not cover ${manager}`);
   }
+});
+
+test("fresh-project package managers use exact Corepack runners where needed", () => {
+  for (const [managerId, corepackSpec] of Object.entries(COREPACK_MANAGER_SPECS)) {
+    const manager = PACKAGE_MANAGERS[managerId];
+    assert.equal(manager.corepackSpec, corepackSpec);
+    assert.deepEqual(managerCommand(manager, ["install"]), {
+      command: "corepack",
+      args: [corepackSpec, "install"],
+    });
+    assert.equal(managerEnv(manager).COREPACK_ENABLE_PROJECT_SPEC, "0");
+  }
+  assert.equal(
+    managerEnv(PACKAGE_MANAGERS.yarn, { CI: "true" }).YARN_ENABLE_IMMUTABLE_INSTALLS,
+    "false",
+  );
+  assert.equal(
+    managerEnv(PACKAGE_MANAGERS.yarn, { YARN_ENABLE_IMMUTABLE_INSTALLS: "true" })
+      .YARN_ENABLE_IMMUTABLE_INSTALLS,
+    "true",
+  );
+  for (const managerId of ["npm", "bun", "vp"]) {
+    const manager = PACKAGE_MANAGERS[managerId];
+    assert.equal("corepackSpec" in manager, false, `${managerId} should keep its direct runner`);
+    assert.deepEqual(managerCommand(manager, ["install"]), {
+      command: manager.binary,
+      args: ["install"],
+    });
+    assert.equal(managerEnv(manager).COREPACK_ENABLE_PROJECT_SPEC, undefined);
+  }
+  assert.match(runManager(PACKAGE_MANAGERS.npm, ["--version"], { cwd: process.cwd() }), /^\d+\./u);
 });
 
 test("every shape drives a clean, broken, and repaired check", () => {
@@ -159,6 +170,40 @@ function smokeInstallInvocations(workflow: string): string[][] {
   return invocations;
 }
 
+function workflowSteps(workflow: string, jobName: string) {
+  const parsed = parse(readRepoFile(".github", "workflows", workflow)) as {
+    jobs?: Record<
+      string,
+      {
+        steps?: Array<{
+          name?: string;
+          run?: string;
+          uses?: string;
+          with?: Record<string, string>;
+        }>;
+      }
+    >;
+  };
+  return parsed.jobs?.[jobName]?.steps ?? [];
+}
+
+function runtimePackageManagerActionSteps() {
+  const parsed = parse(
+    readRepoFile(".github", "actions", "setup-runtime-package-managers", "action.yml"),
+  ) as {
+    runs?: {
+      steps?: Array<{
+        name?: string;
+        run?: string;
+        shell?: string;
+        uses?: string;
+        with?: Record<string, unknown>;
+      }>;
+    };
+  };
+  return parsed.runs?.steps ?? [];
+}
+
 test("the release runtime smoke runs the fresh-project matrix", () => {
   const runtime = readRepoFile("tools", "npm", "smoke-release-runtime.mjs");
   // The context keys the fresh-project driver needs, independent of the order
@@ -204,6 +249,53 @@ test("the release runtime smoke runs the fresh-project matrix", () => {
       `${workflow} must run the runtime smoke over the packed CLI`,
     );
   }
+});
+
+function assertRuntimeSmokePackageManagers(workflow: string, jobName: string) {
+  const steps = workflowSteps(workflow, jobName);
+  const setupIndex = steps.findIndex((step) => step.uses === RUNTIME_PACKAGE_MANAGER_ACTION);
+  const runtimeSmokeIndex = steps.findIndex((step) =>
+    step.run?.includes("smoke-release-install.mjs --prepare-manifests --runtime-checks"),
+  );
+  assert.notEqual(setupIndex, -1, `${workflow} ${jobName} must install runtime managers`);
+  assert.notEqual(runtimeSmokeIndex, -1, `${workflow} ${jobName} must run runtime package smoke`);
+  assert.ok(
+    setupIndex < runtimeSmokeIndex,
+    "package managers must be active before the fresh-project matrix runs",
+  );
+}
+
+function assertRuntimePackageManagerAction() {
+  const steps = runtimePackageManagerActionSteps();
+  const setupIndex = steps.findIndex((step) => step.uses?.startsWith("voidzero-dev/setup-vp@"));
+  const shimsIndex = steps.findIndex((step) => step.name === "Enable package manager shims");
+  const bunIndex = steps.findIndex((step) => step.name === "Install Bun package manager");
+  assert.notEqual(setupIndex, -1, "runtime setup must install Node through setup-vp");
+  assert.notEqual(shimsIndex, -1, "runtime setup must expose pnpm/yarn Corepack shims");
+  assert.notEqual(bunIndex, -1, "runtime setup must install the bun matrix manager");
+  assert.ok(
+    setupIndex < shimsIndex && shimsIndex < bunIndex,
+    "runtime managers must be installed in Node/Corepack/Bun order",
+  );
+  assert.equal(
+    steps[setupIndex].uses,
+    "voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa",
+  );
+  assert.deepEqual(steps[setupIndex].with, {
+    "node-version-file": "${{ inputs.node-version-file }}",
+    cache: "${{ inputs.cache }}",
+    "run-install": false,
+  });
+  assert.equal(steps[shimsIndex].shell, "bash");
+  assert.equal(steps[shimsIndex].run, "corepack enable");
+  assert.equal(steps[bunIndex].uses, "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6");
+  assert.deepEqual(steps[bunIndex].with, { "bun-version": "1.3.14" });
+}
+
+test("fresh install runtime smokes expose every package manager they matrix", () => {
+  assertRuntimePackageManagerAction();
+  assertRuntimeSmokePackageManagers("native-smoke.yml", "fresh-install-smoke");
+  assertRuntimeSmokePackageManagers("release.yml", "smoke-release-packages");
 });
 
 test("the fresh project runs with the host's Corsa overrides stripped", () => {

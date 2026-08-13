@@ -2,11 +2,13 @@
 use std::{
     io,
     panic::{self, AssertUnwindSafe},
-    process::Command,
     sync::Barrier,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, Ordering},
     thread,
 };
+
+#[cfg(unix)]
+use std::{process::Command, sync::atomic::AtomicUsize};
 
 use crossterm::{
     cursor::{SetCursorStyle, Show},
@@ -43,7 +45,6 @@ const NORMAL_RAW_SUBPROCESS_TEST: &str = concat!(
     "terminal::backend::lifecycle::panic_hook::tests::",
     "normal_raw_mode_subprocess_keeps_crossterm_state_consistent"
 );
-
 #[test]
 fn emergency_sequences_match_crossterm_commands() {
     assert_command_bytes(DISABLE_MOUSE_CAPTURE, DisableMouseCapture);
@@ -96,7 +97,7 @@ fn rejected_reset_does_not_block_later_owned_modes() {
     );
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 #[test]
 fn unsupported_platform_is_explicit_and_does_not_install() {
     assert_eq!(
