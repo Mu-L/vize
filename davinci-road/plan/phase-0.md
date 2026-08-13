@@ -178,7 +178,7 @@ criterion with allocation and RSS metrics, used by every later bench.
 - [ ] insta helper: `assert_folio_snapshot!(value)` using the normalized printer (allowed `#[allow(clippy::disallowed_macros)]` per existing insta convention)
 
 **Acceptance:**
-- `davinci-opt --roundtrip` is identity on ≥10 committed croquis-folio fixtures (drawn from the P0-2 fixture ladder)
+- `davinci-opt --roundtrip` is identity on ≥10 committed croquis-folio fixtures (drawn from the P0-2 fixture ladder). **Folio identity is defined post-normalization:** the round-trip law is `print(parse(t)) == t` for canonical (normalized) text `t`, plus structural equality `parse(print(v)) == v` for values — non-canonical input is normalized by the first print, by design
 - Existing VIR consumers' tests pass untouched
 - `wasm32-wasip2` target compiles for `vize_davinci` (`cargo build -p vize_davinci --target wasm32-wasip2`)
 

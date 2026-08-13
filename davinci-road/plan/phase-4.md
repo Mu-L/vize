@@ -120,8 +120,10 @@ has a catalog entry (CI completeness check).
 
 **P4-15 FP/FN full scale.** Seeded-defect classes extended to the full
 in-domain matrix (every `exact`/`sound` rule has generated defect fixtures);
-suppression telemetry across the whole corpus each CI week; ledgers zeroed at
-exit. *Accept:* TS-37 100% per class; TS-38 fully triaged.
+suppression telemetry across the whole corpus each CI week. "Zeroed" means
+**measurably closed, not empty-by-hope**: TS-37 at 100% recall per in-domain
+class, and TS-38 with zero *untriaged* candidates — every candidate resolved
+to `fixed` or `justified-with-witness`. *Accept:* those two numbers, in CI.
 
 **P4-16 JS plugin spike.** API-shape decision (serialized visit batches vs
 proxies; worker vs sync napi; JS-side demand declaration) proven with one
@@ -132,5 +134,5 @@ real custom rule through `vize_vitrine`'s napi lane; batched node visits.
 **P4-17 Phase exit.**
 - [ ] TS-40 check parity; TS-39 lint agreement; TS-5 + TS-41 glyph gates
 - [ ] Consumption matrix: every computed group ≥1 consumer or gated (TS-12)
-- [ ] TS-36 witnesses verify; TS-37/38 ledgers zeroed
+- [ ] TS-36 witnesses verify; TS-37 100% recall per class; TS-38 zero untriaged candidates
 - [ ] canon/maestro projection duplicates + glyph byte scanner + musea hand parser: deleted

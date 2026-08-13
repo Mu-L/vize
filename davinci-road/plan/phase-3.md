@@ -78,7 +78,10 @@ DOM byte-parity (TS-11 empty); patch-flag equivalence fixtures.
 replaces `CodegenContext.code` string appends across dom/vapor/ssr; one
 `SourceMapBuilder`; **SSR and Vapor emit source maps**; delete
 `crates/vize_atelier_sfc/src/source_map.rs` text-matching recovery.
-*Accept:* TS-31 coverage budget; TS-11 empty (maps are additive artifacts).
+*Accept:* TS-31 coverage budget — **the numeric threshold is pinned in
+`budgets.toml` before this task merges**, and the text-matching recovery may
+only be deleted once the new path's measured coverage ≥ the old heuristic's
+measured coverage; TS-11 empty (maps are additive artifacts).
 
 **P3-10 Try-measure-commit.** Placement alternatives (hoist/cache/inline/
 group) kept explicit on S3 nodes; extraction pass performs candidates,
@@ -114,7 +117,7 @@ proved against the P3-4 semantics as they stabilize. *Accept:* theorems in
 CI-lenient lane; failures block S3-semantics changes, not unrelated PRs.
 
 **P3-16 Phase exit.**
-- [ ] Vapor: TS-33 behavioral parity green; SSR: TS-11 byte-empty
+- [ ] Vapor: TS-33 behavioral parity green; SSR **and VDOM**: TS-11 byte-empty (P3-7 changes patch-flag derivation, so DOM parity re-gates here)
 - [ ] TS-31 source-map coverage ≥ budget on all three backends
 - [ ] Vapor compile bench beats the pinned double-transform floor
 - [ ] TS-32 remarks-diff clean; old vapor/ssr lanes + flags deleted

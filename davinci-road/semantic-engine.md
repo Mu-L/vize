@@ -58,7 +58,10 @@ The semantic engine is the S2 side-table layer of the
    facts join the same surface, so "type-aware" stops being a separate world.
    `vize_croquis_cf` becomes the project-level fact store on the same API.
 4. **A fact with no consumer is gated off, not computed.** The consumption
-   matrix above becomes a tracked artifact; orphans are either productized or
+   matrix above becomes a tracked artifact with a CI staleness check, and the
+   debug-build undeclared-access detector closes the other direction — so
+   both "computed but unconsumed" and "consumed but undeclared" are
+   mechanically caught, not policy hopes. Orphans are either productized or
    demand-gated to zero cost.
 5. **App-level facts.** Not everything completes within a file, and not
    everything comes from source text: filesystem routing conventions, Vue
@@ -100,7 +103,10 @@ cross-file graph × native type information, on one base.
   keep; eslint-plugin-vue cannot see across files, vue-tsc cannot see Vue
   semantics.)
 - **Component contract checking** — props/emits/slots usage vs declaration
-  across the project (`component_usages` generalized project-wide).
+  across the project (`component_usages` generalized project-wide), keyed by
+  **resolved component identity** through the module graph — never by local
+  import names or paths, so aliased imports, re-exports, and same-name
+  components in different directories resolve correctly.
 - **Reactivity flow** — where reactivity is lost, effects that never fire,
   writes no effect observes. (`EffectGraph`, `RaceConditionTracker`
   productized as async-setup race rules.)

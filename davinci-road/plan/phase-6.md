@@ -41,12 +41,16 @@ in-process hosting of contract guests under wasmtime, sharing the WIT
 contract with out-of-process transport; resource limits (fuel/memory) per
 guest. *Accept:* same guest binary passes TS-48 in both hosting modes.
 
-**P6-4 MoonBit dialect.** Vendored pinned `moonc.wasm` under wasmtime with a
-virtual FS; generated `.mbti` binding environment from S2 scope facts
+**P6-4 MoonBit dialect.** Vendored pinned wasm build of `moonc` with a
+virtual FS — **spike first**: MoonBit's documented launchers are Node-based
+and require a wasm-gc-capable runtime, so verify the artifact/imports/wasm-gc
+under wasmtime, else fall back to a Node sidecar behind the same capability
+boundary. Generated `.mbti` binding environment from S2 scope facts
 (props/refs/composables as MoonBit signatures); template expressions
 projected to `.mbt` bodies; `moonc build-package` check-only; diagnostics
 span-mapped back; moonc version inside the fact cache key. *Accept:* TS-49;
-matrix fixtures for MoonBit expressions compile/check end-to-end.
+matrix fixtures for MoonBit expressions compile/check end-to-end; hosting
+decision documented.
 
 **P6-5 `ExprRef` validation report.** What the second expression
 implementation revealed about the abstraction (capability set gaps, span
@@ -72,9 +76,12 @@ breaking classification for contract payloads; semver policy doc; contract
 conformance suite versioned alongside. *Accept:* a deliberately-breaking
 change is flagged by the classification tooling.
 
-**P6-9 External validation.** At least one third party (not the maintainer)
-builds a working extension against a tagged release using only published
-SDK + docs. *Accept:* TS-50; their friction list triaged.
+**P6-9 External validation.** **Each of the three contracts** is validated
+externally: expression dialect by MoonBit (P6-4), output target by Volt
+(P6-6), and the **input-dialect contract by a third-party guest** (e.g. a
+community Svelte/Astro prototype built against the P6-2 SDK by someone other
+than the maintainer). *Accept:* TS-50 covers all three; friction lists
+triaged.
 
 **P6-10 Metrics review.** Charter #35's pinned numbers vs achieved (compile
 throughput, peak memory, keystroke p95, fact adoption, source-map coverage);

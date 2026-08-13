@@ -105,9 +105,15 @@ pre-Davinci pipeline on the fixture ladder, measured in CI.
 repro <file>` replays it (charter #30); timing JSON per P0-4 schema.
 *Accept:* injected panic produces a replayable repro in a test.
 
-**P2-14 Portability lanes.** `wasm32-wasip2` + `no_std` check
-(`--no-default-features`) CI jobs for `vize_davinci`/`vize_disegno`;
-std-gated edges documented. *Accept:* lanes green and required.
+**P2-14 Portability lanes.** Starts with the **`no_std` boundary audit** the
+open question calls for: which dependencies genuinely support
+`no_std + alloc`, the approved boundary documented, and the `wasm32-wasip2`
+**core-compile lane** (davinci crates only) explicitly separated from the
+full-CLI lane (which stays `std`). Then: wasip2 + `--no-default-features` CI
+jobs for `vize_davinci`/`vize_disegno`; std-gated edges documented. The
+existing workspace makes no `no_std` claim until this audit says so.
+*Accept:* audit doc committed; lanes green and required for the new crates
+only.
 
 **P2-15 Metamorphic suite v1.** Mutators: attribute reorder, pass-through
 `<template>` wrap, text-node split/merge, whitespace-insignificant edits;

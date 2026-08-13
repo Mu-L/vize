@@ -33,6 +33,10 @@
   page, provenance, and DevTool/inspector view is not done.
 - **Footprint budgets** — RSS / cold-start / distribution-size ceilings hold
   alongside the speed budgets (charter #19).
+- **Plan gates are normative** — the detailed exit gates in
+  [plan/phase-N.md](./plan/README.md) are the authoritative superset; the
+  per-phase gate lines below are summaries, and any divergence resolves
+  toward the plan files.
 - **Assurance doctrine** (charter #21, [assurance.md](./assurance.md)) —
   exact-equality oracles only (assertion lint enforced), construct-matrix
   coverage for every surface the phase touches, mutation score held, empty

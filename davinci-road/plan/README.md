@@ -27,6 +27,12 @@ fixtures before code (#21); every PR holds the standing gates that exist at
 its merge time; a task that discovers its own scope was wrong updates the
 plan file in the same PR (the plan is code).
 
+**Provisional exception:** phases marked provisional (2–6) carry compressed
+per-task blocks instead of the full format above. The full format becomes
+mandatory when a phase is re-cut at its predecessor's exit — a provisional
+task cannot be picked up for implementation until it has been expanded to
+carry the full contract.
+
 ## Phase files
 
 | File | Phase | Status |

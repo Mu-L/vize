@@ -63,7 +63,12 @@ creed credible here. The mechanisms:
   edge, with spans via provenance). The witness is machine-checkable against
   the fact base, so a false positive is not a matter of opinion: it is a
   witness that fails verification, caught by the same verifier
-  infrastructure as everything else. No witness, no diagnostic.
+  infrastructure as everything else. No witness, no diagnostic. *Migration
+  note:* today's diagnostics (cross-file paths, reactivity `InternalIssue`
+  conversions) carry no witness field — the shared witness type and verifier
+  arrive with the unified channel (plan P4-6), and phase 4 exits on "every
+  error-severity diagnostic carries a verifying witness"; until then legacy
+  diagnostics are exempt **by inventory**, never silently.
 - **Precision tiers as rule metadata.** Every rule declares
   `exact` (decidable domain — zero FP and zero FN required and testable:
   HTML content model, template CFG, structural rules) /
@@ -164,7 +169,7 @@ owning the input space:
 | ---- | ---- | ------ |
 | Fixture | one construct, one stage | full normalized Folio snapshot (exact) |
 | Pass | one pass via `davinci-opt` | full normalized Folio snapshot (exact) |
-| Verifier | invalid artifact | exact diagnostic (code + span + full message) |
+| Verifier | invalid artifact | exact diagnostic (code + span + full message, pinned to the canonical locale) |
 | Matrix | construct combinations | generated expected outputs, exact |
 | Property | generated inputs | invariant holds — no exceptions list |
 | Metamorphic | mutated SFC pairs | folio equality modulo declared normalization |
@@ -178,6 +183,10 @@ tier but not tested there is untested.
 
 ## 4. Strict oracles — no partial matching
 
+- **Locale-stable exactness.** Diagnostic-text oracles pin the canonical
+  locale (`en`) plus stable message ids; i18n catalogs (charter #42) get
+  their own per-locale completeness checks and snapshot fixtures, so
+  translation work never loosens — and never breaks — the canonical oracles.
 - **Exact equality only.** Assertions compare whole normalized artifacts:
   full Folio snapshots, byte-identical outputs, structural equality on typed
   values. **Banned in test code:** substring/`contains` assertions, regex

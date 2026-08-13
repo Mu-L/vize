@@ -29,7 +29,7 @@ the workspace's clippy discipline. Each stage is a concrete typed enum.
 
 ## Stage model
 
-```
+```text
 S0  Source model      container + spans + arena
 S1  Surface trees     lossless per-dialect syntax (what the author wrote)
 S2  Semantic IR       normalized, input-neutral UI semantics (what it means)
@@ -48,6 +48,14 @@ atoms — no owned strings in nodes, which also deletes the manual-`Drop`
 stack-overflow class entirely. Line/column exist only at diagnostic-rendering
 time, derived from offsets.
 
+**Arena vs cache lifetime contract:** arena-backed values are per-compile
+ephemera and never cross into caches. Anything cached or persisted (stage
+artifacts, summaries, folio dumps, fact α-entries) is an **owned or
+serialized form** — caches never hold `&'a` references and never pin an
+arena. `Allocator::reset` therefore has one rule: every retained artifact is
+converted to its owned form before reset, enforced by a debug arena-generation
+counter and a pool-focused Miri/ASan lane.
+
 ### S1 — Surface trees (input dialects)
 
 One lossless syntax tree per input dialect: Vue template, oxc program for
@@ -58,7 +66,16 @@ byte scanner and the `vize_musea` hand parser. Error tolerance is
 `Unexpected` nodes and absent-but-required tokens become `Missing` tokens, so
 every consumer sees one uniformly-shaped tree with holes and S1→S2 has a
 single documented hole policy. The debug verifier asserts
-`render(tree) == source` bytes on every construction. Vue 2 is an S1/S2 dialect using
+`render(tree) == source` bytes on every construction.
+
+For script/JSX, S1 is an **OXC-backed lossless wrapper**, not raw
+`oxc_ast::Program`: OXC's default parser config discards tokens
+(`ParserReturn` owns them, trivia retention is opt-in) and its error recovery
+yields diagnostics plus a structurally-valid (or, on panic, empty) AST — not
+typed holes. The wrapper enables token/trivia retention, owns the source
+text, and maps OXC recovery outcomes into the `Unexpected`/`Missing` model,
+and only that wrapper carries the lossless/round-trip guarantee the formatter
+and autofixes rely on. Vue 2 is an S1/S2 dialect using
 the existing `legacy` capability model (resolve once per file, feature-gated,
 zero cost when off).
 
@@ -291,9 +308,11 @@ features (the `legacy` pattern: zero cost when off, no dynamic dispatch);
 external dialects attach out-of-process over the serialized contract, which
 sidesteps Rust ABI instability and keeps "in-tree is Vue-only" honest. The
 external-tier transport is the **WASM component model (WIT interfaces)** —
-typed, versioned, ~6× JSON-RPC throughput, and thanks to the `wasm32-wasip2`
-core target the same contract hosts a dialect out-of-process or in-process
-under wasmtime. Interfaces are coarse-grained (whole block in, surface tree
+typed, versioned, and thanks to the `wasm32-wasip2` core target the same
+contract hosts a dialect out-of-process or in-process under wasmtime.
+Practitioner reports suggest substantial throughput advantages over JSON-RPC;
+our own transport benchmark (plan task P6-1) is the number that will actually
+gate the choice. Interfaces are coarse-grained (whole block in, surface tree
 out): the canonical ABI copies at every boundary, so per-node chatter is
 banned by design. Two Swift-macro lessons apply: the WIT world carries a
 capability handshake (protocol version + feature strings) from day one with a
@@ -333,8 +352,11 @@ Non-negotiable, inherited from "Be Fast Above All":
    proportional to the largest block in flight, never to project size — and
    arenas are reused across files (`Allocator::reset`), not reallocated.
 4. **Every phase holds the budget.** The end-to-end benchmark envelope
-   (15k SFC ≈ 330ms compile) is a merge gate, and phase 0 adds the per-crate
-   microbenches the pipeline currently lacks so regressions localize.
+   (15k SFC ≈ 330ms compile today) is a merge gate whose **normative
+   definition lives in `davinci-road/plan/budgets.toml`** (exact bench
+   command, reference runner, corpus revision, thresholds — established by
+   plan task P0-4), and phase 0 adds the per-crate microbenches the pipeline
+   currently lacks so regressions localize.
 5. **Verification never ships.** Stage verifiers are debug/fixture-only.
 6. **Traversal count is budgeted.** The fused compile path must not exceed the
    current pipeline's number of tree walks; phase-0 microbenches make fusion
@@ -380,7 +402,11 @@ Three layers share one data model:
    budgeted, vendor-neutral payloads).
 3. **The [DevTool](./devtool.md)** renders both live: stage-by-stage lowering,
    pass-by-pass diffs, fact tables, the reactivity lattice, and per-pass flame
-   views.
+   views. Reconciliation with the CLI's ring-buffered provenance: Spolvero's
+   live views attach to **resident or replay executions** (where provenance
+   is fully materialized); inspecting a one-shot CLI run means replaying it
+   (`vize repro` / `davinci-opt`) rather than expecting the fused walk to
+   have retained everything.
 
 The same artifacts close the **AI optimization loop**: profiles and Folio
 diffs are structured input an agent can consume, and the corpus + benchmark +

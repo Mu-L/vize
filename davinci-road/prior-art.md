@@ -52,8 +52,13 @@ resident) is exactly rustc/rust-analyzer precedent.
 **salsa (0.28.x, 2026).** rust-analyzer's structure: inputs (file text, crate
 graph), interned ids, **durability layers** (library inputs vs open buffers),
 and **firewall queries** — small stable derived values that stop edit noise via
-backdating. Its 2025 port data (memory ×4, cache priming 26s→112s before
-tuning) is the warning about per-entity tracking.
+backdating. The warning about per-entity tracking comes from the **March 2025
+port** (pre-0.28 salsa; the figures belong to that version, hardware
+unspecified): analysis memory roughly quadrupled
+([#19402](https://github.com/rust-lang/rust-analyzer/issues/19402)) and
+`parallel_prime_caches` went from ~26 s to ~112 s
+([#19404](https://github.com/rust-lang/rust-analyzer/issues/19404)) before
+tuning — workload: rust-analyzer analyzing its own repo.
 *Import:* block content keys as the firewall query; durability =
 `node_modules`/tsconfig high, buffers low; track at block granularity with
 arena-packed stage values inside; deterministic ordering in every query result
@@ -178,10 +183,14 @@ overhead can exceed recomputation ("good enough" beats maximal).
 - **Fault-tolerant analysis**: semantic analysis proceeds past errors,
   producing facts for whatever is well-formed — required behavior for the
   resident tier.
-- **MoonBit-as-expression-dialect, de-risked**: vendor a pinned `moonc.wasm`
-  run in wasmtime over a virtual FS
-  ([wasm toolchain](https://www.moonbitlang.com/blog/moonbit-wasm-toolchain)) —
-  no user-installed toolchain, version pinned as part of the fact cache key.
+- **MoonBit-as-expression-dialect, de-risked**: vendor a pinned wasm build of
+  `moonc` — no user-installed toolchain, version pinned as part of the fact
+  cache key. Caveat the source supports less than we'd like: the
+  [documented launchers](https://www.moonbitlang.com/blog/moonbit-wasm-toolchain)
+  are Node.js-based and the toolchain requires a **wasm-gc-capable runtime**;
+  standalone execution under wasmtime is *our* plan, not MoonBit's docs — the
+  P6-4 spike must verify the artifact, its imports, and wasm-gc support (or
+  fall back to a Node sidecar behind the same capability boundary).
   The projection is a generated `.mbti` binding environment + projected `.mbt`
   bodies, structurally identical to the virtual-TS/Corsa path.
 
@@ -461,10 +470,12 @@ operator whose patch plan *is* the incremental circuit; non-linear mixes of
 reactive sources are exactly where cache/memo ops belong. This derives patch
 flags and SSR plans from **operator linearity** instead of ad-hoc rules, and
 yields a mechanical oracle: *incremental update output ≡ from-scratch render*.
-[React-tRace (2025)](https://arxiv.org/abs/2507.05234) shows the method — a
-tiny executable reference semantics for S3, differentially tested against
-optimized codegen. *IVM framing: import now; reference interpreter: prototype
-later.*
+[React-tRace (2025)](https://arxiv.org/abs/2507.05234) supplies the nearest
+precedent — an executable reference interpreter for a production reactive
+model, validated by a conformance suite; differentially testing *optimized
+codegen* against such a reference is **our proposed extension of that
+method**, not a claim of the paper. *IVM framing: import now; reference
+interpreter: prototype later.*
 
 **Incrementality boundaries — the two-tier split sharpened.**
 [matklad's 2026 critique of query-based compilers](https://matklad.github.io/2026/02/25/against-query-based-compilers.html):
@@ -507,9 +518,13 @@ import now; translation validation: prototype later.*
 
 **WASM component model as the external-dialect ABI.**
 [WAW @ POPL 2025](https://popl25.sigplan.org/details/waw-2025-papers/4/The-WebAssembly-Component-Model):
-WIT-typed, versioned interfaces; practitioner benchmarks ~6× JSON-RPC
-throughput; and the `wasm32-wasip2` core target (charter #18) means external
-dialects can run out-of-process *or* in-process under wasmtime against the
-same contract. Caveat: the canonical ABI copies at boundaries — interfaces
-must be coarse-grained (whole block in, surface tree out), never per-node.
-*Import now — this resolves the charter #15 transport question.*
+WIT-typed, versioned interfaces; a
+[practitioner write-up](https://techbytes.app/posts/wasm-component-model-plugin-architecture/)
+reports large throughput gains over JSON-RPC (workload details unverified —
+our own transport benchmark in plan P6-1 is the number that gates); and the
+`wasm32-wasip2` core target (charter #18) means external dialects can run
+out-of-process *or* in-process under wasmtime against the same contract.
+Caveat: the canonical ABI copies at boundaries — interfaces must be
+coarse-grained (whole block in, surface tree out), never per-node.
+*Import now — the leading transport candidate for charter #15, confirmed or
+refuted by the P6-1 measurement.*

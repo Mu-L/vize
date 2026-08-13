@@ -69,7 +69,11 @@
 - [ ] Parse via `oxc_parser` with the shared arena from P1-2; template-expression parse errors keep today's diagnostic behavior (differential-checked)
 - [ ] Profiler counter `davinci.expr.parses` incremented at the single parse site; exported via P0-11
 
-**Acceptance:** counter == distinct-expression count on the P0-2 fixture ladder; corpus parity; benches hold or improve.
+**Acceptance:** the counter law matches the chosen policy — **each expression
+parsed at most once (zero re-parses) always**; under parse-at-template-parse,
+counter == distinct expressions; under parse-on-first-touch, counter ≤
+distinct expressions and untouched expressions are provably never parsed.
+Corpus parity; benches hold or improve.
 **Deps:** P1-2.
 
 ## P1-6 — Consumer migration wave A (croquis)
@@ -127,8 +131,9 @@
 ## P1-11 — Arena reuse across files
 
 **Steps:**
-- [ ] Pool in the CLI batch path (`crates/vize/src/commands/build/`): per-rayon-worker `Allocator` reset between files (`Allocator::reset()`), not reallocated
-- [ ] Escape check: asan/miri lane over the pool (nothing borrows across `reset`), plus a `#[cfg(debug_assertions)]` arena-generation counter that panics on cross-file survivals
+- [ ] Pool in the CLI batch path (`crates/vize/src/commands/build/`): per-rayon-worker `Allocator` reset between files (`Allocator::reset()`, available in the pinned oxc_allocator), not reallocated
+- [ ] **Lifetime contract documented and enforced:** every arena-backed value is consumed or converted to its owned form (stage artifacts, cached results, diagnostics) *before* reset — caches never hold `&'a` references and never pin an arena (see the architecture arena/cache contract)
+- [ ] Escape check: asan/miri lane over the pool (nothing borrows across `reset`), plus a `#[cfg(debug_assertions)]` arena-generation counter that panics on cross-file survivals; includes a **resident-cache reset scenario** (cache populated → arena reset → cache read) proving cached data is owned
 
 **Acceptance:** peak RSS on the corpus batch drops (pin as ratchet); asan/miri lane green.
 **Deps:** P1-10.
@@ -144,7 +149,7 @@
 ## P1-13 — Phase exit
 
 - [ ] Corpus compile parity: byte-identical, waiver ledger empty
-- [ ] `davinci.expr.parses` == distinct expressions (zero reparse) asserted in CI
+- [ ] `davinci.expr.parses` satisfies the P1-5 counter law (zero re-parses; == or ≤ distinct expressions per the chosen policy) asserted in CI
 - [ ] Compile bench improvement ≥ target pinned at phase start (set from P0-3's double-transform + reparse baselines; record the target in `budgets.toml` before P1-5 merges)
 - [ ] Alloc count / peak RSS improvements pinned as new ratchet baselines
 - [ ] Scanner split, string-rewrite prefixing, manual `Drop`s: deleted (grep zero)

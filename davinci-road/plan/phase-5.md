@@ -87,11 +87,15 @@ S2 fragments, Lean `PartialTermInfo` pattern); LSP features stay live mid-
 edit. *Accept:* TS-47 scenarios (hover/completion on a file with a parse
 error elsewhere).
 
-**P5-11 Budgets enforced.** `budgets.toml` gains resident-tier ceilings: RSS
-presets by machine scale, cold-start, idle-CPU (~0 asserted via /proc or
-equivalent sampling), keystroke p95 targets — the charter #35 numbers get
-pinned here against P0 baselines. *Accept:* TS-44 green on the two largest
-corpus projects (Misskey-class).
+**P5-11 Budgets enforced.** `budgets.toml` gains resident-tier ceilings as
+**numbers, not adjectives**: RSS presets by machine scale, cold-start ms,
+idle-CPU (a numeric ceiling — e.g. mean CPU% over a 60 s idle window —
+asserted via a documented sampler, /proc or platform equivalent), keystroke
+p95 ms — the charter #35 targets pinned against P0 baselines, with the
+measurement methodology (sampler, machine preset, corpus project set, run
+count) written next to each number so results reproduce. *Accept:* TS-44
+green on the two largest corpus projects (Misskey-class), methodology doc
+committed.
 
 **P5-12 Multi-client conformance.** Scenario suite runs against Neovim
 (headless `nvim --headless` + lsp attach), Helix, Zed, VS Code: initialize/

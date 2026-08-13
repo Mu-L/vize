@@ -31,7 +31,10 @@ The pipeline as a navigable object, not a black box:
 
 No private protocol: the DevTool renders artifacts that already exist for
 testing and AI — **Folio dumps** (with provenance), the **profiler export**,
-**diagnostics**, and **fact tables**. Anything the DevTool can show, a
+**diagnostics**, and **fact tables**. Every one of these agent-visible
+artifacts carries a **`schema_version`** (folio format versions, the profile
+export schema, remark and fact-table schemas); Spolvero negotiates on it and
+refuses mismatches loudly instead of misrendering. Anything the DevTool can show, a
 snapshot test can pin and an agent can consume. That equivalence is the design
 constraint that keeps the tool honest.
 
