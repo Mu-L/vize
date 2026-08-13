@@ -11,7 +11,11 @@
 - **Corpus parity** — the 134-project corpus (`tools/fixtures/tool-matrix-report.mjs`)
   passes with no new failures for every surface the phase touches. Output changes
   are byte-identical unless a waiver documents why the new output is correct;
-  waiver ledgers start and end each phase empty.
+  waiver ledgers start and end each phase empty. This is a **regression
+  oracle, not a compatibility promise** (charter #23): vize-internal APIs,
+  CLI internals, and dump/cache formats may break freely until contracts GA —
+  what the gate protects is Vue-semantics correctness and Real World Testing
+  users, not interface stability.
 - **Benchmark budget** — end-to-end benches hold or improve; from phase 1 on,
   the phase-0 microbenches must localize any regression before merge.
 - **No behavior change without a fixture** — per the language-engineering change
@@ -31,7 +35,10 @@
 The rearchitecture cannot start blind. No behavior changes in this phase.
 
 - Criterion microbenches for the template pipeline: `vize_armature`,
-  `vize_croquis`, `vize_atelier_core`, `_dom`, `_vapor`, `_ssr` (today: none).
+  `vize_croquis`, `vize_atelier_core`, `_dom`, `_vapor`, `_ssr` (today: none) —
+  measuring time **and memory**: allocation counts (promoting the profiler's
+  allocation tracking to CI metrics), peak RSS per run, and node-size
+  static assertions on hot types.
 - Committed corpus baseline snapshot to diff every later phase against.
 - Committed **Croquis consumption matrix** (which analysis products have which
   consumers — the [Semantic Engine](./semantic-engine.md#the-problem-measured)

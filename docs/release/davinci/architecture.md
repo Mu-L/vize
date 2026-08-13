@@ -273,6 +273,20 @@ capability handshake (protocol version + feature strings) from day one with a
 versioned artifact — Swift's macro build-time crisis came from making every
 plugin recompile the syntax library, not from the process boundary.
 
+## Priority order (charter #22)
+
+When designs conflict: **performance and correctness win, always** — over
+size, over extensibility, and especially over implementation simplicity,
+which is explicitly not a goal. "Performance" means throughput, latency,
+**and memory** — peak and steady-state — as one budget family. Concretely licensed by this ordering:
+`unsafe` with verifier-checked invariants, hand-specialized data structures
+and algorithms over library convenience, elaborate fusion machinery, and
+per-target monomorphized codepaths. The license has one boundary: complexity
+must live inside the disciplines (typed contracts, stage verifiers, Folio
+inspectability) — hard code with a verifier and a dump is engineering; hard
+code without them is a hack. Size defends itself only through its budgets
+(#19); extensibility only through the two-tier contract model (#15).
+
 ## Performance guardrails
 
 Non-negotiable, inherited from "Be Fast Above All":
@@ -282,6 +296,14 @@ Non-negotiable, inherited from "Be Fast Above All":
 2. **One arena, zero re-parses.** An expression is parsed exactly once per
    compile; keeping the AST must be cheaper than today's parse-copy-reparse.
 3. **Spans are two u32s.** No owned strings, no eagerly-computed line/column.
+   More generally, **node sizes are pinned**: every stage node type carries a
+   `static_assert`-style size test (the rustc practice), so a refactor cannot
+   silently fatten a hot node; per-stage bytes-per-node accounting is part of
+   the microbench suite, and allocation counts (the profiler's existing
+   allocation tracking, promoted to CI metrics) are budgeted alongside time.
+   Batch compilation is block-streaming — whole-project peak memory stays
+   proportional to the largest block in flight, never to project size — and
+   arenas are reused across files (`Allocator::reset`), not reallocated.
 4. **Every phase holds the budget.** The end-to-end benchmark envelope
    (15k SFC ≈ 330ms compile) is a merge gate, and phase 0 adds the per-crate
    microbenches the pipeline currently lacks so regressions localize.
