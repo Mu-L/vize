@@ -4,6 +4,9 @@ import { setupNuxtLintChecker } from "./lint/checker/setup";
 import { setupLintInspector, setupNuxtLintConfigGeneration } from "./lint/generation";
 import { appendMuseaArtComponentIgnore } from "./musea-components";
 import { registerNuxtMuseaStaticPublicAsset } from "./musea-static";
+import { patchNuxtClientManifestCloseBundlePlugin } from "./client-manifest-bridge";
+import { patchNuxtHostVuePluginForCompilerExcludes } from "./host-vue-bridge";
+import { patchNuxtKeyedFunctionsPlugin, type ViteTransformResult } from "./keyed-functions-bridge";
 import "./schema";
 import * as bridgeFastPath from "./bridge-fast-path";
 import type { VizeNuxtCompilerOptions, VizeNuxtOptions } from "./options";
@@ -26,7 +29,6 @@ import {
   stabilizeNuxtInjectedKeysForVizeVirtualModule,
 } from "./utils";
 import { appendOriginalVueSourceForUnoCss } from "./unocss";
-type ViteTransformResult = string | { code?: string; map?: unknown } | null | undefined;
 const VIZE_NUXT_AUTO_IMPORT_PATCHED = "__vizeNuxtAutoImportPatched";
 const VUE_RUNTIME_DEDUPE = [
   "vue",
@@ -56,6 +58,7 @@ type NuxtWithBuilderOptions = {
     };
     buildDir: string;
     dev?: boolean;
+    experimental?: { viteEnvironmentApi?: boolean };
     modules: unknown[];
     rootDir: string;
     router?: {
@@ -208,50 +211,6 @@ function isViteSsrTransform(args: unknown[]): boolean {
   );
 }
 
-function normalizeNuxtKeyedTransformResult(
-  id: string,
-  result: ViteTransformResult,
-): ViteTransformResult {
-  if (!isVizeVirtualVueModuleId(id) || result == null) {
-    return result;
-  }
-  if (typeof result === "string") {
-    return normalizeNuxtInjectedKeysForVizeVirtualModule(result, id);
-  }
-  if (typeof result.code !== "string") {
-    return result;
-  }
-  const code = normalizeNuxtInjectedKeysForVizeVirtualModule(result.code, id);
-  return code === result.code ? result : { ...result, code };
-}
-
-function patchNuxtKeyedFunctionsPlugin(plugin: { transform?: unknown }): void {
-  if (typeof plugin.transform === "function") {
-    const original = plugin.transform;
-    plugin.transform = async function (
-      this: unknown,
-      code: string,
-      id: string,
-      ...args: unknown[]
-    ) {
-      const result = (await original.call(this, code, id, ...args)) as ViteTransformResult;
-      return normalizeNuxtKeyedTransformResult(id, result);
-    };
-    return;
-  }
-
-  const transform = plugin.transform as { handler?: unknown } | undefined;
-  if (!transform || typeof transform.handler !== "function") {
-    return;
-  }
-
-  const original = transform.handler;
-  transform.handler = async function (this: unknown, code: string, id: string, ...args: unknown[]) {
-    const result = (await original.call(this, code, id, ...args)) as ViteTransformResult;
-    return normalizeNuxtKeyedTransformResult(id, result);
-  };
-}
-
 function normalizeNuxtAutoImportTransformResult(
   code: string,
   id: string,
@@ -392,9 +351,11 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
       }
     }
 
-    // Remove Nuxt's built-in @vitejs/plugin-vue when vize is active.
-    // Both plugins handle .vue files; if both are active, @vitejs/plugin-vue
-    // may try to read vize's \0-prefixed virtual module IDs via fs.readFileSync,
+    // Remove Nuxt's built-in @vitejs/plugin-vue when vize is active, except
+    // for SFCs that Vize explicitly excludes and must delegate back to the
+    // host compiler pipeline (for example nuxt-og-image's .takumi.vue files).
+    // If both compilers handle the same .vue module, @vitejs/plugin-vue may
+    // try to read vize's \0-prefixed virtual module IDs via fs.readFileSync,
     // causing "path must not contain null bytes" / ENOENT errors.
     //
     // Nuxt adds @vitejs/plugin-vue AFTER vite:extendConfig but BEFORE
@@ -410,9 +371,18 @@ async function setupVizeNuxtModule(options: VizeNuxtOptions, nuxt: NuxtWithBuild
           const p = config.plugins[i];
           const name = p && typeof p === "object" && "name" in p ? p.name : "";
           if (name === "vite:vue") {
-            config.plugins.splice(i, 1);
+            const keepForExcludedSfc = patchNuxtHostVuePluginForCompilerExcludes(
+              p,
+              compilerOptions,
+            );
+            if (!keepForExcludedSfc) {
+              config.plugins.splice(i, 1);
+            }
           } else if (bridgeOptions.stableInjectedKeys && name === "nuxt:compiler:keyed-functions") {
             patchNuxtKeyedFunctionsPlugin(p);
+          }
+          if (isViteBuild && nuxt.options.experimental?.viteEnvironmentApi === true) {
+            patchNuxtClientManifestCloseBundlePlugin(p, nuxt);
           }
           if (bridgeOptions.autoImports) {
             patchNuxtAutoImportTransformPlugin(p, isViteBuild);
