@@ -20,6 +20,11 @@
   page, provenance, and DevTool/inspector view is not done.
 - **Footprint budgets** — RSS / cold-start / distribution-size ceilings hold
   alongside the speed budgets (charter #19).
+- **Assurance doctrine** (charter #21, [assurance.md](./assurance.md)) —
+  exact-equality oracles only (assertion lint enforced), construct-matrix
+  coverage for every surface the phase touches, mutation score held, empty
+  waiver ledgers, and a reopened phase — not a ticket — on any regression of
+  a deleted failure class.
 
 ## Phase 0 — Instrumentation and groundwork
 
@@ -41,6 +46,10 @@ The rearchitecture cannot start blind. No behavior changes in this phase.
 - Profiler upgrade: `profile!` spans gain pass × stage × block × source-span
   attribution and a stable machine-readable export (`ai_context` precedent) —
   the substrate for the DevTool flame views and the AI optimization loop.
+- Assurance harness: the banned-assertion lint in CI, the `cargo-mutants`
+  baseline, construct-matrix generators for the existing surface, and the
+  normalized-printer rules that make exact full snapshots sustainable
+  ([assurance.md](./assurance.md)).
 
 **Exit gate:** benches in CI with recorded baselines; corpus baseline committed;
 zero behavior diffs.

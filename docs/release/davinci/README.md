@@ -60,6 +60,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | 18 | Portability | Davinci-owned crates are **`no_std + alloc` from birth**; `wasm32-wasip2` is a CI target. `std` is gated to the edges (fs, threads, process). |
 | 19 | Performance & footprint | Beyond throughput: **CI-tracked ceilings for RSS, cold start, keystroke latency, idle CPU, and distribution size** (native / wasm / npm). The named anti-goals: rust-analyzer-style heaviness, cargo-style slowness. |
 | 20 | Editor neutrality | **Strict LSP conformance** — full function on Neovim, Helix, Zed, Emacs, not just VS Code; conformance and multi-client smoke tests gate the LSP phase. |
+| 21 | Assurance creed | **Never fail; edge cases must not exist; every conceivable pattern is tested; tests are strict — nothing passes on partial matching.** Translated into mechanism in [assurance.md](./assurance.md): impossibility by construction, elimination by enumeration (construct matrices, property/metamorphic/differential tiers), exact-equality-only oracles with a mechanically enforced banned-assertion list, oracle-truth review, and mutation testing as the measure of strictness. |
 
 ## Documents
 
@@ -69,6 +70,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | [Architecture](./architecture.md) | The stage model (S0–S4), stage fusion, shared infrastructure, dialect and target contracts, performance guardrails |
 | [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike, app-level facts, complexity and HTML-conformance products |
 | [DevTool](./devtool.md) | The observability surface: stage ladder, pass timeline, provenance, fact browser, decision remarks, flame views |
+| [Assurance](./assurance.md) | The quality doctrine: impossibility by construction, input-space enumeration, the test tier ladder, strict oracles, mutation-tested tests |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
 | [Prior Art](./prior-art.md) | Practices imported from rustc/MIR/Polonius/salsa, LLVM/MLIR, Swift (SwiftSyntax/SIL/macros), GHC (Core Lint/interface files), OCaml Flambda2, Lean 4, React Compiler, MoonBit, Unison, Effekt, and recent PL research — with anti-lessons |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |

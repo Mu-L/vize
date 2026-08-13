@@ -15,8 +15,11 @@ carrying validated invariants (`-Zvalidate-mir`), and per-pass dump testing
 that moved from full golden diffs to targeted FileCheck assertions
 ([mir-opt FileCheck](https://github.com/rust-lang/rust/pull/116810)).
 *Import:* Impeto gets named phases (`built → partitioned → scheduled`) with a
-cheap between-pass validator; Folio pass tests default to targeted assertions,
-full-dump snapshots stay a small curated set. THIR's ephemeral-bridge pattern
+cheap between-pass validator. rustc's move to targeted FileCheck assertions is
+adopted only *under* the [assurance doctrine](./assurance.md): the oracle
+remains the full normalized folio snapshot (exact); targeted assertions are
+structural-equality supplements documenting the pass's claimed property —
+rustc's churn problem is solved by printer normalization, not looser oracles. THIR's ephemeral-bridge pattern
 licenses S2→S3 scratch structures that are never persisted stages.
 *Anti-lesson:* MIR optimizations were chronically unsound because MIR's runtime
 semantics were never pinned down first — the S3 op reference (what each effect
