@@ -41,7 +41,9 @@ S4  Emission          structured emitters per target (what we produce)
 
 The container layer: SFC descriptor, block boundaries, one **span coordinate
 system** (`Span { start: u32, end: u32 }`, byte offsets into the authored file),
-and **one arena per compile**. The arena is `oxc_allocator` (bumpalo underneath),
+and **one arena per file compile** — under file-parallel execution (#33) each
+rayon worker owns a pooled arena, so arenas are never shared across threads
+or files. The arena is `oxc_allocator` (bumpalo underneath),
 shared by template structures and oxc JS ASTs so both live under the same
 lifetime `'a`. Strings are `&'a str` slices of the source or arena-interned
 atoms — no owned strings in nodes, which also deletes the manual-`Drop`
@@ -282,7 +284,8 @@ child list) forces the re-visits that a region-owning `ui.if` op never needs.
 
 ## Extension contracts (decision 1)
 
-Three narrow, published contracts; in-tree implementations are Vue-family only:
+Four published extension surfaces — three WIT contracts plus the JS plugin
+tier; in-tree implementations are Vue-family only:
 
 | Contract | Plugs in at | In-tree | External (examples) |
 | -------- | ----------- | ------- | ------------------- |
@@ -291,10 +294,15 @@ Three narrow, published contracts; in-tree implementations are Vue-family only:
 | Output target | S3/S2 → S4 emitter | VDOM, Vapor, SSR, virtual TS, `.d.ts` | Volt (Elixir), other hosts |
 | **JS plugins / custom rules** (charter #29) | S2 neutral-core view + fact query API, via napi/vitrine | rule authoring SDK | user-land lint rules, project-local plugins |
 
-The JS tier serves end users (Vue developers write JS, not Rust): custom
-rules see the same neutral-core S2 view and declare fact demands exactly like
-Rust rules, but execute **outside the fused walks** in a batched pass —
-node-visit batches cross the napi boundary in bulk, never per-node chatter.
+The JS tier serves end users (Vue developers write JS, not Rust) across all
+four charter-#29 hook families, each with a defined boundary: **custom rules
+and fact providers** see the neutral-core S2 view and declare fact demands
+exactly like Rust rules, executing outside the fused walks in batched passes;
+**compile transform hooks** join the pipeline at the single pre-canonical S2
+point (per-block batches — compilation waits there and only there, and a
+cache hit skips the join); **formatter/output hooks** attach after S4/format
+emission, batched per document. Node-visit batches cross the napi boundary in
+bulk, never per-node chatter.
 Each plugin's cost is attributed in output (a slow rule is visible), and JS
 rule results are content-key cached so user rules participate in
 incrementality. The fused compile path and the Rust rule corpus never wait on
@@ -353,7 +361,7 @@ Non-negotiable, inherited from "Be Fast Above All":
    arenas are reused across files (`Allocator::reset`), not reallocated.
 4. **Every phase holds the budget.** The end-to-end benchmark envelope
    (15k SFC ≈ 330ms compile today) is a merge gate whose **normative
-   definition lives in [`plan/budgets.toml`](../davinci-road/plan/budgets.toml)**
+   definition lives in [`plan/budgets.toml`](./plan/budgets.toml)**
    — seeded now with the envelope's machine, statistic, run count, cache
    state, parallelism, baseline, and tolerance (from the committed Blacksmith
    snapshot); per-crate budgets land via plan task P0-4 — and phase 0 adds

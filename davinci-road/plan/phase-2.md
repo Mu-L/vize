@@ -58,8 +58,12 @@ test = folio in → pipeline → snapshot out.
 `ui.if{regions}`/`ui.for{binding,region}`/`ui.slot`/`ui.model{contract}`/
 `vue.directive`), `ExprRef<'a> { Js(&'a Expression<'a>), Foreign(&'a
 ForeignExpr<'a>) }` (Foreign = type only, charter #28), region ownership.
-No `_` arms anywhere downstream. *Accept:* folio round-trip; size asserts;
-exhaustive-match compile test (adding a variant breaks a canary).
+No `_` arms anywhere downstream. `ExprRef` gets an **owned Folio payload**
+(arena references cannot persist): `Js` serializes as source slice + span and
+re-parses into the arena on folio load; `Foreign` as dialect id + source +
+span. *Accept:* folio round-trip incl. `Js`/`Foreign` full-mode fixtures and
+an arena-reset replay test; size asserts; exhaustive-match compile test
+(adding a variant breaks a canary).
 
 **P2-6 S2 verifier v1.** Local checks only (GHC Lint discipline): region
 nesting, id resolution, expr-ref liveness, canonical-form invariants (each
@@ -116,9 +120,15 @@ existing workspace makes no `no_std` claim until this audit says so.
 only.
 
 **P2-15 Metamorphic suite v1.** Mutators: attribute reorder, pass-through
-`<template>` wrap, text-node split/merge, whitespace-insignificant edits;
-oracle: S2 folios identical modulo declared normalization. *Accept:* suite
-runs over matrix fixtures + a corpus shard in CI.
+`<template>` wrap, text-node split/merge, whitespace-insignificant edits —
+**each mutator ships an equivalence justification and exclusion predicates**,
+because these are *not* universally semantics-preserving in Vue (no
+reordering across duplicate keys or `class`/`style` merge-order-sensitive
+attrs; wraps only where root/slot semantics are unchanged; whitespace only
+per Vue's condense rules). A mutator with no safe applicability at a site
+skips that site rather than mutating it. Oracle: S2 folios identical modulo
+declared normalization. *Accept:* suite runs over matrix fixtures + a corpus
+shard in CI; per-mutator justifications reviewed.
 
 **P2-16 JSX lowering re-targets S2.** `vize_atelier_jsx` lowers to Disegno
 instead of relief `RootNode`; behavior parity via existing babel-compat
@@ -143,6 +153,6 @@ deleted deliberately.
 
 **P2-20 Phase exit.**
 - [ ] DOM corpus byte-parity on the S2 path; legacy DOM lane + flag deleted
-- [ ] Traversal budget ≤ baseline in CI; verifier + metamorphic suites green
+- [ ] Traversal budget ≤ baseline in CI; verifier + metamorphic + **totality-fuzz (TS-20)** suites green
 - [ ] S1/S2 folios in fixtures; `davinci-opt` pass tests in place
 - [ ] wasip2/no_std lanes required; IR contract review signed off

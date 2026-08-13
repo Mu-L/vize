@@ -68,6 +68,7 @@
 - [ ] `crates/vize_relief/src/relief/expressions.rs`: `JsExpression<'a>` replaces the `raw: String + PhantomData` stub with `ast: &'a oxc_ast::ast::Expression<'a>` (+ `raw: &'a str` slice for display); decide parse point by bench — during template parse (armature) vs first semantic touch (croquis) — record the measurement in the PR
 - [ ] Parse via `oxc_parser` with the shared arena from P1-2; template-expression parse errors keep today's diagnostic behavior (differential-checked)
 - [ ] Profiler counter `davinci.expr.parses` incremented at the single parse site; exported via P0-11
+- [ ] Lifetime note enforced: retained `&'a Expression` values are per-compile ephemera under the architecture's arena/cache contract — anything crossing a compile boundary (caches, folios, summaries) uses the owned serialized form, never the arena reference
 
 **Acceptance:** the counter law matches the chosen policy — **each expression
 parsed at most once (zero re-parses) always**; under parse-at-template-parse,

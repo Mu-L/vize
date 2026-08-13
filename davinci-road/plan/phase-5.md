@@ -58,7 +58,10 @@ bounds from `budgets.toml`. One-shot CLI stays salsa-free (charter #10).
 (SFC header → block → S2 region): reuse rule = old syntax ≡ new syntax ⇒
 adopt old subtree; cascade-cancellation tokens through stage tasks;
 threads + catch-unwind isolation (not per-file processes). *Accept:* TS-46
-adoption/cancellation scenarios with cache-hit accounting.
+adoption/cancellation scenarios with cache-hit accounting, **plus a
+fault-isolation scenario**: a stage task that panics is caught at the
+catch-unwind boundary, its file degrades per TS-47, and the server keeps
+answering for every other file (extends TS-47).
 
 **P5-6 Maestro migration.** The 63 `parse_sfc` request-path sites consume
 cached S1/S2 artifacts via the salsa layer, migrated in waves (hover/
@@ -71,9 +74,12 @@ perf test per wave. *Accept:* per-wave TS-44 improvements recorded;
 against the P4-5 single projection. *Accept:* template-only edit reuses
 script projection segments (cache-hit assert, TS-46 pattern).
 
-**P5-8 #699.** Corsa `ProjectSession` reuse keyed by project identity
-(`CorsaSessionKey` stub realized): spawn/idle-teardown lifecycle, session
-survives across `vize check` runs via check-server. *Accept:* second check
+**P5-8 #699.** Corsa `ProjectSession` reuse keyed by the **full P5-1 ambient
+manifest** — project identity plus tsconfig content, Corsa/toolchain version,
+feature flags, and platform (`CorsaSessionKey` stub realized; a key covering
+less than the manifest is a cache-corruption bug by the assurance rule):
+spawn/idle-teardown lifecycle, session survives across `vize check` runs via
+check-server. *Accept:* second check
 run skips TS project init (timed assert).
 
 **P5-9 Incremental ≡ clean.** CI job: for a corpus shard, apply scripted

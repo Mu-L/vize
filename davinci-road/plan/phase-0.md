@@ -33,7 +33,7 @@ criterion with allocation and RSS metrics, used by every later bench.
 **Steps:**
 - [ ] Create `benchmarks/davinci_harness/` (add to `[workspace] members` in root `Cargo.toml`); `publish = false`, stability `experimental`
 - [ ] `src/alloc.rs`: `CountingAllocator` (wraps the global allocator; counts `alloc` calls + running/peak bytes; `#[global_allocator]` opt-in via `harness::main!` macro)
-- [ ] `src/rss.rs`: peak-RSS sampling (`ru_maxrss` via `libc::getrusage` on macOS/Linux; stub returning `None` elsewhere)
+- [ ] `src/rss.rs`: peak-RSS sampling (`ru_maxrss` via `libc::getrusage` on macOS/Linux; stub returning `None` elsewhere). Platform semantics documented and normalized: `ru_maxrss` is KB on Linux, bytes on macOS, and is a **process-wide peak** — report baseline-subtracted deltas per bench process, never raw values
 - [ ] `src/report.rs`: JSON exporter — schema `{bench_id, fixture, wall_ns: {p50,p95}, allocs, alloc_bytes_peak, rss_peak_bytes, harness_version}` written to `bench/results/davinci/<bench_id>.json`
 - [ ] `schema/davinci-bench.schema.json` committed; exporter validates against it in debug
 - [ ] One sample bench (`benches/selfcheck.rs`) exercising all metrics
@@ -130,7 +130,7 @@ criterion with allocation and RSS metrics, used by every later bench.
 **Deliverable:** the [semantic-engine measurement](../semantic-engine.md#the-problem-measured) mechanized.
 
 **Steps:**
-- [ ] `tools/davinci/croquis-consumers.mjs`: for each public product on `crates/vize_croquis/src/croquis.rs` (the ~25 `pub` fields + exported types), greps workspace crates (excluding `vize_croquis` itself and tests) for consumers; emits `davinci-road/plan/croquis-consumption.md` with `product × consuming-crate × site-count`
+- [ ] `tools/davinci/croquis-consumers.mjs`: for each public product on `crates/vize_croquis/src/croquis.rs` (the ~25 `pub` fields + exported types), resolves consumers **symbol-aware** — rustdoc-JSON or a syn-based scan over `use` paths and field accesses, so aliases/re-exports resolve — with plain text grep only as a cross-check; emits `davinci-road/plan/croquis-consumption.md` with `product × consuming-crate × site-count`
 - [ ] Verify output matches the hand-audited 2026-08-13 numbers (`EffectGraph`→doctor only; `RaceConditionTracker`/`ProvideInjectTracker`→none; etc.) — discrepancies get investigated, not papered over
 - [ ] Staleness check `tests/tooling/davinci-matrices.test.ts`: regenerates and diffs; fails CI when committed artifact is stale
 
@@ -143,7 +143,7 @@ criterion with allocation and RSS metrics, used by every later bench.
 **Deliverable:** classification substrate for charter #7's fairness metric.
 
 **Steps:**
-- [ ] `tools/davinci/rule-parity.mjs`: walks `crates/vize_patina/src/rules/**` (345 files), extracts per rule: registration surface (template/script/markup-facade), whether it runs on `lint()` vs `lint_jsx()` paths, croquis usage (import scan)
+- [ ] `tools/davinci/rule-parity.mjs`: walks `crates/vize_patina/src/rules/**` (345 files), extracts per rule: registration surface (template/script/markup-facade), whether it runs on `lint()` vs `lint_jsx()` paths, croquis usage — resolved **symbol-aware** (syn-based `use`-path resolution, not raw text matching)
 - [ ] First-cut classification column: `neutral-core-candidate` / `vue-dialect-bound` / `container-bound`, derived heuristically (uses `v-`-specific node kinds ⇒ dialect; uses SFC block structure ⇒ container) — hand-corrections stored in a sidecar `rule-parity-overrides.toml`, never edited into generated output
 - [ ] Committed artifact `davinci-road/plan/rule-parity.md` + staleness check in `tests/tooling/davinci-matrices.test.ts`
 
@@ -170,7 +170,7 @@ criterion with allocation and RSS metrics, used by every later bench.
 **Deliverable:** the dump/round-trip substrate; croquis's "VIR" becomes the first folio page.
 
 **Steps:**
-- [ ] `crates/vize_davinci/` crate skeleton (workspace member, `no_std + alloc`, `experimental`): only `folio` module for now — `trait Folio { fn print(&self, w) -> fmt::Result; fn parse(input: &str) -> Result<Self, FolioError>; }` + normalization rules (stable sequential ids, sorted map iteration, spans elided unless `--full`)
+- [ ] `crates/vize_davinci/` crate skeleton (workspace member, `no_std + alloc`, `experimental`): only `folio` module for now — `trait Folio { fn print(&self, w: &mut W, mode: FolioMode) -> fmt::Result; fn parse(input: &str) -> Result<Self, FolioError>; }` with `FolioMode { Full, Display }`. **Equality laws are mode-explicit:** `Full` is the injective, parseable form (round-trip laws apply); `Display` elides spans/defaults for humans and carries **no** round-trip law. Normalization (stable sequential ids, sorted map iteration) applies to both
 - [ ] Normalization rules documented in `davinci-road/plan/folio-format.md` (the "test-mode printer" contract: what is elided, what is stable)
 - [ ] `crates/vize_davinci/src/bin/davinci-opt.rs` (or a `tools/` binary if binary-in-lib is awkward): `davinci-opt --roundtrip <file>` — parse → print → byte-compare; `--stage croquis` initially
 - [ ] Croquis folio: implement `Folio` for the existing VIR dump content (`crates/vize_croquis/src/croquis/vir.rs`) — print delegates to the current renderer, parse added; VIR's "display-only" doc updated to point at Folio
@@ -219,11 +219,11 @@ criterion with allocation and RSS metrics, used by every later bench.
 
 **Steps:**
 - [ ] Seeded-defect generator `tools/davinci/seed-defects.mjs`: two pilot classes — (a) undefined template ref: rename a `<script setup>` binding referenced from the template; (b) unused binding: inject an unreferenced `const` — applied to matrix fixtures and a corpus shard copy
-- [ ] Recall assertion: current Patina must flag 100% of seeded class-(a) instances (`no_undefined_refs` rule) — count-exact, per the strict-oracle rule; class-(b) recall recorded (not gated yet — `unused_bindings` has no lint consumer today, which this pilot documents as a finding)
+- [ ] Recall assertion: current Patina must flag 100% of seeded class-(a) instances (`no_undefined_refs` rule) — asserted by **identity, not count**: the seeded-defect manifest records each injection's file + span + expected rule id, and the assertion compares the exact diagnostic set against the manifest (count-only matching is banned by the assurance doctrine); class-(b) recall recorded (not gated yet — `unused_bindings` has no lint consumer today, which this pilot documents as a finding)
 - [ ] Suppression scan `tools/davinci/suppression-telemetry.mjs`: collects `eslint-disable` comments in corpus sources with rule names mapped to vize analogs; reports vize diagnostics firing on those exact lines as FP candidates
-- [ ] First ledgers committed: `davinci-road/plan/ledger-fn.md`, `ledger-fp.md` (generated headers, triage columns empty)
+- [ ] First ledgers committed: `davinci-road/plan/ledger-fn.md`, `ledger-fp.md` — **with the pilot candidates triaged**, not blank: every candidate the shard scan produces gets a disposition (`fixed` / `justified-with-witness` / `deferred-with-issue`), and an empty ledger is acceptable only alongside scan-scope proof (files-scanned and rules-mapped counts matching the shard manifest)
 
-**Acceptance:** both tools run in CI on one corpus shard; class-(a) recall assertion green; ledgers committed and referenced from the assurance doc.
+**Acceptance:** both tools run in CI on one corpus shard; class-(a) identity assertion green; ledgers committed with pilot triage complete and referenced from the assurance doc.
 
 **Deps:** P0-6 (corpus conventions), P0-12 (fixture home).
 

@@ -34,7 +34,7 @@ unrepresentable (Swift anti-lesson). *Accept:* TS-35; detector self-test.
 
 **P4-2 α/β split.** Each fact group defines (α serialized entries with
 explicit `export` fn, β in-memory index rebuilt on demand) — Lean environment-
-extension import; α forms版本 independently and feeds the P5 summary
+extension import; α is versioned independently and feeds the P5 summary
 contract. *Accept:* serialization round-trip tests; α-schema docs per group.
 
 **P4-3 Tracker migration waves.** Order: `bindings` → `reactivity` (merges

@@ -28,7 +28,7 @@
 | ID | Suite | Command | Oracle | From |
 | -- | ----- | ------- | ------ | ---- |
 | TS-10 | Micro-bench budget gate | `tools/davinci/bench-compare.mjs` after `cargo bench` | `budgets.toml` thresholds (wall/allocs/RSS); ratchet-only | P0-4 |
-| TS-11 | Corpus baseline diff | `node tools/davinci/corpus-diff.mjs` | byte-hash equality per surface×project; empty = pass | P0-5 |
+| TS-11 | Corpus baseline diff | `node tools/davinci/corpus-diff.mjs` | byte-hash equality per surface×project; "empty" passes only with scope proof (artifact exists, project/surface counts match the corpus manifest — a zero-file run fails) | P0-5 |
 | TS-12 | Matrix staleness | `node --test tests/tooling/davinci-matrices.test.ts` | committed artifacts == regenerated (consumption, rule-parity, coverage) | P0-7/8 |
 | TS-13 | Assertion lint | `node tools/davinci/assertion-lint.mjs` | zero banned assertion patterns outside the justified allowlist | P0-12 |
 | TS-14 | Mutation score | `cargo mutants -p <crate>` (nightly CI lane) | score ≥ `budgets.toml [mutation]`; ratchet-only | P0-12 |
@@ -79,7 +79,7 @@
 
 | ID | Suite | Command | Oracle | From |
 | -- | ----- | ------- | ------ | ---- |
-| TS-42 | Incremental ≡ clean | corpus CI job on the salsa tier | artifact-level equality between incremental and from-scratch results | P5-9 |
+| TS-42 | Incremental ≡ clean | corpus CI job on the salsa tier | artifact-level **and diagnostic-level** equality between incremental and from-scratch results | P5-9 |
 | TS-43 | Key stability | two-platform key computation + edit-locality cases | identical keys cross-platform; edits above a block change zero keys | P5-1 |
 | TS-44 | Keystroke latency/RSS budgets | LSP perf tests on large corpus projects | p95 latency + RSS ceiling + idle-CPU per `budgets.toml` | P5-11 |
 | TS-45 | Multi-client LSP conformance | Neovim headless / Helix / Zed / VS Code scenario suite | exact protocol expectations per client | P5-12 |
@@ -90,10 +90,10 @@
 
 | ID | Suite | Command | Oracle | From |
 | -- | ----- | ------- | ------ | ---- |
-| TS-48 | WIT contract round-trip | host↔guest handshake + block-in/tree-out golden exchanges | capability negotiation + serialized-payload byte equality | P6-1 |
+| TS-48 | WIT contract round-trip | host↔guest handshake + golden exchanges for **all three worlds** (input, expression, output), in **both hosting modes** (out-of-process + wasmtime in-process, same guest binary) | capability negotiation incl. version-mismatch rejection + serialized-payload byte equality | P6-1 |
 | TS-49 | MoonBit projection | pinned `moonc.wasm` check over `.mbti`+`.mbt` fixtures | span-mapped diagnostics exact; moonc version in cache key | P6-4 |
 | TS-50 | External-consumer build | third-party build against a tagged release | builds without patching vize internals | P6-9 |
-| TS-51 | JS plugin SDK | real custom rules through the napi batch path | cached + cost-attributed + deterministic across runs | P6-7 |
+| TS-51 | JS plugin SDK | real custom rules through the napi batch path | two-stage: **P5-13 pre-check** = deterministic across runs + content-key cached (plugin version + declared demands in the key); **P6-7 GA** adds cost attribution and all four hook families | P5-13 → P6-7 |
 
 ## Phase → mandatory-suite map
 
