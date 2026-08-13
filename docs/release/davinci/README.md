@@ -70,7 +70,7 @@ Recorded 2026-08-13 after design review. Revisit requires a written entry in
 | [Semantic Engine](./semantic-engine.md) | The analyzer pillar: measured Croquis underuse, the fact/query design, the reactivity lattice serving Vapor and non-Vapor alike, app-level facts, complexity and HTML-conformance products |
 | [DevTool](./devtool.md) | The observability surface: stage ladder, pass timeline, provenance, fact browser, decision remarks, flame views |
 | [Roadmap](./roadmap.md) | Phases, exit gates, and risks |
-| [Prior Art](./prior-art.md) | Practices imported from rustc/MIR/Polonius/salsa, LLVM/MLIR, React Compiler, MoonBit, Unison, Effekt, and recent PL research — with anti-lessons |
+| [Prior Art](./prior-art.md) | Practices imported from rustc/MIR/Polonius/salsa, LLVM/MLIR, Swift (SwiftSyntax/SIL/macros), GHC (Core Lint/interface files), OCaml Flambda2, Lean 4, React Compiler, MoonBit, Unison, Effekt, and recent PL research — with anti-lessons |
 | [Open Questions](./open-questions.md) | Active design discussions not yet decided |
 
 ## Relationship to the mission

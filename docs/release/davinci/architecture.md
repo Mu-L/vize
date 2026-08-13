@@ -53,7 +53,12 @@ time, derived from offsets.
 One lossless syntax tree per input dialect: Vue template, oxc program for
 script/JSX, pug. Lossless means the formatter and lint autofixes can be written
 against S1 without a private re-scan — this is what retires the `vize_glyph`
-byte scanner and the `vize_musea` hand parser. Vue 2 is an S1/S2 dialect using
+byte scanner and the `vize_musea` hand parser. Error tolerance is
+**structural**, SwiftSyntax-style: malformed source becomes typed
+`Unexpected` nodes and absent-but-required tokens become `Missing` tokens, so
+every consumer sees one uniformly-shaped tree with holes and S1→S2 has a
+single documented hole policy. The debug verifier asserts
+`render(tree) == source` bytes on every construction. Vue 2 is an S1/S2 dialect using
 the existing `legacy` capability model (resolve once per file, feature-gated,
 zero cost when off).
 
@@ -143,10 +148,14 @@ ordering constraints are **explicit state edges** (RVSDG-style), not implicit
 walk order, so partition and grouping decisions are local graph queries;
 placement alternatives (hoisted / cached / inline / grouped-effect) stay
 explicit on the node and are resolved at **one cost-driven extraction point**
-(the Cranelift aegraph discipline); and correctness has a mechanical oracle
-from the IVM framing — *incremental update output ≡ from-scratch render* —
-with patch flags and SSR plans derived from operator linearity (a keyed
-`v-for` is a linear operator; non-linear mixes are where cache ops belong).
+— executed Flambda2-style as *try-measure-commit*: perform the candidate,
+simplify locally with fact-engine approximations in scope, measure (emitted
+size, reactive-edge count, update-path length), commit only on measured
+benefit under a decrementing per-component budget; and correctness has a
+mechanical oracle from the IVM framing — *incremental update output ≡
+from-scratch render* — with patch flags and SSR plans derived from operator
+linearity (a keyed `v-for` is a linear operator; non-linear mixes are where
+cache ops belong).
 
 ### S4 — Emission (output targets)
 
@@ -188,7 +197,16 @@ child list) forces the re-visits that a region-owning `ui.if` op never needs.
   lint, typecheck-projection, format) is a declared pipeline of statically-known
   passes, each marked fusable or barrier as above. Debug builds interleave stage
   verifiers; `profile!` spans wrap each pass automatically. No registry of
-  trait objects; pipelines are const data.
+  trait objects; pipelines are const data. Passes are additionally classified
+  SIL-style as **mandatory-diagnostic / mandatory-lowering / optional-
+  optimization**: each stage has a raw→canonical transition (type-level) that
+  only mandatory passes perform; mandatory passes run at every optimization
+  level, are unfusable barriers, and are where user-facing dataflow
+  diagnostics attach — dataflow-hungry lint rules become mandatory-diagnostic
+  passes over canonical S2/S3, which structurally ends dual diagnostic
+  assembly. Only optional passes participate in fusion and the traversal
+  budget; optimization tiers scale **budgets, never pass sets** (the Flambda2
+  model — no forked pipelines, all tiers emit summary-compatible output).
 - **Folio dumps** — the textual format for every stage, named after the folios
   of Leonardo's manuscripts (the existing croquis "VIR" debug dump is absorbed
   as the croquis folio, with a deprecation alias in the inspector payload).
@@ -213,9 +231,19 @@ child list) forces the re-visits that a region-owning `ui.if` op never needs.
   failure mode. Its firewall is the **per-SFC summary** (exported props /
   emits / slots types, component references): the only cross-file salsa
   dependency, so a template-body edit never leaves the file unless the summary
-  durably changes. Incrementalization is hybrid — only genuinely recursive
+  durably changes. Summaries follow the GHC `.hi` rule: **fingerprinted per
+  declaration**, with consumers recording which declarations they used —
+  invalidation is "any used fingerprint changed". App-global facts (global
+  components, app-level provide/inject, dialect-wide directives) are the
+  orphan-instance equivalent and live in a dedicated global summary with its
+  own fingerprint. S3 code-shape decisions never enter a summary — contracts,
+  not chosen optimizations. Incrementalization is hybrid — only genuinely recursive
   fact groups (graph reachability, route typing, transitive slots) are
   incremental; block-local facts recompute from content-keyed artifacts.
+  *Below* salsa sits a Lean-style **snapshot tree**: stage tasks at natural
+  joints (header → block → S2 region) with one reuse rule — old syntax ≡ new
+  syntax ⇒ adopt the old subtree — plus cascade-cancellation tokens, covering
+  most keystroke traffic without pushing salsa finer.
 
 ## Extension contracts (decision 1)
 
@@ -239,7 +267,11 @@ typed, versioned, ~6× JSON-RPC throughput, and thanks to the `wasm32-wasip2`
 core target the same contract hosts a dialect out-of-process or in-process
 under wasmtime. Interfaces are coarse-grained (whole block in, surface tree
 out): the canonical ABI copies at every boundary, so per-node chatter is
-banned by design.
+banned by design. Two Swift-macro lessons apply: the WIT world carries a
+capability handshake (protocol version + feature strings) from day one with a
+**written compatibility policy**, and the extension SDK ships as a prebuilt,
+versioned artifact — Swift's macro build-time crisis came from making every
+plugin recompile the syntax library, not from the process boundary.
 
 ## Performance guardrails
 
@@ -286,7 +318,12 @@ than fought (see [Open Questions](./open-questions.md)).
 Three layers share one data model:
 
 1. **Folio dumps** carry *what* each stage holds; every op records provenance
-   (which pass produced it, from which source span).
+   (which pass/rule produced it — by name, so WASM extensions get first-class
+   provenance — from which source node, with before/after pairs at lowering
+   decisions). Provenance **survives failure**: partial S2/S3 fragments are
+   kept on error, Lean-InfoTree style, so the LSP and DevTool stay live on
+   broken SFCs. In the fused CLI walk provenance is off or ring-buffered;
+   resident/DevTool mode materializes it fully.
 2. **Source-level profiling** — `vize_carton::profiler` is extended so `profile!`
    spans attribute cost to pass × stage × file/block × source span, exported in
    a stable machine-readable schema (the `vize_doctor::ai_context` precedent:
