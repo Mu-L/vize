@@ -2,6 +2,7 @@ use super::{create_project_case, resolve_test_tsgo_binary, snapshot_project_diag
 mod component_options_index_signature;
 mod component_prop_regressions;
 mod css_module_classes;
+mod diagnostic_normalization;
 mod directive_anchors;
 mod directive_values;
 mod empty_required_props;
@@ -21,6 +22,7 @@ mod single_required_camel_prop;
 mod split_script_diagnostic_anchors;
 mod spread_props;
 mod spread_scope_bindings;
+mod template_handler_ts7006;
 mod template_instance_props;
 mod template_key_expressions;
 mod ts_extension_substitution;
