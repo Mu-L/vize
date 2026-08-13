@@ -4,6 +4,22 @@
 > No behavior changes anywhere in this phase. Every task is parallelizable
 > unless a dependency says otherwise. Exit gate at the bottom.
 
+## TODO index
+
+- [ ] P0-1 Bench harness with memory metrics
+- [ ] P0-2 Template-pipeline microbenches, front half (armature, croquis)
+- [ ] P0-3 Template-pipeline microbenches, back half (atelier core/dom/vapor/ssr)
+- [ ] P0-4 Bench baselines and CI gating (`budgets.toml`)
+- [ ] P0-5 Corpus baseline snapshot + diff tool
+- [ ] P0-6 Corpus expansion round 1 (pug/JSX/Vapor/petite-vue)
+- [ ] P0-7 Croquis consumption matrix as tracked artifact
+- [ ] P0-8 Rule-parity matrix (SFC × JSX)
+- [ ] P0-9 `Span` type + `SourceLocation` consumer inventory
+- [ ] P0-10 Folio harness skeleton + VIR absorption
+- [ ] P0-11 Profiler source-level attribution + stable export
+- [ ] P0-12 Assurance harness (assertion lint, mutation baseline, taxonomy)
+- [ ] P0-13 Seeded-defect + suppression-telemetry pilots (FP/FN oracles)
+
 ## P0-1 — Bench harness with memory metrics
 
 **Deliverable:** a workspace bench-support crate (`benchmarks/davinci_harness`
