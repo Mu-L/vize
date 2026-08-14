@@ -8,10 +8,11 @@ use std::time::{Duration, Instant};
 use rustc_hash::FxHashMap;
 
 use super::allocation::{
-    ALLOCATION_TRACKING_ENABLED, pause_allocation_tracking, reset_allocation_counters,
+    ALLOCATION_TRACKING_ENABLED, ThreadAllocationCounters, current_thread_allocation,
+    pause_allocation_tracking, reset_allocation_counters,
 };
-use super::metrics::{CounterMetrics, Metrics};
-use super::report::{CounterEntry, CounterSummary, ProfileEntry, ProfileSummary};
+use super::attribution::{AttributedSpanKey, SpanAttribution};
+use super::metrics::{CounterMetrics, Metrics, SpanAllocationDelta};
 
 const PROFILER_SHARDS: usize = 32;
 
@@ -22,8 +23,13 @@ thread_local! {
 #[derive(Debug)]
 struct ProfileFrame {
     name: &'static str,
+    attribution: SpanAttribution,
     start: Instant,
     child_duration: Duration,
+    /// This thread's monotone allocation counters at guard start.
+    alloc_start: ThreadAllocationCounters,
+    /// Allocation growth already attributed to nested child spans.
+    child_alloc: ThreadAllocationCounters,
 }
 
 /// RAII guard for nested global profiling spans.
@@ -35,13 +41,23 @@ pub struct ProfileGuard {
 
 impl ProfileGuard {
     #[inline]
-    fn start(profiler: &'static Profiler, name: &'static str) -> Self {
+    fn start(
+        profiler: &'static Profiler,
+        name: &'static str,
+        attribution: SpanAttribution,
+    ) -> Self {
         let _allocation_tracking = pause_allocation_tracking();
+        // Read after pausing so the frame push below (suppressed) cannot sit
+        // between the counter read and the measured window.
+        let alloc_start = current_thread_allocation();
         PROFILE_STACK.with(|stack| {
             stack.borrow_mut().push(ProfileFrame {
                 name,
+                attribution,
                 start: Instant::now(),
                 child_duration: Duration::ZERO,
+                alloc_start,
+                child_alloc: ThreadAllocationCounters::ZERO,
             });
         });
         Self {
@@ -57,6 +73,9 @@ impl Drop for ProfileGuard {
             return;
         }
 
+        // Snapshot the thread's allocation counters before any profiler
+        // bookkeeping below (all of it suppressed) runs.
+        let alloc_now = current_thread_allocation();
         PROFILE_STACK.with(|stack| {
             let mut stack = stack.borrow_mut();
             let Some(frame) = stack.pop() else {
@@ -64,11 +83,26 @@ impl Drop for ProfileGuard {
             };
 
             let duration = frame.start.elapsed();
+            let alloc_delta = alloc_now.since(frame.alloc_start);
             if let Some(parent) = stack.last_mut() {
                 parent.child_duration += duration;
+                parent.child_alloc.calls =
+                    parent.child_alloc.calls.saturating_add(alloc_delta.calls);
+                parent.child_alloc.bytes =
+                    parent.child_alloc.bytes.saturating_add(alloc_delta.bytes);
             }
-            self.profiler
-                .record_sample_enabled(frame.name, duration, frame.child_duration);
+            self.profiler.record_span_sample_attributed_enabled(
+                frame.name,
+                frame.attribution,
+                duration,
+                frame.child_duration,
+                SpanAllocationDelta {
+                    calls: alloc_delta.calls,
+                    bytes: alloc_delta.bytes,
+                    child_calls: frame.child_alloc.calls,
+                    child_bytes: frame.child_alloc.bytes,
+                },
+            );
         });
     }
 }
@@ -121,8 +155,13 @@ pub struct Profiler {
     /// Metrics by operation name, split into shards to keep parallel profile runs from
     /// funnelling every span through the same lock.
     pub(super) metrics: [RwLock<FxHashMap<&'static str, Metrics>>; PROFILER_SHARDS],
+    /// Metrics for spans carrying a non-empty [`SpanAttribution`], sharded by
+    /// operation name like `metrics`. Kept separate so every pre-attribution
+    /// consumer of `metrics`, `get`, `all`, and `summary` observes exactly the
+    /// historical key space.
+    pub(super) attributed: [RwLock<FxHashMap<AttributedSpanKey, Metrics>>; PROFILER_SHARDS],
     /// Non-duration counters by name.
-    counters: [RwLock<FxHashMap<&'static str, CounterMetrics>>; PROFILER_SHARDS],
+    pub(super) counters: [RwLock<FxHashMap<&'static str, CounterMetrics>>; PROFILER_SHARDS],
     /// Whether profiling is enabled
     enabled: AtomicBool,
 }
@@ -132,6 +171,7 @@ impl Profiler {
     pub fn new() -> Self {
         Self {
             metrics: std::array::from_fn(|_| RwLock::new(FxHashMap::default())),
+            attributed: std::array::from_fn(|_| RwLock::new(FxHashMap::default())),
             counters: std::array::from_fn(|_| RwLock::new(FxHashMap::default())),
             enabled: AtomicBool::new(false),
         }
@@ -191,17 +231,28 @@ impl Profiler {
     /// Start a nested profiling span on the global profiler.
     #[inline]
     pub fn global_span(&'static self, name: &'static str) -> Option<ProfileGuard> {
+        self.global_span_attributed(name, SpanAttribution::EMPTY)
+    }
+
+    /// Start a nested profiling span carrying structured source attribution.
+    ///
+    /// An empty attribution records under the plain dotted key, exactly like
+    /// [`Profiler::global_span`]; a non-empty one records under its own
+    /// `key × attribution` bucket and is never merged into the plain key.
+    #[inline]
+    pub fn global_span_attributed(
+        &'static self,
+        name: &'static str,
+        attribution: SpanAttribution,
+    ) -> Option<ProfileGuard> {
         if self.is_enabled() {
-            Some(ProfileGuard::start(self, name))
+            Some(ProfileGuard::start(self, name, attribution))
         } else {
             None
         }
     }
 
     /// Record a duration and child duration after the caller has already checked profiling.
-    ///
-    /// `ProfileGuard::drop` uses this path after the macro has checked
-    /// `is_enabled()`, avoiding another atomic load for every nested span.
     #[doc(hidden)]
     pub fn record_sample_enabled(
         &self,
@@ -209,216 +260,73 @@ impl Profiler {
         duration: Duration,
         child_duration: Duration,
     ) {
+        self.record_span_sample_attributed_enabled(
+            name,
+            SpanAttribution::EMPTY,
+            duration,
+            child_duration,
+            SpanAllocationDelta::ZERO,
+        );
+    }
+
+    /// Record a duration under an attributed span key.
+    ///
+    /// Companion to [`Profiler::record`] for callers that measure durations
+    /// themselves; span guards from [`Profiler::global_span_attributed`] also
+    /// capture per-span allocation deltas, which this direct path cannot.
+    pub fn record_attributed(
+        &self,
+        name: &'static str,
+        attribution: SpanAttribution,
+        duration: Duration,
+    ) {
+        if !self.is_enabled() {
+            return;
+        }
+
+        self.record_span_sample_attributed_enabled(
+            name,
+            attribution,
+            duration,
+            Duration::ZERO,
+            SpanAllocationDelta::ZERO,
+        );
+    }
+
+    /// Record one span sample after the caller has already checked profiling.
+    ///
+    /// `ProfileGuard::drop` uses this path after the macro has checked
+    /// `is_enabled()`, avoiding another atomic load for every nested span.
+    fn record_span_sample_attributed_enabled(
+        &self,
+        name: &'static str,
+        attribution: SpanAttribution,
+        duration: Duration,
+        child_duration: Duration,
+        allocations: SpanAllocationDelta,
+    ) {
         let _allocation_tracking = pause_allocation_tracking();
-        let mut metrics = self.metrics_write(Self::shard_index(name));
-        metrics
-            .entry(name)
-            .or_default()
-            .record_with_child(duration, child_duration);
-    }
-
-    /// Record a non-duration counter sample.
-    pub fn record_counter(&self, name: &'static str, value: u64) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled(name, value);
-    }
-
-    /// Record a counter after the caller has already checked profiling.
-    #[doc(hidden)]
-    pub fn record_counter_enabled(&self, name: &'static str, value: u64) {
-        let _allocation_tracking = pause_allocation_tracking();
-        let mut counters = self.counters_write(Self::shard_index(name));
-        counters.entry(name).or_default().record(value);
-    }
-
-    /// Record a successful `std::fs::read_to_string` call.
-    pub fn record_fs_read_to_string(&self, bytes: usize) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("io.read.calls", 1);
-        self.record_counter_enabled("io.read.bytes", bytes as u64);
-        self.record_counter_enabled("syscall.fs.read_to_string.calls", 1);
-    }
-
-    /// Record a failed `std::fs::read_to_string` call.
-    pub fn record_fs_read_to_string_failure(&self) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("io.read.calls", 1);
-        self.record_counter_enabled("io.read.failures", 1);
-        self.record_counter_enabled("syscall.fs.read_to_string.calls", 1);
-        self.record_counter_enabled("syscall.fs.read_to_string.failures", 1);
-    }
-
-    /// Record a successful `std::fs::write` call.
-    pub fn record_fs_write(&self, bytes: usize) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("io.write.calls", 1);
-        self.record_counter_enabled("io.write.attempted_bytes", bytes as u64);
-        self.record_counter_enabled("io.write.bytes", bytes as u64);
-        self.record_counter_enabled("syscall.fs.write.calls", 1);
-    }
-
-    /// Record a failed `std::fs::write` call.
-    pub fn record_fs_write_failure(&self, bytes: usize) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("io.write.calls", 1);
-        self.record_counter_enabled("io.write.attempted_bytes", bytes as u64);
-        self.record_counter_enabled("io.write.failures", 1);
-        self.record_counter_enabled("syscall.fs.write.calls", 1);
-        self.record_counter_enabled("syscall.fs.write.failures", 1);
-    }
-
-    /// Record a successful `std::fs::create_dir_all` call.
-    pub fn record_fs_create_dir_all(&self) {
-        if self.is_enabled() {
-            self.record_counter_enabled("syscall.fs.create_dir_all.calls", 1);
-        }
-    }
-
-    /// Record a failed `std::fs::create_dir_all` call.
-    pub fn record_fs_create_dir_all_failure(&self) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("syscall.fs.create_dir_all.calls", 1);
-        self.record_counter_enabled("syscall.fs.create_dir_all.failures", 1);
-    }
-
-    /// Record a successful `std::fs::remove_dir_all` call.
-    pub fn record_fs_remove_dir_all(&self) {
-        if self.is_enabled() {
-            self.record_counter_enabled("syscall.fs.remove_dir_all.calls", 1);
-        }
-    }
-
-    /// Record a failed `std::fs::remove_dir_all` call.
-    pub fn record_fs_remove_dir_all_failure(&self) {
-        if !self.is_enabled() {
-            return;
-        }
-
-        self.record_counter_enabled("syscall.fs.remove_dir_all.calls", 1);
-        self.record_counter_enabled("syscall.fs.remove_dir_all.failures", 1);
-    }
-
-    /// Get metrics for the given operation.
-    pub fn get(&self, name: &str) -> Option<Metrics> {
-        self.metrics_read(Self::shard_index(name))
-            .get(name)
-            .cloned()
-    }
-
-    /// Get all metrics.
-    pub fn all(&self) -> FxHashMap<&'static str, Metrics> {
-        let _allocation_tracking = pause_allocation_tracking();
-        let mut all = FxHashMap::default();
-        for shard in &self.metrics {
-            let metrics = shard
-                .read()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            all.extend(
-                metrics
-                    .iter()
-                    .map(|(name, metrics)| (*name, metrics.clone())),
+        if attribution.is_empty() {
+            let mut metrics = self.metrics_write(Self::shard_index(name));
+            metrics.entry(name).or_default().record_span_sample(
+                duration,
+                child_duration,
+                allocations,
             );
+        } else {
+            let mut metrics = self.attributed_write(Self::shard_index(name));
+            metrics
+                .entry(AttributedSpanKey { name, attribution })
+                .or_default()
+                .record_span_sample(duration, child_duration, allocations);
         }
-        all
-    }
-
-    /// Clear all metrics.
-    pub fn clear(&self) {
-        let _allocation_tracking = pause_allocation_tracking();
-        for shard in &self.metrics {
-            shard
-                .write()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .clear();
-        }
-        for shard in &self.counters {
-            shard
-                .write()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .clear();
-        }
-    }
-
-    /// Generate a summary report.
-    pub fn summary(&self) -> ProfileSummary {
-        let _allocation_tracking = pause_allocation_tracking();
-        let mut entries = Vec::new();
-        for shard in &self.metrics {
-            let metrics = shard
-                .read()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            entries.reserve(metrics.len());
-            entries.extend(metrics.iter().map(|(name, m)| ProfileEntry {
-                name,
-                count: m.count,
-                total: m.total_duration,
-                self_total: m.self_duration,
-                child_total: m.child_duration,
-                average: m.average(),
-                self_average: m.self_average(),
-                min: m.min_duration,
-                max: m.max_duration,
-                self_min: m.min_self_duration,
-                self_max: m.max_self_duration,
-                p50: m.percentile(0.50),
-                p95: m.percentile(0.95),
-                p99: m.percentile(0.99),
-                samples_over_1ms: m.samples_over_1ms(),
-                samples_over_10ms: m.samples_over_10ms(),
-                samples_over_100ms: m.samples_over_100ms(),
-            }));
-        }
-
-        // Sort by total time descending
-        entries.sort_by_key(|entry| std::cmp::Reverse(entry.total));
-
-        ProfileSummary { entries }
-    }
-
-    /// Generate a counter summary report.
-    pub fn counter_summary(&self) -> CounterSummary {
-        let _allocation_tracking = pause_allocation_tracking();
-        let mut entries = Vec::new();
-        for shard in &self.counters {
-            let counters = shard
-                .read()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            entries.reserve(counters.len());
-            entries.extend(counters.iter().map(|(name, counter)| CounterEntry {
-                name,
-                samples: counter.samples,
-                total: counter.total,
-                average: counter.average(),
-                min: if counter.samples == 0 { 0 } else { counter.min },
-                max: counter.max,
-            }));
-        }
-
-        entries.sort_by(|left, right| left.name.cmp(right.name));
-
-        CounterSummary { entries }
     }
 
     #[inline]
-    fn metrics_read(&self, shard: usize) -> RwLockReadGuard<'_, FxHashMap<&'static str, Metrics>> {
+    pub(super) fn metrics_read(
+        &self,
+        shard: usize,
+    ) -> RwLockReadGuard<'_, FxHashMap<&'static str, Metrics>> {
         self.metrics[shard]
             .read()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -435,7 +343,17 @@ impl Profiler {
     }
 
     #[inline]
-    fn counters_write(
+    fn attributed_write(
+        &self,
+        shard: usize,
+    ) -> RwLockWriteGuard<'_, FxHashMap<AttributedSpanKey, Metrics>> {
+        self.attributed[shard]
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[inline]
+    pub(super) fn counters_write(
         &self,
         shard: usize,
     ) -> RwLockWriteGuard<'_, FxHashMap<&'static str, CounterMetrics>> {
