@@ -8,6 +8,7 @@ import {
   createPackagedHostEnvironment,
   createPackagedHostInstallArgs,
   createPackagedHostLaunchArgs,
+  createRealHostEnvironment,
   resolveInstalledExtensionPath,
   runPackagedExtensionHost,
   runVSCodeCommandWithTimeout,
@@ -190,11 +191,13 @@ test("real host runner installs the VSIX and launches the host from the installe
       extensionId: "ubugeeei.vize",
       extensionsPath,
       extensionTestsPath: path.join(sourceExtensionPath, "test/suite/extension-host-real.cjs"),
-      hostEnvironment: {
-        NODE_OPTIONS: "--disable-warning=DEP0040",
-        VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
-        VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
-      },
+      hostEnvironment: createRealHostEnvironment({
+        extensionsPath,
+        processEnvironment: { NODE_OPTIONS: "--disable-warning=DEP0040" },
+        resultPath: path.join(profilePath, "result.json"),
+        serverPath: "/repo/target/ci/vize",
+        sourceExtensionPath,
+      }),
       hostTimeoutMs: 600_000,
       installEnvironment: {},
       installTimeoutMs: 120_000,
@@ -219,8 +222,14 @@ test("real host runner installs the VSIX and launches the host from the installe
     assert.ok(launchArgs.includes("--disable-extensions"));
     assert.ok(launchArgs.includes(`--extensionDevelopmentPath=${installedExtensionPath}`));
     assert.equal(launchArgs.includes(`--extensionDevelopmentPath=${sourceExtensionPath}`), false);
+    // The host commands the completion smoke relies on are gated behind this
+    // flag, so it has to reach the launched VS Code app while the Node-only
+    // options do not.
     assert.deepEqual(invocations[1].environment, {
+      VIZE_TEST_ENABLE_HOST_COMMANDS: "1",
       VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
+      VIZE_TEST_PINNED_CREATE_VUE_RESULT_PATH: path.join(profilePath, "result.json"),
+      VIZE_TEST_SERVER_PATH: "/repo/target/ci/vize",
       VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
     });
   } finally {
