@@ -279,10 +279,36 @@ export function checkReport(projectRoot) {
   return { rendered, report, status: result.status };
 }
 
-export function reportedDiagnostics(report) {
+function normalizeReportedFile(file, projectRoot) {
+  const normalized = file.replaceAll("\\", "/");
+  const normalizedRoot = path.posix.normalize(projectRoot.replaceAll("\\", "/"));
+  const relativeToRoot = (target) => {
+    const relative = path.posix.relative(normalizedRoot, target);
+    if (relative === "" || (!relative.startsWith("../") && relative !== "..")) {
+      return relative;
+    }
+    return null;
+  };
+  if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized)) {
+    const relative = relativeToRoot(path.posix.normalize(normalized));
+    if (relative !== null) return relative.startsWith("./") ? relative.slice(2) : relative;
+  }
+  if (normalized === "." || normalized === ".." || /^[.]{1,2}\//u.test(normalized)) {
+    const relative = relativeToRoot(
+      path.posix.normalize(path.posix.join(normalizedRoot, normalized)),
+    );
+    if (relative !== null) return relative.startsWith("./") ? relative.slice(2) : relative;
+  }
+  return normalized.startsWith("./") ? normalized.slice(2) : normalized;
+}
+
+export function reportedDiagnostics(report, projectRoot) {
   return report.files
     .filter((file) => file.diagnostics.length > 0)
-    .map((file) => ({ file: file.file, diagnostics: file.diagnostics }));
+    .map((file) => ({
+      file: normalizeReportedFile(file.file, projectRoot),
+      diagnostics: file.diagnostics,
+    }));
 }
 
 /**
