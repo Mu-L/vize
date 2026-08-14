@@ -16,7 +16,11 @@ import {
   installVisualStabilityHooks,
   prepareStableVisualState,
 } from "../../_helpers/visual-parity";
-import { ELK_RENDER_ROUTE, readElkRenderRouteSourceEvidence } from "../dev/elk-route-contract";
+import {
+  ELK_RENDER_ROUTE,
+  elkRequiredRouteLinks,
+  readElkRenderRouteSourceEvidence,
+} from "../dev/elk-route-contract";
 
 interface VisualRoute {
   maxDiffRatio?: number;
@@ -33,7 +37,6 @@ const OUTPUT_DIR =
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 const DEFAULT_MAX_DIFF_RATIO = 0.04;
 const ELK_MIN_RENDER_ROUTE_ELEMENTS = 100;
-const ELK_RENDER_ROUTE_LINKS = ["/settings/interface", "/settings/about"] as const;
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const apps = createElkVisualParityApps();
 
@@ -183,21 +186,22 @@ async function openRoute(page: Page, baseUrl: string, route: VisualRoute): Promi
   });
   expect(response?.status()).toBeLessThan(500);
   await expect(page.locator("#__nuxt")).toBeAttached({ timeout: 15_000 });
-  await waitForElkPageContent(page);
+  await waitForElkPageContent(page, route);
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
   await page.waitForTimeout(1000);
 }
 
-async function waitForElkPageContent(page: Page): Promise<void> {
+async function waitForElkPageContent(page: Page, route: VisualRoute): Promise<void> {
+  const requiredLinks = elkRequiredRouteLinks(route.path);
   await expect
-    .poll(() => elkRenderRouteContentState(page), {
+    .poll(() => elkRouteContentState(page, requiredLinks), {
       intervals: [250, 500, 1_000],
       timeout: 90_000,
     })
     .toBe("ready");
 }
 
-async function elkRenderRouteContentState(page: Page): Promise<string> {
+async function elkRouteContentState(page: Page, requiredLinks: readonly string[]): Promise<string> {
   return page.evaluate(
     ({ links, minElements, selector }) => {
       const root = document.querySelector(selector);
@@ -214,7 +218,7 @@ async function elkRenderRouteContentState(page: Page): Promise<string> {
       return `incomplete:elements=${elementCount}:missing=${missingLinks.join(",")}`;
     },
     {
-      links: [...ELK_RENDER_ROUTE_LINKS],
+      links: requiredLinks,
       minElements: ELK_MIN_RENDER_ROUTE_ELEMENTS,
       selector: "#__nuxt",
     },
