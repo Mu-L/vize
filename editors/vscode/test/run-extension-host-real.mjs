@@ -25,7 +25,9 @@ const extensionTestsPath = path.join(
   "suite",
   "extension-host-real.cjs",
 );
+const hostTimeoutMs = 600_000;
 const vsixPath = path.join(sourceExtensionPath, "dist", "vize.vsix");
+const vscodeVersion = process.env.VIZE_TEST_VSCODE_VERSION ?? "1.107.1";
 
 const serverPath = resolveRealServerPath();
 
@@ -77,11 +79,12 @@ await withPinnedFixtureWorkspace(
           VIZE_TEST_SERVER_PATH: serverPath,
           VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
         },
-        hostTimeoutMs: 300_000,
+        hostTimeoutMs,
         installEnvironment: process.env,
         installTimeoutMs: 120_000,
         onOutput: writeCommandOutput,
         userDataPath,
+        vscodeVersion,
         vsixPath,
         workspacePath: fixture.workspaceDir,
       });
