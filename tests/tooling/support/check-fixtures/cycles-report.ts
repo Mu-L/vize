@@ -20,6 +20,14 @@ export type CyclesTargetReport = {
     readonly corsaProcesses: number;
   };
   readonly cycles: CycleRecord[];
+  /**
+   * Cycles this target was scheduled to run.
+   *
+   * Reported per target because a target may cap itself below the run-wide
+   * `cyclesPerTarget`, and evidence that reads `20` for a target that ran three
+   * cycles would overstate what the artifact proves.
+   */
+  readonly plannedCycles: number;
   failures: string[];
   status: "running" | "passed" | "failed";
 };
@@ -32,6 +40,7 @@ export type CyclesReport = {
   readonly vizeBin: string;
   readonly corsaBin: string;
   readonly cyclesPerTarget: number;
+  readonly budgetCpuCount: number;
   readonly nodeVersion: string;
   readonly runner: RunnerFacts;
   readonly targets: CyclesTargetReport[];
@@ -43,9 +52,10 @@ export function createCyclesReport(options: {
   readonly vizeBin: string;
   readonly corsaBin: string;
   readonly cycles: number;
-  readonly cpuCount: number;
+  readonly budgetCpuCount: number;
 }): CyclesReport {
   return {
+    budgetCpuCount: options.budgetCpuCount,
     corsaBin: options.corsaBin,
     cyclesPerTarget: options.cycles,
     finishedAtIso: null,
@@ -113,8 +123,9 @@ export function renderCyclesSummary(report: CyclesReport): string {
     "",
     `- status: **${report.status}**`,
     `- runner: ${platform}, ${cpuCount} CPUs, \`ulimit -u\` ${ulimitProcesses ?? "unavailable"}`,
+    `- budget CPU count: ${report.budgetCpuCount}`,
     `- cgroup \`pids.current\` / \`pids.max\`: ${cgroupPids.current ?? "unavailable"} / ${cgroupPids.max ?? "unavailable"}`,
-    `- cycles per target: ${report.cyclesPerTarget}`,
+    `- cycles requested per target: ${report.cyclesPerTarget}`,
     "",
     "| target | cycle | ms | ulimit -u | peak procs | peak tasks | corsa | sha256 | EAGAIN | verdict |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
@@ -124,7 +135,10 @@ export function renderCyclesSummary(report: CyclesReport): string {
   }
   lines.push("");
   for (const target of report.targets) {
-    lines.push(`- \`${target.id}\`: ${target.status} — ${target.description}`);
+    lines.push(
+      `- \`${target.id}\`: ${target.status} over ${target.cycles.length}/${target.plannedCycles} ` +
+        `cycles — ${target.description}`,
+    );
     for (const failure of target.failures) {
       lines.push(`  - ${flatten(failure)}`);
     }

@@ -14,7 +14,7 @@ import {
   materializeCreateVueTypecheckSource,
 } from "../../../tests/_helpers/create-vue-typecheck-patch.ts";
 import { withPinnedFixtureWorkspace } from "../../../tests/_helpers/realworld-patch.ts";
-import { runPackagedExtensionHost } from "./packaged-host-contract.mjs";
+import { createRealHostEnvironment, runPackagedExtensionHost } from "./packaged-host-contract.mjs";
 import { readPinnedCreateVueHostResult } from "./pinned-create-vue-host-result.mjs";
 
 const sourceExtensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,7 +25,9 @@ const extensionTestsPath = path.join(
   "suite",
   "extension-host-real.cjs",
 );
+const hostTimeoutMs = 600_000;
 const vsixPath = path.join(sourceExtensionPath, "dist", "vize.vsix");
+const vscodeVersion = process.env.VIZE_TEST_VSCODE_VERSION ?? "1.107.1";
 
 const serverPath = resolveRealServerPath();
 
@@ -70,18 +72,19 @@ await withPinnedFixtureWorkspace(
         extensionId: "ubugeeei.vize",
         extensionsPath,
         extensionTestsPath,
-        hostEnvironment: {
-          ...process.env,
-          VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
-          VIZE_TEST_PINNED_CREATE_VUE_RESULT_PATH: resultPath,
-          VIZE_TEST_SERVER_PATH: serverPath,
-          VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
-        },
-        hostTimeoutMs: 300_000,
+        hostEnvironment: createRealHostEnvironment({
+          extensionsPath,
+          processEnvironment: process.env,
+          resultPath,
+          serverPath,
+          sourceExtensionPath,
+        }),
+        hostTimeoutMs,
         installEnvironment: process.env,
         installTimeoutMs: 120_000,
         onOutput: writeCommandOutput,
         userDataPath,
+        vscodeVersion,
         vsixPath,
         workspacePath: fixture.workspaceDir,
       });
