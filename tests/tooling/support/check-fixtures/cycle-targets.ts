@@ -1,4 +1,4 @@
-//! The two focused cycle targets and their documented bounds (#4126).
+//! Focused cycle targets and their documented bounds (#4126).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +12,27 @@ export type CycleTarget = {
   readonly patterns: readonly string[];
   /** Explicit `--servers`, or `null` to let `vize` auto-tune. */
   readonly servers: number | null;
+  /**
+   * Whether the cycle includes generated virtual TypeScript in JSON output.
+   *
+   * The high-output ecosystem-products fixture hit the original spawn
+   * exhaustion after printing virtual TS, so the constrained guard must cover
+   * that output mode rather than only the quiet diagnostic report.
+   */
+  readonly showVirtualTs: boolean;
+  /**
+   * Hard cap on this target's cycle count, or `null` to run the full
+   * `--cycles` count.
+   *
+   * Repetition is how the guard catches an intermittent spawn failure, so it is
+   * traded away only for a target whose single cycle already costs a minute:
+   * `ecosystem-products` typechecks its dependency-heavy corpus in ~69s per
+   * cycle on the hosted lane (the blocking snapshot phase measures the same
+   * 68.8s), and 20 of those spend ~23 minutes inside a `vue-parity` job with a
+   * 30-minute timeout. Overrunning it reports as a *cancelled* job, which
+   * fails the `test-report` gate without a single red assertion to read.
+   */
+  readonly maxCycles: number | null;
   /** Corsa CLI processes the run is expected to reach at its widest. */
   readonly corsaProcesses: number;
   /**
@@ -52,11 +73,31 @@ export const cycleTargets: readonly CycleTarget[] = [
     expectedFileCount: 18,
     expectsDiagnostics: true,
     id: "single-corsa",
+    maxCycles: null,
     patterns: ["src/**/*.vue"],
     peakGroupProcessBound: 2,
     projectDir: "tests/_fixtures/_projects/typecheck-errors",
     servers: null,
+    showVirtualTs: false,
     taskBudget: (cpuCount) => 64 + 8 * cpuCount,
+  },
+  {
+    corsaProcesses: 1,
+    description:
+      "the dependency-heavy ecosystem-products fixture in the same `--show-virtual-ts` mode as the blocking snapshot phase",
+    expectedFileCount: 9,
+    expectsDiagnostics: false,
+    id: "ecosystem-products-virtual-ts",
+    // Three is the smallest count that still measures reproducibility: cycle 1
+    // pins the exit code and output hash, and cycles 2 and 3 have to reproduce
+    // it. Anything cheaper would only prove the fixture checks once.
+    maxCycles: 3,
+    patterns: ["src/**/*.vue"],
+    peakGroupProcessBound: 2,
+    projectDir: "tests/_fixtures/_projects/ecosystem-products",
+    servers: null,
+    showVirtualTs: true,
+    taskBudget: (cpuCount) => 128 + 16 * cpuCount,
   },
   {
     corsaProcesses: 8,
@@ -65,10 +106,12 @@ export const cycleTargets: readonly CycleTarget[] = [
     expectedFileCount: 42,
     expectsDiagnostics: false,
     id: "maximum-shard",
+    maxCycles: null,
     patterns: ["template/**/*.vue"],
     peakGroupProcessBound: 9,
     projectDir: "tests/_fixtures/_git/create-vue",
     servers: 8,
+    showVirtualTs: false,
     taskBudget: (cpuCount) => 128 + 32 * cpuCount,
   },
 ];
@@ -119,6 +162,9 @@ export function checkArgv(target: CycleTarget, corsaBin: string): string[] {
   ];
   if (target.servers != null) {
     argv.push("--servers", String(target.servers));
+  }
+  if (target.showVirtualTs) {
+    argv.push("--show-virtual-ts");
   }
   return argv;
 }
