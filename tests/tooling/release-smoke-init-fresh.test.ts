@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
 
 import {
+  hasProjectLocalBin,
   managerCommand,
   managerEnv,
+  projectLocalBinCandidates,
   projectEnv,
   runManager,
 } from "../../tools/npm/smoke-release-init-project.mjs";
@@ -95,6 +100,25 @@ test("fresh-project package managers use exact Corepack runners where needed", (
     assert.equal(managerEnv(manager).COREPACK_ENABLE_PROJECT_SPEC, undefined);
   }
   assert.match(runManager(PACKAGE_MANAGERS.npm, ["--version"], { cwd: process.cwd() }), /^\d+\./u);
+});
+
+test("fresh-project toolchain accepts package-manager-specific Windows shims", (t) => {
+  assert.deepEqual(projectLocalBinCandidates("vize", "win32"), ["vize", "vize.cmd", "vize.ps1"]);
+  assert.deepEqual(projectLocalBinCandidates("vize", "linux"), ["vize"]);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "vize-release-smoke-bin-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const nodeModules = path.join(root, "node_modules");
+  const binDir = path.join(nodeModules, ".bin");
+  fs.mkdirSync(binDir, { recursive: true });
+
+  for (const shim of ["vize.cmd", "vize.ps1"]) {
+    fs.rmSync(binDir, { recursive: true, force: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(binDir, shim), "");
+    assert.equal(hasProjectLocalBin(nodeModules, "vize", "win32"), true, `${shim} was ignored`);
+    assert.equal(hasProjectLocalBin(nodeModules, "vize", "linux"), false, `${shim} counted here`);
+  }
 });
 
 test("every shape drives a clean, broken, and repaired check", () => {
