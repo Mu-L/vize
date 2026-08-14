@@ -5,8 +5,10 @@ import path from "node:path";
 import { test } from "node:test";
 
 import {
+  createPackagedHostEnvironment,
   createPackagedHostInstallArgs,
   createPackagedHostLaunchArgs,
+  createRealHostEnvironment,
   resolveInstalledExtensionPath,
   runPackagedExtensionHost,
   runVSCodeCommandWithTimeout,
@@ -40,6 +42,7 @@ test("packaged VS Code host smoke installs the VSIX before launching its tests",
   assert.deepEqual(launchArgs, [
     "--no-sandbox",
     "--disable-gpu-sandbox",
+    "--disable-extensions",
     "--disable-updates",
     "--disable-workspace-trust",
     "--skip-welcome",
@@ -51,7 +54,7 @@ test("packaged VS Code host smoke installs the VSIX before launching its tests",
     "/repo/editors/vscode/.vscode-test/workspaces/real-vue",
   ]);
   assert.equal(launchArgs.includes("--extensionDevelopmentPath=/repo/editors/vscode"), false);
-  assert.equal(launchArgs.includes("--disable-extensions"), false);
+  assert.equal(launchArgs.includes("--disable-extensions"), true);
 });
 
 test("the real-server fixture workspace turns off the built-in AI code actions", () => {
@@ -132,10 +135,21 @@ test("packaged host aborts a stuck VS Code command", async () => {
     runVSCodeCommandWithTimeout(stuckCommand, ["--version"], {
       environment: {},
       timeoutMs: 5,
+      version: "1.107.1",
     }),
     /VS Code command timed out after 5ms/,
   );
   assert.equal(receivedSignal.aborted, true);
+});
+
+test("packaged host strips Node-only options from the VS Code app environment", () => {
+  assert.deepEqual(
+    createPackagedHostEnvironment({
+      NODE_OPTIONS: "--disable-warning=DEP0040",
+      VIZE_TEST_SERVER_PATH: "/repo/target/ci/vize",
+    }),
+    { VIZE_TEST_SERVER_PATH: "/repo/target/ci/vize" },
+  );
 });
 
 test("real host task packages and statically validates the same VSIX that it runs", () => {
@@ -161,9 +175,12 @@ test("real host runner installs the VSIX and launches the host from the installe
   fs.writeFileSync(vsixPath, "");
 
   try {
-    const invocations: { args: string[]; environment: unknown }[] = [];
-    const runCommand = async (args: string[], options: { spawn: { env: unknown } }) => {
-      invocations.push({ args, environment: options.spawn.env });
+    const invocations: { args: string[]; environment: unknown; version: string }[] = [];
+    const runCommand = async (
+      args: string[],
+      options: { spawn: { env: unknown }; version: string },
+    ) => {
+      invocations.push({ args, environment: options.spawn.env, version: options.version });
       if (args.includes("--install-extension")) {
         writeManifest(path.join(extensionsPath, "ubugeeei.vize-0.311.0"), "ubugeeei", "vize");
       }
@@ -174,15 +191,19 @@ test("real host runner installs the VSIX and launches the host from the installe
       extensionId: "ubugeeei.vize",
       extensionsPath,
       extensionTestsPath: path.join(sourceExtensionPath, "test/suite/extension-host-real.cjs"),
-      hostEnvironment: {
-        VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
-        VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
-      },
-      hostTimeoutMs: 300_000,
+      hostEnvironment: createRealHostEnvironment({
+        extensionsPath,
+        processEnvironment: { NODE_OPTIONS: "--disable-warning=DEP0040" },
+        resultPath: path.join(profilePath, "result.json"),
+        serverPath: "/repo/target/ci/vize",
+        sourceExtensionPath,
+      }),
+      hostTimeoutMs: 600_000,
       installEnvironment: {},
       installTimeoutMs: 120_000,
       onOutput: () => {},
       userDataPath,
+      vscodeVersion: "1.107.1",
       vsixPath,
       workspacePath: path.join(profilePath, "workspace"),
     });
@@ -190,16 +211,25 @@ test("real host runner installs the VSIX and launches the host from the installe
     assert.equal(invocations.length, 2);
     assert.equal(invocations[0].args[0], "--install-extension");
     assert.equal(invocations[0].args[1], vsixPath);
+    assert.equal(invocations[0].version, "1.107.1");
+    assert.equal(invocations[1].version, "1.107.1");
 
     const launchArgs = invocations[1].args;
     assert.equal(
       installedExtensionPath,
       fs.realpathSync(path.join(extensionsPath, "ubugeeei.vize-0.311.0")),
     );
+    assert.ok(launchArgs.includes("--disable-extensions"));
     assert.ok(launchArgs.includes(`--extensionDevelopmentPath=${installedExtensionPath}`));
     assert.equal(launchArgs.includes(`--extensionDevelopmentPath=${sourceExtensionPath}`), false);
+    // The host commands the completion smoke relies on are gated behind this
+    // flag, so it has to reach the launched VS Code app while the Node-only
+    // options do not.
     assert.deepEqual(invocations[1].environment, {
+      VIZE_TEST_ENABLE_HOST_COMMANDS: "1",
       VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
+      VIZE_TEST_PINNED_CREATE_VUE_RESULT_PATH: path.join(profilePath, "result.json"),
+      VIZE_TEST_SERVER_PATH: "/repo/target/ci/vize",
       VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
     });
   } finally {
@@ -230,6 +260,7 @@ test("real host runner refuses to launch without a packaged VSIX", async () => {
           installTimeoutMs: 1000,
           onOutput: () => {},
           userDataPath: path.join(profilePath, "user-data"),
+          vscodeVersion: "1.107.1",
           vsixPath: path.join(profilePath, "vize.vsix"),
           workspacePath: path.join(profilePath, "workspace"),
         },

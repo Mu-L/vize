@@ -24,6 +24,7 @@ export function createPackagedHostLaunchArgs({
   return [
     "--no-sandbox",
     "--disable-gpu-sandbox",
+    "--disable-extensions",
     "--disable-updates",
     "--disable-workspace-trust",
     "--skip-welcome",
@@ -34,6 +35,35 @@ export function createPackagedHostLaunchArgs({
     `--extensionTestsPath=${extensionTestsPath}`,
     workspacePath,
   ];
+}
+
+/**
+ * Builds the environment the real host smoke launches VS Code with. The hidden
+ * `vize.test.*` commands only exist when `VIZE_TEST_ENABLE_HOST_COMMANDS` is
+ * "1", so this lives next to the launch protocol and tests can assert the flag
+ * survives all the way into the recorded launch environment.
+ */
+export function createRealHostEnvironment({
+  extensionsPath,
+  processEnvironment,
+  resultPath,
+  serverPath,
+  sourceExtensionPath,
+}) {
+  return {
+    ...processEnvironment,
+    VIZE_TEST_ENABLE_HOST_COMMANDS: "1",
+    VIZE_TEST_PACKAGED_EXTENSIONS_DIR: extensionsPath,
+    VIZE_TEST_PINNED_CREATE_VUE_RESULT_PATH: resultPath,
+    VIZE_TEST_SERVER_PATH: serverPath,
+    VIZE_TEST_SOURCE_EXTENSION_PATH: sourceExtensionPath,
+  };
+}
+
+export function createPackagedHostEnvironment(environment) {
+  const cleanEnvironment = { ...environment };
+  delete cleanEnvironment.NODE_OPTIONS;
+  return cleanEnvironment;
 }
 
 /**
@@ -55,6 +85,7 @@ export async function runPackagedExtensionHost(
     installTimeoutMs,
     onOutput,
     userDataPath,
+    vscodeVersion,
     vsixPath,
     workspacePath,
   },
@@ -68,6 +99,7 @@ export async function runPackagedExtensionHost(
     await runVSCodeCommandWithTimeout(runCommand, installArgs, {
       environment: installEnvironment,
       timeoutMs: installTimeoutMs,
+      version: vscodeVersion,
     }),
   );
 
@@ -81,8 +113,15 @@ export async function runPackagedExtensionHost(
   });
   onOutput(
     await runVSCodeCommandWithTimeout(runCommand, launchArgs, {
-      environment: hostEnvironment,
+      environment: createPackagedHostEnvironment(hostEnvironment),
+      // The suite inside the host runs for minutes, and its progress log is the
+      // only evidence of where a stall happened. A piped child hands its output
+      // back when the command resolves, so a host that outruns `hostTimeoutMs`
+      // reports the abort with everything the suite printed already discarded.
+      // Inheriting the streams publishes each line as it is written instead.
+      stdio: ["ignore", "inherit", "inherit"],
       timeoutMs: hostTimeoutMs,
+      version: vscodeVersion,
     }),
   );
 
@@ -105,13 +144,18 @@ export function resolveInstalledExtensionPath(extensionsPath, extensionId) {
   return fs.realpathSync(matches[0]);
 }
 
-export async function runVSCodeCommandWithTimeout(runCommand, args, { environment, timeoutMs }) {
+export async function runVSCodeCommandWithTimeout(
+  runCommand,
+  args,
+  { environment, stdio, timeoutMs, version },
+) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     return await runCommand(args, {
-      spawn: { env: environment, signal: controller.signal },
+      spawn: { env: environment, signal: controller.signal, ...(stdio ? { stdio } : {}) },
+      version,
     });
   } catch (error) {
     if (controller.signal.aborted) {

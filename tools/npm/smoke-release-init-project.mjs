@@ -239,22 +239,76 @@ export function runGeneratedCheck(projectRoot, manager, extra, env = {}) {
   });
 }
 
-export function checkReport(projectRoot, manager) {
-  const result = runGeneratedCheck(projectRoot, manager, ["--format", "json", "--quiet"]);
+export function projectLocalVizeBin(projectRoot) {
+  return path.join(projectRoot, "node_modules", "vize", "bin", "vize");
+}
+
+export function runProjectLocalCheck(projectRoot, extra, env = {}) {
+  return runResult(process.execPath, [projectLocalVizeBin(projectRoot), "check", ...extra], {
+    cwd: projectRoot,
+    env: projectEnv(env),
+  });
+}
+
+function renderInvocation(command, args, cwd, result) {
   const rendered = renderOutput(result);
+  return [
+    `command: ${JSON.stringify([command, ...args])}`,
+    `cwd: ${cwd}`,
+    `status: ${result.status ?? "<null>"}`,
+    `signal: ${result.signal ?? "<none>"}`,
+    rendered === "" ? "stdout/stderr: <empty>" : rendered,
+  ].join("\n");
+}
+
+export function checkReport(projectRoot) {
+  const args = [projectLocalVizeBin(projectRoot), "check", "--format", "json", "--quiet"];
+  const result = runResult(process.execPath, args, {
+    cwd: projectRoot,
+    env: projectEnv(),
+  });
+  const rendered = renderInvocation(process.execPath, args, projectRoot, result);
   let report;
   try {
     report = JSON.parse(result.stdout);
   } catch (error) {
-    throw new Error(`vize:check did not produce JSON\n${rendered}`, { cause: error });
+    throw new Error(`project-local vize check did not produce JSON\n${rendered}`, {
+      cause: error,
+    });
   }
   return { rendered, report, status: result.status };
 }
 
-export function reportedDiagnostics(report) {
+function normalizeReportedFile(file, projectRoot) {
+  const normalized = file.replaceAll("\\", "/");
+  const normalizedRoot = path.posix.normalize(projectRoot.replaceAll("\\", "/"));
+  const relativeToRoot = (target) => {
+    const relative = path.posix.relative(normalizedRoot, target);
+    if (relative === "" || (!relative.startsWith("../") && relative !== "..")) {
+      return relative;
+    }
+    return null;
+  };
+  if (path.posix.isAbsolute(normalized) || /^[A-Za-z]:\//u.test(normalized)) {
+    const relative = relativeToRoot(path.posix.normalize(normalized));
+    if (relative !== null) return relative.startsWith("./") ? relative.slice(2) : relative;
+  }
+  if (normalized === "." || normalized === ".." || /^[.]{1,2}\//u.test(normalized)) {
+    const relative = relativeToRoot(
+      path.posix.normalize(path.posix.join(normalizedRoot, normalized)),
+    );
+    if (relative !== null) return relative.startsWith("./") ? relative.slice(2) : relative;
+  }
+  return normalized.startsWith("./") ? normalized.slice(2) : normalized;
+}
+
+export function reportedDiagnostics(report, projectRoot) {
   return report.files
     .filter((file) => file.diagnostics.length > 0)
-    .map((file) => ({ file: file.file, diagnostics: file.diagnostics }));
+    .map((file) => ({
+      file: normalizeReportedFile(file.file, projectRoot),
+      diagnostics: file.diagnostics,
+    }));
 }
 
 /**
@@ -269,11 +323,7 @@ export function reportedDiagnostics(report) {
  */
 export function assertMissingCorsaGuidance(projectRoot, manager) {
   const missing = path.join(projectRoot, "no-such-corsa-runtime");
-  const direct = runResult(
-    process.execPath,
-    [path.join(projectRoot, "node_modules", "vize", "bin", "vize"), "check", "--quiet"],
-    { cwd: projectRoot, env: projectEnv({ CORSA_PATH: missing }) },
-  );
+  const direct = runProjectLocalCheck(projectRoot, ["--quiet"], { CORSA_PATH: missing });
   assert.notEqual(direct.status, 0, "a missing Corsa runtime silently disabled type checking");
   const message = renderOutput(direct).replaceAll(ANSI_SGR, "").replaceAll("\\", "/");
   assert.equal(

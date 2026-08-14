@@ -26,25 +26,9 @@ const expectedMismatchDiagnostic = {
   source: "vize/types",
 };
 const mismatchRepairRange = new vscode.Range(9, 19, 9, 24);
-const requiredTemplateCompletionLabels = ["Child", "amount", "label"];
-const forbiddenTemplateCompletionLabels = [
-  "Fake Vize Completion",
-  "v-bind",
-  "v-else",
-  "v-else-if",
-  "v-for",
-  "v-html",
-  "v-if",
-  "v-model",
-  "v-on",
-  "v-once",
-  "v-pre",
-  "v-show",
-  "v-slot",
-  "v-text",
-];
 
 exports.run = async function run() {
+  logProgress("start");
   const serverPath = getRealServer();
   const extension = vscode.extensions.getExtension(extensionId);
   assert.ok(extension, `missing extension: ${extensionId}`);
@@ -65,17 +49,28 @@ exports.run = async function run() {
   const mismatchDocument = await openWorkspaceDocument("src", "App.vue");
   await vscode.window.showTextDocument(mismatchDocument);
 
+  logProgress("diagnostics");
   await runRealDiagnosticSmoke(mismatchDocument, cleanDocument);
+  logProgress("completion");
   await runRealCompletionSmoke(mismatchDocument);
+  logProgress("hover");
   await runRealHoverSmoke(mismatchDocument);
+  logProgress("didChange repair");
   await runRealDidChangeRepairSmoke(mismatchDocument, extension);
+  logProgress("pinned create-vue oracle");
   await runPinnedCreateVuePatchOracle(extension);
 
+  logProgress("scorecard scenario");
   await runRealServerScenario();
 
   await vscode.commands.executeCommand("vize.disable");
   assert.equal(vscode.workspace.getConfiguration("vize").get("enable"), false);
+  logProgress("done");
 };
+
+function logProgress(label) {
+  console.log(`[vize-host-real] ${label}`);
+}
 
 async function runRealDiagnosticSmoke(mismatchDocument, cleanDocument) {
   const diagnostics = await waitForDiagnostics(
@@ -101,29 +96,16 @@ async function runRealDiagnosticSmoke(mismatchDocument, cleanDocument) {
 }
 
 async function runRealCompletionSmoke(mismatchDocument) {
+  const { HOST_TEST_COMPLETION_COMMAND, assertRealHostCompletionLabels } =
+    await import("../real-host-completion-oracle.mjs");
   const position = positionAfter(mismatchDocument, "{{ label }}", "{{ label");
-  const completions = await vscode.commands.executeCommand(
-    "vscode.executeCompletionItemProvider",
-    mismatchDocument.uri,
-    position,
-  );
-  const labels = (completions?.items ?? []).map((item) =>
-    typeof item.label === "string" ? item.label : item.label.label,
-  );
+  const completions = await vscode.commands.executeCommand(HOST_TEST_COMPLETION_COMMAND, {
+    uri: mismatchDocument.uri.toString(),
+    line: position.line,
+    character: position.character,
+  });
 
-  for (const required of requiredTemplateCompletionLabels) {
-    assert.ok(
-      labels.includes(required),
-      `template completion must include script binding ${JSON.stringify(required)}: ${JSON.stringify(labels)}`,
-    );
-  }
-  for (const forbidden of forbiddenTemplateCompletionLabels) {
-    assert.equal(
-      labels.includes(forbidden),
-      false,
-      `template expression completion must not surface ${JSON.stringify(forbidden)}: ${JSON.stringify(labels)}`,
-    );
-  }
+  assertRealHostCompletionLabels(completions);
 }
 
 async function runRealHoverSmoke(mismatchDocument) {

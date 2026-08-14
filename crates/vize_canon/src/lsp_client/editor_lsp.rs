@@ -1,10 +1,12 @@
-//! Editor-feature fallback over Corsa's `--lsp --stdio` transport.
+//! Reusable project editor state over Corsa's `--lsp --stdio` transport.
 //!
 //! The project-session API exposes diagnostics but rejects `hover` (and the
 //! other editor requests) as `CorsaError::Unsupported` on every pinned runtime
 //! — see ubugeeei-prod/corsa-bind#409. The very same runtime does advertise
 //! `hoverProvider` over its LSP transport, so editor features route through a
-//! second, lazily spawned session that mirrors the virtual documents in.
+//! lazily spawned session that mirrors the virtual documents in. Standard tsgo
+//! diagnostics use the same session so semantic requests share one project
+//! identity and one overlay generation.
 //!
 //! The session is lazy on purpose: typecheck-only runs never pay for the extra
 //! process, and a session that has answered one hover is reused later.
@@ -14,8 +16,8 @@ use super::{
     language_id::for_uri as language_id_for_uri,
 };
 use corsa::runtime::block_on;
-use corsa_lsp::{LspClient, LspOverlay, LspSpawnConfig, VirtualDocument, jsonrpc::InboundEvent};
-use lsp_types::Uri;
+use corsa_lsp::{LspClient, LspOverlay, LspSpawnConfig, VirtualDocument};
+use lsp_types::{DocumentDiagnosticReportResult, Uri};
 use serde_json::Value;
 use std::{
     path::Path,
@@ -24,23 +26,28 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
 };
 use vize_carton::{FxHashMap, FxHashSet, String, cstr};
 
 mod client;
+mod file_rename;
 mod readiness;
 mod requests;
+mod responder;
+mod retry;
 #[cfg(test)]
 mod tests;
 mod type_definition;
 
 use requests::{
     RawCompletionRequest, RawDefinitionRequest, RawHoverRequest, RawPrepareRenameRequest,
-    RawReferencesRequest, RawRenameRequest, RawSignatureHelpRequest,
+    RawReferencesRequest, RawRenameRequest, RawSignatureHelpRequest, RawWillRenameFilesRequest,
+    signature_help_request_params, will_rename_files_request_params,
 };
+use responder::spawn_responder;
 
-/// A reusable `--lsp --stdio` session used only for editor requests.
+/// A reusable `--lsp --stdio` session for standard diagnostics and editor
+/// requests.
 pub(super) struct EditorLspSession {
     client: LspClient,
     overlay: LspOverlay,
@@ -263,6 +270,25 @@ impl EditorLspSession {
         .map_err(|error| cstr!("Failed to request editor LSP signature help: {error}"))
     }
 
+    fn diagnostics(
+        &mut self,
+        document_uri: &str,
+    ) -> Result<DocumentDiagnosticReportResult, String> {
+        let uri = self.ready_document_uri(document_uri)?;
+        super::diagnostics_lsp::request_lsp_document_diagnostics(&self.client, &uri).map_err(
+            |error| cstr!("Failed to request editor LSP diagnostics for {document_uri}: {error}"),
+        )
+    }
+
+    fn will_rename_files(&mut self, renames: &[(&str, &str)]) -> Result<Option<Value>, String> {
+        self.ready_workspace_request()?;
+        block_on(
+            self.client
+                .request::<RawWillRenameFilesRequest>(will_rename_files_request_params(renames)),
+        )
+        .map_err(|error| cstr!("Failed to request editor LSP workspace/willRenameFiles: {error}"))
+    }
+
     /// Complete the standard LSP lifecycle before closing and reaping the
     /// owned process. The responder remains alive until `shutdown` returns so
     /// server-initiated requests cannot deadlock the final response.
@@ -297,54 +323,4 @@ impl Drop for EditorLspSession {
     fn drop(&mut self) {
         let _ = self.shutdown();
     }
-}
-
-/// Answers the server-initiated requests tsgo makes during startup; without a
-/// reply the server blocks before it ever serves an editor request.
-fn spawn_responder(client: LspClient, stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
-    let events = client.subscribe();
-    std::thread::spawn(move || {
-        while !stop.load(Ordering::Relaxed) {
-            if let Ok(InboundEvent::Request { id, method, params }) =
-                events.recv_timeout(Duration::from_millis(50))
-            {
-                let response = match method.as_ref() {
-                    "workspace/configuration" => configuration_response(&params),
-                    _ => Value::Null,
-                };
-                let _ = client.respond(id, response);
-            }
-        }
-    })
-}
-
-/// `workspace/configuration` results are positional: the array must hold one
-/// entry per requested item, in request order, with `null` for settings the
-/// client cannot supply. We supply none, so every slot is `null`. A bare `[]`
-/// would misalign servers that read `result[i]` for `items[i]`.
-fn configuration_response(params: &Value) -> Value {
-    let requested = params
-        .get("items")
-        .and_then(Value::as_array)
-        .map_or(0, Vec::len);
-    Value::Array(vec![Value::Null; requested])
-}
-
-fn signature_help_request_params(
-    uri: &Uri,
-    line: u32,
-    character: u32,
-    context: Option<Value>,
-) -> Value {
-    let context = context.unwrap_or_else(|| {
-        serde_json::json!({
-            "triggerKind": 1,
-            "isRetrigger": false
-        })
-    });
-    serde_json::json!({
-        "textDocument": { "uri": uri },
-        "position": { "line": line, "character": character },
-        "context": context,
-    })
 }
