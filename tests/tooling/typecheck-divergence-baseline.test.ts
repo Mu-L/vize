@@ -11,6 +11,7 @@ import {
   readJson,
   root,
   run,
+  sha256,
   setup,
   sharedBaselineOutput,
   sharedVizeDiagnostic,
@@ -142,6 +143,26 @@ test("zero diagnostics on both sides passes when both checked the same Vue files
     assert.equal(artifact.mutationOracle.states[1].sharedCount, 1);
     assert.equal(artifact.mutationOracle.states[1].falsePositiveCount, 0);
     assert.equal(artifact.mutationOracle.states[1].falseNegativeCount, 0);
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("vue-tsc listFiles evidence on stderr still proves baseline coverage", () => {
+  const fixture = setup({
+    baselineOutputStream: "stderr",
+    vizeDiagnostics: [],
+    baselineOutput: "",
+  });
+  try {
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const artifact = readJson(artifactPath(fixture, "json"));
+    assert.equal(artifact.baseline.coverage.baselineVueFileCount, 1);
+    assert.equal(artifact.baseline.coverage.sharedVueFileCount, 1);
+    assert.equal(artifact.baseline.stdoutSha256, sha256(""));
+    assert.notEqual(artifact.baseline.stderrSha256, artifact.baseline.stdoutSha256);
+    assert.equal(artifact.budget.verdict, "passed");
   } finally {
     cleanup(fixture);
   }
