@@ -4,12 +4,9 @@ use oxc_allocator::Allocator;
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
-use vize_carton::FxHashSet;
-use vize_carton::String;
-use vize_carton::append;
-use vize_carton::cstr;
+use vize_carton::{FxHashSet, String, append, cstr};
 
-use vize_croquis::{Croquis, ScopeKind};
+use vize_croquis::{Croquis, ScopeKind, analyzer::extract_identifier_refs_oxc};
 
 use crate::virtual_ts::types::{VirtualTsOptions, VizeMapping};
 
@@ -17,6 +14,11 @@ use super::context::ScopeGenerationOptions;
 
 mod instance;
 pub(super) use instance::generate_instance_global_refs;
+mod member_root;
+mod strict_candidate;
+use {
+    member_root::is_member_root_occurrence, strict_candidate::is_strict_template_context_candidate,
+};
 
 /// Handle undefined references from template.
 ///
@@ -38,7 +40,10 @@ pub(super) fn generate_undefined_refs(
     template_offset: u32,
     options: &ScopeGenerationOptions<'_, '_>,
 ) {
-    if summary.undefined_refs.is_empty() {
+    if summary.undefined_refs.is_empty()
+        && (!options.virtual_ts_options.strict_instance_globals
+            || summary.template_expressions.is_empty())
+    {
         return;
     }
     let resolve_on_instance = options.options_api
@@ -64,25 +69,26 @@ pub(super) fn generate_undefined_refs(
         None
     };
 
-    // Collect type export names to exclude from undefined refs
     let type_export_names: FxHashSet<&str> = summary
         .type_exports
         .iter()
         .map(|te| te.name.as_str())
         .collect();
 
-    let mut seen_names: FxHashSet<&str> = FxHashSet::default();
+    let mut seen_names: FxHashSet<String> = FxHashSet::default();
+    let mut seen_strict_occurrences: FxHashSet<(String, usize)> = FxHashSet::default();
     let mut emitted_header = false;
     let mut emitted_instance = false;
     for undef in &summary.undefined_refs {
-        if !seen_names.insert(undef.name.as_str()) {
+        let name = undef.name.as_str();
+        if !is_strict_template_context_candidate(name) {
             continue;
         }
         if is_template_instance_global_name(undef.name.as_str()) {
             continue;
         }
         // Skip names that match type exports (these are type-level, not value-level)
-        if type_export_names.contains(undef.name.as_str()) {
+        if type_export_names.contains(name) {
             continue;
         }
 
@@ -91,18 +97,41 @@ pub(super) fn generate_undefined_refs(
         // A name a configured `globalTypes` entry or a CSS module already
         // declares in this scope keeps the free-name emission too: the `var` the
         // instance form hoists would redeclare it (`TS2451`).
-        let on_instance = script_scope_names.as_ref().is_some_and(|names| {
-            !names.contains(undef.name.as_str())
-                && !is_declared_template_context_name(
-                    undef.name.as_str(),
-                    options.virtual_ts_options,
-                )
-        });
+        let script_declared = script_scope_names
+            .as_ref()
+            .is_some_and(|names| names.contains(name));
+        let context_declared = is_declared_template_context_name(name, options.virtual_ts_options);
+        let on_instance = script_scope_names
+            .as_ref()
+            .is_some_and(|_| !script_declared && !context_declared);
+        let on_strict_template_context = options.virtual_ts_options.strict_instance_globals
+            && !on_instance
+            && !script_declared
+            && !context_declared;
 
-        if !emitted_header {
-            ts.push_str("\n  // Undefined references from template:\n");
-            emitted_header = true;
+        if on_strict_template_context {
+            if !seen_strict_occurrences.insert((undef.name.clone(), src_start)) {
+                continue;
+            }
+            let member_root = is_member_root_occurrence(summary, undef.offset, name);
+            let already_declared = member_root || !seen_names.insert(String::from(name));
+            emit_header(ts, &mut emitted_header);
+            emit_strict_template_context_ref(
+                ts,
+                mappings,
+                name,
+                src_start,
+                src_end,
+                already_declared,
+            );
+            continue;
+        } else {
+            if !seen_names.insert(String::from(name)) {
+                continue;
+            }
         }
+
+        emit_header(ts, &mut emitted_header);
         if on_instance && !emitted_instance {
             // A value typed as the public instance: the missing key reports
             // `TS2339` naming the instance type (the code and shape `vue-tsc`
@@ -115,7 +144,6 @@ pub(super) fn generate_undefined_refs(
             emitted_instance = true;
         }
 
-        let gen_start = ts.len();
         // Use void expression to reference the name without creating an unused variable
         let expr_code = if on_instance {
             cstr!(
@@ -127,6 +155,7 @@ pub(super) fn generate_undefined_refs(
         } else {
             cstr!("  void ({});\n", undef.name)
         };
+        let gen_start = ts.len();
         let name_offset = if on_instance {
             expr_code.rfind(undef.name.as_str()).unwrap_or(0)
         } else {
@@ -146,6 +175,113 @@ pub(super) fn generate_undefined_refs(
             "  // @vize-map: {gen_name_start}:{gen_name_end} -> {src_start}:{src_end}\n",
         );
     }
+
+    if options.virtual_ts_options.strict_instance_globals && !resolve_on_instance {
+        generate_strict_expression_refs(
+            ts,
+            mappings,
+            summary,
+            template_offset,
+            options.virtual_ts_options,
+            &type_export_names,
+            &mut seen_names,
+            &mut seen_strict_occurrences,
+            &mut emitted_header,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generate_strict_expression_refs(
+    ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
+    summary: &Croquis,
+    template_offset: u32,
+    options: &VirtualTsOptions,
+    type_export_names: &FxHashSet<&str>,
+    seen_names: &mut FxHashSet<String>,
+    seen_strict_occurrences: &mut FxHashSet<(String, usize)>,
+    emitted_header: &mut bool,
+) {
+    for expr in &summary.template_expressions {
+        for ident in extract_identifier_refs_oxc(expr.content.as_str()) {
+            let name = ident.name.as_str();
+            let local_start = expr.start + ident.offset;
+            let head = expr.content.as_str()[..ident.offset as usize].trim_end();
+            let member_root = is_member_root_occurrence(summary, local_start, name);
+            if is_template_instance_global_name(name)
+                || !is_strict_template_context_candidate(name)
+                || is_declared_template_context_name(name, options)
+                || type_export_names.contains(name)
+                || is_visible_template_binding(summary, name, local_start)
+                || head.ends_with('.')
+                || head.ends_with("?.")
+            {
+                continue;
+            }
+            let src_start = (template_offset + local_start) as usize;
+            if !seen_strict_occurrences.insert((String::from(name), src_start)) {
+                continue;
+            }
+            let already_declared = member_root || !seen_names.insert(String::from(name));
+            emit_header(ts, emitted_header);
+            emit_strict_template_context_ref(
+                ts,
+                mappings,
+                name,
+                src_start,
+                src_start + name.len(),
+                already_declared,
+            );
+        }
+    }
+}
+
+fn is_visible_template_binding(summary: &Croquis, name: &str, template_offset: u32) -> bool {
+    summary.bindings.contains(name)
+        || summary
+            .scopes
+            .bindings_visible_at(template_offset)
+            .iter()
+            .any(|(binding, _, _)| *binding == name)
+}
+
+fn emit_header(ts: &mut String, emitted_header: &mut bool) {
+    if !*emitted_header {
+        ts.push_str("\n  // Undefined references from template:\n");
+        *emitted_header = true;
+    }
+}
+
+fn emit_strict_template_context_ref(
+    ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
+    name: &str,
+    src_start: usize,
+    src_end: usize,
+    already_declared: bool,
+) {
+    let expr_code = if already_declared {
+        cstr!("  void (__vize_strict_template_context.{name});\n")
+    } else {
+        cstr!(
+            "  var {name}: any = undefined; void ({name});\n  void (__vize_strict_template_context.{name});\n"
+        )
+    };
+    let gen_start = ts.len();
+    let name_offset = expr_code.rfind(name).unwrap_or(0);
+    let gen_name_start = gen_start + name_offset;
+    let gen_name_end = gen_name_start + name.len();
+    ts.push_str(&expr_code);
+    mappings.push(VizeMapping {
+        gen_range: gen_name_start..gen_name_end,
+        src_range: src_start..src_end,
+        sub_spans: Vec::new(),
+    });
+    append!(
+        *ts,
+        "  // @vize-map: {gen_name_start}:{gen_name_end} -> {src_start}:{src_end}\n",
+    );
 }
 
 /// Whether the SFC authored a `<script setup>` block: its bindings are the
@@ -206,4 +342,9 @@ fn is_declared_template_context_name(name: &str, options: &VirtualTsOptions) -> 
             .css_modules
             .iter()
             .any(|module_name| module_name.as_str() == name)
+        || options.has_auto_import_binding_name(name)
+        || options
+            .external_template_bindings
+            .iter()
+            .any(|binding| binding.as_str() == name)
 }
