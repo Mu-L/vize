@@ -8,6 +8,7 @@ import {
   cleanup,
   commitSha,
   readJson,
+  root,
   run,
   setup,
   updateJson,
@@ -217,6 +218,73 @@ test("typecheck divergence report binds baseline evidence to the matrix artifact
     assert.match(markdown, /vue-tsc excluded project-level: 0/);
     assert.match(markdown, /Seeded mutation oracle: passed \(src\/App\.vue:3:1\)/);
     assert.match(markdown, new RegExp(`Digest: ${artifact.divergence.sha256}`));
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("typecheck divergence report skips shards without typecheck performance targets", () => {
+  const fixture = setup();
+  try {
+    updateJson(
+      fixture.registryPath,
+      (registry) => (registry.projects[0].typecheckPerformance.enabled = false),
+    );
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /No typecheck performance projects selected/);
+    assert.equal(
+      fs.existsSync(path.join(fixture.reportDir, "fixture-typecheck-divergence.json")),
+      false,
+    );
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("typecheck divergence report writes all selected artifacts before enforcing budgets", () => {
+  const fixture = setup({
+    vizeDiagnostics: ["error:1:1 [TS2322] shared", "error:1:2 [TS2322] extra"],
+  });
+  try {
+    const registry = readJson(fixture.registryPath);
+    registry.projects.push({ ...registry.projects[0], id: "second" });
+    writeJson(fixture.registryPath, registry);
+
+    const summaryPath = path.join(fixture.reportDir, "summary.json");
+    const summary = readJson(summaryPath);
+    const secondOutput = path.join(fixture.reportDir, "second-typechecker.json");
+    summary.projects.push({
+      ...summary.projects[0],
+      id: "second",
+      runs: summary.projects[0].runs.map((run: any) => ({
+        ...run,
+        outputPath: path.relative(root, secondOutput),
+      })),
+    });
+    writeJson(summaryPath, summary);
+
+    const payload = readJson(fixture.outputPath);
+    payload.project = "second";
+    writeJson(secondOutput, payload);
+    const preparation = readJson(
+      path.join(fixture.reportDir, "fixture-typecheck-dependencies.json"),
+    );
+    preparation.project = "second";
+    writeJson(path.join(fixture.reportDir, "second-typecheck-dependencies.json"), preparation);
+
+    const result = run(fixture);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Typecheck divergence budget breached for fixture/);
+    assert.match(result.stderr, /Typecheck divergence budget breached for second/);
+    assert.equal(
+      fs.existsSync(path.join(fixture.reportDir, "fixture-typecheck-divergence.json")),
+      true,
+    );
+    assert.equal(
+      fs.existsSync(path.join(fixture.reportDir, "second-typecheck-divergence.json")),
+      true,
+    );
   } finally {
     cleanup(fixture);
   }
