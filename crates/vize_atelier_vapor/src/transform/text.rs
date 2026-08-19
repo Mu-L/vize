@@ -100,7 +100,7 @@ fn collect_text_runs<'a>(
     run_index: &mut Option<usize>,
     rendered_index: &mut usize,
 ) {
-    for child in children {
+    for child in vize_atelier_core::walk_probe::vapor_children(children) {
         match child {
             TemplateChildNode::Text(text) => {
                 begin_text_run(run_index, rendered_index);

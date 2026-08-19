@@ -65,7 +65,7 @@ impl<'a> SsrCodegenContext<'a> {
             None
         };
 
-        for (index, child) in children.iter().enumerate() {
+        for (index, child) in vize_atelier_core::walk_probe::ssr_children(children).enumerate() {
             self.process_child(
                 child,
                 disable_nested_fragments,

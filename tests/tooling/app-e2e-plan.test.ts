@@ -15,6 +15,10 @@ import {
 } from "../_helpers/app-fixture-runtime.ts";
 import { elkApp, frontendPhpconApp, npmxApp } from "../_helpers/apps.ts";
 import {
+  resolveVizeE2EFastNpmMetaVersion,
+  resolveVizeE2ENpmRegistryCachedResponse,
+} from "../_fixtures/npmx-e2e-registry-fixtures.ts";
+import {
   fullAppE2eRows,
   planAppE2eRows,
   readinessRows,
@@ -99,6 +103,11 @@ test("full and readiness plans preserve every isolated execution row", () => {
     "30m",
     "hosted Nuxt UI dev readiness needs enough wall-clock budget for server boot and warmups",
   );
+  assert.deepEqual(
+    fullAppE2eRows.filter((row) => row.suite === "vrt").map((row) => row.timeout),
+    ["30m", "30m", "30m", "30m", "30m"],
+    "hosted full VRT rows need enough wall-clock budget for serial fixtures and retries",
+  );
   assert.equal(
     readinessRows.find((row) => row.shard === "lint")?.timeout,
     "5m",
@@ -143,7 +152,18 @@ test("upstream app fixtures keep deterministic CI setup", () => {
     "--no-cache",
     "generate:sprite",
   ]);
+  assert.equal(npmxApp.env?.NUXT_TEST_FIXTURES, "true");
   assert.equal(npmxApp.env?.VIZE_E2E_DISABLE_LUNARIA, "1");
+  const manifest = resolveVizeE2ENpmRegistryCachedResponse<{ dist: { unpackedSize: number } }>(
+    "vue/3.5.29",
+  );
+  assert.equal(manifest.handled, true);
+  if (!manifest.handled) throw new Error("expected vue package manifest fixture");
+  assert.equal(manifest.data.data.dist.unpackedSize, 2_600_000);
+  assert.deepEqual(resolveVizeE2EFastNpmMetaVersion("https://npm.antfu.dev/vue"), {
+    handled: true,
+    data: "3.5.29",
+  });
 
   assert.equal(frontendPhpconApp.env?.NUXT_PUBLIC_API_BASE, FRONTEND_PHPCON_E2E_API_BASE);
   assert.equal(
@@ -284,6 +304,14 @@ test("planned tasks, fixtures, and mutable identities are exact and unique", () 
 test("plan validation rejects drift instead of silently dropping coverage", () => {
   const valid = structuredClone([...fullAppE2eRows, ...readinessRows]);
   assert.doesNotThrow(() => validateAppE2eRows(valid));
+  // The nuxt-ui HMR probe measures a 60s authored-source patch, which only
+  // fits on hosted hardware; every other row belongs on Blacksmith.
+  for (const current of valid) {
+    const expected = current.shard.includes("nuxt-ui")
+      ? "ubuntu-24.04"
+      : "blacksmith-32vcpu-ubuntu-2404";
+    assert.equal(current.runner, expected, `${current.profile}:${current.shard} runner`);
+  }
   for (const [name, mutate, message] of [
     ["empty", (rows: typeof valid) => rows.splice(0), /must not be empty/],
     [
@@ -305,6 +333,7 @@ test("plan validation rejects drift instead of silently dropping coverage", () =
       (rows: typeof valid) => (rows[1]!.cacheKey = rows[0]!.cacheKey),
       /identity drifted/,
     ],
+    ["runner drift", (rows: typeof valid) => (rows[0]!.runner = "ubuntu-24.04"), /runner drifted/],
   ] as const) {
     const rows = structuredClone(valid);
     mutate(rows);

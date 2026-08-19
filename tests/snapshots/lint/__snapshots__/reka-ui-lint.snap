@@ -143,12 +143,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Accordion' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Accordion' should be PascalCase or kebab-case",
         "line": 22,
         "column": 11,
         "endLine": 22,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -192,21 +192,9 @@
   },
   {
     "file": "packages/core/src/AlertDialog/AlertDialogRoot.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 24,
-        "column": 5,
-        "endLine": 24,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/AlertDialog/AlertDialogTitle.vue",
@@ -233,12 +221,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_AlertDialog' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_AlertDialog' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -281,12 +269,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Autocomplete' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Autocomplete' should be PascalCase or kebab-case",
         "line": 21,
         "column": 11,
         "endLine": 21,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -347,12 +335,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Avatar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Avatar' should be PascalCase or kebab-case",
         "line": 7,
         "column": 11,
         "endLine": 7,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -438,39 +426,15 @@
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 9,
-        "endLine": 13,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarDir.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 15,
-        "column": 11,
-        "endLine": 15,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarFixedWeeksForLocales.story.vue",
@@ -494,17 +458,6 @@
     "file": "packages/core/src/Calendar/story/CalendarPopover.story.vue",
     "messages": [
       {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 27,
-        "column": 9,
-        "endLine": 27,
-        "endColumn": 42,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
         "ruleId": "a11y/click-events-have-key-events",
         "ruleDocsPath": "docs/content/rules/accessibility.md",
         "severity": 1,
@@ -550,25 +503,13 @@
       }
     ],
     "errorCount": 0,
-    "warningCount": 5
+    "warningCount": 4
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarSelect.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 202,
-        "column": 11,
-        "endLine": 202,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarValidation.story.vue",
@@ -578,39 +519,15 @@
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarWeek.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 14,
-        "column": 9,
-        "endLine": 14,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Calendar/story/CalendarYearIncrement.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 9,
-        "endLine": 20,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Calendar/story/_Calendar.vue",
@@ -619,27 +536,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Calendar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Calendar' should be PascalCase or kebab-case",
         "line": 15,
         "column": 11,
         "endLine": 15,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 17,
-        "column": 5,
-        "endLine": 17,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Calendar/story/_CalendarMultiple.vue",
@@ -648,27 +554,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_CalendarMultiple' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_CalendarMultiple' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Calendar/story/_CalendarPopover.vue",
@@ -677,12 +572,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_CalendarPopover' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_CalendarPopover' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -695,27 +590,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyCalendar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyCalendar' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 15,
-        "column": 5,
-        "endLine": 15,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Checkbox/CheckboxGroupRoot.vue",
@@ -822,12 +706,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Checkbox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Checkbox' should be PascalCase or kebab-case",
         "line": 11,
         "column": 11,
         "endLine": 11,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "a11y/no-refer-to-non-existent-id",
@@ -851,12 +735,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_CheckboxGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_CheckboxGroup' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -869,12 +753,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_NoScopeCheckbox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_NoScopeCheckbox' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -887,12 +771,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedCheckbox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedCheckbox' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -900,21 +784,9 @@
   },
   {
     "file": "packages/core/src/Collapsible/CollapsibleContent.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 98,
-        "column": 5,
-        "endLine": 98,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Collapsible/CollapsibleRoot.vue",
@@ -941,12 +813,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Collapsible' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Collapsible' should be PascalCase or kebab-case",
         "line": 11,
         "column": 11,
         "endLine": 11,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -983,27 +855,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorArea' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorArea' should be PascalCase or kebab-case",
         "line": 21,
         "column": 11,
         "endLine": 21,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 28,
-        "column": 7,
-        "endLine": 28,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/ColorField/ColorFieldInput.vue",
@@ -1042,12 +903,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorField' should be PascalCase or kebab-case",
         "line": 23,
         "column": 11,
         "endLine": 23,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1066,27 +927,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorPicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorPicker' should be PascalCase or kebab-case",
         "line": 39,
         "column": 11,
         "endLine": 39,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 55,
-        "column": 7,
-        "endLine": 55,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/ColorSlider/ColorSliderRoot.vue",
@@ -1119,12 +969,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSlider' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSlider' should be PascalCase or kebab-case",
         "line": 22,
         "column": 11,
         "endLine": 22,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1137,12 +987,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSliderCompound' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSliderCompound' should be PascalCase or kebab-case",
         "line": 38,
         "column": 11,
         "endLine": 38,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1167,12 +1017,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSwatch' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSwatch' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1215,12 +1065,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSwatchPicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ColorSwatchPicker' should be PascalCase or kebab-case",
         "line": 23,
         "column": 11,
         "endLine": 23,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1324,21 +1174,9 @@
   },
   {
     "file": "packages/core/src/Combobox/ComboboxVirtualizer.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 29,
-        "column": 5,
-        "endLine": 29,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Combobox/story/ComboboxAsync.story.vue",
@@ -1368,17 +1206,6 @@
     "file": "packages/core/src/Combobox/story/ComboboxCustom.story.vue",
     "messages": [
       {
-        "ruleId": "vue/no-template-target-blank",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
-        "line": 59,
-        "column": 17,
-        "endLine": 62,
-        "endColumn": 18,
-        "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
-      },
-      {
         "ruleId": "vue/no-unsafe-url",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
@@ -1388,6 +1215,17 @@
         "endLine": 60,
         "endColumn": 38,
         "help": "Consider using <router-link :to=\"...\"> or sanitize URLs with @braintree/sanitize-url"
+      },
+      {
+        "ruleId": "vue/no-template-target-blank",
+        "ruleDocsPath": "docs/content/rules/vue.md",
+        "severity": 1,
+        "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
+        "line": 61,
+        "column": 19,
+        "endLine": 61,
+        "endColumn": 34,
+        "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
       }
     ],
     "errorCount": 0,
@@ -1419,39 +1257,15 @@
   },
   {
     "file": "packages/core/src/Combobox/story/ComboboxSelectMenu.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 40,
-        "column": 9,
-        "endLine": 40,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Combobox/story/ComboboxVirtual.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 47,
-        "column": 17,
-        "endLine": 47,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Combobox/story/_Combobox.vue",
@@ -1460,12 +1274,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Combobox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Combobox' should be PascalCase or kebab-case",
         "line": 25,
         "column": 11,
         "endLine": 25,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1478,12 +1292,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxManualFilter' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxManualFilter' should be PascalCase or kebab-case",
         "line": 24,
         "column": 11,
         "endLine": 24,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1496,12 +1310,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxObject' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxObject' should be PascalCase or kebab-case",
         "line": 19,
         "column": 11,
         "endLine": 19,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1514,27 +1328,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxTagsInput' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ComboboxTagsInput' should be PascalCase or kebab-case",
         "line": 22,
         "column": 11,
         "endLine": 22,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 29,
-        "column": 9,
-        "endLine": 29,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/ConfigProvider/ConfigProvider.vue",
@@ -1549,12 +1352,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ConfigProvider' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ConfigProvider' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1669,12 +1472,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ContextMenu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ContextMenu' should be PascalCase or kebab-case",
         "line": 32,
         "column": 11,
         "endLine": 32,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -1706,116 +1509,15 @@
   },
   {
     "file": "packages/core/src/DateField/story/DateFieldChromatic.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 9,
-        "endLine": 20,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 46,
-        "column": 9,
-        "endLine": 46,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 73,
-        "column": 9,
-        "endLine": 73,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 99,
-        "column": 9,
-        "endLine": 99,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 126,
-        "column": 9,
-        "endLine": 126,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 154,
-        "column": 9,
-        "endLine": 154,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 182,
-        "column": 9,
-        "endLine": 182,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 210,
-        "column": 9,
-        "endLine": 210,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 8
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateField/story/DateFieldDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 18,
-        "column": 11,
-        "endLine": 18,
-        "endColumn": 43,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateField/story/DateFieldGranular.story.vue",
@@ -1852,145 +1554,22 @@
         "endLine": 123,
         "endColumn": 26,
         "help": "Element IDs must be unique within a document. Duplicate IDs break label associations, ARIA references, and getElementById()."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 11,
-        "endLine": 19,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 54,
-        "column": 11,
-        "endLine": 54,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 89,
-        "column": 11,
-        "endLine": 89,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 124,
-        "column": 11,
-        "endLine": 124,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
       }
     ],
     "errorCount": 3,
-    "warningCount": 4
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateField/story/DateFieldInvalid.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 11,
-        "endLine": 19,
-        "endColumn": 43,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateField/story/DateFieldLocales.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 12,
-        "column": 9,
-        "endLine": 12,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 39,
-        "column": 9,
-        "endLine": 39,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 67,
-        "column": 9,
-        "endLine": 67,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 95,
-        "column": 9,
-        "endLine": 95,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 123,
-        "column": 9,
-        "endLine": 123,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 151,
-        "column": 9,
-        "endLine": 151,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 6
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateField/story/_DateField.vue",
@@ -1999,27 +1578,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateField' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 18,
-        "column": 5,
-        "endLine": 18,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerAnchor.vue",
@@ -2035,21 +1603,9 @@
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerCalendar.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 14,
-        "column": 5,
-        "endLine": 14,
-        "endColumn": 72,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerCell.vue",
@@ -2059,21 +1615,9 @@
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerCellTrigger.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 16,
-        "column": 5,
-        "endLine": 16,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerClose.vue",
@@ -2101,21 +1645,9 @@
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerField.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 5,
-        "endLine": 13,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerGrid.vue",
@@ -2155,21 +1687,9 @@
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerHeading.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 5,
-        "endLine": 20,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerInput.vue",
@@ -2179,39 +1699,15 @@
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerNext.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 17,
-        "column": 5,
-        "endLine": 17,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerPrev.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 16,
-        "column": 5,
-        "endLine": 16,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/DatePickerRoot.vue",
@@ -2245,32 +1741,9 @@
   },
   {
     "file": "packages/core/src/DatePicker/story/DatePickerDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 39,
-        "column": 13,
-        "endLine": 39,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 75,
-        "column": 15,
-        "endLine": 75,
-        "endColumn": 42,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DatePicker/story/DatePickerGranular.story.vue",
@@ -2291,38 +1764,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DatePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DatePicker' should be PascalCase or kebab-case",
         "line": 28,
         "column": 11,
         "endLine": 28,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 42,
-        "column": 7,
-        "endLine": 42,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 60,
-        "column": 9,
-        "endLine": 60,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DatePicker/story/_DummyDatePicker.vue",
@@ -2331,38 +1782,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDatePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDatePicker' should be PascalCase or kebab-case",
         "line": 32,
         "column": 11,
         "endLine": 32,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 37,
-        "column": 7,
-        "endLine": 37,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 73,
-        "column": 9,
-        "endLine": 73,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DateRangeField/DateRangeFieldInput.vue",
@@ -2396,21 +1825,9 @@
   },
   {
     "file": "packages/core/src/DateRangeField/story/DateRangeFieldDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 10,
-        "column": 9,
-        "endLine": 10,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangeField/story/DateRangeFieldGranular.story.vue",
@@ -2431,27 +1848,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateRangeField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateRangeField' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 18,
-        "column": 5,
-        "endLine": 18,
-        "endColumn": 26,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DateRangeField/story/_DummyDateRangeField.vue",
@@ -2460,27 +1866,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDateRangeField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDateRangeField' should be PascalCase or kebab-case",
         "line": 11,
         "column": 11,
         "endLine": 11,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 5,
-        "endLine": 13,
-        "endColumn": 26,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerAnchor.vue",
@@ -2496,21 +1891,9 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerCalendar.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 5,
-        "endLine": 13,
-        "endColumn": 72,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerCell.vue",
@@ -2520,21 +1903,9 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerCellTrigger.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 16,
-        "column": 5,
-        "endLine": 16,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerClose.vue",
@@ -2562,21 +1933,9 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerField.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 5,
-        "endLine": 13,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerGrid.vue",
@@ -2616,21 +1975,9 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerHeading.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 5,
-        "endLine": 20,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerInput.vue",
@@ -2640,39 +1987,15 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerNext.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 16,
-        "column": 5,
-        "endLine": 16,
-        "endColumn": 24,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerPrev.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 16,
-        "column": 5,
-        "endLine": 16,
-        "endColumn": 24,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/DateRangePickerRoot.vue",
@@ -2706,32 +2029,9 @@
   },
   {
     "file": "packages/core/src/DateRangePicker/story/DateRangePickerDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 39,
-        "column": 13,
-        "endLine": 39,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 99,
-        "column": 15,
-        "endLine": 99,
-        "endColumn": 42,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/DateRangePicker/story/DateRangePickerGranular.story.vue",
@@ -2752,38 +2052,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateRangePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DateRangePicker' should be PascalCase or kebab-case",
         "line": 28,
         "column": 11,
         "endLine": 28,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 41,
-        "column": 7,
-        "endLine": 41,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 70,
-        "column": 9,
-        "endLine": 70,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/DateRangePicker/story/_DummyDateRangePicker.vue",
@@ -2792,38 +2070,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDateRangePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDateRangePicker' should be PascalCase or kebab-case",
         "line": 33,
         "column": 11,
         "endLine": 33,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 36,
-        "column": 7,
-        "endLine": 36,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 95,
-        "column": 9,
-        "endLine": 95,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Dialog/DialogClose.vue",
@@ -2833,21 +2089,9 @@
   },
   {
     "file": "packages/core/src/Dialog/DialogContent.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 42,
-        "column": 5,
-        "endLine": 42,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Dialog/DialogContentImpl.vue",
@@ -2887,21 +2131,9 @@
   },
   {
     "file": "packages/core/src/Dialog/DialogOverlay.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 28,
-        "column": 5,
-        "endLine": 28,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Dialog/DialogOverlayImpl.vue",
@@ -2953,43 +2185,9 @@
   },
   {
     "file": "packages/core/src/Dialog/story/DialogProgrammaticClose.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 11,
-        "endLine": 13,
-        "endColumn": 29,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 42,
-        "column": 11,
-        "endLine": 42,
-        "endColumn": 37,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 64,
-        "column": 25,
-        "endLine": 64,
-        "endColumn": 51,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Dialog/story/DialogWithDropdown.story.vue",
@@ -3004,12 +2202,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Dialog' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Dialog' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "vue/require-scoped-style",
@@ -3143,12 +2341,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DismissableBox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DismissableBox' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3161,12 +2359,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DismissableLayer' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DismissableLayer' should be PascalCase or kebab-case",
         "line": 26,
         "column": 11,
         "endLine": 26,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3179,12 +2377,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDialog' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyDialog' should be PascalCase or kebab-case",
         "line": 15,
         "column": 11,
         "endLine": 15,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "a11y/form-control-has-label",
@@ -3208,12 +2406,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyPopover' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyPopover' should be PascalCase or kebab-case",
         "line": 28,
         "column": 11,
         "endLine": 28,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "a11y/form-control-has-label",
@@ -3385,12 +2583,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Drawer' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Drawer' should be PascalCase or kebab-case",
         "line": 24,
         "column": 11,
         "endLine": 24,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3552,12 +2750,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DropdownMenu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DropdownMenu' should be PascalCase or kebab-case",
         "line": 42,
         "column": 11,
         "endLine": 42,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3570,12 +2768,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DropdownMenuWithFilter' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DropdownMenuWithFilter' should be PascalCase or kebab-case",
         "line": 40,
         "column": 11,
         "endLine": 40,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3631,21 +2829,9 @@
   },
   {
     "file": "packages/core/src/Editable/story/EditableDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 12,
-        "column": 9,
-        "endLine": 12,
-        "endColumn": 31,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Editable/story/_DummyEditable.vue",
@@ -3654,27 +2840,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyEditable' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyEditable' should be PascalCase or kebab-case",
         "line": 21,
         "column": 11,
         "endLine": 21,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 23,
-        "column": 5,
-        "endLine": 23,
-        "endColumn": 27,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Editable/story/_Editable.vue",
@@ -3683,12 +2858,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Editable' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Editable' should be PascalCase or kebab-case",
         "line": 8,
         "column": 11,
         "endLine": 8,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -3903,12 +3078,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_HoverCard' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_HoverCard' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4030,76 +3205,9 @@
   },
   {
     "file": "packages/core/src/Listbox/story/ListboxVirtual.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 22,
-        "column": 13,
-        "endLine": 22,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 47,
-        "column": 15,
-        "endLine": 47,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 68,
-        "column": 15,
-        "endLine": 68,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 89,
-        "column": 15,
-        "endLine": 89,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 110,
-        "column": 15,
-        "endLine": 110,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 134,
-        "column": 15,
-        "endLine": 134,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 6
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Listbox/story/_Listbox.vue",
@@ -4108,12 +3216,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Listbox' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Listbox' should be PascalCase or kebab-case",
         "line": 20,
         "column": 11,
         "endLine": 20,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4173,7 +3281,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'KeyboardEvent' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
         "line": 69,
         "column": 5,
         "endLine": 84,
@@ -4184,7 +3292,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'KeyboardEvent' is a browser-only global and is not available in SSR",
         "line": 69,
         "column": 5,
         "endLine": 84,
@@ -4291,29 +3399,29 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
+        "line": 80,
+        "column": 7,
+        "endLine": 98,
+        "endColumn": 9,
+        "help": "Move browser-only code to client lifecycle hooks like onMounted() or use <ClientOnly>"
+      },
+      {
+        "ruleId": "ssr/no-browser-globals-in-ssr",
+        "ruleDocsPath": "docs/content/rules/ssr.md",
+        "severity": 1,
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
+        "line": 80,
+        "column": 7,
+        "endLine": 98,
+        "endColumn": 9,
+        "help": "Move browser-only code to client lifecycle hooks like onMounted() or use <ClientOnly>"
+      },
+      {
+        "ruleId": "ssr/no-browser-globals-in-ssr",
+        "ruleDocsPath": "docs/content/rules/ssr.md",
+        "severity": 1,
         "message": "[vize:ssr/no-browser-globals-in-ssr] 'KeyboardEvent' is a browser-only global and is not available in SSR",
-        "line": 80,
-        "column": 7,
-        "endLine": 98,
-        "endColumn": 9,
-        "help": "Move browser-only code to client lifecycle hooks like onMounted() or use <ClientOnly>"
-      },
-      {
-        "ruleId": "ssr/no-browser-globals-in-ssr",
-        "ruleDocsPath": "docs/content/rules/ssr.md",
-        "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
-        "line": 80,
-        "column": 7,
-        "endLine": 98,
-        "endColumn": 9,
-        "help": "Move browser-only code to client lifecycle hooks like onMounted() or use <ClientOnly>"
-      },
-      {
-        "ruleId": "ssr/no-browser-globals-in-ssr",
-        "ruleDocsPath": "docs/content/rules/ssr.md",
-        "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
         "line": 80,
         "column": 7,
         "endLine": 98,
@@ -4342,7 +3450,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'MouseEvent' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
         "line": 147,
         "column": 7,
         "endLine": 158,
@@ -4353,7 +3461,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'MouseEvent' is a browser-only global and is not available in SSR",
         "line": 147,
         "column": 7,
         "endLine": 158,
@@ -4401,12 +3509,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Menu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Menu' should be PascalCase or kebab-case",
         "line": 51,
         "column": 11,
         "endLine": 51,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4419,12 +3527,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_MenuWithAnchor' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_MenuWithAnchor' should be PascalCase or kebab-case",
         "line": 20,
         "column": 11,
         "endLine": 20,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4437,12 +3545,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_MenuWithSubmenu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_MenuWithSubmenu' should be PascalCase or kebab-case",
         "line": 14,
         "column": 11,
         "endLine": 14,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4455,12 +3563,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Submenu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Submenu' should be PascalCase or kebab-case",
         "line": 14,
         "column": 11,
         "endLine": 14,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4473,12 +3581,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TickIcon' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TickIcon' should be PascalCase or kebab-case",
         "line": 1,
         "column": 11,
         "endLine": 1,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4623,12 +3731,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Menubar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Menubar' should be PascalCase or kebab-case",
         "line": 33,
         "column": 11,
         "endLine": 33,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -4696,21 +3804,9 @@
   },
   {
     "file": "packages/core/src/MonthPicker/story/MonthPickerDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 9,
-        "endLine": 13,
-        "endColumn": 26,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/MonthPicker/story/_MonthPicker.vue",
@@ -4719,27 +3815,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_MonthPicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_MonthPicker' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 22,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/MonthRangePicker/MonthRangePickerCell.vue",
@@ -4814,45 +3899,22 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_MonthRangePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_MonthRangePicker' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 22,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
-    "errorCount": 0,
-    "warningCount": 2
-  },
-  {
-    "file": "packages/core/src/NavigationMenu/NavigationMenuContent.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 57,
-        "column": 7,
-        "endLine": 57,
-        "endColumn": 27,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
     "warningCount": 1
+  },
+  {
+    "file": "packages/core/src/NavigationMenu/NavigationMenuContent.vue",
+    "messages": [],
+    "errorCount": 0,
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/NavigationMenu/NavigationMenuContentImpl.vue",
@@ -4904,21 +3966,9 @@
   },
   {
     "file": "packages/core/src/NavigationMenu/NavigationMenuViewport.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 159,
-        "column": 5,
-        "endLine": 159,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/NavigationMenu/__test__/NavigationMenuUnmountOnHideFalse.vue",
@@ -4934,10 +3984,10 @@
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
         "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
-        "line": 50,
-        "column": 21,
-        "endLine": 55,
-        "endColumn": 22,
+        "line": 52,
+        "column": 23,
+        "endLine": 52,
+        "endColumn": 38,
         "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
       }
     ],
@@ -4960,17 +4010,6 @@
     "file": "packages/core/src/NavigationMenu/story/NavigationMenuDemo.story.vue",
     "messages": [
       {
-        "ruleId": "a11y/img-alt",
-        "ruleDocsPath": "docs/content/rules/accessibility.md",
-        "severity": 1,
-        "message": "[vize:a11y/img-alt] <img> elements must have an alt attribute for accessibility",
-        "line": 51,
-        "column": 25,
-        "endLine": 54,
-        "endColumn": 26,
-        "help": "Why: Screen readers use alt text to describe images to visually impaired users.\nFor informative images:\n  <img src=\"chart.png\" alt=\"Sales increased 20% in Q4\">\nFor decorative images:\n  <img src=\"decoration.png\" alt=\"\">\nFor complex images:\n  <img src=\"diagram.png\" alt=\"Process flow\" aria-describedby=\"desc\">\n  <p id=\"desc\">Detailed description...</p>"
-      },
-      {
         "ruleId": "a11y/alt-text",
         "ruleDocsPath": "docs/content/rules/accessibility.md",
         "severity": 1,
@@ -4980,6 +4019,17 @@
         "endLine": 54,
         "endColumn": 26,
         "help": "Add an alt attribute: <img alt=\"Description\"> or <img alt=\"\"> for decorative images"
+      },
+      {
+        "ruleId": "a11y/img-alt",
+        "ruleDocsPath": "docs/content/rules/accessibility.md",
+        "severity": 1,
+        "message": "[vize:a11y/img-alt] <img> elements must have an alt attribute for accessibility",
+        "line": 51,
+        "column": 25,
+        "endLine": 54,
+        "endColumn": 26,
+        "help": "Why: Screen readers use alt text to describe images to visually impaired users.\nFor informative images:\n  <img src=\"chart.png\" alt=\"Sales increased 20% in Q4\">\nFor decorative images:\n  <img src=\"decoration.png\" alt=\"\">\nFor complex images:\n  <img src=\"diagram.png\" alt=\"Process flow\" aria-describedby=\"desc\">\n  <p id=\"desc\">Detailed description...</p>"
       }
     ],
     "errorCount": 0,
@@ -5004,12 +4054,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_LinkGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_LinkGroup' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5022,22 +4072,22 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_NavigationMenu' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_NavigationMenu' should be PascalCase or kebab-case",
         "line": 30,
         "column": 11,
         "endLine": 30,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "vue/no-template-target-blank",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
         "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
-        "line": 53,
-        "column": 17,
-        "endLine": 58,
-        "endColumn": 18,
+        "line": 55,
+        "column": 19,
+        "endLine": 55,
+        "endColumn": 34,
         "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
       }
     ],
@@ -5051,12 +4101,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_NavigationMenuListItem' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_NavigationMenuListItem' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "a11y/anchor-is-valid",
@@ -5080,12 +4130,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_StoryFrame' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_StoryFrame' should be PascalCase or kebab-case",
         "line": 1,
         "column": 11,
         "endLine": 1,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5134,12 +4184,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_NumberField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_NumberField' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5195,21 +4245,9 @@
   },
   {
     "file": "packages/core/src/Pagination/story/PaginationDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 17,
-        "column": 11,
-        "endLine": 17,
-        "endColumn": 29,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Pagination/story/_Pagination.vue",
@@ -5218,27 +4256,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Pagination' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Pagination' should be PascalCase or kebab-case",
         "line": 23,
         "column": 11,
         "endLine": 23,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 29,
-        "column": 7,
-        "endLine": 29,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/PinInput/PinInputInput.vue",
@@ -5271,12 +4298,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_PinInput' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_PinInput' should be PascalCase or kebab-case",
         "line": 14,
         "column": 11,
         "endLine": 14,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "a11y/no-refer-to-non-existent-id",
@@ -5456,32 +4483,9 @@
   },
   {
     "file": "packages/core/src/Popover/story/PopoverProgrammaticClose.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 22,
-        "endLine": 19,
-        "endColumn": 48,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 43,
-        "column": 28,
-        "endLine": 43,
-        "endColumn": 54,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Popover/story/_Popover.vue",
@@ -5490,12 +4494,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Popover' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Popover' should be PascalCase or kebab-case",
         "line": 16,
         "column": 11,
         "endLine": 16,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5555,12 +4559,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Popper' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Popper' should be PascalCase or kebab-case",
         "line": 8,
         "column": 11,
         "endLine": 8,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5615,12 +4619,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Animation' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Animation' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5633,12 +4637,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toggle' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toggle' should be PascalCase or kebab-case",
         "line": 19,
         "column": 11,
         "endLine": 19,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "type/require-typed-props",
@@ -5714,12 +4718,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Progress' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Progress' should be PascalCase or kebab-case",
         "line": 12,
         "column": 11,
         "endLine": 12,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5762,12 +4766,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Radio' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Radio' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5780,12 +4784,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_RadioGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_RadioGroup' should be PascalCase or kebab-case",
         "line": 11,
         "column": 11,
         "endLine": 11,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5798,12 +4802,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedRadioGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedRadioGroup' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -5889,21 +4893,9 @@
   },
   {
     "file": "packages/core/src/RangeCalendar/story/RangeCalendarDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 9,
-        "endLine": 13,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/RangeCalendar/story/RangeCalendarMultiple.story.vue",
@@ -5915,17 +4907,6 @@
     "file": "packages/core/src/RangeCalendar/story/RangeCalendarPopover.story.vue",
     "messages": [
       {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 24,
-        "column": 9,
-        "endLine": 24,
-        "endColumn": 42,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
         "ruleId": "a11y/click-events-have-key-events",
         "ruleDocsPath": "docs/content/rules/accessibility.md",
         "severity": 1,
@@ -5971,7 +4952,7 @@
       }
     ],
     "errorCount": 0,
-    "warningCount": 5
+    "warningCount": 4
   },
   {
     "file": "packages/core/src/RangeCalendar/story/RangeCalendarValidation.story.vue",
@@ -5981,21 +4962,9 @@
   },
   {
     "file": "packages/core/src/RangeCalendar/story/RangeCalendarWeek.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 14,
-        "column": 9,
-        "endLine": 14,
-        "endColumn": 36,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/RangeCalendar/story/_DummyRangeCalendar.vue",
@@ -6004,27 +4973,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyRangeCalendar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyRangeCalendar' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 15,
-        "column": 5,
-        "endLine": 15,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/RangeCalendar/story/_RangeCalendar.vue",
@@ -6033,27 +4991,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_RangeCalendar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_RangeCalendar' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 5,
-        "endLine": 20,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Rating/RatingItem.vue",
@@ -6081,32 +5028,9 @@
   },
   {
     "file": "packages/core/src/Rating/story/RatingDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 20,
-        "column": 11,
-        "endLine": 20,
-        "endColumn": 29,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 29,
-        "column": 13,
-        "endLine": 29,
-        "endColumn": 31,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Rating/story/_Rating.vue",
@@ -6115,38 +5039,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Rating' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Rating' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 23,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 18,
-        "column": 7,
-        "endLine": 18,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/RovingFocus/RovingFocusGroup.vue",
@@ -6185,12 +5087,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Button' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Button' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "ssr/no-browser-globals-in-ssr",
@@ -6214,12 +5116,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ButtonGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ButtonGroup' should be PascalCase or kebab-case",
         "line": 18,
         "column": 11,
         "endLine": 18,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6346,12 +5248,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollArea' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollArea' should be PascalCase or kebab-case",
         "line": 15,
         "column": 11,
         "endLine": 15,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6364,12 +5266,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollAreaCopy' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollAreaCopy' should be PascalCase or kebab-case",
         "line": 1,
         "column": 11,
         "endLine": 1,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6382,12 +5284,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollAreaStory' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScrollAreaStory' should be PascalCase or kebab-case",
         "line": 24,
         "column": 11,
         "endLine": 24,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6672,12 +5574,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Select' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Select' should be PascalCase or kebab-case",
         "line": 29,
         "column": 11,
         "endLine": 29,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6690,12 +5592,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_SelectItem' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_SelectItem' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6708,12 +5610,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_SelectTest' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_SelectTest' should be PascalCase or kebab-case",
         "line": 28,
         "column": 11,
         "endLine": 28,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6849,12 +5751,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Slider' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Slider' should be PascalCase or kebab-case",
         "line": 17,
         "column": 11,
         "endLine": 17,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -6939,12 +5841,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Splitter' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Splitter' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7011,12 +5913,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyStepper' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyStepper' should be PascalCase or kebab-case",
         "line": 40,
         "column": 11,
         "endLine": 40,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7029,12 +5931,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Stepper' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Stepper' should be PascalCase or kebab-case",
         "line": 34,
         "column": 11,
         "endLine": 34,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7047,27 +5949,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_StepperDynamic' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_StepperDynamic' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 15,
-        "column": 5,
-        "endLine": 15,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Switch/Switch.story.vue",
@@ -7094,12 +5985,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Switch' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Switch' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7107,21 +5998,9 @@
   },
   {
     "file": "packages/core/src/Tabs/TabsContent.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 49,
-        "column": 5,
-        "endLine": 49,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Tabs/TabsIndicator.vue",
@@ -7178,12 +6057,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tabs' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tabs' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7233,21 +6112,9 @@
   },
   {
     "file": "packages/core/src/TagsInput/story/TagsInputCombobox.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 34,
-        "column": 13,
-        "endLine": 34,
-        "endColumn": 42,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TagsInput/story/TagsInputObject.story.vue",
@@ -7262,12 +6129,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInput' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInput' should be PascalCase or kebab-case",
         "line": 19,
         "column": 11,
         "endLine": 19,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7280,12 +6147,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInputDisabled' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInputDisabled' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7298,12 +6165,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInputObject' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TagsInputObject' should be PascalCase or kebab-case",
         "line": 15,
         "column": 11,
         "endLine": 15,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -7341,116 +6208,15 @@
   },
   {
     "file": "packages/core/src/TimeField/story/TimeFieldChromatic.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 9,
-        "endLine": 19,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 45,
-        "column": 9,
-        "endLine": 45,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 72,
-        "column": 9,
-        "endLine": 72,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 98,
-        "column": 9,
-        "endLine": 98,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 125,
-        "column": 9,
-        "endLine": 125,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 152,
-        "column": 9,
-        "endLine": 152,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 179,
-        "column": 9,
-        "endLine": 179,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 206,
-        "column": 9,
-        "endLine": 206,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 8
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeField/story/TimeFieldDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 18,
-        "column": 11,
-        "endLine": 18,
-        "endColumn": 43,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeField/story/TimeFieldGranular.story.vue",
@@ -7476,134 +6242,22 @@
         "endLine": 92,
         "endColumn": 26,
         "help": "Element IDs must be unique within a document. Duplicate IDs break label associations, ARIA references, and getElementById()."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 21,
-        "column": 11,
-        "endLine": 21,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 57,
-        "column": 11,
-        "endLine": 57,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 93,
-        "column": 11,
-        "endLine": 93,
-        "endColumn": 32,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
       }
     ],
     "errorCount": 2,
-    "warningCount": 3
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeField/story/TimeFieldInvalid.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 21,
-        "column": 11,
-        "endLine": 21,
-        "endColumn": 43,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeField/story/TimeFieldLocales.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 12,
-        "column": 9,
-        "endLine": 12,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 39,
-        "column": 9,
-        "endLine": 39,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 67,
-        "column": 9,
-        "endLine": 67,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 95,
-        "column": 9,
-        "endLine": 95,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 123,
-        "column": 9,
-        "endLine": 123,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 151,
-        "column": 9,
-        "endLine": 151,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 6
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeField/story/_TimeField.vue",
@@ -7612,27 +6266,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TimeField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TimeField' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 5,
-        "endLine": 19,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/TimeRangeField/TimeRangeFieldInput.vue",
@@ -7666,21 +6309,9 @@
   },
   {
     "file": "packages/core/src/TimeRangeField/story/TimeRangeFieldDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 10,
-        "column": 9,
-        "endLine": 10,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/TimeRangeField/story/TimeRangeFieldGranular.story.vue",
@@ -7701,27 +6332,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyTimeRangeField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_DummyTimeRangeField' should be PascalCase or kebab-case",
         "line": 11,
         "column": 11,
         "endLine": 11,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 5,
-        "endLine": 13,
-        "endColumn": 26,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/TimeRangeField/story/_TimeRangeField.vue",
@@ -7730,27 +6350,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TimeRangeField' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TimeRangeField' should be PascalCase or kebab-case",
         "line": 10,
         "column": 11,
         "endLine": 10,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 19,
-        "column": 5,
-        "endLine": 19,
-        "endColumn": 38,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Toast/FocusProxy.vue",
@@ -7816,17 +6425,6 @@
     "file": "packages/core/src/Toast/ToastRoot.vue",
     "messages": [
       {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 58,
-        "column": 7,
-        "endLine": 58,
-        "endColumn": 50,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
@@ -7872,7 +6470,7 @@
       }
     ],
     "errorCount": 0,
-    "warningCount": 5
+    "warningCount": 4
   },
   {
     "file": "packages/core/src/Toast/ToastRootImpl.vue",
@@ -7991,21 +6589,9 @@
   },
   {
     "file": "packages/core/src/Toast/story/ToastMultiple.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 27,
-        "column": 9,
-        "endLine": 27,
-        "endColumn": 31,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Toast/story/_Toast.vue",
@@ -8014,12 +6600,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toast' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toast' should be PascalCase or kebab-case",
         "line": 29,
         "column": 11,
         "endLine": 29,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -8039,21 +6625,9 @@
   },
   {
     "file": "packages/core/src/ToggleGroup/ToggleGroupItem.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 44,
-        "column": 7,
-        "endLine": 44,
-        "endColumn": 25,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/ToggleGroup/ToggleGroupRoot.vue",
@@ -8074,12 +6648,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedToggleGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ScopedToggleGroup' should be PascalCase or kebab-case",
         "line": 5,
         "column": 11,
         "endLine": 5,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -8092,12 +6666,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_ToggleGroup' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_ToggleGroup' should be PascalCase or kebab-case",
         "line": 16,
         "column": 11,
         "endLine": 16,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -8116,7 +6690,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'KeyboardEvent' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
         "line": 24,
         "column": 7,
         "endLine": 26,
@@ -8127,7 +6701,7 @@
         "ruleId": "ssr/no-browser-globals-in-ssr",
         "ruleDocsPath": "docs/content/rules/ssr.md",
         "severity": 1,
-        "message": "[vize:ssr/no-browser-globals-in-ssr] 'HTMLElement' is a browser-only global and is not available in SSR",
+        "message": "[vize:ssr/no-browser-globals-in-ssr] 'KeyboardEvent' is a browser-only global and is not available in SSR",
         "line": 24,
         "column": 7,
         "endLine": 26,
@@ -8170,10 +6744,10 @@
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
         "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
-        "line": 83,
-        "column": 9,
-        "endLine": 88,
-        "endColumn": 10,
+        "line": 86,
+        "column": 11,
+        "endLine": 86,
+        "endColumn": 26,
         "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
       }
     ],
@@ -8187,22 +6761,22 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toolbar' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Toolbar' should be PascalCase or kebab-case",
         "line": 17,
         "column": 11,
         "endLine": 17,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       },
       {
         "ruleId": "vue/no-template-target-blank",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
         "message": "[vize:vue/no-template-target-blank] Using target=\"_blank\" without rel=\"noopener\" or rel=\"noreferrer\" is a security risk",
-        "line": 78,
-        "column": 5,
-        "endLine": 83,
-        "endColumn": 6,
+        "line": 81,
+        "column": 7,
+        "endLine": 81,
+        "endColumn": 22,
         "help": "Add rel=\"noopener\" (or rel=\"noreferrer\") to links that open in a new tab to prevent reverse tabnabbing via window.opener"
       }
     ],
@@ -8320,12 +6894,12 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tooltip' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tooltip' should be PascalCase or kebab-case",
         "line": 13,
         "column": 11,
         "endLine": 13,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
@@ -8374,76 +6948,19 @@
   },
   {
     "file": "packages/core/src/Tree/story/TreeAsync.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 74,
-        "column": 9,
-        "endLine": 74,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 82,
-        "column": 11,
-        "endLine": 82,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Tree/story/TreeBasic.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 14,
-        "column": 9,
-        "endLine": 14,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Tree/story/TreeCheckbox.story.vue",
     "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 17,
-        "column": 9,
-        "endLine": 17,
-        "endColumn": 34,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 29,
-        "column": 11,
-        "endLine": 29,
-        "endColumn": 65,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      },
       {
         "ruleId": "a11y/form-control-has-label",
         "ruleDocsPath": "docs/content/rules/accessibility.md",
@@ -8457,7 +6974,7 @@
       }
     ],
     "errorCount": 0,
-    "warningCount": 3
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Tree/story/TreeNested.story.vue",
@@ -8467,21 +6984,9 @@
   },
   {
     "file": "packages/core/src/Tree/story/TreeVirtual.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 37,
-        "column": 11,
-        "endLine": 37,
-        "endColumn": 28,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/Tree/story/_Tree.vue",
@@ -8490,27 +6995,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tree' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_Tree' should be PascalCase or kebab-case",
         "line": 69,
         "column": 11,
         "endLine": 69,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 71,
-        "column": 5,
-        "endLine": 71,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Tree/story/_TreeNested.vue",
@@ -8519,27 +7013,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_TreeNested' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_TreeNested' should be PascalCase or kebab-case",
         "line": 20,
         "column": 11,
         "endLine": 20,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 26,
-        "column": 7,
-        "endLine": 26,
-        "endColumn": 30,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/Viewport/Viewport.vue",
@@ -8627,21 +7110,9 @@
   },
   {
     "file": "packages/core/src/YearPicker/story/YearPickerDefault.story.vue",
-    "messages": [
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 13,
-        "column": 9,
-        "endLine": 13,
-        "endColumn": 26,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
-      }
-    ],
+    "messages": [],
     "errorCount": 0,
-    "warningCount": 1
+    "warningCount": 0
   },
   {
     "file": "packages/core/src/YearPicker/story/_YearPicker.vue",
@@ -8650,27 +7121,16 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_YearPicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_YearPicker' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 22,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/YearRangePicker/YearRangePickerCell.vue",
@@ -8745,54 +7205,21 @@
         "ruleId": "vue/component-definition-name-casing",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
-        "message": "[vize:vue/component-definition-name-casing] Component file name '_YearRangePicker' should be PascalCase",
+        "message": "[vize:vue/component-definition-name-casing] Component file name '_YearRangePicker' should be PascalCase or kebab-case",
         "line": 9,
         "column": 11,
         "endLine": 9,
         "endColumn": 11,
-        "help": "Rename the file to PascalCase:\n  my-component.vue -> MyComponent.vue\n  myComponent.vue  -> MyComponent.vue"
-      },
-      {
-        "ruleId": "vue/v-slot-style",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/v-slot-style] Use shorthand `#name` instead of `v-slot:name`",
-        "line": 11,
-        "column": 5,
-        "endLine": 11,
-        "endColumn": 22,
-        "help": "Shorthand: <template #header> (default)\nLongform: <template v-slot:header>\nChoose one style and be consistent."
+        "help": "Rename the file to PascalCase or kebab-case:\n  myComponent.vue  -> MyComponent.vue\n  my-Component.vue -> my-component.vue"
       }
     ],
     "errorCount": 0,
-    "warningCount": 2
+    "warningCount": 1
   },
   {
     "file": "packages/core/src/shared/component/Arrow.vue",
     "messages": [
       {
-        "ruleId": "vue/prop-name-casing",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/prop-name-casing] Prop 'viewBox' should be 'view-box' (kebab-case)",
-        "line": 44,
-        "column": 5,
-        "endLine": 44,
-        "endColumn": 48,
-        "help": "Use kebab-case for prop names in templates:\n  <!-- Bad -->\n  <MyComponent myProp=\"value\" />\n  \n  <!-- Good -->\n  <MyComponent my-prop=\"value\" />"
-      },
-      {
-        "ruleId": "vue/prop-name-casing",
-        "ruleDocsPath": "docs/content/rules/vue.md",
-        "severity": 1,
-        "message": "[vize:vue/prop-name-casing] Prop 'preserveAspectRatio' should be 'preserve-aspect-ratio' (kebab-case)",
-        "line": 45,
-        "column": 5,
-        "endLine": 45,
-        "endColumn": 56,
-        "help": "Use kebab-case for prop names in templates:\n  <!-- Bad -->\n  <MyComponent myProp=\"value\" />\n  \n  <!-- Good -->\n  <MyComponent my-prop=\"value\" />"
-      },
-      {
         "ruleId": "vue/attribute-hyphenation",
         "ruleDocsPath": "docs/content/rules/vue.md",
         "severity": 1,
@@ -8816,7 +7243,7 @@
       }
     ],
     "errorCount": 0,
-    "warningCount": 4
+    "warningCount": 2
   },
   {
     "file": "packages/core/src/shared/component/BaseSeparator.vue",

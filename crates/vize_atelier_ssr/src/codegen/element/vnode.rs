@@ -76,7 +76,7 @@ impl<'a> SsrCodegenContext<'a> {
         children: &[TemplateChildNode<'a>],
     ) -> std::vec::Vec<String> {
         let mut expressions = std::vec::Vec::new();
-        for child in children {
+        for child in vize_atelier_core::walk_probe::ssr_children(children) {
             if let Some(expr) = self.vnode_child_expression(child) {
                 expressions.push(expr);
             }
@@ -89,7 +89,7 @@ impl<'a> SsrCodegenContext<'a> {
         children: &[&TemplateChildNode<'a>],
     ) -> std::vec::Vec<String> {
         let mut expressions = std::vec::Vec::new();
-        for child in children {
+        for child in vize_atelier_core::walk_probe::ssr_children(children) {
             if let Some(expr) = self.vnode_child_expression(child) {
                 expressions.push(expr);
             }
