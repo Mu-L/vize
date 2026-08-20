@@ -25,7 +25,8 @@ use super::super::artifacts::erase_artifact_macro_statements;
 use super::super::function_mode::contains_top_level_await;
 use super::super::lazy_hydration::transform_lazy_hydration_macros;
 use super::super::props::{
-    validate_macro_scope_references, validate_props_destructure_default_types,
+    extract_with_defaults_values, validate_macro_scope_references,
+    validate_props_destructure_default_types,
 };
 use super::super::statement_sections::extract_script_sections_from_program_with_options;
 use super::super::{ScriptCompileResult, TemplateParts};
@@ -129,7 +130,14 @@ pub(crate) fn compile_script_setup_inline_with_context(
         .filter(|s| !s.is_empty())
         .map(|s| s.to_compact_string());
 
-    // Check if we need mergeDefaults import (props destructure with defaults)
+    let with_defaults_values = ctx
+        .macros
+        .with_defaults
+        .as_ref()
+        .map(|with_defaults| extract_with_defaults_values(&with_defaults.args));
+
+    // Check if we need mergeDefaults import (dynamic withDefaults expression or
+    // props destructure with defaults).
     // For type-based props (defineProps<{...}>()), defaults are inlined into the prop definitions
     // so mergeDefaults is NOT needed. Only runtime-based props (defineProps([...])) need it.
     let has_props_destructure = ctx.macros.props_destructure.is_some();
@@ -138,14 +146,17 @@ pub(crate) fn compile_script_setup_inline_with_context(
         .define_props
         .as_ref()
         .is_some_and(|p| p.type_args.is_some());
-    let needs_merge_defaults = has_props_destructure
-        && !has_type_based_props
-        && ctx
-            .macros
-            .props_destructure
-            .as_ref()
-            .map(|d| d.bindings.values().any(|b| b.default.is_some()))
-            .unwrap_or(false);
+    let needs_merge_defaults = with_defaults_values
+        .as_ref()
+        .is_some_and(|defaults| defaults.runtime_expression.is_some())
+        || (has_props_destructure
+            && !has_type_based_props
+            && ctx
+                .macros
+                .props_destructure
+                .as_ref()
+                .map(|d| d.bindings.values().any(|b| b.default.is_some()))
+                .unwrap_or(false));
 
     if setup_program.is_none() {
         validate_macro_scope_references(&ctx, 0, content)?;
@@ -205,6 +216,7 @@ pub(crate) fn compile_script_setup_inline_with_context(
         output,
         preserved_normal_script,
         needs_merge_defaults,
+        with_defaults_values,
         has_define_model,
         needs_merge_models,
         has_define_slots,

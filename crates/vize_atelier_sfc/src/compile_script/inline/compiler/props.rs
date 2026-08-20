@@ -3,9 +3,8 @@ use vize_carton::String;
 use crate::script::{PropsDestructuredBindings, ScriptCompileContext};
 
 use super::super::super::props::{
-    add_null_to_runtime_type, extract_prop_types_from_type_with_context,
-    extract_with_defaults_defaults, normalize_destructure_default_value, resolve_prop_js_type,
-    runtime_prop_key,
+    WithDefaultsValues, add_null_to_runtime_type, extract_prop_types_from_type_with_context,
+    normalize_destructure_default_value, resolve_prop_js_type, runtime_prop_key,
 };
 use super::super::type_handling::resolve_type_args;
 
@@ -20,6 +19,7 @@ pub(super) fn build_props_emits(
     is_ts: bool,
     needs_prop_type: bool,
     needs_merge_defaults: bool,
+    with_defaults_values: Option<&WithDefaultsValues>,
     is_prod: bool,
 ) -> Vec<u8> {
     let mut props_emits_buf: Vec<u8> = Vec::new();
@@ -30,9 +30,14 @@ pub(super) fn build_props_emits(
         return props_emits_buf;
     }
 
-    if let Some(decl) =
-        build_user_props_decl(ctx, is_ts, needs_prop_type, needs_merge_defaults, is_prod)
-    {
+    if let Some(decl) = build_user_props_decl(
+        ctx,
+        is_ts,
+        needs_prop_type,
+        needs_merge_defaults,
+        with_defaults_values,
+        is_prod,
+    ) {
         props_emits_buf.extend_from_slice(b"  props: ");
         props_emits_buf.extend_from_slice(decl.as_bytes());
         props_emits_buf.extend_from_slice(b",\n");
@@ -50,16 +55,11 @@ pub(super) fn build_user_props_decl(
     _is_ts: bool,
     needs_prop_type: bool,
     needs_merge_defaults: bool,
+    with_defaults_values: Option<&WithDefaultsValues>,
     is_prod: bool,
 ) -> Option<String> {
     let props_macro = ctx.macros.define_props.as_ref()?;
-
-    // Extract defaults from withDefaults if present
-    let with_defaults_args = ctx
-        .macros
-        .with_defaults
-        .as_ref()
-        .map(|wd| extract_with_defaults_defaults(&wd.args));
+    let static_defaults = with_defaults_values.map(|defaults| &defaults.static_values);
 
     let mut decl: Vec<u8> = Vec::new();
 
@@ -136,7 +136,7 @@ pub(super) fn build_user_props_decl(
                     has_option = true;
                 }
                 let mut has_default = false;
-                if let Some(ref defaults) = with_defaults_args
+                if let Some(defaults) = static_defaults
                     && let Some(default_val) = defaults.get(name.as_str())
                 {
                     if has_option {
@@ -227,6 +227,18 @@ pub(super) fn build_user_props_decl(
         }
     } else {
         return None;
+    }
+
+    if let Some(runtime_defaults) =
+        with_defaults_values.and_then(|defaults| defaults.runtime_expression.as_deref())
+    {
+        let mut merged = Vec::with_capacity(decl.len() + runtime_defaults.len() + 38);
+        merged.extend_from_slice(b"/*@__PURE__*/_mergeDefaults(");
+        merged.extend_from_slice(&decl);
+        merged.extend_from_slice(b", ");
+        merged.extend_from_slice(runtime_defaults.as_bytes());
+        merged.push(b')');
+        decl = merged;
     }
 
     // SAFETY: assembled from UTF-8 source slices and ASCII glue only.
