@@ -166,14 +166,10 @@ fn legacy_slot_scope(el: &ElementNode<'_>) -> Option<super::scopes::SlotScopeInf
             })
         })?;
     let value = scope_attr.value.as_ref()?;
-<<<<<<< HEAD
     let pattern = value.content;
-=======
-    let pattern = value.content.as_str();
     let prop_bindings = extract_slot_prop_bindings(pattern);
     let prop_names = prop_bindings.iter().map(|(name, _)| name.clone()).collect();
-    let prop_offsets = slot_prop_declaration_offsets(value.loc.start.offset, &prop_bindings);
->>>>>>> origin/main
+    let prop_offsets = slot_prop_declaration_offsets(value.loc.span.start, &prop_bindings);
     let slot_name = el
         .props
         .iter()
@@ -190,15 +186,8 @@ fn legacy_slot_scope(el: &ElementNode<'_>) -> Option<super::scopes::SlotScopeInf
         true,
         prop_names,
         Some(CompactString::new(pattern)),
-<<<<<<< HEAD
-        value.loc.span.start,
-    ))
-}
-
-fn expression_content<'a>(exp: &'a ExpressionNode<'_>, source: &'a str) -> &'a str {
-=======
         prop_offsets,
-        value.loc.start.offset,
+        value.loc.span.start,
     ))
 }
 
@@ -213,8 +202,7 @@ fn slot_prop_declaration_offsets(
     offsets
 }
 
-fn expression_content<'a>(exp: &'a ExpressionNode<'_>) -> &'a str {
->>>>>>> origin/main
+fn expression_content<'a>(exp: &'a ExpressionNode<'_>, source: &'a str) -> &'a str {
     match exp {
         ExpressionNode::Simple(s) => s.content,
         ExpressionNode::Compound(c) => c.loc.span.slice(source),

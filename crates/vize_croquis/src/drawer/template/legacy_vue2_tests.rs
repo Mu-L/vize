@@ -65,7 +65,7 @@ fn destructured_slot_scope_records_name_pattern_and_component() {
 
 #[test]
 fn object_pattern_slot_scope_offsets_use_local_bindings() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let pattern = "  { name: name, label: local }";
     let template = cstr!(
         r#"<p>前置き</p><Child><template slot="item" slot-scope="{pattern}">{{{{ name }}}}{{{{ local }}}}</template></Child>"#,

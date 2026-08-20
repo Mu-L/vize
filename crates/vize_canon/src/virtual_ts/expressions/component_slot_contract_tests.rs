@@ -10,7 +10,7 @@ fn define_slots_exports_static_slot_marker_for_parents() {
 "#;
     let template = r#"<slot :msg="'hello'" />"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -32,7 +32,7 @@ fn required_slot_check_anchors_to_component_name() {
 "#;
     let template = r#"<Child />"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -70,7 +70,7 @@ fn required_slot_check_records_static_slot_names() {
 "#;
     let template = r#"<Child><template #header /></Child>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -94,7 +94,7 @@ fn required_slot_check_skips_open_index_signature_slot_contracts() {
 "#;
     let template = r#"<OpenSlots><template #header="{ title }">{{ title }}</template></OpenSlots>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
