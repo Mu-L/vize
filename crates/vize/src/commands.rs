@@ -6,6 +6,7 @@ pub mod check_server;
 pub mod clean;
 pub mod content_mapper;
 pub mod curator;
+pub(crate) mod davinci_ice;
 pub mod doctor;
 pub mod env_info;
 #[cfg(feature = "glyph")]
@@ -20,4 +21,5 @@ pub mod musea;
 pub mod profile_export;
 #[cfg(feature = "glyph")]
 pub mod ready;
+pub mod repro;
 pub mod upgrade;

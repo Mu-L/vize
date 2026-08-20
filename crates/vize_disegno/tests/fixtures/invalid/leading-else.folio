@@ -1,0 +1,8 @@
+[disegno]
+ops=1
+
+[disegno.ops]
+ui.if @0:30
+  branch @0:15
+  branch js("x" @16:17) @15:30
+

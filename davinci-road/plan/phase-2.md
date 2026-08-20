@@ -46,9 +46,9 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [x] [P2-2](./phase-2-tasks.md#p2-2--pass-manager) Pass manager (const pipelines, classification, fusion) — landed 2026-08-19; every planning query is a `const fn`, both laws are compile errors and both were proven by compiling a violation ([record](./phase-2-records/p2-2.md))
 - [x] [P2-3](./phase-2-tasks.md#p2-3--passobserver) `PassObserver` + the four in-tree observers — landed 2026-08-19; static dispatch so the un-observed path has no check at all, one profile span per walk rather than per pass, zero cost pinned by an alloc-identical bench pair ([record](./phase-2-records/p2-3.md))
 - [x] [P2-4](./phase-2-tasks.md#p2-4--folio-derive--davinci-opt-pipelines) `#[derive(Folio)]` + `davinci-opt --pipeline` — landed 2026-08-20; the derive owns the mechanical trio only (`CroquisFolio` measured as unable to move, `BudgetObserver` is the first derived page), `--roundtrip`/`--pipeline` are alternatives with the roundtrip mode pinned byte-identical over the 14 P0-10 fixtures, TS-17 established with no-op bodies until P2-9 ([record](./phase-2-records/p2-4.md))
-- [ ] [P2-5a](./phase-2-tasks.md#p2-5a--vize_disegno-s2-op-and-type-family) `vize_disegno` S2 op and type family
-- [ ] [P2-5b](./phase-2-tasks.md#p2-5b--exprref-contract-including-the-retained-none-classes) `ExprRef` contract incl. the retained-`None` classes
-- [ ] [P2-6](./phase-2-tasks.md#p2-6--s2-verifier-v1) S2 verifier v1
+- [x] [P2-5a](./phase-2-tasks.md#p2-5a--vize_disegno-s2-op-and-type-family) `vize_disegno` S2 op and type family — landed 2026-08-20; two closed enums (`Op` region ops, `BindingOp` attached ops) with every region owned by its op, `ui.model` as the contract pair with the flow law on it, one `vue.*` op, `ExprSlot` reserved for P2-5b, and a hand-written `DisegnoFolio` page (the P2-4 derive boundary applied: derived pages are flat, S2 is region-nested) with the canary proved by injection ([record](./phase-2-records/p2-5a.md))
+- [x] [P2-5b](./phase-2-tasks.md#p2-5b--exprref-contract-including-the-retained-none-classes) `ExprRef` contract incl. the retained-`None` classes — landed 2026-08-20; resolution (a): `Opaque` escape variant with the five pessimal laws written from day one (widening the retained contract stays open, made monotone-safe by exactly those laws), classes re-measured twice at 12.73% legacy with stable per-class shares, owned `js`/`opaque`/`foreign` folio payloads with the arena-reset replay law, and the `ExprDialect` per-file capability contract naming #4365's future home without resolving it ([record](./phase-2-records/p2-5b.md))
+- [x] [P2-6](./phase-2-tasks.md#p2-6--s2-verifier-v1) S2 verifier v1 — landed 2026-08-20; local checks only in one page-order walk (six-code catalogue S2V001–S2V006 documented in `folio-format.md`, rigor per `PassKind`), liveness through the P1-11 arena stamp with `check_live` as the recorded P2-5b seam, `VerifyObserver` debug/CI-only with the release ZST shape const-asserted, and TS-18 established: 15 invalid pages each rejected on its exact committed diagnostic ([record](./phase-2-records/p2-6.md))
 - [x] [P2-7](./phase-2-tasks.md#p2-7--s1-vue-surface-tree) S1 Vue surface tree — landed 2026-08-20; new `vize_sinopia` crate driven by armature's tokenizer, three-clause hole policy with the intra-tag `leading` deviation recorded, TS-19 pinned over a 42-fixture battery plus 2,148 truncation parses; the corpus-widened run is deferred to a fixture-hydrated machine ([record](./phase-2-records/p2-7.md))
 - [ ] [P2-8](./phase-2-tasks.md#p2-8--s1s2-vue-lowering) S1→S2 Vue lowering
 - [ ] [P2-9](./phase-2-tasks.md#p2-9--core-transforms-as-s2-passes) Core transforms as S2 passes (marked series)
@@ -56,14 +56,14 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [ ] [P2-11](./phase-2-tasks.md#p2-11--dom-backend-on-s2) DOM backend on S2
 - [x] [P2-12a](./phase-2-tasks.md#p2-12a--phase-start-baselines-and-pinned-targets) Phase-start baselines and pinned targets — landed 2026-08-19 at rev `232870a8`; DOM/SSR/Vapor ladder pinned in `[traversal]`, `[target.phase-2]` set, `walk-baseline.md` committed. One clause carried: the corpus `--check` is not evaluable by CI or a working tree ([record](./phase-2-records/p2-12a.md))
 - [ ] [P2-12b](./phase-2-tasks.md#p2-12b--fused-build-path--walk-count-instrumentation) Fused build path + walk-count instrumentation
-- [ ] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON
-- [ ] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes
-- [ ] [P2-15](./phase-2-tasks.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1
-- [ ] [P2-16](./phase-2-tasks.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2
-- [ ] [P2-17](./phase-2-tasks.md#p2-17--ir-contract-review-milestone) IR contract review milestone
-- [ ] [P2-18](./phase-2-tasks.md#p2-18--spolvero-feed-v1) Spolvero feed v1
-- [ ] [P2-19](./phase-2-tasks.md#p2-19--devtool-protocol-spike) DevTool protocol spike
-- [ ] [P2-20](./phase-2-tasks.md#p2-20--phase-exit) Phase exit
+- [x] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON — landed 2026-08-20; the ICE policy made real — per-file panic guard writing `repro.folio` (batch continues, exact file set pinned), the new `vize repro` command replaying to the same failure by exact equality, hash-gated `--folio-dir`/`--folio-after-change` dumps real on `davinci-opt` and pinned-empty on the build path until P2-12b, timing JSON through the P0-11 export validated by the TS-15 validator ([record](./phase-2-records/p2-13.md))
+- [x] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes — landed 2026-08-20; the boundary is [no-std-boundary.md](./no-std-boundary.md) with three approved `std` edges (the P2-4 proc-macro, `vize_carton`, the `davinci-opt` bin target), TS-24 rides `clippy-and-test` as required steps (the check.yml length ratchet forbade a new job), and the audit corrects two plan expectations by measurement (the closure's oxc crates declare no `no_std`; salsa is not in the lock) ([record](./phase-2-records/p2-14.md))
+- [ ] [P2-15](./phase-2-tasks-later.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1
+- [ ] [P2-16](./phase-2-tasks-later.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2
+- [ ] [P2-17](./phase-2-tasks-later.md#p2-17--ir-contract-review-milestone) IR contract review milestone
+- [ ] [P2-18](./phase-2-tasks-later.md#p2-18--spolvero-feed-v1) Spolvero feed v1
+- [ ] [P2-19](./phase-2-tasks-later.md#p2-19--devtool-protocol-spike) DevTool protocol spike
+- [ ] [P2-20](./phase-2-tasks-later.md#p2-20--phase-exit) Phase exit
 
 ## Davinci describes the shipped pipeline — and cannot yet consume it (2026-08-19)
 

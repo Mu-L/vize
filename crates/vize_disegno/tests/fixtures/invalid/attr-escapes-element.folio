@@ -1,0 +1,7 @@
+[disegno]
+ops=1
+
+[disegno.ops]
+ui.element div @0:20
+  attr id="a" @30:40
+

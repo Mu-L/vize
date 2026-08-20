@@ -111,6 +111,26 @@ The first derived page is `[budget-observer]` (P2-3's counter set), pinned
 by TS-16 in `crates/vize_davinci/tests/folio_derive_laws.rs` and reachable
 from the CLI as `davinci-opt --stage budget-observer`.
 
+## The repro page (`[repro]`, P2-13)
+
+The crash reproducer the ICE policy writes
+(`crates/vize_davinci/src/folio/repro.rs`), hand-written because two of its
+decisions are semantic: `failed-pass=` may print an **empty value** (a panic
+caught outside a driven pipeline is not attributable to a pass), and the
+`[repro.artifact]` section is **verbatim and terminal** — everything after
+its header line, byte for byte to end of input, is the embedded last-good
+stage dump, so the section must come last and is exempt from rule 4's
+one-blank-line law. That exemption is the only way to embed an arbitrary
+dump (blank lines and `[`-prefixed lines included) without an escaping
+scheme. Header scalars are `pipeline=` (validated against the P2-2 pipeline
+grammar at parse time), `failed-stage=`, `failed-pass=`, `reason=`
+(newline-normalized by the writer; scalar values stay line-atomic) and
+`artifact-stage=` (`source` = authored input verbatim); `[repro.config]` is
+a sorted `key=value` map. A missing final newline on the artifact is added
+by the first print, and `ReproFolio::normalize` applies the same to
+hand-built values — the `CroquisFolio::normalize` precedent. Round-trip
+laws pinned by `crates/vize_davinci/tests/repro_folio.rs`.
+
 ## Croquis folio grammar
 
 One entry per line unless noted; `[]` marks optional parts.
@@ -183,3 +203,122 @@ coverage):
 | `props-runtime-defaults.vue`     | written for the `[surface.props]` has-default (`=`) marker                  |
 | `provide-inject-symbol.vue`      | `tests/_fixtures/_projects/compiler-macros/src/ProvideInjectSymbol.vue`     |
 | `top-level-await.vue`            | `tests/_fixtures/_projects/compiler-macros/src/TopLevelAwait.vue`           |
+
+## Disegno page (P2-5a; expression payloads P2-5b)
+
+The S2 stage dump: an owned document model (`DisegnoFolio`,
+`crates/vize_disegno/src/folio.rs`) of one op tree. Hand-written under the
+"Derived pages" boundary, because the derived grammar is flat (header
+scalars plus one-level sections) while the S2 artifact is region-nested by
+its central design decision — ops own their regions — and flattening the
+tree into derivable lines would move structure validation outside `parse`,
+stripping its 1-based line numbers.
+
+Two sections, fixed order: a `[disegno]` header whose single `ops=` field
+is the printer's **computed** statement of the total op count (region ops
+plus attached bindings, all levels; parse validates the integer and
+discards it — normalization by the first print), then `[disegno.ops]`
+holding the tree, omitted when empty. Nesting is two-space indentation;
+a shallower line closes every deeper op. Under an element or component the
+grouping is fixed: `attr` lines, then attached bindings (`ui.model`,
+`vue.directive`), then children. Under `ui.if` only `branch` lines are
+legal; under `ui.model` only `attr` lines. Blank lines are separators and
+vanish; every other spelling is strict with exact, tested rejections.
+
+One line per op (`[]` optional; `<expr>` is an expression payload token,
+below):
+
+| line                                                                                    | notes                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------ |
+| `ui.element <tag>[ ns=<svg\|mathml>] @s:e`                                              | HTML namespace elided                |
+| `ui.component <name> @s:e`                                                              | same body grouping as an element     |
+| `ui.text <quoted> @s:e`                                                                 |                                      |
+| `ui.interpolation <expr> @s:e`                                                          |                                      |
+| `ui.if @s:e`                                                                            | `branch [<expr> ]@s:e` lines beneath |
+| `ui.for source=<expr> value=<expr>[ key=<expr>][ index=<expr>] @s:e`                    | region beneath                       |
+| `ui.slot name=<quoted>\|name=<expr> @s:e`                                               | fallback region beneath              |
+| `ui.model read=<expr> write=<expr> @s:e`                                                | `attr` lines beneath                 |
+| `vue.directive <quoted>[ arg=<quoted>\|arg=<expr>][ mods=<quoted>][ value=<expr>] @s:e` | modifiers comma-joined inside quotes |
+| `attr <name>[=<quoted>] @s:e`                                                           | bare name for boolean attributes     |
+
+**Expression payloads** (P2-5b): every expression position serializes as
+owned text + span, never an AST, because arena references cannot persist
+across a compile (P1-11) — a `js` payload re-parses into the arena on
+load (`vize_disegno::expr::JsExpr::parse_in`; the total fallback is
+`ExprRef::parse_js_in`, which loads unadmitted text as `opaque` with the
+text-classified reason).
+
+| token                              | payload                                                                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `js(<quoted> @s:e)`                | retained-AST text (the P1-5 admission: one complete TS expression covering the text) plus its authored span                                            |
+| `opaque(<reason> <quoted> @s:e)`   | the escape variant: classified reason + exact text + span; reasons are `for-value`, `multi-statement`, `nesting-refused`, `parse-rejected`, `compound` |
+| `foreign(<dialect> <quoted> @s:e)` | dialect id + text + span (type-only until phase 6; side tables have no spelling until the phase-6 dialect contract defines one)                        |
+
+Quoted strings escape `\\`, `\"`, `\n`, `\r`, `\t`. `Display` elides every
+` @s:e` span — line tails and the spans inside expression payloads alike —
+and nothing else. Documented edges (same rule as derived pages):
+attribute names containing `=`, a space or `"`, modifier names containing
+`,` or `"`, dialect ids containing a space, `)` or `"`, and values
+embedding other control characters are outside the contract. The folio
+models the dump, not the analysis: tree shape is validated, semantic
+invariants (branch ordering, region well-formedness beyond the grammar)
+belong to the S2 verifier (P2-6). The committed reference page is
+`crates/vize_disegno/tests/fixtures/reference.folio`, pinned by TS-16 in
+`crates/vize_disegno/tests/folio_laws.rs` (which also pins every opaque
+reason spelling both directions) and mirrored from a live arena tree in
+`tests/folio_mirror.rs`; the arena-reset replay law is
+`tests/expr_replay.rs`.
+
+## S2 verifier invariants (P2-6)
+
+The semantic invariants the disegno grammar deliberately does not encode,
+checked by `vize_disegno::verify` between passes in debug/CI builds only
+(guardrail 5: verification never ships — the release shape of
+`VerifyObserver` is a ZST with empty check bodies, const-asserted at the
+type). Checks are local in the GHC `-dcore-lint` sense — a line plus the
+facts it and its owner already declare, no global inference — and run in
+one page-order walk, so an aggregated report is deterministic. A violation
+renders as one line, `{code} @{start}:{end} {message}`, canonical `en`
+locale; a between-pass failure panics with the report headed by the
+offending pass (`` S2 verifier: {n} violation(s) after `{stage}.{pass}` ``).
+
+| code   | rigor      | invariant                                               |
+| ------ | ---------- | ------------------------------------------------------- |
+| S2V001 | structural | a span never runs backwards (`start <= end`)            |
+| S2V002 | structural | a nested line's span stays inside its immediate owner's |
+| S2V003 | structural | every `NodeId` a side table references resolves         |
+| S2V004 | canonical  | `ui.if` owns at least one branch                        |
+| S2V005 | canonical  | the leading branch of `ui.if` carries a condition       |
+| S2V006 | canonical  | an unconditional branch is the trailing branch          |
+
+**Rigor follows `PassKind`.** The structural set holds after every pass;
+the canonical set additionally holds from the first `MandatoryLowering`
+pass on — the kind that canonicalizes
+(`crates/vize_davinci/src/pass/kind.rs`) — and `MandatoryDiagnostic` /
+`Optional` passes never change the rigor. The set grows with the passes
+that establish more canonical form (P2-9); a new invariant lands here
+first, with its code.
+
+**Node numbering (S2V003).** S2 ids are dense and page-ordered: every op
+line top to bottom (`attr` and `branch` lines carry no id), so a `NodeId`
+resolves iff its index is below the artifact's total op count — the same
+count the printed `ops=` header states. P2-8's lowering mints ids in this
+order. A dangling reference renders with the `%index` display form and
+the artifact-level span `@0:0` (the reference has no source anchor of its
+own).
+
+**Expr-ref liveness** is the one check with no code of its own: it reuses
+the P1-11 debug arena-generation stamp (`Allocator::stamp` /
+`assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`)
+and fails with that mechanism's own panic. One stamp covers the whole
+artifact today because `ExprSlot` is zero-sized; the P2-5b seam is
+`VerifyObserver::check_live`, where the walk validates each expression
+position's stamp once `ExprRef` gives the positions identity.
+
+**Invalid fixtures (TS-18).** `crates/vize_disegno/tests/fixtures/invalid/`
+holds hand-built pages that are grammar-valid and semantically invalid,
+each committed beside its exact expected rendering (`.expected`,
+whole-file equality, no partial matching). The harness is
+`crates/vize_disegno/tests/verifier_fixtures.rs`; the id-resolution and
+liveness lanes, which no page text can encode, are pinned with the same
+exact oracles in `tests/verifier_observer.rs`.

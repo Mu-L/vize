@@ -1,12 +1,13 @@
 //! Per-file compile settings and template-syntax mapping for the build command.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use vize_atelier_core::TemplateSyntaxMode;
 use vize_carton::String;
 use vize_carton::config::{ConfigFeatureFlags, VueVersion};
 use vize_carton::hash::hash_bytes;
 
 use crate::commands::build::{BuildArgs, ScriptExtension};
+use crate::commands::davinci_ice;
 
 pub(super) struct BuildConfigSettings {
     pub(super) compiler_template_syntax: Option<&'static str>,
@@ -52,14 +53,65 @@ pub(super) struct CompileFileSettings {
     pub(super) dialect: VueVersion,
     pub(super) script_ext: ScriptExtension,
     pub(super) record_profile_totals: bool,
+    pub(super) davinci: DavinciBuildSettings,
+}
+
+/// The build's slice of the Davinci ICE machinery (P2-13): the plan the
+/// compile path is described by, where a `repro.folio` goes, the per-pass
+/// dump controls, and the TS-23 panic injection.
+pub(super) struct DavinciBuildSettings {
+    /// The selected backend's legacy plan (`legacy_plan::{DOM,SSR,VAPOR}`)
+    /// in the canonical pipeline-grammar spelling.
+    pub(super) plan_string: String,
+    /// The plan's stage name - the attribution for a panic the driver did
+    /// not see (an unattributable real-compile ICE).
+    pub(super) stage: &'static str,
+    /// Mode name recorded in `[repro.config]`.
+    pub(super) mode: &'static str,
+    /// Parsed `--davinci-inject-panic` spec: `(file stem, pass name)`.
+    pub(super) inject: Option<(String, String)>,
+    /// Where a failing file's `repro.folio` is written (the output dir).
+    pub(super) repro_dir: PathBuf,
+}
+
+impl DavinciBuildSettings {
+    /// The pass to panic in when compiling `path`, if injection targets it.
+    pub(super) fn injected_pass_for(&self, path: &Path) -> Option<&str> {
+        let (stem, pass) = self.inject.as_ref()?;
+        (path.file_stem().and_then(|name| name.to_str()) == Some(stem.as_str()))
+            .then_some(pass.as_str())
+    }
 }
 
 impl CompileFileSettings {
     /// Resolve per-file compile settings from CLI arguments and config file values.
     pub(super) fn resolve(args: &BuildArgs, build_config: BuildConfigSettings) -> Self {
+        let ssr = args.ssr;
+        let vapor = args.vapor || build_config.vapor.unwrap_or(false);
+        let (plan, mode) = davinci_ice::compile_plan(ssr, vapor);
+        let inject = args.davinci_inject_panic.as_deref().map(|spec| {
+            davinci_ice::parse_inject_spec(spec, plan).unwrap_or_else(|error| {
+                eprintln!("\x1b[31mError:\x1b[0m --davinci-inject-panic: {error}");
+                std::process::exit(1);
+            })
+        });
+        // The dump directory is created even though no pages can be written
+        // until P2-12b gives the compile path a folio-printable stage
+        // artifact: an existing empty directory is an observable "nothing
+        // was dumped", where a missing one is indistinguishable from an
+        // ignored flag. Pinned by `davinci_repro_cli.rs`.
+        if let Some(dir) = args.folio_dir.as_deref()
+            && let Err(error) = std::fs::create_dir_all(dir)
+        {
+            eprintln!(
+                "\x1b[31mError:\x1b[0m --folio-dir: cannot create {}: {error}",
+                dir.display()
+            );
+            std::process::exit(1);
+        }
         Self {
-            ssr: args.ssr,
-            vapor: args.vapor || build_config.vapor.unwrap_or(false),
+            ssr,
+            vapor,
             custom_renderer: args.custom_renderer,
             custom_elements: build_config.custom_elements,
             template_syntax: args
@@ -71,6 +123,13 @@ impl CompileFileSettings {
             dialect: build_config.dialect.unwrap_or_default(),
             script_ext: args.script_ext,
             record_profile_totals: args.profile,
+            davinci: DavinciBuildSettings {
+                plan_string: davinci_ice::plan_string(plan),
+                stage: plan.stage,
+                mode,
+                inject,
+                repro_dir: args.output.clone(),
+            },
         }
     }
 

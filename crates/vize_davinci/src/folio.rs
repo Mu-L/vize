@@ -24,7 +24,9 @@ use core::fmt;
 use vize_carton::String;
 
 pub mod croquis;
+pub mod dump;
 pub mod page;
+pub mod repro;
 pub mod value;
 
 /// `#[derive(Folio)]` - generates the mechanical trio (print / parse /

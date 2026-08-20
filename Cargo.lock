@@ -3586,6 +3586,7 @@ dependencies = [
  "vize_croquis",
  "vize_croquis_cf",
  "vize_curator",
+ "vize_davinci",
  "vize_doctor",
  "vize_fresco",
  "vize_glyph",
@@ -3898,6 +3899,8 @@ dependencies = [
  "criterion",
  "davinci_harness",
  "insta",
+ "regex-lite",
+ "serde_json",
  "vize_atelier_core",
  "vize_atelier_sfc",
  "vize_carton",
@@ -3912,6 +3915,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "vize_disegno"
+version = "0.350.2"
+dependencies = [
+ "oxc_ast",
+ "oxc_parser",
+ "oxc_span",
+ "vize_carton",
+ "vize_davinci",
 ]
 
 [[package]]

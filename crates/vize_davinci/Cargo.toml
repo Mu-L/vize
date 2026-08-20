@@ -19,6 +19,10 @@ vize_davinci_derive = { workspace = true }
 criterion = { workspace = true }
 davinci_harness = { workspace = true }
 insta = { workspace = true }
+# The TS-15 schema validator reused by path from vize_carton's tests
+# (davinci_profile_export/schema_check.rs) needs these two.
+regex-lite = { workspace = true }
+serde_json = { workspace = true }
 vize_atelier_core = { workspace = true }
 vize_atelier_sfc = { workspace = true }
 vize_croquis = { workspace = true }

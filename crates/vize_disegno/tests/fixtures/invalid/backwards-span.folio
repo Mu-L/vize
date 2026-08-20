@@ -1,0 +1,6 @@
+[disegno]
+ops=1
+
+[disegno.ops]
+ui.text "x" @9:5
+

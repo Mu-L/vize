@@ -70,22 +70,26 @@
 
 ## P2-5a — `vize_disegno` S2 op and type family
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-5a.md](./phase-2-records/p2-5a.md).
+
 **Deliverable:** the S2 crate and its ops — the pivot stage and the primary consumer surface. `vize_disegno` does not exist in the tree today.
 
 **Steps:**
 
-- [ ] `crates/vize_disegno/` created and added to `[workspace] members` in the root `Cargo.toml`; `publish = false`, `metadata.vize.stability = "experimental"`, `#![no_std]` plus `extern crate alloc;` from birth
-- [ ] Op enums: element / component / text / interpolation / `ui.if { regions }` / `ui.for { binding, region }` / `ui.slot` / `ui.model { contract }` / `vue.directive`. **Regions are owned by their op** — this is what makes fusion tractable, because the enter/exit sibling mutation in `crates/vize_atelier_core/src/transform/structural.rs` (which merges `v-else` branches on the parent's child list) is precisely the re-visit source a region-owning `ui.if` never needs
-- [ ] `ui.model` carries the **binding contract only** (what is read, what is written, the value-type flow), with element kind and dialect modifiers as attributes. Realization is never expanded in S2; IME/composition handling is runtime-owned by declaration (architecture, charter #23 tiering)
-- [ ] Whatever is genuinely Vue-specific stays a `vue.*` dialect op instead of shaping the core — the fairness litmus test P2-16 then exercises
-- [ ] **Drop-free by construction**: every type arena-resident through `vize_carton::{Box, Vec}`, whose `needs_drop` const assertion is the enforcement (P1-10 measured it catching two real violations); no `impl Drop` anywhere in the crate
-- [ ] Node-size `const` asserts per op type, guarded by `#[cfg(target_pointer_width = "64")]` (P2-14 makes wasm32 required)
-- [ ] Exhaustive-match canary: a test that matches every variant with no `_` arm, so adding a variant breaks it. No `_` arms anywhere downstream
-- [ ] S2 folio page from birth via the P2-4 derive
+- [x] `crates/vize_disegno/` created and added to `[workspace] members` in the root `Cargo.toml`; `publish = false`, `metadata.vize.stability = "experimental"`, `#![no_std]` plus `extern crate alloc;` from birth _(and TS-11 empty is mechanical: `cargo tree -i vize_disegno --workspace` prints only the crate itself)_
+- [x] Op enums: element / component / text / interpolation / `ui.if { regions }` / `ui.for { binding, region }` / `ui.slot` / `ui.model { contract }` / `vue.directive`. **Regions are owned by their op** — this is what makes fusion tractable, because the enter/exit sibling mutation in `crates/vize_atelier_core/src/transform/structural.rs` (which merges `v-else` branches on the parent's child list) is precisely the re-visit source a region-owning `ui.if` never needs _(two enums: `Op` for region positions, `BindingOp` for the attached `ui.model`/`vue.directive` — the type system rules out a floating binding instead of a verifier rule)_
+- [x] `ui.model` carries the **binding contract only** (what is read, what is written, the value-type flow), with element kind and dialect modifiers as attributes. Realization is never expanded in S2; IME/composition handling is runtime-owned by declaration (architecture, charter #23 tiering) _(`BindingContract { read, write }` with the value-type flow as the pair's documented shared-type law — the record states why flow data today would be a one-variant enum or speculation)_
+- [x] Whatever is genuinely Vue-specific stays a `vue.*` dialect op instead of shaping the core — the fairness litmus test P2-16 then exercises _(exactly one dialect op, `vue.directive`; `ui.bind`/`ui.on` deliberately absent until the transform that needs them, P2-9)_
+- [x] **Drop-free by construction**: every type arena-resident through `vize_carton::{Box, Vec}`, whose `needs_drop` const assertion is the enforcement (P1-10 measured it catching two real violations); no `impl Drop` anywhere in the crate _(grep 0; `!needs_drop` const asserts restate the property on `Op`/`BindingOp`/`Region` directly)_
+- [x] Node-size `const` asserts per op type, guarded by `#[cfg(target_pointer_width = "64")]` (P2-14 makes wasm32 required) _(all fifteen types pinned; the figures are expected to move when P2-5b replaces `ExprSlot`)_
+- [x] Exhaustive-match canary: a test that matches every variant with no `_` arm, so adding a variant breaks it. No `_` arms anywhere downstream _(proved by injection twice — the crate's own matches break, and with those patched the canary test alone still breaks; record § "The canary, proved by injection")_
+- [x] S2 folio page from birth via the P2-4 derive _(hand-written owned `DisegnoFolio` instead — the P2-4 boundary applied and recorded: the derived grammar is flat by construction, the S2 artifact is region-nested by its central design decision; grammar in [`folio-format.md`](./folio-format.md) "Disegno page")_
 
 **Acceptance:** TS-16 on the S2 folio (`Full` byte-exact, `Display` no law); TS-1; the guarded size asserts compile; the exhaustive-match canary is _demonstrably_ broken by an injected variant and green after handling it (the P0-7 staleness-check pattern — prove the canary, do not assume it); `grep -rn "impl Drop" crates/vize_disegno/src` → 0; `cargo build -p vize_disegno --target wasm32-wasip2` green; TS-11 empty (nothing consumes S2 yet); TS-13. **Deps:** P2-1, P2-4. **Non-goals:** the expression reference (P2-5b); lowering into it (P2-8); the verifier (P2-6); speculative `vue.*` ops — a dialect op lands with the transform that needs it (P2-9); S3 (`vize_impeto`, phase 3).
 
 ## P2-5b — `ExprRef` contract, including the retained-`None` classes
+
+**Landed 2026-08-20** — full record: [phase-2-records/p2-5b.md](./phase-2-records/p2-5b.md).
 
 **Deliverable:** `ExprRef<'a>` with a written, tested, folio-serializable policy for **every** expression class the parser actually produces.
 
@@ -93,11 +97,11 @@
 
 **Steps:**
 
-- [ ] `ExprRef<'a>` with the two architecture variants — `Js(&'a oxc_ast::ast::Expression<'a>)` and `Foreign(&'a ForeignExpr<'a>)`; `Foreign` is **type only** until phase 6 (charter #28), carrying dialect id + source slice + span + side tables
-- [ ] **Decide the `None` classes and record the decision.** The measured shapes are: v-for values (`item of items` — the splitter synthesizes sub-expressions that never existed as template text, and JS `in` associates left while Vue's v-for grammar splits at the first viable `in`/`of`, so they genuinely disagree on `a in b in c`), v-on multi-statement bodies, nesting-guard-refused text (`vize_carton::expression_guard::expression_is_safe_to_parse`, refused _before_ parsing and before counting), text oxc rejects, and compound expressions rebuilt from source slices. Candidate resolutions to weigh: (a) a third variant carrying slice + span + a classified reason, with **pessimal documented semantics from day one** (the LLVM `undef`/`poison` regret, imported as a rule in `prior-art.md`); (b) widen the retained contract in `crates/vize_armature/src/parser/expression.rs` so the classes shrink; (c) both. Record which, and the measurement that picked it
-- [ ] **Owned folio payload**, because arena references cannot persist across a compile (P1-11's contract, enforced by `'static` assertions and the debug arena-generation stamp in `crates/vize_carton/src/allocator/generation.rs`): `Js` serializes as source slice + span and re-parses into the arena on load; `Foreign` as dialect id + source + span; the escape variant as reason + slice + span
-- [ ] Arena-reset replay test: print a folio → drop the `pool::acquire()` guard (arena reset) → parse → structural equality. This is P1-11's resident-cache reset scenario applied to folios
-- [ ] The capability contract (enumerate referenced bindings, classify const-ness, map spans, emit for a target) is resolved **per file, never dyn-dispatched per node** (guardrail 1)
+- [x] `ExprRef<'a>` with the two architecture variants — `Js(&'a oxc_ast::ast::Expression<'a>)` and `Foreign(&'a ForeignExpr<'a>)`; `Foreign` is **type only** until phase 6 (charter #28), carrying dialect id + source slice + span + side tables _(one recorded deviation: `Js` points at a `JsExpr` carrying the AST reference **beside** its exact text and authored span, because this task's own folio clause needs slice + span at print time and a standalone-parsed expression's oxc spans are text-relative)_
+- [x] **Decide the `None` classes and record the decision.** The measured shapes are: v-for values (`item of items` — the splitter synthesizes sub-expressions that never existed as template text, and JS `in` associates left while Vue's v-for grammar splits at the first viable `in`/`of`, so they genuinely disagree on `a in b in c`), v-on multi-statement bodies, nesting-guard-refused text (`vize_carton::expression_guard::expression_is_safe_to_parse`, refused _before_ parsing and before counting), text oxc rejects, and compound expressions rebuilt from source slices. Candidate resolutions to weigh: (a) a third variant carrying slice + span + a classified reason, with **pessimal documented semantics from day one** (the LLVM `undef`/`poison` regret, imported as a rule in `prior-art.md`); (b) widen the retained contract in `crates/vize_armature/src/parser/expression.rs` so the classes shrink; (c) both. Record which, and the measurement that picked it _(**(a)**, with (b) deferred to P2-9's measurement — two classes can never carry an AST so the variant is forced regardless, and the pessimal laws make a later widening monotone-safe; the five classes are a closed `OpaqueReason` enum with the text-classifiable/position-classified split documented; measurement in the record, run twice, identical)_
+- [x] **Owned folio payload**, because arena references cannot persist across a compile (P1-11's contract, enforced by `'static` assertions and the debug arena-generation stamp in `crates/vize_carton/src/allocator/generation.rs`): `Js` serializes as source slice + span and re-parses into the arena on load; `Foreign` as dialect id + source + span; the escape variant as reason + slice + span _(`js(…)`/`foreign(…)`/`opaque(…)` tokens, grammar in `folio-format.md`; the load is total — refused text loads as `Opaque`, never a panic)_
+- [x] Arena-reset replay test: print a folio → drop the `pool::acquire()` guard (arena reset) → parse → structural equality. This is P1-11's resident-cache reset scenario applied to folios _(`crates/vize_disegno/tests/expr_replay.rs`, including the reload into a second pooled arena)_
+- [x] The capability contract (enumerate referenced bindings, classify const-ness, map spans, emit for a target) is resolved **per file, never dyn-dispatched per node** (guardrail 1) _(`ExprDialect`, generic per-file binding, no `dyn` offered; `enumerate_bindings` names #4365's future home and encodes neither resolution)_
 
 **Acceptance:** TS-16 including `Js`, `Foreign` and escape-variant `Full`-mode fixtures **and** the arena-reset replay test; size asserts; TS-1; TS-11 empty. The class sizes backing the decision are machine-measured, not asserted: rerun the P1-7/P1-9 counters and record the per-class numbers in the PR —
 
@@ -111,15 +115,17 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-6 — S2 verifier v1
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-6.md](./phase-2-records/p2-6.md).
+
 **Deliverable:** the between-pass verifier, debug/CI only, with an invalid-folio fixture set.
 
 **Steps:**
 
-- [ ] **Local checks only** (GHC Lint discipline): region nesting, id resolution (every `NodeId` a side table references resolves), expr-ref liveness, canonical-form invariants per `PassKind`
-- [ ] Expr-ref liveness reuses the mechanism already in tree rather than inventing one: the debug arena-generation stamp (`Allocator::stamp` / `assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`) panics on a value read against a reset arena
-- [ ] Each invariant documented in [`folio-format.md`](./folio-format.md) — the format doc is where "canonical" is written down
-- [ ] Runs between passes in debug/CI **through the P2-3 observer**, never in the release hot path (guardrail 5: verification never ships)
-- [ ] Invalid-folio fixture set: hand-built invalid artifacts, each committed with its exact expected diagnostic (code + span + full message, canonical `en` locale)
+- [x] **Local checks only** (GHC Lint discipline): region nesting, id resolution (every `NodeId` a side table references resolves), expr-ref liveness, canonical-form invariants per `PassKind` _(six-code catalogue S2V001–S2V006 in one page-order walk; rigor escalates at the first `MandatoryLowering` pass and only there)_
+- [x] Expr-ref liveness reuses the mechanism already in tree rather than inventing one: the debug arena-generation stamp (`Allocator::stamp` / `assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`) panics on a value read against a reset arena _(`VerifyObserver::check_live` delegates to `assert_stamp_current`; one artifact-level stamp today because `ExprSlot` is zero-sized — the method is the recorded P2-5b seam)_
+- [x] Each invariant documented in [`folio-format.md`](./folio-format.md) — the format doc is where "canonical" is written down _("S2 verifier invariants" section: codes, rigor, node numbering, the liveness seam, the fixture contract)_
+- [x] Runs between passes in debug/CI **through the P2-3 observer**, never in the release hot path (guardrail 5: verification never ships) _(`VerifyObserver` follows the `FolioObserver` precedent — hooks track rigor, artifact-holding callers invoke the checks; release shape is a ZST with empty bodies, const-asserted)_
+- [x] Invalid-folio fixture set: hand-built invalid artifacts, each committed with its exact expected diagnostic (code + span + full message, canonical `en` locale) _(15 pages in `crates/vize_disegno/tests/fixtures/invalid/`, each with a `.expected` twin compared whole-file; the two lanes page text cannot encode — id resolution, liveness — are pinned with exact oracles in `tests/verifier_observer.rs`)_
 
 **Acceptance:** TS-18 established — the verifier rejects **every** committed invalid artifact with the exact diagnostic, no partial matching (TS-13 enforces that mechanically); a release build makes zero verifier calls, asserted by the `cfg` shape plus the P2-3 zero-cost bench (TS-10); TS-1. **Deps:** P2-5a, P2-3. **Non-goals:** whole-program or fixpoint checks — those are barrier analyses and the S3 equivalent is P3-1's phase validator; the independent Lean folio checker (C-23); verifying S1 (P2-7's `render == source` is its own verifier).
 
@@ -235,108 +241,36 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-13 — Folio-after-change, `vize repro`, timing JSON
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-13.md](./phase-2-records/p2-13.md).
+
 **Deliverable:** the ICE policy made real (charter #30) plus the per-pass dump controls.
 
 **Steps:**
 
-- [ ] `--folio-after-change` (hash-gated: print a pass's folio only when its hash changed) and `--folio-dir <path>`, on `davinci-opt` and the CLI compile path
-- [ ] Panic handler writes `repro.folio` — last-good stage dump + pipeline string + config — and the build reports **that file** as failed while other files continue, never silently degrading to possibly-wrong output
-- [ ] `vize repro <file>` replays it. This is a **new** command: there is no `repro` module in `crates/vize/src/commands/` and no `Repro` variant in `crates/vize/src/cli.rs:19`'s enum, so the task adds both plus the module declaration in `crates/vize/src/commands.rs`
-- [ ] Timing JSON per the **P0-11** profile-export schema ([`profile-export.schema.json`](./profile-export.schema.json)) — the provisional text's "P0-4 schema" was a miscitation; P0-4 is `budgets.toml`
+- [x] `--folio-after-change` (hash-gated: print a pass's folio only when its hash changed) and `--folio-dir <path>`, on `davinci-opt` and the CLI compile path _(the mechanism is `FolioDump` in `vize_davinci` — IO-free, hashing the artifact's canonical `Full` text, which the Folio laws make interchangeable with the value. `davinci-opt --pipeline` dumps real pages; on `vize build` the driver has no folio-printable stage artifact until P2-12b, so the pinned behavior today is "directory created, zero pages" — asserted by test, so the flag is measured rather than decorative)_
+- [x] Panic handler writes `repro.folio` — last-good stage dump + pipeline string + config — and the build reports **that file** as failed while other files continue, never silently degrading to possibly-wrong output _(the guard wraps the per-file compile: an injected panic is attributed exactly through the pass-manager driver; a real-compile panic is recorded with an empty `failed-pass` (a stated unknown, not a guessed pass). The last-good stage today is the authored source, `artifact-stage=source`. Live in unwind builds; the release profile's `panic = "abort"` stands — recorded, not decided here)_
+- [x] `vize repro <file>` replays it. This is a **new** command: there is no `repro` module in `crates/vize/src/commands/` and no `Repro` variant in `crates/vize/src/cli.rs:19`'s enum, so the task adds both plus the module declaration in `crates/vize/src/commands.rs` _(added exactly so; the exact-equality comparison lives inside the tool — exit 0 = replayed to the byte-identical failure, 1 = diverged or completed, 2 = malformed)_
+- [x] Timing JSON per the **P0-11** profile-export schema ([`profile-export.schema.json`](./profile-export.schema.json)) — the provisional text's "P0-4 schema" was a miscitation; P0-4 is `budgets.toml` _(`davinci-opt --timing-json <path>` writes `vize_carton::profiler`'s own export — one producer in the tree — with the P2-3 timing observer recording one span per walk; validated through the TS-15 strict validator, reused by `#[path]` include, never re-implemented)_
 
 **Acceptance:** TS-23 established — an injected panic produces a `repro.folio` and `vize repro` replays to the **same** failure, asserted by exact equality on the failure, not a substring; the file-scoped property asserted as an exact file set (a batch with one panicking file still emits every other file); the timing JSON validates against the schema (TS-15); TS-1, TS-13. **Deps:** P2-4, P2-3. **Non-goals:** `folio-reduce` (P3-14); the DevTool pass-timeline UI (C-3); crash telemetry or upload; auto-fallback on internal errors, which charter #26 forbids outright.
 
 ## P2-14 — `no_std` boundary audit + wasm32-wasip2 lanes
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-14.md](./phase-2-records/p2-14.md).
+
 **Deliverable:** the audit the open question calls for, then the CI lanes it licenses. **The audit comes first** — the workspace makes no `no_std` claim until it says so.
 
 **Steps:**
 
-- [ ] Audit which dependencies genuinely support `no_std + alloc`: the oxc crates (which `vize_carton` and therefore everything downstream depend on), the map crate P2-1 picks, `lightningcss`, `compact_str` (which `vize_carton::String` aliases), `phf` (the interner's well-known table); and which are `std`-bound by nature — rayon (threads), salsa (resident-tier only), the CLI's filesystem and process layers
-- [ ] Document the approved boundary in a committed plan doc, including the P2-4 proc-macro crate as an approved `std` host-build edge
-- [ ] Separate the **core-compile lane** (`vize_davinci`, `vize_disegno` only) from the full-CLI lane, which stays `std`
-- [ ] Add the CI jobs to `.github/workflows/check.yml`: `cargo build -p vize_davinci -p vize_disegno --target wasm32-wasip2` and a `--no-default-features` build. **No `wasm32-wasip2` lane exists in any workflow today** — this task creates it, and it is required for the new crates only
-- [ ] Note that `vize_davinci` has no `[features]` section today, so `--no-default-features` is currently vacuous; the audit states what feature seam (if any) the crates should grow rather than leaving the flag decorative
-- [ ] Per P1-12's docs-truth precedent, the `no_std` claim must not appear in `docs/content/**` before the audit makes it true
+- [x] Audit which dependencies genuinely support `no_std + alloc`: the oxc crates (which `vize_carton` and therefore everything downstream depend on), the map crate P2-1 picks, `lightningcss`, `compact_str` (which `vize_carton::String` aliases), `phf` (the interner's well-known table); and which are `std`-bound by nature — rayon (threads), salsa (resident-tier only), the CLI's filesystem and process layers _(ledger in [`no-std-boundary.md`](./no-std-boundary.md); measured corrections: none of the six oxc crates in the closure declare `no_std` at rev `fc702c1f`, salsa is not in `Cargo.lock` at all yet, and the P2-1 map is `FxHashMap` — a `std` type crossing the boundary by carton re-export)_
+- [x] Document the approved boundary in a committed plan doc, including the P2-4 proc-macro crate as an approved `std` host-build edge _(committed as [`no-std-boundary.md`](./no-std-boundary.md) — **three** approved edges: the proc-macro, `vize_carton`, and the `davinci-opt` bin target the contract had not named)_
+- [x] Separate the **core-compile lane** (`vize_davinci`, `vize_disegno` only) from the full-CLI lane, which stays `std` _(the TS-24 step builds exactly the two claim crates; the full CLI stays `std` as the rest of the same job's clippy/test steps)_
+- [x] Add the CI jobs to `.github/workflows/check.yml`: `cargo build -p vize_davinci -p vize_disegno --target wasm32-wasip2` and a `--no-default-features` build. **No `wasm32-wasip2` lane exists in any workflow today** — this task creates it, and it is required for the new crates only _(landed as **steps of `clippy-and-test`**, not new jobs — check.yml is over the 350-line ratchet, which forbids any net growth; required-ness is inherited from `test-report`'s `needs:` and pinned by `tests/tooling/davinci-portability-lane.test.ts`; the record § "The lane is a step extension" carries the arithmetic)_
+- [x] Note that `vize_davinci` has no `[features]` section today, so `--no-default-features` is currently vacuous; the audit states what feature seam (if any) the crates should grow rather than leaving the flag decorative _(the audit's answer: **none yet** — a `std` feature would invert an unconditionally-`no_std` design; the vacuity is proven by the second lane build being a no-op rebuild, and the flag stays so the first real seam is gated from birth)_
+- [x] Per P1-12's docs-truth precedent, the `no_std` claim must not appear in `docs/content/**` before the audit makes it true _(grep empty at landing; the audit's "Docs truth" section states the claim now tellable, for exactly the two crates and phrased as the boundary phrases it)_
 
 **Acceptance:** TS-24 established and **required** for `vize_davinci` and `vize_disegno`; audit doc committed; both lanes green; the guarded size asserts from P2-1/P2-5a/P2-7 prove their purpose by compiling on a 32-bit target. **Review point:** the maintainer approves the boundary — which dependency edges are accepted as `std`, and which crates the claim covers. **Deps:** P2-5a. **Non-goals:** converting existing crates to `no_std` (the audit says which _could_, it does not do it); the WASI component model as the out-of-process contract transport (charter #15, phase 6); wasm blob size budgets (charter #19).
 
-## P2-15 — Metamorphic suite v1
-
-**Deliverable:** the mutator suite with per-mutator equivalence justifications — because these mutations are _not_ universally semantics-preserving in Vue.
-
-**Steps:**
-
-- [ ] Mutators: attribute reorder, pass-through `<template>` wrap, text-node split/merge, whitespace-insignificant edits
-- [ ] **Each mutator ships an equivalence justification and exclusion predicates**: no reordering across duplicate keys or across `class`/`style` merge-order-sensitive attributes; wraps only where root and slot semantics are unchanged; whitespace only within Vue's condense rules
-- [ ] A mutator with no safe applicability at a site **skips** that site rather than mutating it, and the skip is **counted** — a suite that silently degenerates to zero mutations must fail, the scope-proof discipline TS-11 established
-- [ ] Oracle: S2 folios identical modulo declared normalization (the `folio-format.md` rules), compared as full normalized artifacts
-- [ ] Commit the matrix fixture plane. `tools/davinci/matrix-gen.mjs` defaults to `tests/fixtures/davinci-matrix/`, which **is not in the tree** — P0-12 landed the deterministic generator with a `--check` staleness mode but no committed fixtures. Commit the element-kind × directive plane and wire `--check` into `tests/tooling/davinci-matrices.test.ts`
-- [ ] Runs over the matrix fixtures **and** a corpus shard in CI
-
-**Acceptance:** TS-21 established — the suite runs in CI over both sources with a scope proof (mutations applied and skips counted; a zero-mutation run fails); TS-12 green for the newly committed fixtures with the staleness check demonstrably failing on an injected edit; TS-13. **Review point:** the per-mutator equivalence justifications — an unjustified mutator is an oracle asserting a wrong expected value, which assurance §4 calls worse than no assertion. **Deps:** P2-5b, P2-8. **Non-goals:** S3 folio equivalence (phase 3); mutators needing semantic facts to decide applicability (phase 4); `folio-reduce` (P3-14); mutating the corpus submodules in place — copies only, the P0-13 convention.
-
-## P2-16 — JSX lowering re-targets S2
-
-**Deliverable:** `vize_atelier_jsx` lowering to Disegno instead of relief, which is the neutral core's first real fairness test.
-
-**Steps:**
-
-- [ ] `lower_source` at `crates/vize_atelier_jsx/src/lib.rs:206` — signature `lower_source<'a>(bump: &'a Allocator, allocator: &oxc_allocator::Allocator, source, lang)` — produces S2 rather than a relief `RootNode`; the crate-private `lower_source_with_compat` (`lib.rs:229`) follows
-- [ ] Record whether the JSX hot path's deliberate bypass of `MarkupDocument::from_jsx` can now go. That bypass exists because Relief is Vue-shaped — it is the symptom the neutral core is supposed to remove, so its survival or removal is the honest fairness measurement
-- [ ] Differential lane in the house shape for the JSX path
-
-**Acceptance:** the babel-compat oracle green on the new path — `cargo test -p vize_atelier_jsx` (`babel_compat_oracle`), TS-6, with the nine committed snapshots unchanged; the JSX corpus projects' rows in TS-11 empty; differential lane zero divergence (TS-25); TS-1, TS-13. **Deps:** P2-11. **Non-goals:** rule-corpus fairness convergence (phase 4, TS-39) — this task _measures_ the gap, it does not close it; Svelte/Solid input dialects; deleting the relief JSX lowering, which Patina still consumes until it re-bases in phase 4.
-
-## P2-17 — IR contract review milestone
-
-**Deliverable:** a signed-off checklist — the last cheap-fix window before caches, Spolvero and external consumers depend on the S2 format.
-
-**Steps** — the checklist, against the prior-art rules imported from LLVM's three expensive regrets:
-
-- [ ] **No redundant encodings**: every S2 field is semantic **xor** derived-and-cached, never both (the pointee-type regret: ~7 years to remove)
-- [ ] **No constructor-time folding**: folding happens in exactly one designated pass per stage (the top infinite-loop source)
-- [ ] **The escape variant has pessimal documented semantics** from day one — P2-5b's decision is reviewed here against the `undef`/`poison` regret
-- [ ] **Spans survive lowering**: every S2 op traces to an authored SFC span
-- [ ] **`schema_version` on every agent-visible artifact** (devtool.md's data layer requires it: folio format, profile export, remark and fact-table schemas) so Spolvero negotiates and refuses mismatches loudly
-- [ ] **Provenance survives failure**: partial S2 kept on error (P2-8's commitment, verified here)
-
-**Acceptance:** the signed-off checklist committed. The mechanical half is machine-checked and must land as tests, not prose: a corpus-wide assertion that every S2 op's span resolves into its authored SFC, and a folio-level assertion that `schema_version` is present and negotiated. **Review point** for the judgement half — this milestone exists precisely because these are the cheap fixes that become expensive once formats have consumers. **Deps:** P2-11, P2-12b, P2-13. **Non-goals:** S3 contracts (P3-5's op reference does the same job one stage later); freezing the format for external consumers, which is phase 6's contracts GA; a stability guarantee — charter #23 keeps internal formats free to break until then.
-
-## P2-18 — Spolvero feed v1
-
-**Deliverable:** the observer's folio output as a consumable feed, rendered in the existing inspector.
-
-**Steps:**
-
-- [ ] P2-3's folio-printing observer writes a folio directory with a payload schema carrying `schema_version` (devtool.md's data-layer requirement)
-- [ ] `vize_curator`'s inspector renders S1/S2 pages — `crates/vize_curator/src/inspector/payload.rs` (`InspectorPayload`, `build_payload`, `serialize_payload`) — next to the existing croquis alias. The alias itself lives in `crates/vize_vitrine/src/wasm/analyze.rs:312-315`, which carries both the deprecated `vir` key and nested `folio.croquis` (P0-10 corrected the location; the inspector payload never carried it)
-- [ ] **Registry gap to close in this task:** [`test-suites.md`](./test-suites.md) has no suite covering the Spolvero feed payload. Add one there in the same PR — the registry is the source of TS-ids and a gate naming an unregistered suite is a plan bug, so this task must not invent an id here
-
-**Acceptance:** the feed payload validates against its committed schema, gated by the newly registered suite; the croquis alias keeps working byte-identically (`folio.croquis` and `vir` both present). **Review point:** that the playground actually shows the stage ladder for a compiled SFC — a rendering claim no CI job evaluates today, which is why it is marked rather than dressed up as a gate. TS-3, TS-13. **Deps:** P2-4, P2-3. **Non-goals:** the `vize devtool` local server (C-7); the transport decision (P2-19); provenance navigation and remarks rendering (C-5, needs P3-13); the Fresco TUI (C-8).
-
-## P2-19 — DevTool protocol spike
-
-**Deliverable:** the open question closed with a working prototype, and the spike disposed of deliberately.
-
-**Steps:**
-
-- [ ] Prototype the three candidates against the P2-18 feed: JSON-lines stream, served files, or a content-mapper-style JSON-RPC (`vize content-mapper` is the existing precedent for the last)
-- [ ] Evaluate against the three consumers devtool.md names — browser playground (`vize_vitrine` wasm), local server, and `--format agent` output under `vize_doctor::ai_context` budgeting — plus the `schema_version` negotiation requirement
-- [ ] Record the decision in [`devtool.md`](../devtool.md) and convert the `open-questions.md` "DevTool protocol" entry into a decided stub pointing at it, per that document's own convention
-
-**Acceptance:** decision recorded in `devtool.md`; the open-questions entry is a stub; the spike code is either kept (with tests and a home) or deleted, and the PR says which and why. **Review point** — a transport choice is a judgement, and "spike code left lying around" is the failure mode this acceptance names. **Deps:** P2-18. **Non-goals:** implementing the chosen transport at production quality (C-7); the JS plugin API shape (charter #29, phase 4/5 spike); authentication or remote access.
-
-## P2-20 — Phase exit
-
-**Deliverable:** the exit gate in [phase-2.md](./phase-2.md), evaluated and recorded there, in phase 0's and phase 1's manner: **a line is ticked only when it is satisfied, an unticked line names its blocker, and no line's wording is softened to make it tickable.**
-
-**Steps:**
-
-- [ ] Evaluate every line of the exit gate in [phase-2.md](./phase-2.md) and record the evidence inline
-- [ ] Delete the in-phase old paths (P2-9's transform lane flag, P2-11's `VIZE_DAVINCI_DOM=legacy`) or record each as an unfinished deletion with an owner and an issue — charter #26's fix-forward switch happens here
-- [ ] Restate the retirement condition for the `davinci-differential` lanes (phase 1's and phase 2's), which are written to live "for one release"
-- [ ] Re-bench the phase-start rev and this tree, compare against the P2-12a target, and record the result — including a miss, if it is one
-- [ ] Corpus waiver ledger reviewed and empty (C-16)
-
-**Acceptance:** the exit gate in [phase-2.md](./phase-2.md), with every line either ticked with its evidence or carrying a named blocker. **Deps:** all of P2-1..P2-19. **Non-goals:** re-cutting phase 3 — that is phase 3's own re-cut at this exit, per the plan README; closing P0-4's Blacksmith pending; unblocking P1-8.
+The contracts for **P2-15 through P2-20** continue in
+[phase-2-tasks-later.md](./phase-2-tasks-later.md), split under the 350-line
+source budget.
