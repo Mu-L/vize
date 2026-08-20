@@ -5,6 +5,7 @@ use vize_carton::{String, profile};
 use crate::script::{ScriptCompileContext, transform_destructured_props};
 use crate::types::{CssModuleMapping, SfcError};
 
+use super::super::super::props::WithDefaultsValues;
 use super::super::super::{
     ScriptCompileResult, TemplateParts,
     function_mode::helpers::collect_runtime_identifier_references,
@@ -40,6 +41,7 @@ pub(super) fn compile_script_setup_inline_body(
     mut output: vize_carton::Vec<u8>,
     preserved_normal_script: Option<String>,
     needs_merge_defaults: bool,
+    with_defaults_values: Option<WithDefaultsValues>,
     has_define_model: bool,
     needs_merge_models: bool,
     has_define_slots: bool,
@@ -71,7 +73,14 @@ pub(super) fn compile_script_setup_inline_body(
 
     let props_emits_buf = profile!(
         "atelier.script_inline.build_props_emits",
-        build_props_emits(&ctx, is_ts, needs_prop_type, needs_merge_defaults, is_prod)
+        build_props_emits(
+            &ctx,
+            is_ts,
+            needs_prop_type,
+            needs_merge_defaults,
+            with_defaults_values.as_ref(),
+            is_prod,
+        )
     );
 
     let model_infos: Vec<(
@@ -94,6 +103,7 @@ pub(super) fn compile_script_setup_inline_body(
             is_ts,
             needs_prop_type,
             needs_merge_defaults,
+            with_defaults_values.as_ref(),
             is_prod,
         )
     );
