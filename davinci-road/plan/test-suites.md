@@ -45,7 +45,7 @@
 | TS-20 | Lowering totality fuzz  | fuzz targets for S1→S2, folio parsers                                                          | no panic on arbitrary bytes; diagnostics not crashes                              | P2-8  |
 | TS-21 | Metamorphic equivalence | mutator suite over matrix fixtures + corpus shard                                              | S2 (later S3) folios identical modulo declared normalization                      | P2-15 |
 | TS-22 | Walk-count budget       | observer-instrumented compile on fixture ladder                                                | traversal count ≤ `budgets.toml`; fused groups reported                           | P2-12 |
-| TS-23 | Crash-repro replay      | injected-panic test                                                                            | `repro.folio` written and `vize repro` replays to the same failure                | P2-13 |
+| TS-23 | Crash-repro replay      | `cargo test -p vize --test davinci_repro_cli` (injected panic)                                 | `repro.folio` written and `vize repro` replays to the same failure                | P2-13 |
 | TS-24 | Portability lanes       | `cargo build -p vize_davinci -p vize_disegno --target wasm32-wasip2` + `--no-default-features` | builds green                                                                      | P2-14 |
 
 ### Semantics & backends

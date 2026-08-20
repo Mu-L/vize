@@ -64,6 +64,9 @@ enum Commands {
     #[cfg(feature = "maestro")]
     Ide(crate::commands::ide::IdeArgs),
 
+    /// Replay a Davinci crash repro (repro.folio) and verify it reproduces
+    Repro(crate::commands::repro::ReproArgs),
+
     /// Update the installed Vize package
     #[command(visible_alias = "self-update")]
     Upgrade(crate::commands::upgrade::UpgradeArgs),
@@ -102,6 +105,7 @@ fn run(cli: Cli) {
         Some(Commands::Lsp(args)) => crate::commands::lsp::run(args),
         #[cfg(feature = "maestro")]
         Some(Commands::Ide(args)) => crate::commands::ide::run(args),
+        Some(Commands::Repro(args)) => crate::commands::repro::run(args),
         Some(Commands::Upgrade(args)) => crate::commands::upgrade::run(args),
         #[cfg(feature = "glyph")]
         Some(Commands::Ready(args)) => crate::commands::ready::run(args),
