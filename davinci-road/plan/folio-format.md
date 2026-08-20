@@ -183,3 +183,52 @@ coverage):
 | `props-runtime-defaults.vue`     | written for the `[surface.props]` has-default (`=`) marker                  |
 | `provide-inject-symbol.vue`      | `tests/_fixtures/_projects/compiler-macros/src/ProvideInjectSymbol.vue`     |
 | `top-level-await.vue`            | `tests/_fixtures/_projects/compiler-macros/src/TopLevelAwait.vue`           |
+
+## Disegno page (P2-5a)
+
+The S2 stage dump: an owned document model (`DisegnoFolio`,
+`crates/vize_disegno/src/folio.rs`) of one op tree. Hand-written under the
+"Derived pages" boundary, because the derived grammar is flat (header
+scalars plus one-level sections) while the S2 artifact is region-nested by
+its central design decision — ops own their regions — and flattening the
+tree into derivable lines would move structure validation outside `parse`,
+stripping its 1-based line numbers.
+
+Two sections, fixed order: a `[disegno]` header whose single `ops=` field
+is the printer's **computed** statement of the total op count (region ops
+plus attached bindings, all levels; parse validates the integer and
+discards it — normalization by the first print), then `[disegno.ops]`
+holding the tree, omitted when empty. Nesting is two-space indentation;
+a shallower line closes every deeper op. Under an element or component the
+grouping is fixed: `attr` lines, then attached bindings (`ui.model`,
+`vue.directive`), then children. Under `ui.if` only `branch` lines are
+legal; under `ui.model` only `attr` lines. Blank lines are separators and
+vanish; every other spelling is strict with exact, tested rejections.
+
+One line per op (`[]` optional; every `?expr` is the printed form of the
+reserved `ExprSlot` position until P2-5b):
+
+| line                                                                                  | notes                                |
+| ------------------------------------------------------------------------------------- | ------------------------------------ |
+| `ui.element <tag>[ ns=<svg\|mathml>] @s:e`                                            | HTML namespace elided                |
+| `ui.component <name> @s:e`                                                            | same body grouping as an element     |
+| `ui.text <quoted> @s:e`                                                               |                                      |
+| `ui.interpolation ?expr @s:e`                                                         |                                      |
+| `ui.if @s:e`                                                                          | `branch [?expr ]@s:e` lines beneath  |
+| `ui.for source=?expr value=?expr[ key=?expr][ index=?expr] @s:e`                      | region beneath                       |
+| `ui.slot name=<quoted>\|name=?expr @s:e`                                              | fallback region beneath              |
+| `ui.model read=?expr write=?expr @s:e`                                                | `attr` lines beneath                 |
+| `vue.directive <quoted>[ arg=<quoted>\|arg=?expr][ mods=<quoted>][ value=?expr] @s:e` | modifiers comma-joined inside quotes |
+| `attr <name>[=<quoted>] @s:e`                                                         | bare name for boolean attributes     |
+
+Quoted strings escape `\\`, `\"`, `\n`, `\r`, `\t`. `Display` elides every
+` @s:e` span tail and nothing else. Documented edges (same rule as derived
+pages): attribute names containing `=`, a space or `"`, modifier names
+containing `,` or `"`, and values embedding other control characters are
+outside the contract. The folio models the dump, not the analysis: tree
+shape is validated, semantic invariants (branch ordering, region
+well-formedness beyond the grammar) belong to the S2 verifier (P2-6). The
+committed reference page is
+`crates/vize_disegno/tests/fixtures/reference.folio`, pinned by TS-16 in
+`crates/vize_disegno/tests/folio_laws.rs` and mirrored from a live arena
+tree in `tests/folio_mirror.rs`.

@@ -1,0 +1,154 @@
+//! The S2 op family: one concrete typed enum per position, never a uniform
+//! `Operation` structure (`davinci-road/architecture.md`, "What we take
+//! from MLIR, and what we refuse").
+//!
+//! # Regions are owned by their op
+//!
+//! A [`Region`] is a child sequence owned by exactly one op. This is what
+//! makes fusion tractable: the shipped pipeline merges `v-else` /
+//! `v-else-if` siblings onto the **parent's** child list mid-traversal
+//! (`crates/vize_atelier_core/src/transform/structural.rs`), and that
+//! enter/exit sibling mutation is precisely the re-visit source a
+//! region-owning [`IfOp`] never needs - its branches are regions from
+//! birth, so no pass ever revisits a child list to stitch them together.
+//!
+//! # The core is fair, dialect ops are named
+//!
+//! The neutral core (`ui.*`) is a fair abstraction, not Vue's AST renamed;
+//! whatever is genuinely Vue-specific is a `vue.*` dialect op
+//! ([`BindingOp::VueDirective`] today). A dialect op lands with the
+//! transform that needs it (P2-9), never speculatively - which is why the
+//! dialect family holds exactly one op.
+//!
+//! # `Drop`-free by construction
+//!
+//! Every type here is arena-resident through `vize_carton::{Box, Vec}`,
+//! whose const assertion rejects `Drop` payloads (it caught two real
+//! violations during P1-10). The `const` assertions below restate the
+//! property directly, and the node-size assertions pin each op's 64-bit
+//! footprint (guarded on pointer width for the same reason as
+//! `crates/vize_relief/src/relief/elements.rs:31-36` - the wasm32 lane
+//! P2-14 makes required is 32-bit).
+
+use vize_carton::{Box, Vec};
+
+pub mod control;
+pub mod element;
+pub mod model;
+pub mod slot;
+pub mod text;
+pub mod vue;
+
+pub use control::{ForBinding, ForOp, IfBranch, IfOp};
+pub use element::{Attribute, ComponentOp, ElementOp, Namespace};
+pub use model::{BindingContract, ModelOp};
+pub use slot::{DynamicName, SlotOp};
+pub use text::{InterpolationOp, TextOp};
+pub use vue::VueDirectiveOp;
+
+/// One S2 op standing in a region (a child position).
+///
+/// Attached ops - bindings that belong to one element or component rather
+/// than to a child position - live in [`BindingOp`] instead; the two enums
+/// together are the closed op family of the stage.
+///
+/// Payloads are boxed into the arena so the enum stays two words - the
+/// shape `vize_relief::TemplateChildNode` already uses for child enums.
+#[derive(Debug)]
+pub enum Op<'a> {
+    /// `ui.element` - a native element with attributes, attached bindings,
+    /// and an owned children region.
+    Element(Box<'a, ElementOp<'a>>),
+    /// `ui.component` - a component reference; same surface as an element,
+    /// resolved at lowering.
+    Component(Box<'a, ComponentOp<'a>>),
+    /// `ui.text` - static text.
+    Text(Box<'a, TextOp<'a>>),
+    /// `ui.interpolation` - an expression rendered as text.
+    Interpolation(Box<'a, InterpolationOp>),
+    /// `ui.if` - structured conditional; every branch owns its region.
+    If(Box<'a, IfOp<'a>>),
+    /// `ui.for` - structured iteration; the repeated content is one owned
+    /// region.
+    For(Box<'a, ForOp<'a>>),
+    /// `ui.slot` - a slot outlet owning its fallback region.
+    Slot(Box<'a, SlotOp<'a>>),
+}
+
+impl Op<'_> {
+    /// The op's stage-wide mnemonic - the keyword its folio line starts
+    /// with.
+    #[must_use]
+    pub const fn mnemonic(&self) -> &'static str {
+        match self {
+            Self::Element(_) => "ui.element",
+            Self::Component(_) => "ui.component",
+            Self::Text(_) => "ui.text",
+            Self::Interpolation(_) => "ui.interpolation",
+            Self::If(_) => "ui.if",
+            Self::For(_) => "ui.for",
+            Self::Slot(_) => "ui.slot",
+        }
+    }
+}
+
+/// One S2 op attached to an element or component (a binding position).
+///
+/// A binding belongs to exactly one owner and never stands in a region -
+/// which is why it is a separate enum rather than more [`Op`] variants: the
+/// type system rules out a floating `ui.model` instead of a verifier rule.
+///
+/// The normalized one-way bindings (`ui.bind`, `ui.on`) are **not** here
+/// yet by design: an op lands with the transform that needs it (P2-9), and
+/// the exhaustive-match canary makes their arrival loud.
+#[derive(Debug)]
+pub enum BindingOp<'a> {
+    /// `ui.model` - the two-way binding contract (never its realization).
+    Model(Box<'a, ModelOp<'a>>),
+    /// `vue.directive` - a Vue custom directive carried through as a
+    /// dialect op.
+    VueDirective(Box<'a, VueDirectiveOp<'a>>),
+}
+
+impl BindingOp<'_> {
+    /// The op's stage-wide mnemonic - the keyword its folio line starts
+    /// with.
+    #[must_use]
+    pub const fn mnemonic(&self) -> &'static str {
+        match self {
+            Self::Model(_) => "ui.model",
+            Self::VueDirective(_) => "vue.directive",
+        }
+    }
+}
+
+/// A child sequence owned by exactly one op.
+///
+/// Ownership is the point (see the module docs): a region is reachable
+/// through its op alone, so no transform ever mutates a sibling list it is
+/// currently visiting.
+#[derive(Debug)]
+pub struct Region<'a> {
+    /// The ops of this region, in document order.
+    pub ops: Vec<'a, Op<'a>>,
+}
+
+/// The op family is `Drop`-free by construction: `vize_carton::{Box, Vec}`
+/// already reject `Drop` payloads at their construction sites, and these
+/// assertions restate the property on the enums themselves so a violation
+/// names this file.
+const _: () = assert!(!core::mem::needs_drop::<Op<'static>>());
+const _: () = assert!(!core::mem::needs_drop::<BindingOp<'static>>());
+const _: () = assert!(!core::mem::needs_drop::<Region<'static>>());
+
+/// Node footprints are pinned per op type (64-bit only: the figures are
+/// pointer-dependent and the wasm32-wasip2 lane is 32-bit, the same guard
+/// rationale as `crates/vize_relief/src/relief/elements.rs:31-36`). The
+/// enums stay two words because every payload is boxed. These figures are
+/// expected to move when P2-5b replaces [`crate::expr::ExprSlot`].
+#[cfg(target_pointer_width = "64")]
+const _: () = {
+    assert!(core::mem::size_of::<Op<'_>>() == 16);
+    assert!(core::mem::size_of::<BindingOp<'_>>() == 16);
+    assert!(core::mem::size_of::<Region<'_>>() == 24);
+};

@@ -1,0 +1,18 @@
+[disegno]
+ops=9
+
+[disegno.ops]
+ui.element form @0:99
+  attr method="post" @5:20
+  ui.model read=?expr write=?expr @21:40
+    attr element-kind="textarea" @21:40
+  vue.directive "pin" arg="top" mods="lazy,trim" value=?expr @41:60
+  ui.if @61:90
+    branch ?expr @61:75
+      ui.text "a\"b\\c" @66:70
+    branch @75:90
+      ui.interpolation ?expr @80:88
+ui.for source=?expr value=?expr key=?expr @100:120
+  ui.slot name=?expr @105:118
+ui.component Chrome @121:130
+

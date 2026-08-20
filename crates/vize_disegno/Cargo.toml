@@ -1,0 +1,14 @@
+[package]
+name = "vize_disegno"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Disegno - the Davinci S2 semantic IR: the neutral op family every input dialect lowers into"
+publish = false
+metadata.vize.stability = "experimental"
+
+[dependencies]
+vize_carton = { workspace = true }
+vize_davinci = { workspace = true }

@@ -1,0 +1,60 @@
+//! The disegno folio: the S2 stage dump.
+//!
+//! [`DisegnoFolio`] is an **owned document model** of an S2 op tree,
+//! printable and parseable under the `vize_davinci::folio` contract; the
+//! grammar is documented in `davinci-road/plan/folio-format.md` ("Disegno
+//! page"). [`DisegnoFolio::of`] mirrors a live arena tree into the owned
+//! model, because arena references cannot persist across a compile
+//! (P1-11's contract) and `parse` must construct values without an arena.
+//!
+//! # Why this page is hand-written (the P2-4 boundary, applied)
+//!
+//! `#[derive(Folio)]` generates the mechanical trio for **flat** documents:
+//! header scalars plus one-level list/map sections, computable from the
+//! type shape alone. The S2 artifact is region-nested by its central
+//! design decision - ops own their regions - and flattening the tree into
+//! derivable lines would move structure validation (indentation, which op
+//! may own what) outside `parse`, stripping its 1-based line numbers. That
+//! is a semantic grammar, so it is hand-written and reviewed, exactly the
+//! `CroquisFolio` precedent; the derive stays the right tool for any flat
+//! S2 side artifact a later task adds.
+//!
+//! A folio models the dump, not the analysis: the `ops=` header count is
+//! the printer's computed statement about the tree (parse validates its
+//! syntax and discards the value - normalization by the first print), and
+//! no semantic invariant is enforced beyond tree shape; branch and region
+//! well-formedness beyond the grammar belongs to the S2 verifier (P2-6).
+
+use alloc::vec::Vec;
+
+use vize_davinci::folio::{Folio, FolioError, FolioMode};
+
+mod owned;
+mod parse;
+mod print;
+
+pub use owned::{
+    FolioAttribute, FolioBinding, FolioBranch, FolioComponent, FolioElement, FolioFor, FolioIf,
+    FolioInterpolation, FolioModel, FolioName, FolioOp, FolioSlot, FolioText, FolioVueDirective,
+};
+
+/// Document model of an S2 op-tree dump.
+///
+/// The root region's ops, in document order. Everything else - the `ops=`
+/// count, section headers, indentation - is the printer's derived
+/// statement about this tree.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DisegnoFolio {
+    /// The root region's ops.
+    pub ops: Vec<FolioOp>,
+}
+
+impl Folio for DisegnoFolio {
+    fn print<W: core::fmt::Write>(&self, w: &mut W, mode: FolioMode) -> core::fmt::Result {
+        print::print(self, w, mode)
+    }
+
+    fn parse(input: &str) -> Result<Self, FolioError> {
+        parse::parse(input)
+    }
+}
