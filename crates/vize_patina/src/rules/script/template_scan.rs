@@ -57,12 +57,15 @@ pub(super) const DOLLAR_EMIT: &str = "$emit";
 /// binding, not the component's own.
 pub(super) fn for_each_template_call(root: &RootNode<'_>, mut visit: impl FnMut(TemplateCall<'_>)) {
     let mut walker = Walker {
+        source: root.source,
         shadowed: Vec::new(),
     };
     walker.walk(&root.children, &mut visit);
 }
 
-struct Walker {
+struct Walker<'s> {
+    /// The template source node-loc spans index into (`RootNode::source`).
+    source: &'s str,
     /// Names bound by an enclosing `v-for` alias or slot variable.
     ///
     /// Collected as bare identifier tokens out of the alias / slot expression
@@ -74,7 +77,7 @@ struct Walker {
     shadowed: Vec<String>,
 }
 
-impl Walker {
+impl Walker<'_> {
     fn walk(
         &mut self,
         children: &[TemplateChildNode<'_>],
@@ -113,9 +116,9 @@ impl Walker {
         // scanned.
         for prop in element.props.iter() {
             if let PropNode::Directive(directive) = prop
-                && directive.name.as_str() == "for"
+                && directive.name == "for"
             {
-                push_for_aliases(directive, &mut self.shadowed);
+                push_for_aliases(directive, &mut self.shadowed, self.source);
             }
         }
 
@@ -124,7 +127,7 @@ impl Walker {
                 && let Some(exp) = directive.exp.as_ref()
                 // `v-for`'s expression is `item in items`, not JavaScript, and
                 // `v-slot`'s is a binding pattern rather than a reference.
-                && !matches!(directive.name.as_str(), "for" | "slot")
+                && !matches!(directive.name, "for" | "slot")
             {
                 self.scan(exp, visit);
             }
@@ -134,10 +137,10 @@ impl Walker {
         // collected only after this element's own directives are scanned.
         for prop in element.props.iter() {
             if let PropNode::Directive(directive) = prop
-                && directive.name.as_str() == "slot"
+                && directive.name == "slot"
                 && let Some(exp) = directive.exp.as_ref()
             {
-                push_identifier_tokens(expression_source(exp), &mut self.shadowed);
+                push_identifier_tokens(expression_source(exp, self.source), &mut self.shadowed);
             }
         }
 
@@ -148,8 +151,8 @@ impl Walker {
     fn scan(&self, exp: &ExpressionNode<'_>, visit: &mut impl FnMut(TemplateCall<'_>)) {
         let shadowed = &self.shadowed;
         calls::for_each_call(
-            expression_source(exp),
-            exp.loc().start.offset,
+            expression_source(exp, self.source),
+            exp.loc().span.start,
             &mut |call| {
                 if shadowed.iter().any(|name| name.as_str() == call.callee) {
                     return;
@@ -165,7 +168,7 @@ impl Walker {
 /// The parsed aliases are preferred; a `v-for` the parser could not split falls
 /// back to the whole expression, whose identifier tokens include the source as
 /// well as the aliases. Over-collecting only suppresses calls.
-fn push_for_aliases(directive: &DirectiveNode<'_>, out: &mut Vec<String>) {
+fn push_for_aliases(directive: &DirectiveNode<'_>, out: &mut Vec<String>, source: &str) {
     if let Some(parsed) = directive.for_parse_result.as_ref() {
         for alias in [
             parsed.value.as_ref(),
@@ -175,19 +178,19 @@ fn push_for_aliases(directive: &DirectiveNode<'_>, out: &mut Vec<String>) {
         .into_iter()
         .flatten()
         {
-            push_identifier_tokens(expression_source(alias), out);
+            push_identifier_tokens(expression_source(alias, source), out);
         }
         return;
     }
     if let Some(exp) = directive.exp.as_ref() {
-        push_identifier_tokens(expression_source(exp), out);
+        push_identifier_tokens(expression_source(exp, source), out);
     }
 }
 
-fn expression_source<'a>(exp: &'a ExpressionNode<'a>) -> &'a str {
+fn expression_source<'a>(exp: &'a ExpressionNode<'a>, source: &'a str) -> &'a str {
     match exp {
-        ExpressionNode::Simple(simple) => simple.content.as_str(),
-        ExpressionNode::Compound(compound) => compound.loc.source.as_str(),
+        ExpressionNode::Simple(simple) => simple.content,
+        ExpressionNode::Compound(compound) => compound.loc.span.slice(source),
     }
 }
 

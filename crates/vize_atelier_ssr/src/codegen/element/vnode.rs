@@ -4,8 +4,7 @@ use super::super::helpers::collect_for_scoped_params;
 use super::component::{has_slot_directive, slot_template_in_children, template_slot_is_dynamic};
 use super::props::{
     component_prop_entry, component_props_object, is_dynamic_component_tag, is_valid_js_identifier,
-    normalize_prop_entries, quoted_js_string, slot_props_pattern_to_string,
-    transform_bound_prop_key, wrap_call,
+    normalize_prop_entries, quoted_js_string, transform_bound_prop_key, wrap_call,
 };
 use super::{
     ComponentSlotChildren, ElementNode, ElementType, ExpressionNode, FxHashSet, PropNode,
@@ -77,7 +76,7 @@ impl<'a> SsrCodegenContext<'a> {
         children: &[TemplateChildNode<'a>],
     ) -> std::vec::Vec<String> {
         let mut expressions = std::vec::Vec::new();
-        for child in children {
+        for child in vize_atelier_core::walk_probe::ssr_children(children) {
             if let Some(expr) = self.vnode_child_expression(child) {
                 expressions.push(expr);
             }
@@ -90,7 +89,7 @@ impl<'a> SsrCodegenContext<'a> {
         children: &[&TemplateChildNode<'a>],
     ) -> std::vec::Vec<String> {
         let mut expressions = std::vec::Vec::new();
-        for child in children {
+        for child in vize_atelier_core::walk_probe::ssr_children(children) {
             if let Some(expr) = self.vnode_child_expression(child) {
                 expressions.push(expr);
             }
@@ -107,7 +106,7 @@ impl<'a> SsrCodegenContext<'a> {
                 }
                 self.use_core_helper(RuntimeHelper::CreateText);
                 let mut out = String::from("_createTextVNode(");
-                out.push_str(&quoted_js_string(&text.content));
+                out.push_str(&quoted_js_string(text.content));
                 out.push(')');
                 Some(out)
             }
@@ -123,7 +122,7 @@ impl<'a> SsrCodegenContext<'a> {
             TemplateChildNode::Comment(comment) => {
                 self.use_core_helper(RuntimeHelper::CreateComment);
                 let mut out = String::from("_createCommentVNode(");
-                out.push_str(&quoted_js_string(&comment.content));
+                out.push_str(&quoted_js_string(comment.content));
                 out.push(')');
                 Some(out)
             }
@@ -160,7 +159,7 @@ impl<'a> SsrCodegenContext<'a> {
         let children = self.vnode_element_children_expression(&el.children);
 
         let mut out = String::from("_createElementVNode(");
-        out.push_str(&quoted_js_string(&el.tag));
+        out.push_str(&quoted_js_string(el.tag));
         out.push_str(", ");
         out.push_str(&props);
         out.push_str(", ");
@@ -175,7 +174,7 @@ impl<'a> SsrCodegenContext<'a> {
         let mut out = String::from("_createVNode(");
         out.push_str(&self.vnode_component_callee(el));
         out.push_str(", ");
-        out.push_str(&self.build_component_props(el, false, is_dynamic_component_tag(&el.tag)));
+        out.push_str(&self.build_component_props(el, false, is_dynamic_component_tag(el.tag)));
         out.push_str(", ");
         out.push_str(&self.vnode_component_slots_expression(el));
         out.push(')');
@@ -183,17 +182,17 @@ impl<'a> SsrCodegenContext<'a> {
     }
 
     fn vnode_component_callee(&mut self, el: &ElementNode) -> String {
-        if is_dynamic_component_tag(&el.tag) {
+        if is_dynamic_component_tag(el.tag) {
             return self.dynamic_component_callee(el);
         }
 
-        if let Some(binding_expr) = self.resolve_component_binding_expr(&el.tag) {
+        if let Some(binding_expr) = self.resolve_component_binding_expr(el.tag) {
             return binding_expr;
         }
 
         self.use_core_helper(RuntimeHelper::ResolveComponent);
         let mut out = String::from("_resolveComponent(");
-        out.push_str(&quoted_js_string(&el.tag));
+        out.push_str(&quoted_js_string(el.tag));
         out.push(')');
         out
     }
@@ -397,7 +396,7 @@ impl<'a> SsrCodegenContext<'a> {
         append_for_aliases(self, &mut out, for_node);
         out.push_str(") => {");
 
-        self.push_scoped_params(collect_for_scoped_params(for_node));
+        self.push_scoped_params(collect_for_scoped_params(for_node, self.source));
         out.push_str(" return ");
         out.push_str(&self.vnode_slot_object_entry(template_el, None));
         self.pop_scoped_params();
@@ -460,7 +459,7 @@ impl<'a> SsrCodegenContext<'a> {
     /// `_withCtx((params) => [children])` for a slot template's vnode form.
     fn vnode_slot_fn(&mut self, template_el: &ElementNode<'a>) -> String {
         let dir = self.slot_directive(template_el);
-        let props_pattern = dir.and_then(|d| d.exp.as_ref().map(slot_props_pattern_to_string));
+        let props_pattern = dir.and_then(|d| self.slot_props_pattern(d));
         let mut params = FxHashSet::default();
         if let Some(pattern) = props_pattern.as_deref() {
             extract_destructure_params(pattern.trim(), &mut params);
@@ -542,7 +541,7 @@ impl<'a> SsrCodegenContext<'a> {
         if children.len() == 1
             && let TemplateChildNode::Text(text) = &children[0]
         {
-            return quoted_js_string(&text.content);
+            return quoted_js_string(text.content);
         }
 
         self.vnode_children_expression(children)
@@ -589,7 +588,7 @@ impl<'a> SsrCodegenContext<'a> {
         append_for_aliases(self, &mut out, for_node);
         out.push_str(") => { return ");
 
-        self.push_scoped_params(collect_for_scoped_params(for_node));
+        self.push_scoped_params(collect_for_scoped_params(for_node, self.source));
         let key = single_for_child_key_expression(self, for_node);
         let body = if let Some(template_el) = single_template_for_child(for_node) {
             if let Some(key) = key.as_deref() {
@@ -697,9 +696,9 @@ impl<'a> SsrCodegenContext<'a> {
                     let value = attr
                         .value
                         .as_ref()
-                        .map(|value| quoted_js_string(&value.content))
+                        .map(|value| quoted_js_string(value.content))
                         .unwrap_or_else(|| "\"\"".to_compact_string());
-                    entries.push(component_prop_entry(&attr.name, &value, false));
+                    entries.push(component_prop_entry(attr.name, &value, false));
                 }
                 PropNode::Directive(dir) => {
                     if dir.name == "bind" {
@@ -844,7 +843,7 @@ fn key_prop_expression(ctx: &mut SsrCodegenContext<'_>, prop: &PropNode) -> Opti
         PropNode::Attribute(attr) if attr.name == "key" => Some(
             attr.value
                 .as_ref()
-                .map(|value| quoted_js_string(&value.content))
+                .map(|value| quoted_js_string(value.content))
                 .unwrap_or_else(|| "\"\"".to_compact_string()),
         ),
         PropNode::Directive(dir) if dir.name == "bind" => {

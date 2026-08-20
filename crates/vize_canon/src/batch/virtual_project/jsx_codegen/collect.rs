@@ -161,7 +161,7 @@ pub(super) fn collect_prop(prop: &PropNode<'_>, out: &mut Vec<JsxEmit>) {
             // an assignment so a `const`/`readonly`/non-lvalue binding is reported
             // at the binding. Other directive values (`v-show`, `v-if`, custom
             // `v-x:arg={…}`, `v-on` handlers, bound attributes) are plain reads.
-            match directive.name.as_str() {
+            match directive.name {
                 "model" => {
                     if let Some(exp) = &directive.exp
                         && let Some(target) = expr_of(exp)
@@ -195,7 +195,7 @@ pub(super) fn collect_expression(expression: &ExpressionNode<'_>, out: &mut Vec<
             if simple.is_static {
                 return;
             }
-            push_expr(&simple.content, &simple.loc, out);
+            push_expr(simple.content, &simple.loc, out);
         }
         ExpressionNode::Compound(compound) => collect_compound(compound, out),
     }
@@ -206,7 +206,7 @@ fn collect_compound(compound: &CompoundExpressionNode<'_>, out: &mut Vec<JsxEmit
         match child {
             CompoundExpressionChild::Simple(simple) => {
                 if !simple.is_static {
-                    push_expr(&simple.content, &simple.loc, out);
+                    push_expr(simple.content, &simple.loc, out);
                 }
             }
             CompoundExpressionChild::Compound(compound) => collect_compound(compound, out),
@@ -221,7 +221,7 @@ fn collect_compound(compound: &CompoundExpressionNode<'_>, out: &mut Vec<JsxEmit
 }
 
 fn push_expr(content: &str, loc: &vize_relief::SourceLocation, out: &mut Vec<JsxEmit>) {
-    if let Some(expr) = jsx_expr(content, loc.start.offset, loc.end.offset) {
+    if let Some(expr) = jsx_expr(content, loc.span.start, loc.span.end) {
         out.push(JsxEmit::Expr(expr));
     }
 }
@@ -230,11 +230,9 @@ fn push_expr(content: &str, loc: &vize_relief::SourceLocation, out: &mut Vec<Jsx
 /// the expression is static or trims to empty (e.g. a directive with no value).
 pub(super) fn expr_of(expression: &ExpressionNode<'_>) -> Option<JsxExpr> {
     match expression {
-        ExpressionNode::Simple(simple) if !simple.is_static => jsx_expr(
-            &simple.content,
-            simple.loc.start.offset,
-            simple.loc.end.offset,
-        ),
+        ExpressionNode::Simple(simple) if !simple.is_static => {
+            jsx_expr(simple.content, simple.loc.span.start, simple.loc.span.end)
+        }
         _ => None,
     }
 }
@@ -247,8 +245,8 @@ pub(super) fn alias_expr(alias: &ExpressionNode<'_>) -> Option<JsxExpr> {
             let content = simple.content.trim();
             (!content.is_empty()).then(|| JsxExpr {
                 content: content.to_compact_string(),
-                start: simple.loc.start.offset,
-                end: simple.loc.end.offset,
+                start: simple.loc.span.start,
+                end: simple.loc.span.end,
             })
         }
         ExpressionNode::Compound(_) => None,
@@ -259,7 +257,7 @@ pub(super) fn alias_expr(alias: &ExpressionNode<'_>) -> Option<JsxExpr> {
 pub(super) fn static_text(expression: &ExpressionNode<'_>) -> Option<CompactString> {
     match expression {
         ExpressionNode::Simple(simple) if simple.is_static => {
-            Some(simple.content.as_str().to_compact_string())
+            Some(simple.content.to_compact_string())
         }
         _ => None,
     }

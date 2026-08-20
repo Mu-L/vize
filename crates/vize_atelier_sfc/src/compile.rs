@@ -5,6 +5,7 @@
 //! is delegated to specialized modules.
 
 mod bindings;
+mod diagnostics;
 mod empty_component;
 mod entry;
 mod helpers;
@@ -34,6 +35,7 @@ use vize_atelier_core::{CodegenOptions, TemplateSyntaxMode, options::CustomEleme
 use self::bindings::{
     collect_normal_script_bindings, croquis_to_legacy_bindings, merge_normal_script_bindings,
 };
+use self::diagnostics::{create_v_model_reactive_const_warning, create_vapor_ssr_fallback_warning};
 use self::helpers::{
     demote_v_model_reactive_const_bindings, extract_component_name, generate_scope_id,
     trim_trailing_newlines,
@@ -54,33 +56,6 @@ pub use entry::{
     compile_sfc_with_template_syntax, compile_sfc_with_template_syntax_and_codegen_options,
 };
 use vize_carton::{String, ToCompactString, profile};
-
-fn create_vapor_ssr_fallback_warning(descriptor: &SfcDescriptor) -> SfcError {
-    SfcError {
-        message: "SFC Vapor SSR is not supported yet; falling back to standard SSR output."
-            .to_compact_string(),
-        code: Some("VAPOR_SSR_FALLBACK".to_compact_string()),
-        loc: descriptor
-            .template
-            .as_ref()
-            .map(|template| template.loc.clone()),
-    }
-}
-
-fn create_v_model_reactive_const_warning(
-    script_setup: &crate::types::SfcScriptBlock<'_>,
-    binding_name: &str,
-) -> SfcError {
-    let mut message = String::from("`v-model` cannot update the const reactive binding `");
-    message.push_str(binding_name);
-    message.push_str("`. The compiler transformed it to `let` so the update can work.");
-
-    SfcError {
-        message,
-        code: Some("V_MODEL_CONST_REACTIVE_DEMOTED".to_compact_string()),
-        loc: Some(script_setup.loc.clone()),
-    }
-}
 
 pub(crate) fn is_ts_lang(lang: Option<&str>) -> bool {
     matches!(lang, Some("ts" | "tsx"))
@@ -311,10 +286,12 @@ fn compile_sfc_inner(
         // Compile template if present
         if has_template {
             let template = descriptor.template.as_ref().unwrap();
+            let template_allocator = vize_carton::pool::acquire();
             let template_result = if is_vapor {
                 profile!(
                     "atelier.sfc.template.vapor",
                     compile_template_block_vapor(
+                        &template_allocator,
                         template,
                         &options.template,
                         &custom_elements,
@@ -341,6 +318,7 @@ fn compile_sfc_inner(
                 profile!(
                     "atelier.sfc.template.compile",
                     compile_template_block(
+                        &template_allocator,
                         template,
                         &template_opts,
                         &custom_elements,
@@ -639,10 +617,12 @@ fn compile_sfc_inner(
 
     // Compile template with bindings (if present) to get the render function
     let template_result = if let Some(template) = &descriptor.template {
+        let template_allocator = vize_carton::pool::acquire();
         if is_vapor {
             Some(profile!(
                 "atelier.sfc.template.vapor",
                 compile_template_block_vapor(
+                    &template_allocator,
                     template,
                     &options.template,
                     &custom_elements,
@@ -667,6 +647,7 @@ fn compile_sfc_inner(
             Some(profile!(
                 "atelier.sfc.template.compile",
                 compile_template_block(
+                    &template_allocator,
                     template,
                     &options.template,
                     &custom_elements,

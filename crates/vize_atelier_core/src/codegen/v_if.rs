@@ -91,7 +91,7 @@ pub fn generate_if_branch_key(
                 // Static key attribute
                 if let Some(ref value) = attr.value {
                     ctx.push("\"");
-                    ctx.push(&escape_js_string(value.content.as_str()));
+                    ctx.push(&escape_js_string(value.content));
                     ctx.push("\"");
                 } else {
                     ctx.push(&branch_index.to_compact_string());
@@ -113,4 +113,4 @@ pub fn generate_if_branch_key(
 
 // Note: v-if directive behavior is tested via SFC snapshot tests
 // in tests/fixtures/sfc/patches.pkl. Unit tests for AST-based functions
-// require bumpalo allocation which adds complexity without significant benefit.
+// require an arena allocator which adds complexity without significant benefit.

@@ -186,7 +186,7 @@ fn transform_dynamic_children_in_slice<'a>(
     in_text_run: &mut bool,
     prev_template_backed_child: &mut Option<(usize, usize)>,
 ) {
-    for child in children {
+    for child in vize_atelier_core::walk_probe::vapor_children(children) {
         let TemplateChildNode::Element(child_el) = child else {
             if matches!(
                 child,
@@ -285,7 +285,7 @@ fn transform_slot_outlet_child<'a>(
     block
         .operation
         .push(OperationNode::InsertNode(InsertNodeIRNode {
-            elements: std::vec![element_id],
+            elements: vize_carton::Vec::from_array_in([element_id], &ctx.allocator),
             parent: parent_id,
             anchor: None,
         }));
@@ -324,7 +324,7 @@ fn transform_control_flow_children_into_parent<'a>(
     parent_id: usize,
     block: &mut BlockIRNode<'a>,
 ) {
-    for child in children {
+    for child in vize_atelier_core::walk_probe::vapor_children(children) {
         match child {
             TemplateChildNode::If(if_node) => {
                 transform_if_node_into_parent(ctx, if_node, block, parent_id);
@@ -361,7 +361,7 @@ fn transform_deferred_parent_control_flow_children<'a>(
     el: &ElementNode<'a>,
     block: &mut BlockIRNode<'a>,
 ) {
-    for child in el.children.iter() {
+    for child in vize_atelier_core::walk_probe::vapor_children(&el.children) {
         match child {
             TemplateChildNode::If(if_node) => {
                 transform_if_node_deferred_parent(ctx, if_node, block);

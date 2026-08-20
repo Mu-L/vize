@@ -16,10 +16,12 @@ pub fn generate_directive(ctx: &mut GenerateContext, directive: &DirectiveIRNode
                 if exp.is_static {
                     cstr!("\"{}\"", exp.content)
                 } else {
-                    vize_carton::CompactString::from(exp.content.as_str())
+                    vize_carton::CompactString::from(exp.content)
                 }
             }
-            ExpressionNode::Compound(c) => vize_carton::CompactString::from(c.loc.source.as_str()),
+            ExpressionNode::Compound(c) => {
+                vize_carton::CompactString::from(c.loc.span.slice(&ctx.source))
+            }
         }
     } else {
         vize_carton::CompactString::from("undefined")
@@ -31,10 +33,12 @@ pub fn generate_directive(ctx: &mut GenerateContext, directive: &DirectiveIRNode
                 if e.is_static {
                     cstr!("\"{}\"", e.content)
                 } else {
-                    vize_carton::CompactString::from(e.content.as_str())
+                    vize_carton::CompactString::from(e.content)
                 }
             }
-            ExpressionNode::Compound(c) => vize_carton::CompactString::from(c.loc.source.as_str()),
+            ExpressionNode::Compound(c) => {
+                vize_carton::CompactString::from(c.loc.span.slice(&ctx.source))
+            }
         }
     } else {
         vize_carton::CompactString::from("undefined")
@@ -55,7 +59,7 @@ pub fn generate_directive(ctx: &mut GenerateContext, directive: &DirectiveIRNode
 
     if directive.builtin {
         // Built-in directive
-        match name.as_str() {
+        match *name {
             "show" => {
                 ctx.push_line_fmt(format_args!(
                     "_withDirectives({element}, [[_vShow, {value}]])"

@@ -68,7 +68,7 @@ impl Rule for VBindStyle {
         _element: &ElementNode<'a>,
         directive: &DirectiveNode<'a>,
     ) {
-        if directive.name.as_str() != "bind" {
+        if directive.name != "bind" {
             return;
         }
 
@@ -77,7 +77,7 @@ impl Rule for VBindStyle {
             return;
         }
 
-        let raw_name = directive.raw_name.as_deref().unwrap_or("");
+        let raw_name = directive.raw_name.unwrap_or("");
         let is_shorthand = raw_name.starts_with(':');
 
         match self.style {
@@ -106,8 +106,8 @@ impl Rule for VBindStyle {
                     let fix = Fix::new(
                         "Use shorthand syntax",
                         TextEdit::replace(
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                             new_text,
                         ),
                     );
@@ -116,8 +116,8 @@ impl Rule for VBindStyle {
                         LintDiagnostic::warn(
                             META.name,
                             "Prefer shorthand `:` over `v-bind:`",
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                         )
                         .with_help("Use `:attr=\"value\"` instead of `v-bind:attr=\"value\"`")
                         .with_fix(fix),
@@ -149,8 +149,8 @@ impl Rule for VBindStyle {
                     let fix = Fix::new(
                         "Use longform syntax",
                         TextEdit::replace(
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                             new_text,
                         ),
                     );
@@ -159,8 +159,8 @@ impl Rule for VBindStyle {
                         LintDiagnostic::warn(
                             META.name,
                             "Prefer `v-bind:` over shorthand `:`",
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                         )
                         .with_help("Use `v-bind:attr=\"value\"` instead of `:attr=\"value\"`")
                         .with_fix(fix),

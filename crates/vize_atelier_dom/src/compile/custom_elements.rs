@@ -5,12 +5,12 @@ use vize_atelier_core::{
     codegen::{CodegenResult, CodegenResultWithSections},
     options::{CodegenOptions, CustomElementMatcher, TemplateSyntaxMode},
 };
-use vize_carton::{Bump, String};
+use vize_carton::{Allocator, String};
 
 /// Compile with declarative custom-element patterns without growing public options.
 #[doc(hidden)]
 pub fn compile_template_with_custom_elements_and_template_syntax_and_codegen_options<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: DomCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -33,7 +33,7 @@ pub fn compile_template_with_custom_elements_and_template_syntax_and_codegen_opt
 pub fn compile_template_with_custom_elements_and_template_syntax_and_hoisted_scope_id_with_sections_and_codegen_options<
     'a,
 >(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: DomCompilerOptions,
     template_syntax: TemplateSyntaxMode,

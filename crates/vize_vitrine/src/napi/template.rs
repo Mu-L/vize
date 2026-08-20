@@ -12,7 +12,7 @@
 
 use napi::bindgen_prelude::{Error, Result, Status};
 use napi_derive::napi;
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 use crate::{CompileResult, CompilerOptions, template_syntax::resolve_template_syntax};
 use vize_atelier_core::{
@@ -29,7 +29,7 @@ use vize_atelier_vapor::{
 #[napi]
 pub fn compile(template: String, options: Option<CompilerOptions>) -> Result<CompileResult> {
     let opts = options.unwrap_or_default();
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let template_syntax = resolve_template_syntax(opts.template_syntax.as_deref())
         .map_err(|message| Error::new(Status::InvalidArg, message))?;
 
@@ -127,7 +127,7 @@ pub fn compile(template: String, options: Option<CompilerOptions>) -> Result<Com
 #[napi(js_name = "compileVapor")]
 pub fn compile_vapor(template: String, options: Option<CompilerOptions>) -> Result<CompileResult> {
     let opts = options.unwrap_or_default();
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let template_syntax = resolve_template_syntax(opts.template_syntax.as_deref())
         .map_err(|message| Error::new(Status::InvalidArg, message))?;
 
@@ -178,7 +178,7 @@ pub fn parse_template(
     template: String,
     options: Option<CompilerOptions>,
 ) -> Result<serde_json::Value> {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let opts = options.unwrap_or_default();
     let template_syntax = resolve_template_syntax(opts.template_syntax.as_deref())
         .map_err(|message| Error::new(Status::InvalidArg, message))?;
@@ -200,7 +200,7 @@ pub fn parse_template(
     if !errors.is_empty() {
         return Err(Error::new(
             Status::GenericFailure,
-            format!("Parse errors: {:?}", errors),
+            crate::parse_errors::message(&errors, &template),
         ));
     }
 
@@ -217,7 +217,7 @@ fn build_ast_json(root: &vize_atelier_core::RootNode<'_>) -> serde_json::Value {
         .map(|child| match child {
             TemplateChildNode::Element(el) => serde_json::json!({
                 "type": "ELEMENT",
-                "tag": el.tag.as_str(),
+                "tag": el.tag,
                 "tagType": format!("{:?}", el.tag_type),
                 "props": el.props.len(),
                 "children": el.children.len(),
@@ -225,16 +225,16 @@ fn build_ast_json(root: &vize_atelier_core::RootNode<'_>) -> serde_json::Value {
             }),
             TemplateChildNode::Text(text) => serde_json::json!({
                 "type": "TEXT",
-                "content": text.content.as_str(),
+                "content": text.content,
             }),
             TemplateChildNode::Comment(comment) => serde_json::json!({
                 "type": "COMMENT",
-                "content": comment.content.as_str(),
+                "content": comment.content,
             }),
             TemplateChildNode::Interpolation(interp) => serde_json::json!({
                 "type": "INTERPOLATION",
                 "content": match &interp.content {
-                    vize_atelier_core::ExpressionNode::Simple(exp) => exp.content.as_str(),
+                    vize_atelier_core::ExpressionNode::Simple(exp) => exp.content,
                     _ => "<compound>",
                 }
             }),
@@ -250,10 +250,10 @@ fn build_ast_json(root: &vize_atelier_core::RootNode<'_>) -> serde_json::Value {
         "comments": root.comments.iter().map(|comment| serde_json::json!({
             "type": "COMMENT",
             "kind": format!("{:?}", comment.kind),
-            "content": comment.content.as_str(),
+            "content": comment.content,
         })).collect::<Vec<_>>(),
         "helpers": root.helpers.iter().map(|h| h.name()).collect::<Vec<_>>(),
-        "components": root.components.iter().map(|c| c.as_str()).collect::<Vec<_>>(),
-        "directives": root.directives.iter().map(|d| d.as_str()).collect::<Vec<_>>(),
+        "components": root.components.iter().copied().collect::<Vec<_>>(),
+        "directives": root.directives.iter().copied().collect::<Vec<_>>(),
     })
 }

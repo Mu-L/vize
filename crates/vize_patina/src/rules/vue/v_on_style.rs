@@ -65,7 +65,7 @@ impl Rule for VOnStyle {
         _element: &ElementNode<'a>,
         directive: &DirectiveNode<'a>,
     ) {
-        if directive.name.as_str() != "on" {
+        if directive.name != "on" {
             return;
         }
 
@@ -74,7 +74,7 @@ impl Rule for VOnStyle {
             return;
         }
 
-        let raw_name = directive.raw_name.as_deref().unwrap_or("");
+        let raw_name = directive.raw_name.unwrap_or("");
         let is_shorthand = raw_name.starts_with('@');
 
         match self.style {
@@ -86,8 +86,8 @@ impl Rule for VOnStyle {
                     let fix = Fix::new(
                         "Use shorthand syntax",
                         TextEdit::replace(
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                             new_text,
                         ),
                     );
@@ -96,8 +96,8 @@ impl Rule for VOnStyle {
                         LintDiagnostic::warn(
                             META.name,
                             "Prefer shorthand `@` over `v-on:`",
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                         )
                         .with_help("Use `@event=\"handler\"` instead of `v-on:event=\"handler\"`")
                         .with_fix(fix),
@@ -112,8 +112,8 @@ impl Rule for VOnStyle {
                     let fix = Fix::new(
                         "Use longform syntax",
                         TextEdit::replace(
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                             new_text,
                         ),
                     );
@@ -122,8 +122,8 @@ impl Rule for VOnStyle {
                         LintDiagnostic::warn(
                             META.name,
                             "Prefer `v-on:` over shorthand `@`",
-                            directive.loc.start.offset,
-                            directive.loc.end.offset,
+                            directive.loc.span.start,
+                            directive.loc.span.end,
                         )
                         .with_help("Use `v-on:event=\"handler\"` instead of `@event=\"handler\"`")
                         .with_fix(fix),
@@ -139,9 +139,9 @@ fn replacement_text<'a>(
     directive: &DirectiveNode<'a>,
     target: VOnStyleOption,
 ) -> Option<String> {
-    let raw_name = directive.raw_name.as_deref()?;
-    let start = directive.loc.start.offset as usize;
-    let end = directive.loc.end.offset as usize;
+    let raw_name = directive.raw_name?;
+    let start = directive.loc.span.start as usize;
+    let end = directive.loc.span.end as usize;
     let suffix_start = start.checked_add(raw_name.len())?;
     let rest = ctx.source.get(suffix_start..end)?;
 

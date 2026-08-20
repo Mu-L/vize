@@ -130,7 +130,7 @@ fn walk_element(
     collect_used_ids: bool,
 ) {
     // Process tag name - check if it's a component
-    let mut tag = element.tag.as_str();
+    let mut tag = element.tag;
 
     // Handle member expression tags like Foo.Bar
     if let Some(dot_pos) = tag.find('.') {
@@ -155,7 +155,7 @@ fn walk_element(
             PropNode::Attribute(attr) => {
                 // ref attribute value is an identifier
                 if collect_used_ids
-                    && attr.name.as_str() == "ref"
+                    && attr.name == "ref"
                     && let Some(ref value) = attr.value
                     && !value.content.is_empty()
                 {
@@ -177,7 +177,7 @@ fn process_directive(
     result: &mut TemplateUsedIdentifiers,
     collect_used_ids: bool,
 ) {
-    let name = directive.name.as_str();
+    let name = directive.name;
 
     // Add custom directive to identifiers
     if collect_used_ids && !is_builtin_directive(name) {
@@ -228,7 +228,7 @@ fn process_directive(
                 && let ExpressionNode::Simple(simple_arg) = arg
                 && simple_arg.is_static
             {
-                let identifier = camelize(simple_arg.content.as_str());
+                let identifier = camelize(simple_arg.content);
                 result.used_ids.insert(identifier.to_compact_string());
             }
         }
@@ -239,7 +239,7 @@ fn process_directive(
 /// Handles expressions like "item in items", "(item, index) in items", "item of items"
 fn extract_v_for_source_identifiers(exp: &ExpressionNode, ids: &mut FxHashSet<String>) {
     if let ExpressionNode::Simple(simple) = exp {
-        let content = simple.content.as_str();
+        let content = simple.content;
 
         // Find " in " or " of " to split the expression
         let source_part = if let Some(pos) = content.find(" in ") {
@@ -414,10 +414,10 @@ fn extract_identifiers_from_compound(
 mod tests {
     use super::{TemplateUsedIdentifiers, is_used_in_template, resolve_template_used_identifiers};
     use vize_atelier_core::parser::parse;
-    use vize_carton::Bump;
+    use vize_carton::Allocator;
 
     fn analyze_template(source: &str) -> TemplateUsedIdentifiers {
-        let allocator = Bump::new();
+        let allocator = Allocator::new();
         let (root, _) = parse(&allocator, source);
         resolve_template_used_identifiers(&root)
     }
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_is_used_in_template() {
-        let allocator = Bump::new();
+        let allocator = Allocator::new();
         let (root, _) = parse(&allocator, "<div>{{ msg }}</div>");
         assert!(is_used_in_template("msg", &root));
         assert!(!is_used_in_template("other", &root));

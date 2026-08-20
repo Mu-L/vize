@@ -25,7 +25,7 @@ impl Drawer {
         el: &ElementNode<'_>,
         scope_vars: &mut Vec<CompactString>,
     ) {
-        let tag = el.tag.as_str();
+        let tag = el.tag;
         let is_component = is_component_tag(tag);
         let mut subtree_end = None;
 
@@ -126,8 +126,8 @@ impl Drawer {
         let name = name?;
         (self.options.track_usage).then(|| ComponentUsage {
             name: name.clone(),
-            start: el.loc.start.offset,
-            end: el.loc.end.offset,
+            start: el.loc.span.start,
+            end: el.loc.span.end,
             props: SmallVec::new(),
             events: SmallVec::new(),
             slots: SmallVec::new(),

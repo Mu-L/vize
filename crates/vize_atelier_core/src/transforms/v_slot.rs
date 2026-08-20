@@ -35,13 +35,13 @@ fn find_v_slot<'a, 'b>(el: &'b ElementNode<'a>) -> Option<&'b DirectiveNode<'a>>
 }
 
 /// Get the v-slot name; dynamic slots return raw source without `_ctx.` prefix.
-pub fn get_slot_name(dir: &DirectiveNode<'_>) -> String {
+pub fn get_slot_name(dir: &DirectiveNode<'_>, source: &str) -> String {
     match dir.arg.as_ref() {
         Some(ExpressionNode::Simple(exp)) if exp.is_static => {
-            static_slot_name_with_modifiers(exp.content.clone(), dir)
+            static_slot_name_with_modifiers(exp.content.into(), dir)
         }
-        Some(ExpressionNode::Simple(exp)) => exp.loc.source.clone(),
-        Some(ExpressionNode::Compound(exp)) => exp.loc.source.clone(),
+        Some(ExpressionNode::Simple(exp)) => String::new(exp.loc.span.slice(source)),
+        Some(ExpressionNode::Compound(exp)) => String::new(exp.loc.span.slice(source)),
         None => static_slot_name_with_modifiers(String::new("default"), dir),
     }
 }
@@ -49,20 +49,20 @@ pub fn get_slot_name(dir: &DirectiveNode<'_>) -> String {
 fn static_slot_name_with_modifiers(mut name: String, dir: &DirectiveNode<'_>) -> String {
     for modifier in dir.modifiers.iter() {
         name.push('.');
-        name.push_str(modifier.content.as_str());
+        name.push_str(modifier.content);
     }
     name
 }
 
-pub fn get_slot_props_string(dir: &DirectiveNode<'_>) -> Option<String> {
+pub fn get_slot_props_string(dir: &DirectiveNode<'_>, source: &str) -> Option<String> {
     dir.exp.as_ref().map(|exp| match exp {
-        ExpressionNode::Simple(s) => s.content.clone(),
-        ExpressionNode::Compound(c) => c.loc.source.clone(),
+        ExpressionNode::Simple(s) => String::new(s.content),
+        ExpressionNode::Compound(c) => String::new(c.loc.span.slice(source)),
     })
 }
 
-pub fn get_slot_prop_names(dir: &DirectiveNode<'_>) -> Vec<String> {
-    get_slot_props_string(dir)
+pub fn get_slot_prop_names(dir: &DirectiveNode<'_>, source: &str) -> Vec<String> {
+    get_slot_props_string(dir, source)
         .map(|pattern| extract_slot_prop_names(pattern.as_str()))
         .unwrap_or_default()
 }
@@ -80,7 +80,7 @@ pub fn is_dynamic_slot(dir: &DirectiveNode<'_>) -> bool {
 }
 
 fn is_slot_template(el: &ElementNode<'_>) -> bool {
-    el.tag.as_str() == "template" && has_v_slot(el)
+    el.tag == "template" && has_v_slot(el)
 }
 
 fn has_structural_slot_directive(el: &ElementNode<'_>) -> bool {
@@ -88,7 +88,7 @@ fn has_structural_slot_directive(el: &ElementNode<'_>) -> bool {
         matches!(
             prop,
             PropNode::Directive(dir)
-                if matches!(dir.name.as_str(), "if" | "else-if" | "else" | "for")
+                if matches!(dir.name, "if" | "else-if" | "else" | "for")
         )
     })
 }
@@ -141,8 +141,8 @@ pub fn transform_slot_outlet<'a>(
         return None;
     }
 
-    let slot_name = get_slot_name(dir);
-    let props_expr = get_slot_props_string(dir);
+    let slot_name = get_slot_name(dir, ctx.source);
+    let props_expr = get_slot_props_string(dir, ctx.source);
     let has_fallback = !el.children.is_empty();
 
     Some(SlotOutletInfo {
@@ -161,7 +161,7 @@ pub struct SlotInfo {
 }
 
 /// Collect slot information from component children
-pub fn collect_slots<'a>(el: &ElementNode<'a>) -> Vec<SlotInfo> {
+pub fn collect_slots<'a>(el: &ElementNode<'a>, source: &str) -> Vec<SlotInfo> {
     let mut slots = Vec::new();
     let mut seen_static_slots: std::vec::Vec<String> = std::vec::Vec::new();
 
@@ -174,8 +174,8 @@ pub fn collect_slots<'a>(el: &ElementNode<'a>) -> Vec<SlotInfo> {
                 if let PropNode::Directive(dir) = prop
                     && dir.name == "slot"
                 {
-                    let name = get_slot_name(dir);
-                    let params_expr = get_slot_props_string(dir);
+                    let name = get_slot_name(dir, source);
+                    let params_expr = get_slot_props_string(dir, source);
                     let is_dynamic = is_dynamic_slot(dir);
 
                     if !is_dynamic

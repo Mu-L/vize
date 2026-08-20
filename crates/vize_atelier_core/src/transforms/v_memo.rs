@@ -16,15 +16,15 @@ pub fn has_v_memo(el: &ElementNode<'_>) -> bool {
 }
 
 /// Get v-memo expression content as string
-pub fn get_memo_deps(el: &ElementNode<'_>) -> Option<String> {
+pub fn get_memo_deps(el: &ElementNode<'_>, source: &str) -> Option<String> {
     for prop in el.props.iter() {
         if let PropNode::Directive(dir) = prop
             && dir.name == "memo"
             && let Some(exp) = &dir.exp
         {
             return Some(match exp {
-                ExpressionNode::Simple(s) => s.content.clone(),
-                ExpressionNode::Compound(c) => c.loc.source.clone(),
+                ExpressionNode::Simple(s) => s.content.into(),
+                ExpressionNode::Compound(c) => String::new(c.loc.span.slice(source)),
             });
         }
     }
@@ -98,11 +98,11 @@ mod tests {
     use super::{get_memo_deps, has_v_memo};
     use crate::TemplateChildNode;
     use crate::parser::parse;
-    use bumpalo::Bump;
+    use vize_carton::Allocator;
 
     #[test]
     fn test_has_v_memo() {
-        let allocator = Bump::new();
+        let allocator = Allocator::new();
         let (root, _) = parse(&allocator, r#"<div v-memo="[a, b]">memoized</div>"#);
 
         if let TemplateChildNode::Element(el) = &root.children[0] {
@@ -112,11 +112,12 @@ mod tests {
 
     #[test]
     fn test_get_memo_deps() {
-        let allocator = Bump::new();
-        let (root, _) = parse(&allocator, r#"<div v-memo="[count]">{{ count }}</div>"#);
+        let allocator = Allocator::new();
+        let source = r#"<div v-memo="[count]">{{ count }}</div>"#;
+        let (root, _) = parse(&allocator, source);
 
         if let TemplateChildNode::Element(el) = &root.children[0] {
-            let deps = get_memo_deps(el);
+            let deps = get_memo_deps(el, source);
             assert!(deps.is_some());
             assert_eq!(deps.unwrap().as_str(), "[count]");
         }

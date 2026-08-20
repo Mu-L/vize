@@ -8,7 +8,7 @@ use vize_atelier_ssr::{SsrCompilerOptions, compile_ssr_with_custom_elements_and_
 use vize_atelier_vapor::{
     VaporCompilerOptions, compile_vapor_with_custom_elements_and_template_syntax,
 };
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 use super::compiler_codegen_options;
 use crate::wasm::ast::build_ast_json;
@@ -20,7 +20,7 @@ pub(in crate::wasm) fn compile_internal(
     vapor: bool,
     binding_metadata: Option<BindingMetadata>,
 ) -> Result<CompileResult, String> {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let template_syntax = resolve_template_syntax(opts.template_syntax.as_deref())?;
     let (experimental_in_tag_comments, experimental_patterned_template) = experimental_flags(opts);
 

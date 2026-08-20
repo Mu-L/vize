@@ -4,7 +4,7 @@ use super::{transform, transform_with_template_syntax_quirks};
 use crate::codegen::generate;
 use crate::options::{CodegenOptions, TransformOptions};
 use crate::parser::parse;
-use bumpalo::Bump;
+use vize_carton::Allocator;
 
 #[test]
 fn test_transform_simple_element() {
@@ -24,7 +24,7 @@ fn test_transform_component() {
 
 #[test]
 fn test_transform_pascal_case_dynamic_component() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(&allocator, r#"<Component :is="current" />"#);
     assert!(errors.is_empty(), "Parse errors: {:?}", errors);
 
@@ -34,7 +34,7 @@ fn test_transform_pascal_case_dynamic_component() {
         !root
             .components
             .iter()
-            .any(|component| component.as_str() == "Component"),
+            .any(|component| *component == "Component"),
         "Dynamic component special tag should not be tracked as a resolved component"
     );
     assert!(
@@ -58,7 +58,7 @@ fn test_transform_v_for() {
 
 #[test]
 fn test_transform_v_for_rejects_unmatched_edge_parens_by_default() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(&allocator, r#"<div v-for="item) in items"></div>"#);
     assert!(errors.is_empty(), "Parse errors: {:?}", errors);
 
@@ -72,7 +72,7 @@ fn test_transform_v_for_rejects_unmatched_edge_parens_by_default() {
 
 #[test]
 fn test_transform_v_for_template_syntax_quirks_accepts_unmatched_edge_parens() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(&allocator, r#"<div v-for="item) in items"></div>"#);
     assert!(errors.is_empty(), "Parse errors: {:?}", errors);
 
@@ -81,7 +81,7 @@ fn test_transform_v_for_template_syntax_quirks_accepts_unmatched_edge_parens() {
     match &root.children[0] {
         crate::TemplateChildNode::For(for_node) => match &for_node.value_alias {
             Some(crate::ExpressionNode::Simple(value)) => {
-                assert_eq!(value.content.as_str(), "item");
+                assert_eq!(value.content, "item");
             }
             _ => panic!("expected value alias"),
         },
@@ -91,7 +91,7 @@ fn test_transform_v_for_template_syntax_quirks_accepts_unmatched_edge_parens() {
 
 #[test]
 fn test_v_if_creates_if_node() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(&allocator, r#"<div v-if="show">visible</div>"#);
     assert!(errors.is_empty(), "Parse errors: {:?}", errors);
 
@@ -117,7 +117,7 @@ fn test_v_if_creates_if_node() {
 
 #[test]
 fn test_v_if_else_creates_branches() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(
         &allocator,
         r#"<div v-if="show">yes</div><div v-else>no</div>"#,
@@ -157,7 +157,7 @@ fn test_v_if_else_creates_branches() {
 
 #[test]
 fn test_v_for_creates_for_node() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, errors) = parse(&allocator, r#"<div v-for="item in items">{{ item }}</div>"#);
     assert!(errors.is_empty(), "Parse errors: {:?}", errors);
 
@@ -175,7 +175,7 @@ fn test_v_for_creates_for_node() {
             // Check source is "items"
             match &for_node.source {
                 crate::ExpressionNode::Simple(exp) => {
-                    assert_eq!(exp.content.as_str(), "items", "Source should be 'items'");
+                    assert_eq!(exp.content, "items", "Source should be 'items'");
                 }
                 _ => panic!("Expected Simple expression for source"),
             }
@@ -183,7 +183,7 @@ fn test_v_for_creates_for_node() {
             assert!(for_node.value_alias.is_some(), "Should have value alias");
             match for_node.value_alias.as_ref().unwrap() {
                 crate::ExpressionNode::Simple(exp) => {
-                    assert_eq!(exp.content.as_str(), "item", "Value alias should be 'item'");
+                    assert_eq!(exp.content, "item", "Value alias should be 'item'");
                 }
                 _ => panic!("Expected Simple expression for value alias"),
             }
@@ -194,7 +194,7 @@ fn test_v_for_creates_for_node() {
 
 #[test]
 fn test_codegen_v_if() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (mut root, _) = parse(&allocator, r#"<div v-if="show">visible</div>"#);
     transform(&allocator, &mut root, TransformOptions::default(), None);
 

@@ -38,8 +38,8 @@ impl ValueRange {
 /// Returns `None` for a valueless attribute (`disabled`, `:foo`), which upstream
 /// skips through its `VAttribute[value!=null]` selector.
 pub(super) fn value_range(source: &str, loc: &SourceLocation) -> Option<ValueRange> {
-    let start = usize::try_from(loc.start.offset).ok()?;
-    let end = usize::try_from(loc.end.offset).ok()?;
+    let start = usize::try_from(loc.span.start).ok()?;
+    let end = usize::try_from(loc.span.end).ok()?;
     if start >= end || end > source.len() {
         return None;
     }
@@ -63,7 +63,7 @@ pub(super) fn value_range(source: &str, loc: &SourceLocation) -> Option<ValueRan
     if quote != b'"' && quote != b'\'' {
         return Some(ValueRange {
             start: u32::try_from(cursor).ok()?,
-            end: loc.end.offset,
+            end: loc.span.end,
             quote: None,
         });
     }
@@ -83,23 +83,11 @@ pub(super) fn value_range(source: &str, loc: &SourceLocation) -> Option<ValueRan
 #[cfg(test)]
 mod tests {
     use super::{ValueRange, value_range};
-    use vize_relief::{Position, SourceLocation};
+    use vize_relief::SourceLocation;
 
     fn whole(source: &str) -> SourceLocation {
         let end = u32::try_from(source.len()).expect("probe source fits in u32");
-        SourceLocation {
-            start: Position {
-                offset: 0,
-                line: 1,
-                column: 1,
-            },
-            end: Position {
-                offset: end,
-                line: 1,
-                column: end + 1,
-            },
-            source: Default::default(),
-        }
+        SourceLocation::new(0, end)
     }
 
     fn range_of(source: &str) -> Option<ValueRange> {

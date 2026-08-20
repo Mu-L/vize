@@ -60,10 +60,10 @@ pub(crate) fn generate_operation_inline(
                 .iter()
                 .map(|v| {
                     if v.is_static {
-                        cstr!("\"{}\"", escape_js_string_literal(v.content.as_str()))
+                        cstr!("\"{}\"", escape_js_string_literal(v.content))
                     } else {
                         ctx.use_helper("toDisplayString");
-                        let resolved = ctx.resolve_expression(&v.content);
+                        let resolved = ctx.resolve_expression_node(v);
                         cstr!("_toDisplayString({})", resolved)
                     }
                 })
@@ -86,12 +86,12 @@ fn generate_set_prop_inline(
 ) -> String {
     let element = cstr!("n{}", set_prop.element);
     let key = &set_prop.prop.key.content;
-    let is_svg = is_svg_tag(set_prop.tag.as_str());
+    let is_svg = is_svg_tag(set_prop.tag);
 
     // Build value from values list
     let value = build_prop_value(ctx, set_prop);
 
-    if key.as_str() == "class" {
+    if *key == "class" {
         if is_svg {
             ctx.use_helper("setAttr");
             cstr!("_setAttr({element}, \"class\", {value})")
@@ -99,7 +99,7 @@ fn generate_set_prop_inline(
             ctx.use_helper("setClass");
             cstr!("_setClass({element}, {value})")
         }
-    } else if key.as_str() == "style" {
+    } else if *key == "style" {
         if is_svg {
             ctx.use_helper("setAttr");
             cstr!("_setAttr({element}, \"style\", {value})")
@@ -134,18 +134,18 @@ fn build_prop_value(
             .iter()
             .map(|v| {
                 if v.is_static {
-                    cstr!("\"{}\"", escape_js_string_literal(v.content.as_str()))
+                    cstr!("\"{}\"", escape_js_string_literal(v.content))
                 } else {
-                    ctx.resolve_expression(&v.content)
+                    ctx.resolve_expression_node(v)
                 }
             })
             .collect();
         cstr!("[{}]", parts.join(", "))
     } else if let Some(first) = set_prop.prop.values.first() {
         if first.is_static {
-            cstr!("\"{}\"", escape_js_string_literal(first.content.as_str()))
+            cstr!("\"{}\"", escape_js_string_literal(first.content))
         } else {
-            ctx.resolve_expression(&first.content)
+            ctx.resolve_expression_node(first)
         }
     } else {
         vize_carton::CompactString::from("undefined")
@@ -162,7 +162,7 @@ fn generate_set_dynamic_props_inline(
     if set_props.is_event {
         ctx.use_helper("setDynamicEvents");
         if let Some(first) = set_props.props.first() {
-            let resolved = ctx.resolve_expression(&first.content);
+            let resolved = ctx.resolve_expression_node(first);
             cstr!("_setDynamicEvents({element}, {resolved})")
         } else {
             cstr!("_setDynamicEvents({element})")
@@ -174,9 +174,9 @@ fn generate_set_dynamic_props_inline(
             .iter()
             .map(|p| {
                 if p.is_static {
-                    cstr!("\"{}\"", escape_js_string_literal(p.content.as_str()))
+                    cstr!("\"{}\"", escape_js_string_literal(p.content))
                 } else {
-                    ctx.resolve_expression(&p.content)
+                    ctx.resolve_expression_node(p)
                 }
             })
             .collect();

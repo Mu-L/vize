@@ -409,7 +409,7 @@ impl Rule for NoBrowserGlobalsInSsr {
         }
 
         let content = match &interpolation.content {
-            ExpressionNode::Simple(s) => s.content.as_str(),
+            ExpressionNode::Simple(s) => s.content,
             ExpressionNode::Compound(_) => return, // Skip compound expressions for now
         };
         let identifiers = Self::extract_identifiers(content);
@@ -446,7 +446,7 @@ impl Rule for NoBrowserGlobalsInSsr {
         // Check directive expressions
         if let Some(exp) = &directive.exp {
             let content = match exp {
-                ExpressionNode::Simple(s) => s.content.as_str(),
+                ExpressionNode::Simple(s) => s.content,
                 ExpressionNode::Compound(_) => return, // Skip compound expressions
             };
             let identifiers = Self::extract_identifiers(content);
@@ -496,7 +496,7 @@ mod tests {
         );
         ctx.set_ssr_mode(SsrMode::Enabled);
 
-        let parser = vize_armature::Parser::new(allocator.as_bump(), source);
+        let parser = vize_armature::Parser::new(&allocator, source);
         let (root, _) = parser.parse();
 
         let rules: Vec<Box<dyn Rule>> = vec![Box::new(NoBrowserGlobalsInSsr)];

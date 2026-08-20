@@ -107,11 +107,11 @@ impl Rule for VSlotStyle {
         element: &ElementNode<'a>,
         directive: &DirectiveNode<'a>,
     ) {
-        if directive.name.as_str() != "slot" {
+        if directive.name != "slot" {
             return;
         }
         let argument = directive.arg.as_ref().and_then(|arg| match arg {
-            ExpressionNode::Simple(simple) if simple.is_static => Some(simple.content.as_str()),
+            ExpressionNode::Simple(simple) if simple.is_static => Some(simple.content),
             _ => None,
         });
         let expected = self.expected(slot_position(element, &directive.arg, argument));

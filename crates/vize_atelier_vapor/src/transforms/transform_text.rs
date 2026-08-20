@@ -2,18 +2,19 @@
 //!
 //! Transforms text and interpolation nodes into SetTextIRNode.
 
-use vize_carton::{Box, Bump, String, Vec, cstr};
+use vize_carton::{Allocator, Box, String, Vec, cstr};
 
 use crate::ir::{OperationNode, SetTextIRNode};
 use vize_atelier_core::{ExpressionNode, InterpolationNode, SimpleExpressionNode, TextNode};
 
 /// Transform interpolation to SetTextIRNode
 pub fn transform_interpolation<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     interp: &InterpolationNode<'a>,
     element_id: usize,
+    source: &'a str,
 ) -> (OperationNode<'a>, bool) {
-    let values = extract_text_values(allocator, &interp.content);
+    let values = extract_text_values(allocator, &interp.content, source);
 
     let set_text = SetTextIRNode {
         element: element_id,
@@ -28,7 +29,7 @@ pub fn transform_interpolation<'a>(
 
 /// Transform text node (static text doesn't need SetTextIRNode)
 pub fn transform_text<'a>(
-    _allocator: &'a Bump,
+    _allocator: &'a Allocator,
     _text: &TextNode,
     _element_id: usize,
 ) -> Option<OperationNode<'a>> {
@@ -39,25 +40,26 @@ pub fn transform_text<'a>(
 
 /// Extract text values from expression
 fn extract_text_values<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     exp: &ExpressionNode<'a>,
+    source: &'a str,
 ) -> Vec<'a, Box<'a, SimpleExpressionNode<'a>>> {
-    let mut values = Vec::new_in(allocator);
+    let mut values = Vec::new_in(&allocator);
 
     match exp {
         ExpressionNode::Simple(simple) => {
-            let node = SimpleExpressionNode::new(
-                simple.content.clone(),
-                simple.is_static,
-                simple.loc.clone(),
-            );
-            values.push(Box::new_in(node, allocator));
+            let node =
+                SimpleExpressionNode::new(simple.content, simple.is_static, simple.loc.clone());
+            values.push(Box::new_in(node, &allocator));
         }
         ExpressionNode::Compound(compound) => {
             // For compound expressions, extract as a single value
-            let node =
-                SimpleExpressionNode::new(compound.loc.source.clone(), false, compound.loc.clone());
-            values.push(Box::new_in(node, allocator));
+            let node = SimpleExpressionNode::new(
+                compound.loc.span.slice(source),
+                false,
+                compound.loc.clone(),
+            );
+            values.push(Box::new_in(node, &allocator));
         }
     }
 

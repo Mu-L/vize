@@ -1,4 +1,4 @@
-use vize_carton::{Box as VizeBox, Bump};
+use vize_carton::{Allocator, Box as VizeBox};
 use vize_croquis::{Analyzer, AnalyzerOptions};
 use vize_relief::{
     DirectiveNode, ElementNode, ExpressionNode, PropNode, SimpleExpressionNode, SourceLocation,
@@ -8,7 +8,7 @@ use vize_relief::{
 use super::{fallthrough_props_type_ref, possible_raw_if_chain_tags};
 
 fn fallthrough_type(script: &str, template: &str) -> Option<vize_carton::String> {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -18,23 +18,23 @@ fn fallthrough_type(script: &str, template: &str) -> Option<vize_carton::String>
 }
 
 fn raw_branch<'a>(
-    allocator: &'a Bump,
-    tag: &str,
-    directive_name: &str,
-    condition: Option<&str>,
+    allocator: &'a Allocator,
+    tag: &'a str,
+    directive_name: &'a str,
+    condition: Option<&'a str>,
 ) -> TemplateChildNode<'a> {
     let mut element = ElementNode::new(allocator, tag, SourceLocation::STUB);
     let mut directive = DirectiveNode::new(allocator, directive_name, SourceLocation::STUB);
     directive.exp = condition.map(|condition| {
         ExpressionNode::Simple(VizeBox::new_in(
             SimpleExpressionNode::new(condition, false, SourceLocation::STUB),
-            allocator,
+            &allocator,
         ))
     });
     element
         .props
-        .push(PropNode::Directive(VizeBox::new_in(directive, allocator)));
-    TemplateChildNode::Element(VizeBox::new_in(element, allocator))
+        .push(PropNode::Directive(VizeBox::new_in(directive, &allocator)));
+    TemplateChildNode::Element(VizeBox::new_in(element, &allocator))
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn literal_true_v_else_if_terminates_single_native_root_chain() {
 
 #[test]
 fn raw_literal_true_v_else_if_terminates_single_native_root_chain() {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let first = raw_branch(&allocator, "div", "if", Some("on"));
     let second = raw_branch(&allocator, "span", "else-if", Some("true"));
     let refs: std::vec::Vec<_> = [&first, &second].into_iter().collect();

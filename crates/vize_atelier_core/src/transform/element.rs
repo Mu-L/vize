@@ -51,13 +51,13 @@ pub fn transform_element<'a>(
                 .options
                 .binding_metadata
                 .as_ref()
-                .map(|m| m.bindings.contains_key(el.tag.as_str()))
+                .map(|m| m.bindings.contains_key(el.tag))
                 .unwrap_or(false);
             if !is_in_bindings {
                 ctx.helper(RuntimeHelper::ResolveComponent);
             }
             // Defer add_component to exit phase so inner components resolve before outer ones
-            let tag = el.tag.clone();
+            let tag = el.tag;
             let mut exits = ExitFns::new();
             exits.push(std::boxed::Box::new(move |ctx| {
                 ctx.add_component(tag);
@@ -83,16 +83,16 @@ fn maybe_promote_element_to_component(
         return;
     }
 
-    if is_native_tag(&el.tag) {
+    if is_native_tag(el.tag) {
         return;
     }
 
-    if is_registered_component(ctx, &el.tag) {
+    if is_registered_component(ctx, el.tag) {
         el.tag_type = ElementType::Component;
         return;
     }
 
-    if ctx.custom_elements.matches(&el.tag) {
+    if ctx.custom_elements.matches(el.tag) {
         return;
     }
 
@@ -177,7 +177,7 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
     let mut model_indices: std::vec::Vec<usize> = std::vec::Vec::new();
     for (i, prop) in el.props.iter().enumerate() {
         if let PropNode::Directive(dir) = prop {
-            match dir.name.as_str() {
+            match dir.name {
                 "model" if !ctx.options.vapor => {
                     model_indices.push(i);
                 }
@@ -188,10 +188,10 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
                 // No need to add to ctx.directives (which would use resolveDirective)
                 "show" => {}
                 // Handle custom directives - register them for resolveDirective
-                _ if !is_builtin_directive(&dir.name) => {
+                _ if !is_builtin_directive(dir.name) => {
                     ctx.helper(RuntimeHelper::WithDirectives);
                     ctx.helper(RuntimeHelper::ResolveDirective);
-                    ctx.add_directive(dir.name.clone());
+                    ctx.add_directive(dir.name);
                 }
                 _ => {}
             }
@@ -219,11 +219,15 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
         if let Some(PropNode::Directive(dir)) = el.props.get(idx) {
             // Get value expression
             let (value_exp, raw_value_exp) = match &dir.exp {
-                Some(ExpressionNode::Simple(s)) if !s.content.trim().is_empty() => {
-                    (s.content.clone(), s.loc.source.clone())
-                }
-                Some(ExpressionNode::Compound(c)) if !c.loc.source.trim().is_empty() => {
-                    (c.loc.source.clone(), c.loc.source.clone())
+                Some(ExpressionNode::Simple(s)) if !s.content.trim().is_empty() => (
+                    String::new(s.content),
+                    String::new(s.loc.span.slice(ctx.source)),
+                ),
+                Some(ExpressionNode::Compound(c))
+                    if !c.loc.span.slice(ctx.source).trim().is_empty() =>
+                {
+                    let text = String::new(c.loc.span.slice(ctx.source));
+                    (text.clone(), text)
                 }
                 _ => {
                     ctx.on_error(ErrorCode::VModelNoExpression, Some(dir.loc.clone()));
@@ -263,8 +267,8 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
                 .arg
                 .as_ref()
                 .map(|arg| match arg {
-                    ExpressionNode::Simple(exp) => exp.content.clone(),
-                    ExpressionNode::Compound(exp) => exp.loc.source.clone(),
+                    ExpressionNode::Simple(exp) => String::new(exp.content),
+                    ExpressionNode::Compound(exp) => String::new(exp.loc.span.slice(ctx.source)),
                 })
                 .unwrap_or_else(|| {
                     if is_component {
@@ -312,7 +316,7 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
                     .iter()
                     .map(|m| {
                         let mut item = String::with_capacity(m.content.len() + 6);
-                        item.push_str(&m.content);
+                        item.push_str(m.content);
                         item.push_str(": true");
                         item
                     })
@@ -377,22 +381,20 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
         // reverse so each v-model remains beside its explicit listeners.
         let mut replacements = std::vec::Vec::with_capacity(static_vmodel.len());
         for data in static_vmodel.iter() {
+            let prop_atom = ctx.interner.intern(&data.prop_name);
+            let event_atom = ctx.interner.intern(&data.event_name[2..]);
             let mut generated = std::vec::Vec::with_capacity(3);
             let value_prop = PropNode::Directive(Box::new_in(
                 DirectiveNode {
-                    name: String::new("bind"),
+                    name: "bind",
                     raw_name: None,
                     arg: Some(ExpressionNode::Simple(Box::new_in(
-                        SimpleExpressionNode::new(
-                            data.prop_name.clone(),
-                            true,
-                            data.dir_loc.clone(),
-                        ),
-                        allocator,
+                        SimpleExpressionNode::new(prop_atom, true, data.dir_loc.clone()),
+                        &allocator,
                     ))),
                     exp: Some(ExpressionNode::Simple(Box::new_in(
                         SimpleExpressionNode {
-                            content: data.value_exp.clone(),
+                            content: allocator.alloc_str(&data.value_exp),
                             is_static: false,
                             const_type: ConstantType::NotConstant,
                             loc: data.dir_loc.clone(),
@@ -402,42 +404,40 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
                             is_handler_key: false,
                             is_ref_transformed: true, // Already processed for ref .value
                         },
-                        allocator,
+                        &allocator,
                     ))),
-                    modifiers: Vec::new_in(allocator),
+                    modifiers: Vec::new_in(&allocator),
                     for_parse_result: None,
                     shorthand: false,
                     loc: data.dir_loc.clone(),
                 },
-                allocator,
+                &allocator,
             ));
             generated.push(value_prop);
 
+            let handler = allocator.alloc_str(&data.handler);
             let raw_handler_expr = ExpressionNode::Simple(Box::new_in(
-                SimpleExpressionNode::new(data.handler.as_str(), false, data.dir_loc.clone()),
-                allocator,
+                SimpleExpressionNode::new(handler, false, data.dir_loc.clone()),
+                &allocator,
             ));
             let processed_handler = process_inline_handler(ctx, &raw_handler_expr);
 
             let event_prop = PropNode::Directive(Box::new_in(
                 DirectiveNode {
-                    name: String::new("on"),
+                    name: "on",
                     raw_name: None,
                     arg: Some(ExpressionNode::Simple(Box::new_in(
-                        SimpleExpressionNode::new(
-                            &data.event_name[2..],
-                            true,
-                            data.dir_loc.clone(),
-                        ), // Remove "on" prefix
-                        allocator,
+                        // Remove "on" prefix
+                        SimpleExpressionNode::new(event_atom, true, data.dir_loc.clone()),
+                        &allocator,
                     ))),
                     exp: Some(processed_handler),
-                    modifiers: Vec::new_in(allocator),
+                    modifiers: Vec::new_in(&allocator),
                     for_parse_result: None,
                     shorthand: false,
                     loc: data.dir_loc.clone(),
                 },
-                allocator,
+                &allocator,
             ));
             generated.push(event_prop);
 
@@ -446,30 +446,30 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
             {
                 let modifiers_prop = PropNode::Directive(Box::new_in(
                     DirectiveNode {
-                        name: String::new("bind"),
+                        name: "bind",
                         raw_name: None,
                         arg: Some(ExpressionNode::Simple(Box::new_in(
                             SimpleExpressionNode::new(
-                                modifiers_key.clone(),
+                                ctx.interner.intern(modifiers_key),
                                 true,
                                 data.dir_loc.clone(),
                             ),
-                            allocator,
+                            &allocator,
                         ))),
                         exp: Some(ExpressionNode::Simple(Box::new_in(
                             SimpleExpressionNode::new(
-                                modifiers_obj.as_str(),
+                                allocator.alloc_str(modifiers_obj),
                                 false,
                                 data.dir_loc.clone(),
                             ),
-                            allocator,
+                            &allocator,
                         ))),
-                        modifiers: Vec::new_in(allocator),
+                        modifiers: Vec::new_in(&allocator),
                         for_parse_result: None,
                         shorthand: false,
                         loc: SourceLocation::STUB,
                     },
-                    allocator,
+                    &allocator,
                 ));
                 generated.push(modifiers_prop);
             }
@@ -492,30 +492,31 @@ fn process_element_props<'a>(ctx: &mut TransformContext<'a>, el: &mut Box<'a, El
             // Keep v-model directive, insert its update handler right after it.
             let handler =
                 generate_model_assignment_handler(ctx, data.raw_value_exp.as_str(), "$event");
+            let handler = allocator.alloc_str(&handler);
             let raw_handler_expr = ExpressionNode::Simple(Box::new_in(
-                SimpleExpressionNode::new(handler.as_str(), false, data.dir_loc.clone()),
-                allocator,
+                SimpleExpressionNode::new(handler, false, data.dir_loc.clone()),
+                &allocator,
             ));
             let processed_handler = process_inline_handler(ctx, &raw_handler_expr);
             let event_prop = PropNode::Directive(Box::new_in(
                 DirectiveNode {
-                    name: String::new("on"),
+                    name: "on",
                     raw_name: None,
                     arg: Some(ExpressionNode::Simple(Box::new_in(
                         SimpleExpressionNode::new(
-                            &data.event_name[2..],
+                            ctx.interner.intern(&data.event_name[2..]),
                             true,
                             data.dir_loc.clone(),
                         ),
-                        allocator,
+                        &allocator,
                     ))),
                     exp: Some(processed_handler),
-                    modifiers: Vec::new_in(allocator),
+                    modifiers: Vec::new_in(&allocator),
                     for_parse_result: None,
                     shorthand: false,
                     loc: data.dir_loc.clone(),
                 },
-                allocator,
+                &allocator,
             ));
             // Insert right after the v-model directive to ensure proper ordering
             el.props.insert(data.idx + 1, event_prop);
@@ -540,197 +541,5 @@ pub fn transform_interpolation<'a>(
 
 #[cfg(test)]
 #[allow(clippy::disallowed_macros)]
-mod tests {
-    use bumpalo::Bump;
-
-    use super::transform_element;
-    use crate::{
-        PropNode, TemplateChildNode,
-        errors::{CompilerError, ErrorCode},
-        lane::{ParentNode, TransformContext, traverse::traverse_children},
-        options::TransformOptions,
-        parser::parse,
-    };
-
-    fn transform_errors(source: &str) -> std::vec::Vec<CompilerError> {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(&allocator, source);
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        traverse_children(&mut ctx, ParentNode::Root(&mut root as *mut _));
-        ctx.errors
-    }
-
-    fn assert_no_model_update_handler(props: &[PropNode<'_>]) {
-        assert!(!props.iter().any(|prop| matches!(
-            prop,
-            PropNode::Directive(dir)
-                if dir.name == "on"
-                    && matches!(
-                        &dir.arg,
-                        Some(crate::ExpressionNode::Simple(arg))
-                            if arg.content == "update:modelValue"
-                    )
-        )));
-    }
-
-    #[test]
-    fn test_transform_v_model_without_expression_reports_error() {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(&allocator, r#"<input v-model />"#);
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        match &mut root.children[0] {
-            TemplateChildNode::Element(el) => {
-                transform_element(&mut ctx, el);
-
-                assert!(!el.props.iter().any(|prop| matches!(
-                    prop,
-                    PropNode::Directive(dir) if dir.name == "model"
-                )));
-            }
-            other => panic!(
-                "Expected ElementNode, got {:?}",
-                std::mem::discriminant(other)
-            ),
-        }
-
-        assert_eq!(ctx.errors.len(), 1);
-        assert_eq!(ctx.errors[0].code, ErrorCode::VModelNoExpression);
-    }
-
-    #[test]
-    fn test_transform_component_v_model_without_expression_reports_error() {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(&allocator, r#"<MyComponent v-model />"#);
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        match &mut root.children[0] {
-            TemplateChildNode::Element(el) => {
-                transform_element(&mut ctx, el);
-
-                assert!(!el.props.iter().any(|prop| matches!(
-                    prop,
-                    PropNode::Directive(dir) if dir.name == "model"
-                )));
-            }
-            other => panic!(
-                "Expected ElementNode, got {:?}",
-                std::mem::discriminant(other)
-            ),
-        }
-
-        assert_eq!(ctx.errors.len(), 1);
-        assert_eq!(ctx.errors[0].code, ErrorCode::VModelNoExpression);
-    }
-
-    #[test]
-    fn test_transform_v_model_on_v_for_scope_reports_error() {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(
-            &allocator,
-            r#"<div v-for="item in items"><input v-model="item" /></div>"#,
-        );
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        traverse_children(&mut ctx, ParentNode::Root(&mut root as *mut _));
-
-        assert_eq!(ctx.errors.len(), 1);
-        assert_eq!(ctx.errors[0].code, ErrorCode::VModelOnScope);
-
-        match &root.children[0] {
-            TemplateChildNode::For(for_node) => match &for_node.children[0] {
-                TemplateChildNode::Element(el) => match &el.children[0] {
-                    TemplateChildNode::Element(input) => {
-                        assert!(!input.props.iter().any(|prop| matches!(
-                            prop,
-                            PropNode::Directive(dir) if dir.name == "model"
-                        )));
-                        assert_no_model_update_handler(input.props.as_slice());
-                    }
-                    other => panic!("Expected input element, got {:?}", other.node_type()),
-                },
-                other => panic!("Expected v-for child element, got {:?}", other.node_type()),
-            },
-            other => panic!("Expected ForNode, got {:?}", other.node_type()),
-        }
-    }
-
-    #[test]
-    fn test_transform_v_model_on_v_slot_scope_reports_error() {
-        let errors = transform_errors(
-            r#"<MyComponent v-slot="{ item }"><input v-model="item" /></MyComponent>"#,
-        );
-
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code, ErrorCode::VModelOnScope);
-    }
-
-    #[test]
-    fn test_transform_v_model_on_scope_property_stays_valid() {
-        let errors =
-            transform_errors(r#"<div v-for="item in items"><input v-model="item.value" /></div>"#);
-
-        assert!(errors.is_empty(), "Unexpected errors: {:?}", errors);
-    }
-
-    fn assert_v_model_arg_on_element_rejected(source: &str) {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(&allocator, source);
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        match &mut root.children[0] {
-            TemplateChildNode::Element(el) => {
-                transform_element(&mut ctx, el);
-
-                // No v-model binding is generated: the directive itself is
-                // dropped and no `onUpdate:*` handler is emitted.
-                assert!(
-                    !el.props.iter().any(|prop| matches!(
-                        prop,
-                        PropNode::Directive(dir) if dir.name == "model"
-                    )),
-                    "v-model directive should be removed for {source}"
-                );
-                assert!(
-                    !el.props.iter().any(|prop| matches!(
-                        prop,
-                        PropNode::Directive(dir) if dir.name == "on"
-                    )),
-                    "no update handler should be emitted for {source}"
-                );
-            }
-            other => panic!(
-                "Expected ElementNode, got {:?}",
-                std::mem::discriminant(other)
-            ),
-        }
-
-        assert_eq!(ctx.errors.len(), 1, "expected one error for {source}");
-        assert_eq!(ctx.errors[0].code, ErrorCode::VModelArgOnElement);
-    }
-
-    #[test]
-    fn test_transform_v_model_static_arg_on_element_reports_error() {
-        // Issue #1169: v-model with an argument is component-only; on a plain
-        // element it must be a hard error with no binding generated.
-        assert_v_model_arg_on_element_rejected(r#"<input v-model:foo="bar" />"#);
-    }
-
-    #[test]
-    fn test_transform_v_model_dynamic_arg_on_element_reports_error() {
-        // Issue #1169: a dynamic arg on a plain element is rejected too, so the
-        // three competing update mechanisms never fire.
-        assert_v_model_arg_on_element_rejected(r#"<input v-model:[dynKey]="value" />"#);
-    }
-}
+#[path = "element/tests.rs"]
+mod tests;

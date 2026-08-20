@@ -5,7 +5,7 @@ use vize_atelier_core::{CodegenOptions, TemplateSyntaxMode, options::CustomEleme
 use vize_atelier_vapor::{
     VaporCompilerOptions, compile_vapor_with_custom_elements_template_syntax_and_diagnostics,
 };
-use vize_carton::{Bump, String, ToCompactString};
+use vize_carton::{Allocator, String, ToCompactString};
 
 use crate::{
     compile_template::{
@@ -15,7 +15,9 @@ use crate::{
 };
 
 /// Compile template block using Vapor mode
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compile_template_block_vapor(
+    allocator: &Allocator,
     template: &SfcTemplateBlock,
     options: &TemplateCompileOptions,
     custom_elements: &CustomElementMatcher,
@@ -23,7 +25,6 @@ pub(crate) fn compile_template_block_vapor(
     template_syntax: TemplateSyntaxMode,
     codegen_options: &CodegenOptions,
 ) -> Result<TemplateBlockCompileResult, SfcError> {
-    let allocator = Bump::new();
     let compiler_options = options.compiler_options.as_ref();
     let TemplateBlockCompileContext {
         scope_id,
@@ -47,7 +48,7 @@ pub(crate) fn compile_template_block_vapor(
 
     // Compile template with Vapor
     let (result, diagnostics) = compile_vapor_with_custom_elements_template_syntax_and_diagnostics(
-        &allocator,
+        allocator,
         &template.content,
         vapor_opts,
         template_syntax,

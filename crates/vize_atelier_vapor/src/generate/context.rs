@@ -6,36 +6,17 @@ use super::{
 };
 
 mod complex_expression;
+mod scopes;
+pub(crate) use scopes::{ForScope, SlotScope};
 use vize_atelier_core::options::BindingMetadata;
 use vize_carton::{FxHashMap, FxHashSet, String, ToCompactString, camelize, capitalize, cstr};
 use vize_croquis::builtins::is_global_allowed;
 
-/// For-loop scope entry
-#[derive(Debug, Clone)]
-pub(crate) struct ForScope {
-    /// Value alias (e.g., "item") -> "_for_item{depth}"
-    pub(crate) value_alias: Option<String>,
-    /// Key alias (e.g., "index" or "key") -> "_for_key{depth}"
-    pub(crate) key_alias: Option<String>,
-    /// Index alias -> "_for_index{depth}"
-    pub(crate) index_alias: Option<String>,
-    /// Depth of for nesting (0-based)
-    pub(crate) depth: usize,
-}
-
-/// Slot scope entry for scoped slots
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub(crate) struct SlotScope {
-    /// Destructured variable names (e.g., ["item", "index"] from "{ item, index }")
-    pub(crate) names: std::vec::Vec<String>,
-    /// Slot props variable (e.g., "_slotProps0")
-    pub(crate) slot_props_var: String,
-}
-
 /// Generate context
 pub(crate) struct GenerateContext<'a> {
     pub(crate) code: String,
+    /// The source string node-loc spans index into.
+    pub(crate) source: &'a str,
     indent_level: u32,
     #[allow(dead_code)]
     pub(crate) element_template_map: &'a FxHashMap<usize, usize>,
@@ -81,9 +62,11 @@ impl<'a> GenerateContext<'a> {
         element_template_map: &'a FxHashMap<usize, usize>,
         standalone_text_elements: &'a FxHashSet<usize>,
         binding_metadata: Option<&'a BindingMetadata>,
+        source: &'a str,
     ) -> Self {
         Self {
             code: String::with_capacity(4096),
+            source,
             indent_level: 0,
             element_template_map,
             temp_count: 0,
@@ -116,6 +99,15 @@ impl<'a> GenerateContext<'a> {
     /// Resolve an expression, replacing for-loop aliases with _for_item/key references
     pub(crate) fn resolve_expression(&self, expr: &str) -> String {
         expression::resolve_expression(self, expr)
+    }
+
+    /// Node-aware [`Self::resolve_expression`] (P1-7): reads the retained
+    /// AST instead of re-parsing when it still describes the node's bytes.
+    pub(crate) fn resolve_expression_node(
+        &self,
+        node: &vize_atelier_core::SimpleExpressionNode<'_>,
+    ) -> String {
+        super::expression_retained::resolve_expression_node(self, node)
     }
 
     /// Resolve complex expressions (object/array literals) by prefixing identifiers inside

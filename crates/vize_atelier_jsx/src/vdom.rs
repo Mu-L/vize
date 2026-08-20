@@ -18,7 +18,7 @@ use vize_atelier_core::options::{CodegenMode, CodegenOptions, TransformOptions};
 // for bundlers, and the runtime `Function` (with-block) mode emits an empty
 // body under JSX's no-prefix closure model.
 use vize_atelier_core::CompilerError;
-use vize_carton::{Bump, String};
+use vize_carton::{Allocator, String};
 use vize_croquis::Croquis;
 
 use crate::diagnostics::JsxDiagnostic;
@@ -107,28 +107,29 @@ impl VdomOutput {
 
 /// Compile a JSX/TSX module into Vue VDOM render functions.
 pub fn compile_to_vdom(
-    bump: &Bump,
+    allocator: &Allocator,
     source: &str,
     lang: JsxLang,
     options: VdomCompileOptions,
 ) -> VdomOutput {
-    let lowered = lower_source(bump, source, lang);
+    let lowered = lower_source(allocator, allocator.as_oxc(), source, lang);
     let mut diagnostics = lowered.diagnostics;
     let is_ts = lang.is_typescript();
 
-    // Move the analysis into the arena so the transform can borrow it for `'a`.
-    let analysis: &Croquis = &*bump.alloc(lowered.analysis);
+    // Park the analysis on the allocator so the transform can borrow it for `'a`.
+    let analysis: &Croquis = allocator.alloc_owned(lowered.analysis);
 
     let mut components = Vec::with_capacity(lowered.roots.len());
     for lowered_root in lowered.roots {
         components.push(compile_root_to_vdom(
-            bump,
+            allocator,
             lowered_root,
             analysis,
             is_ts,
             &options,
             VdomCompatOptions::default(),
             &mut diagnostics,
+            source,
         ));
     }
 
@@ -141,14 +142,16 @@ pub fn compile_to_vdom(
 /// Compile a single already-lowered root to a VDOM [`VdomComponent`], appending
 /// any transform diagnostics. Shared by [`compile_to_vdom`] and the mode-aware
 /// dispatcher in [`crate::compile`].
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn compile_root_to_vdom(
-    bump: &Bump,
+    allocator: &Allocator,
     lowered: LoweredRoot,
     analysis: &Croquis,
     is_ts: bool,
     options: &VdomCompileOptions,
     compat: VdomCompatOptions<'_>,
     diagnostics: &mut Vec<JsxDiagnostic>,
+    source: &str,
 ) -> VdomComponent {
     let LoweredRoot {
         mut root,
@@ -180,12 +183,13 @@ pub(crate) fn compile_root_to_vdom(
         ..Default::default()
     };
     let errors = transform_with_jsx_compatibility(
-        bump,
+        allocator,
         &mut root,
         transform_opts,
         Some(analysis),
         compat.allow_static_v_model_arg_on_element,
         compat.custom_element_spans,
+        Some(source),
     );
     diagnostics.extend(errors.iter().map(compiler_error_to_diagnostic));
 
@@ -206,6 +210,7 @@ pub(crate) fn compile_root_to_vdom(
         codegen_opts,
         compat.vnode_factory,
         compat.merge_props,
+        Some(source),
     );
     let mut preamble = result.preamble;
     if let Some(helper) = compat.transform_on_helper
@@ -250,7 +255,7 @@ fn compiler_error_to_diagnostic(error: &CompilerError) -> JsxDiagnostic {
     let (start, end) = error
         .loc
         .as_ref()
-        .map(|loc| (loc.start.offset, loc.end.offset))
+        .map(|loc| (loc.span.start, loc.span.end))
         .unwrap_or((0, 0));
     JsxDiagnostic::error(error.message.as_str(), start, end)
 }

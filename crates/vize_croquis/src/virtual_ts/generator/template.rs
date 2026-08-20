@@ -23,6 +23,7 @@ impl VirtualTsGenerator {
     ) -> VirtualTsOutput {
         self.reset();
         self.block_offset = block_offset;
+        self.template_source = ast.source.into();
 
         if emit_context {
             self.write_line("// Virtual TypeScript for template type checking");
@@ -181,7 +182,7 @@ impl VirtualTsGenerator {
                 for prop in &element.props {
                     if let PropNode::Directive(dir) = prop
                         && dir.name != "for"
-                        && !is_control_flow_directive(&dir.name)
+                        && !is_control_flow_directive(dir.name)
                     {
                         profile!(
                             "croquis.virtual_ts.template.directive",
@@ -197,7 +198,7 @@ impl VirtualTsGenerator {
         } else {
             for prop in &element.props {
                 if let PropNode::Directive(dir) = prop
-                    && !is_control_flow_directive(&dir.name)
+                    && !is_control_flow_directive(dir.name)
                 {
                     profile!(
                         "croquis.virtual_ts.template.directive",
@@ -217,7 +218,7 @@ impl VirtualTsGenerator {
     where
         F: FnOnce(&mut Self),
     {
-        let content = expression_source(exp);
+        let content = super::expression_source(exp, &self.template_source);
 
         // Parse v-for expression: "item in items" or "(item, index) in items"
         if let Some(aliases) = parse_v_for_scope_expression(content) {
@@ -248,7 +249,7 @@ impl VirtualTsGenerator {
     /// Visit a directive.
     fn visit_directive(&mut self, directive: &DirectiveNode) {
         if let Some(ref exp) = directive.exp {
-            self.emit_expression(exp, &directive.name);
+            self.emit_expression(exp, directive.name);
         }
     }
 
@@ -306,7 +307,7 @@ impl VirtualTsGenerator {
             .value
             .as_ref()
             .or(for_node.value_alias.as_ref())
-            .map(expression_source);
+            .map(|exp| self.owned_expression_source(exp));
         let key_alias = parse_result
             .key
             .as_ref()
@@ -450,8 +451,8 @@ impl VirtualTsGenerator {
                     let expr_start = self.gen_offset + prefix_len as u32;
                     let expr_end = expr_start + simple.content.len() as u32;
 
-                    let source_start = simple.loc.start.offset + self.block_offset;
-                    let source_end = simple.loc.end.offset + self.block_offset;
+                    let source_start = simple.loc.span.start + self.block_offset;
+                    let source_end = simple.loc.span.end + self.block_offset;
 
                     // Create mapping
                     self.mappings.push(SourceMapping::with_data(
@@ -495,8 +496,8 @@ impl VirtualTsGenerator {
 
         let expr_start = self.gen_offset + (self.indent_level * 2 + prefix.len()) as u32;
         let expr_end = expr_start + simple.content.len() as u32;
-        let source_start = simple.loc.start.offset + self.block_offset;
-        let source_end = simple.loc.end.offset + self.block_offset;
+        let source_start = simple.loc.span.start + self.block_offset;
+        let source_end = simple.loc.span.end + self.block_offset;
 
         self.mappings.push(SourceMapping::with_data(
             SourceRange::new(source_start, source_end),
@@ -508,7 +509,7 @@ impl VirtualTsGenerator {
 
         self.emit_generated_line(|output| {
             output.push_str(prefix);
-            output.push_str(simple.content.as_str());
+            output.push_str(simple.content);
             output.push_str(suffix);
         });
         true
@@ -531,7 +532,7 @@ fn element_control_flow_condition<'a>(
         let PropNode::Directive(dir) = prop else {
             return None;
         };
-        matches!(dir.name.as_str(), "if" | "else-if")
+        matches!(dir.name, "if" | "else-if")
             .then_some(dir.exp.as_ref())
             .flatten()
     })
@@ -563,11 +564,4 @@ fn is_simple_identifier(name: &str) -> bool {
         && name
             .chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
-}
-
-fn expression_source<'a>(expr: &'a ExpressionNode<'a>) -> &'a str {
-    match expr {
-        ExpressionNode::Simple(simple) => simple.content.as_str(),
-        ExpressionNode::Compound(compound) => compound.loc.source.as_str(),
-    }
 }

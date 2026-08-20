@@ -15,13 +15,13 @@
 mod common;
 
 use vize_atelier_jsx::{JsxLang, VdomCompileOptions, compile_to_vdom, lower_source};
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 use common::{find_directive, lower_one, root_element, simple_content};
 
 fn errors(source: &str) -> Vec<String> {
-    let bump = Bump::new();
-    let out = lower_source(&bump, source, JsxLang::Jsx);
+    let bump = Allocator::new();
+    let out = lower_source(&bump, bump.as_oxc(), source, JsxLang::Jsx);
     out.diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.is_error())
@@ -30,7 +30,7 @@ fn errors(source: &str) -> Vec<String> {
 }
 
 fn render_code(source: &str) -> String {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let out = compile_to_vdom(&bump, source, JsxLang::Jsx, VdomCompileOptions::default());
     out.components
         .into_iter()
@@ -108,7 +108,7 @@ fn an_entry_combines_a_member_target_an_argument_and_modifiers() {
 fn every_entry_lowers_to_its_own_model_directive() {
     // The IR shape behind the codegen above: one `model` directive per entry,
     // never a single `models` directive.
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(
         &bump,
         "const A = () => <B v-models={[[foo], [bar, 'bar', ['trim']]]}/>;",
@@ -118,20 +118,20 @@ fn every_entry_lowers_to_its_own_model_directive() {
     assert_eq!(element.props.len(), 2);
 
     let first = common::as_directive(&element.props[0]);
-    assert_eq!(first.name.as_str(), "model");
+    assert_eq!(first.name, "model");
     assert!(first.arg.is_none());
     assert_eq!(simple_content(first.exp.as_ref().unwrap()), "foo");
     assert_eq!(first.modifiers.len(), 0);
 
     let second = common::as_directive(&element.props[1]);
-    assert_eq!(second.name.as_str(), "model");
+    assert_eq!(second.name, "model");
     assert_eq!(simple_content(second.arg.as_ref().unwrap()), "bar");
     assert_eq!(simple_content(second.exp.as_ref().unwrap()), "bar");
     assert_eq!(
         second
             .modifiers
             .iter()
-            .map(|modifier| modifier.content.as_str())
+            .map(|modifier| modifier.content)
             .collect::<Vec<_>>(),
         vec!["trim"]
     );

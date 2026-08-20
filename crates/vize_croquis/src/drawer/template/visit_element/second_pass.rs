@@ -6,7 +6,7 @@ use oxc_ast::ast::Expression;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use vize_carton::{CompactString, profile};
-use vize_relief::{DirectiveNode, ElementNode, ExpressionNode, PropNode};
+use vize_relief::{DirectiveNode, ElementNode, ExpressionNode, JsExpression, PropNode};
 
 impl Drawer {
     pub(super) fn process_element_conditional_directive(
@@ -69,7 +69,7 @@ impl Drawer {
                         "croquis.template.directive.v_on",
                         self.handle_v_on_directive(dir, scope_vars, event_target_component.clone())
                     );
-                } else if !is_builtin_directive(dir.name.as_str()) {
+                } else if !is_builtin_directive(dir.name) {
                     // A custom directive's value is an ordinary template
                     // expression; collecting it here is what lets it reach the
                     // type checker, and gives it the enclosing scope id and
@@ -136,14 +136,14 @@ impl Drawer {
             return;
         };
 
-        let content = expression_content(exp);
+        let content = expression_content(exp, &self.template_source);
         let loc = exp.loc();
         let scope_id = self.croquis.scopes.current_id();
         self.croquis.template_expressions.push(TemplateExpression {
             content: CompactString::new(content),
             kind,
-            start: loc.start.offset,
-            end: loc.end.offset,
+            start: loc.span.start,
+            end: loc.span.end,
             scope_id,
             vif_guard: self.current_vif_guard(),
         });
@@ -164,10 +164,10 @@ impl Drawer {
         if self.options.collect_template_expressions {
             let loc = arg.loc();
             self.croquis.template_expressions.push(TemplateExpression {
-                content: CompactString::new(expression_content(arg)),
+                content: CompactString::new(expression_content(arg, &self.template_source)),
                 kind: TemplateExpressionKind::DynamicDirectiveArgument,
-                start: loc.start.offset,
-                end: loc.end.offset,
+                start: loc.span.start,
+                end: loc.span.end,
                 scope_id: self.croquis.scopes.current_id(),
                 vif_guard: self.current_vif_guard(),
             });
@@ -209,7 +209,7 @@ impl Drawer {
             if !is_bind_is_directive(dir) {
                 return None;
             }
-            let target = expression_identifier(dir.exp.as_ref()?)?;
+            let target = expression_identifier(dir.exp.as_ref()?, &self.template_source)?;
             dynamic_component_target_is_known(self, target.as_str()).then_some(target)
         })
     }
@@ -223,12 +223,50 @@ fn is_bind_is_directive(dir: &DirectiveNode<'_>) -> bool {
         )
 }
 
-fn expression_identifier(exp: &ExpressionNode<'_>) -> Option<CompactString> {
-    let source = match exp {
-        ExpressionNode::Simple(simple) => simple.content.as_str(),
-        ExpressionNode::Compound(compound) => compound.loc.source.as_str(),
+fn expression_identifier(exp: &ExpressionNode<'_>, template_source: &str) -> Option<CompactString> {
+    let (source, retained) = match exp {
+        ExpressionNode::Simple(simple) => (simple.content, simple.js_ast.as_ref()),
+        ExpressionNode::Compound(compound) => (compound.loc.span.slice(template_source), None),
     };
-    parse_component_reference_expression(source)
+    component_reference_expression(source, retained)
+}
+
+/// Recognize `<component :is="...">` targets that name a component: a lone
+/// identifier or a static member chain.
+///
+/// Nodes carrying the parse-once retained AST (P1-5) are shape-checked
+/// directly and the legacy throwaway parse dies for them (Davinci P1-6);
+/// nodes without one (invalid or incomplete text, compound expressions) keep
+/// the legacy parse. Under `cfg(any(test, feature = "davinci-differential"))`
+/// every retained check is dual-run against the legacy parse and divergence
+/// panics — the P1-6 differential lane.
+fn component_reference_expression(
+    source: &str,
+    retained: Option<&JsExpression<'_>>,
+) -> Option<CompactString> {
+    let result = match retained {
+        Some(js) => component_reference_from_ast(js.ast, source),
+        None => parse_component_reference_expression(source),
+    };
+    #[cfg(any(test, feature = "davinci-differential"))]
+    if retained.is_some() {
+        let legacy = parse_component_reference_expression(source);
+        assert_eq!(
+            result, legacy,
+            "davinci-differential (P1-6): retained-AST component-reference check diverged from the legacy parse for expression {source:?}"
+        );
+        crate::drawer::differential::record_component_reference_comparison();
+    }
+    result
+}
+
+fn component_reference_from_ast(ast: &Expression<'_>, source: &str) -> Option<CompactString> {
+    match ast {
+        Expression::Identifier(_) | Expression::StaticMemberExpression(_) => {
+            Some(CompactString::new(source.trim()))
+        }
+        _ => None,
+    }
 }
 
 fn parse_component_reference_expression(source: &str) -> Option<CompactString> {
@@ -261,9 +299,9 @@ fn starts_like_component_identifier(name: &str) -> bool {
         .is_some_and(|character| character.is_ascii_uppercase())
 }
 
-fn expression_content<'a>(exp: &'a ExpressionNode<'_>) -> &'a str {
+fn expression_content<'a>(exp: &'a ExpressionNode<'_>, source: &'a str) -> &'a str {
     match exp {
-        ExpressionNode::Simple(s) => s.content.as_str(),
-        ExpressionNode::Compound(c) => c.loc.source.as_str(),
+        ExpressionNode::Simple(s) => s.content,
+        ExpressionNode::Compound(c) => c.loc.span.slice(source),
     }
 }

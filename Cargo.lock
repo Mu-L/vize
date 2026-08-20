@@ -847,6 +847,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "davinci_harness"
+version = "0.351.0"
+dependencies = [
+ "criterion",
+ "libc",
+ "mimalloc",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "derive_more"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2669,6 +2683,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "regex-lite"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
+
+[[package]]
 name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3566,6 +3586,7 @@ dependencies = [
  "vize_croquis",
  "vize_croquis_cf",
  "vize_curator",
+ "vize_davinci",
  "vize_doctor",
  "vize_fresco",
  "vize_glyph",
@@ -3580,8 +3601,14 @@ name = "vize_armature"
 version = "0.351.0"
 dependencies = [
  "compact_str 0.9.0",
+ "criterion",
+ "davinci_harness",
  "htmlize",
  "insta",
+ "oxc_allocator",
+ "oxc_ast",
+ "oxc_parser",
+ "oxc_span",
  "serde",
  "thiserror 2.0.20",
  "vize_carton",
@@ -3592,8 +3619,9 @@ dependencies = [
 name = "vize_atelier_core"
 version = "0.351.0"
 dependencies = [
- "bumpalo",
  "compact_str 0.9.0",
+ "criterion",
+ "davinci_harness",
  "insta",
  "memoffset",
  "oxc_allocator",
@@ -3619,6 +3647,8 @@ dependencies = [
 name = "vize_atelier_dom"
 version = "0.351.0"
 dependencies = [
+ "criterion",
+ "davinci_harness",
  "insta",
  "phf 0.13.1",
  "serde",
@@ -3626,6 +3656,7 @@ dependencies = [
  "vize_atelier_core",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
 ]
 
 [[package]]
@@ -3658,6 +3689,7 @@ name = "vize_atelier_sfc"
 version = "0.351.0"
 dependencies = [
  "criterion",
+ "davinci_harness",
  "insta",
  "lightningcss",
  "memchr",
@@ -3690,12 +3722,15 @@ dependencies = [
 name = "vize_atelier_ssr"
 version = "0.351.0"
 dependencies = [
+ "criterion",
+ "davinci_harness",
  "insta",
  "serde",
  "vize_armature",
  "vize_atelier_core",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
  "vize_relief",
 ]
 
@@ -3703,6 +3738,8 @@ dependencies = [
 name = "vize_atelier_vapor"
 version = "0.351.0"
 dependencies = [
+ "criterion",
+ "davinci_harness",
  "insta",
  "oxc_allocator",
  "oxc_ast",
@@ -3716,6 +3753,7 @@ dependencies = [
  "vize_atelier_dom",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
 ]
 
 [[package]]
@@ -3772,12 +3810,14 @@ name = "vize_carton"
 version = "0.351.0"
 dependencies = [
  "bitflags 2.13.1",
- "bumpalo",
  "compact_str 0.9.0",
  "insta",
  "once_cell",
+ "oxc_allocator",
+ "oxc_syntax",
  "phf 0.13.1",
  "pklrust",
+ "regex-lite",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -3792,7 +3832,9 @@ dependencies = [
 name = "vize_croquis"
 version = "0.351.0"
 dependencies = [
+ "criterion",
  "dashmap 6.1.0",
+ "davinci_harness",
  "insta",
  "once_cell",
  "oxc_allocator",
@@ -3808,6 +3850,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "vize_armature",
+ "vize_atelier_sfc",
  "vize_carton",
  "vize_relief",
 ]
@@ -3847,6 +3890,42 @@ dependencies = [
  "vize_carton",
  "vize_croquis",
  "vize_croquis_cf",
+]
+
+[[package]]
+name = "vize_davinci"
+version = "0.351.0"
+dependencies = [
+ "criterion",
+ "davinci_harness",
+ "insta",
+ "regex-lite",
+ "serde_json",
+ "vize_atelier_core",
+ "vize_atelier_sfc",
+ "vize_carton",
+ "vize_croquis",
+ "vize_davinci_derive",
+]
+
+[[package]]
+name = "vize_davinci_derive"
+version = "0.351.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "vize_disegno"
+version = "0.351.0"
+dependencies = [
+ "oxc_ast",
+ "oxc_parser",
+ "oxc_span",
+ "vize_carton",
+ "vize_davinci",
 ]
 
 [[package]]
@@ -4005,10 +4084,20 @@ dependencies = [
 name = "vize_relief"
 version = "0.351.0"
 dependencies = [
+ "oxc_ast",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "vize_carton",
+]
+
+[[package]]
+name = "vize_sinopia"
+version = "0.351.0"
+dependencies = [
+ "vize_armature",
+ "vize_carton",
+ "vize_relief",
 ]
 
 [[package]]

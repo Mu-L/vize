@@ -14,12 +14,13 @@ pub mod compile;
 pub mod generate;
 pub mod generators;
 pub mod ir;
-mod ir_drop;
 pub mod lower;
 pub mod steps;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_davinci_differential;
 #[cfg(test)]
 mod tests_dotted_slots;
 #[cfg(test)]
@@ -68,7 +69,6 @@ pub use ir::{
     PrependNodeIRNode, RootIRNode, SetDynamicPropsIRNode, SetEventIRNode, SetHtmlIRNode,
     SetPropIRNode, SetTemplateRefIRNode, SetTextIRNode, SlotOutletIRNode,
 };
-pub use ir_drop::drop_ir_stack_safe;
 pub use lower::transform_to_ir;
 pub use steps::{
     collect_component_slots, generate_element_template, generate_event_handler,

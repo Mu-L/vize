@@ -8,12 +8,14 @@ use vize_carton::{Box, String};
 use crate::{ConstantType, ExpressionNode, SimpleExpressionNode, lane::TransformContext};
 
 use super::{
-    clone_expression, is_event_handler_reference_expression, is_function_expression,
-    normalize_expression,
+    clone_expression, is_function_expression, normalize_expression,
     prefix::{get_identifier_prefix, is_simple_identifier},
     rewrite::{report_invalid_expression, rewrite_expression, rewrite_props_aliases},
+    shape_checks::{is_event_handler_reference_node, is_function_expression_node},
     typescript::strip_typescript_from_expression,
 };
+
+use vize_relief::JsExpression;
 
 /// Process inline handler expression
 pub fn process_inline_handler<'a>(
@@ -22,7 +24,7 @@ pub fn process_inline_handler<'a>(
 ) -> ExpressionNode<'a> {
     let allocator = ctx.allocator;
 
-    let normalized = normalize_expression(exp, allocator);
+    let normalized = normalize_expression(exp, allocator, ctx.source);
 
     if normalized.is_static {
         return ExpressionNode::Simple(normalized);
@@ -42,13 +44,22 @@ pub fn process_inline_handler<'a>(
     let function_check_source = ts_stripped_content
         .as_ref()
         .map(|s| s.as_str())
-        .unwrap_or(content.as_str());
+        .unwrap_or(content);
+    // The retained AST applies wherever the checked text is still the node's
+    // own bytes (P1-7); TS-stripped text that changed falls back.
+    let retained: Option<&JsExpression<'_>> =
+        crate::retained::retained_whole_expression(&normalized);
+    let is_function = if function_check_source == *content {
+        is_function_expression_node(&normalized)
+    } else {
+        is_function_expression(function_check_source)
+    };
 
     // Check if it's an inline function expression
-    if is_function_expression(function_check_source) {
+    if is_function {
         // Process identifiers in the handler
         if ctx.options.prefix_identifiers {
-            let result = rewrite_expression(content, ctx, false);
+            let result = rewrite_expression(content, ctx, false, retained);
             if result.used_unref {
                 ctx.helper(crate::RuntimeHelper::Unref);
             }
@@ -57,7 +68,7 @@ pub fn process_inline_handler<'a>(
             }
             return ExpressionNode::Simple(Box::new_in(
                 SimpleExpressionNode {
-                    content: String::new(&result.code),
+                    content: allocator.alloc_str(&result.code),
                     is_static: false,
                     const_type: ConstantType::NotConstant,
                     loc: normalized.loc.clone(),
@@ -67,13 +78,13 @@ pub fn process_inline_handler<'a>(
                     is_handler_key: true,
                     is_ref_transformed: true,
                 },
-                allocator,
+                &allocator,
             ));
         } else if let Some(ts_stripped_content) = &ts_stripped_content {
             // Strip TypeScript type annotations even without prefix_identifiers
             return ExpressionNode::Simple(Box::new_in(
                 SimpleExpressionNode {
-                    content: String::new(ts_stripped_content),
+                    content: allocator.alloc_str(ts_stripped_content),
                     is_static: false,
                     const_type: ConstantType::NotConstant,
                     loc: normalized.loc.clone(),
@@ -83,15 +94,15 @@ pub fn process_inline_handler<'a>(
                     is_handler_key: true,
                     is_ref_transformed: true,
                 },
-                allocator,
+                &allocator,
             ));
         }
-        return clone_expression(exp, allocator);
+        return clone_expression(exp, allocator, ctx.source);
     }
 
     // Check if it's an identifier/member-expression handler reference.
     // Vue passes these directly without wrapping them in `$event => (...)`.
-    if is_simple_identifier(content) || is_event_handler_reference_expression(content) {
+    if is_simple_identifier(content) || is_event_handler_reference_node(&normalized) {
         let new_content: String = if ctx.options.prefix_identifiers {
             if is_simple_identifier(content) {
                 if let Some(prefix) = get_identifier_prefix(content, ctx) {
@@ -100,10 +111,10 @@ pub fn process_inline_handler<'a>(
                     s.push_str(content);
                     s
                 } else {
-                    content.clone()
+                    (*content).into()
                 }
             } else {
-                let result = rewrite_expression(content, ctx, false);
+                let result = rewrite_expression(content, ctx, false, retained);
                 if result.used_unref {
                     ctx.helper(crate::RuntimeHelper::Unref);
                 }
@@ -115,14 +126,14 @@ pub fn process_inline_handler<'a>(
         } else if ctx.options.is_ts {
             strip_typescript_from_expression(content)
         } else {
-            content.clone()
+            (*content).into()
         };
 
         let new_content = rewrite_props_aliases(new_content, ctx);
 
         return ExpressionNode::Simple(Box::new_in(
             SimpleExpressionNode {
-                content: new_content,
+                content: allocator.alloc_str(&new_content),
                 is_static: false,
                 const_type: ConstantType::NotConstant,
                 loc: normalized.loc.clone(),
@@ -132,13 +143,13 @@ pub fn process_inline_handler<'a>(
                 is_handler_key: true,
                 is_ref_transformed: true,
             },
-            allocator,
+            &allocator,
         ));
     }
 
     // Compound expression - rewrite and wrap in arrow function
     let rewritten: String = if ctx.options.prefix_identifiers {
-        let result = rewrite_expression(content, ctx, false);
+        let result = rewrite_expression(content, ctx, false, retained);
         if result.used_unref {
             ctx.helper(crate::RuntimeHelper::Unref);
         }
@@ -150,7 +161,7 @@ pub fn process_inline_handler<'a>(
         // Strip TypeScript type annotations even without prefix_identifiers
         strip_typescript_from_expression(content)
     } else {
-        content.clone()
+        (*content).into()
     };
     // Use block body {...} for multi-statement handlers (semicolons),
     // concise body ( ... ) for single expressions. Vue emits the block body
@@ -171,7 +182,7 @@ pub fn process_inline_handler<'a>(
 
     ExpressionNode::Simple(Box::new_in(
         SimpleExpressionNode {
-            content: new_content,
+            content: allocator.alloc_str(&new_content),
             is_static: false,
             const_type: ConstantType::NotConstant,
             loc: normalized.loc.clone(),
@@ -181,7 +192,7 @@ pub fn process_inline_handler<'a>(
             is_handler_key: true,
             is_ref_transformed: true,
         },
-        allocator,
+        &allocator,
     ))
 }
 
@@ -189,13 +200,13 @@ pub fn process_inline_handler<'a>(
 mod tests {
     use super::process_inline_handler;
     use crate::{
-        CompoundExpressionNode, ExpressionNode, Position, SourceLocation,
+        CompoundExpressionNode, ExpressionNode, SourceLocation,
         lane::TransformContext,
         options::{BindingMetadata, BindingType, TransformOptions},
     };
-    use vize_carton::{Box, Bump, FxHashMap};
+    use vize_carton::{Allocator, Box, FxHashMap};
 
-    fn test_context<'a>(allocator: &'a Bump) -> TransformContext<'a> {
+    fn test_context<'a>(allocator: &'a Allocator, source: &'a str) -> TransformContext<'a> {
         let mut bindings = FxHashMap::default();
         bindings.insert("selectedFolders".into(), BindingType::SetupRef);
         bindings.insert("folder".into(), BindingType::SetupRef);
@@ -204,7 +215,7 @@ mod tests {
 
         TransformContext::new(
             allocator,
-            "".into(),
+            source,
             TransformOptions {
                 prefix_identifiers: true,
                 inline: true,
@@ -219,27 +230,21 @@ mod tests {
         )
     }
 
-    fn compound_expression<'a>(allocator: &'a Bump, source: &str) -> ExpressionNode<'a> {
-        let loc = SourceLocation::new(
-            Position::new(0, 1, 1),
-            Position::new(source.len() as u32, 1, source.len() as u32 + 1),
-            source,
-        );
+    fn compound_expression<'a>(allocator: &'a Allocator, source: &str) -> ExpressionNode<'a> {
+        let loc = SourceLocation::new(0, source.len() as u32);
 
         ExpressionNode::Compound(Box::new_in(
             CompoundExpressionNode::new(allocator, loc),
-            allocator,
+            &allocator,
         ))
     }
 
     #[test]
     fn test_process_inline_handler_rewrites_compound_ts_assignment() {
-        let allocator = Bump::new();
-        let mut ctx = test_context(&allocator);
-        let expr = compound_expression(
-            &allocator,
-            "selectedFolders = selectedFolders.filter(f => f.id !== folder!.id)",
-        );
+        let allocator = Allocator::new();
+        let source = "selectedFolders = selectedFolders.filter(f => f.id !== folder!.id)";
+        let mut ctx = test_context(&allocator, source);
+        let expr = compound_expression(&allocator, source);
 
         let result = process_inline_handler(&mut ctx, &expr);
         let ExpressionNode::Simple(result) = result else {
@@ -257,12 +262,10 @@ mod tests {
 
     #[test]
     fn test_process_inline_handler_preserves_local_block_binding() {
-        let allocator = Bump::new();
-        let mut ctx = test_context(&allocator);
-        let expr = compound_expression(
-            &allocator,
-            "() => { const value = compute(); emit('change', value) }",
-        );
+        let allocator = Allocator::new();
+        let source = "() => { const value = compute(); emit('change', value) }";
+        let mut ctx = test_context(&allocator, source);
+        let expr = compound_expression(&allocator, source);
 
         let result = process_inline_handler(&mut ctx, &expr);
         let ExpressionNode::Simple(result) = result else {

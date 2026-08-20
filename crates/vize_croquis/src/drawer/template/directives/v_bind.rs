@@ -23,9 +23,13 @@ impl Drawer {
         scope_vars: &mut Vec<CompactString>,
     ) {
         if let Some(ref exp) = dir.exp {
+            let compound_content;
             let content = match exp {
-                ExpressionNode::Simple(s) => s.content.as_str(),
-                ExpressionNode::Compound(c) => c.loc.source.as_str(),
+                ExpressionNode::Simple(s) => s.content,
+                ExpressionNode::Compound(c) => {
+                    compound_content = CompactString::new(c.loc.span.slice(&self.template_source));
+                    compound_content.as_str()
+                }
             };
             let loc = exp.loc();
 
@@ -37,8 +41,8 @@ impl Drawer {
                     .push(crate::croquis::TemplateExpression {
                         content: CompactString::new(content),
                         kind: crate::croquis::TemplateExpressionKind::VBind,
-                        start: loc.start.offset,
-                        end: loc.end.offset,
+                        start: loc.span.start,
+                        end: loc.span.end,
                         scope_id,
                         vif_guard: self.current_vif_guard(),
                     });
@@ -66,7 +70,7 @@ impl Drawer {
                                 cstr!(":{}callback", s.content)
                             }
                             ExpressionNode::Compound(c) => {
-                                cstr!(":{}callback", c.loc.source)
+                                cstr!(":{}callback", c.loc.span.slice(&self.template_source))
                             }
                         })
                         .unwrap_or_else(|| CompactString::const_new(":bind callback"));
@@ -76,8 +80,8 @@ impl Drawer {
                             param_names: params.into_iter().collect(),
                             context,
                         },
-                        dir.loc.start.offset,
-                        dir.loc.end.offset,
+                        dir.loc.span.start,
+                        dir.loc.span.end,
                     );
 
                     let params_added: Vec<CompactString> = self

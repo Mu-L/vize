@@ -22,18 +22,19 @@ impl Drawer {
             match prop {
                 PropNode::Attribute(attr) => {
                     usage.props.push(PassedProp {
-                        name: attr.name.clone(),
+                        name: attr.name.into(),
                         name_is_dynamic: false,
-                        value: attr.value.as_ref().map(|v| v.content.clone()),
-                        start: attr.loc.start.offset,
-                        end: attr.loc.end.offset,
+                        value: attr.value.as_ref().map(|v| v.content.into()),
+                        start: attr.loc.span.start,
+                        end: attr.loc.span.end,
                         is_dynamic: false,
                     });
                 }
-                PropNode::Directive(dir) => match dir.name.as_str() {
+                PropNode::Directive(dir) => match dir.name {
                     "bind" => {
                         if let Some(ref arg) = dir.arg {
-                            let (prop_name, name_is_dynamic) = directive_argument(arg);
+                            let (prop_name, name_is_dynamic) =
+                                directive_argument(arg, &self.template_source);
                             if tag == "component" && prop_name == "is" && !name_is_dynamic {
                                 continue;
                             }
@@ -41,9 +42,9 @@ impl Drawer {
                                 .exp
                                 .as_ref()
                                 .map(|e| match e {
-                                    ExpressionNode::Simple(s) => s.content.clone(),
+                                    ExpressionNode::Simple(s) => s.content.into(),
                                     ExpressionNode::Compound(c) => {
-                                        CompactString::new(c.loc.source.as_str())
+                                        CompactString::new(c.loc.span.slice(&self.template_source))
                                     }
                                 })
                                 .or_else(|| Some(prop_name.clone()));
@@ -51,42 +52,43 @@ impl Drawer {
                                 name: prop_name,
                                 name_is_dynamic,
                                 value,
-                                start: dir.loc.start.offset,
-                                end: dir.loc.end.offset,
+                                start: dir.loc.span.start,
+                                end: dir.loc.span.end,
                                 is_dynamic: true,
                             });
                         } else if let Some(ref exp) = dir.exp {
                             usage.has_spread_attrs = true;
                             usage.spread_props.push(SpreadProp {
                                 expression: match exp {
-                                    ExpressionNode::Simple(s) => s.content.clone(),
+                                    ExpressionNode::Simple(s) => s.content.into(),
                                     ExpressionNode::Compound(c) => {
-                                        CompactString::new(c.loc.source.as_str())
+                                        CompactString::new(c.loc.span.slice(&self.template_source))
                                     }
                                 },
-                                start: dir.loc.start.offset,
-                                end: dir.loc.end.offset,
+                                start: dir.loc.span.start,
+                                end: dir.loc.span.end,
                             });
                         }
                     }
                     "on" => {
                         if let Some(ref arg) = dir.arg {
-                            let (event_name, name_is_dynamic) = directive_argument(arg);
+                            let (event_name, name_is_dynamic) =
+                                directive_argument(arg, &self.template_source);
                             let handler = dir.exp.as_ref().map(|e| match e {
-                                ExpressionNode::Simple(s) => s.content.clone(),
+                                ExpressionNode::Simple(s) => s.content.into(),
                                 ExpressionNode::Compound(c) => {
-                                    CompactString::new(c.loc.source.as_str())
+                                    CompactString::new(c.loc.span.slice(&self.template_source))
                                 }
                             });
                             let modifiers: SmallVec<[CompactString; 4]> =
-                                dir.modifiers.iter().map(|m| m.content.clone()).collect();
+                                dir.modifiers.iter().map(|m| m.content.into()).collect();
                             usage.events.push(EventListener {
                                 name: event_name,
                                 name_is_dynamic,
                                 handler,
                                 modifiers,
-                                start: dir.loc.start.offset,
-                                end: dir.loc.end.offset,
+                                start: dir.loc.span.start,
+                                end: dir.loc.span.end,
                             });
                         }
                     }
@@ -94,13 +96,13 @@ impl Drawer {
                         let (model_name, name_is_dynamic) = dir
                             .arg
                             .as_ref()
-                            .map(|arg| directive_argument(arg))
+                            .map(|arg| directive_argument(arg, &self.template_source))
                             .unwrap_or_else(|| (CompactString::const_new("modelValue"), false));
 
                         let value = dir.exp.as_ref().map(|e| match e {
-                            ExpressionNode::Simple(s) => s.content.clone(),
+                            ExpressionNode::Simple(s) => s.content.into(),
                             ExpressionNode::Compound(c) => {
-                                CompactString::new(c.loc.source.as_str())
+                                CompactString::new(c.loc.span.slice(&self.template_source))
                             }
                         });
 
@@ -108,8 +110,8 @@ impl Drawer {
                             name: model_name.clone(),
                             name_is_dynamic,
                             value: value.clone(),
-                            start: dir.loc.start.offset,
-                            end: dir.loc.end.offset,
+                            start: dir.loc.span.start,
+                            end: dir.loc.span.end,
                             is_dynamic: true,
                         });
                         if !name_is_dynamic
@@ -119,8 +121,8 @@ impl Drawer {
                                 name: model_modifiers_prop_name(model_name.as_str()),
                                 name_is_dynamic: false,
                                 value: Some(modifiers_value),
-                                start: dir.loc.start.offset,
-                                end: dir.loc.end.offset,
+                                start: dir.loc.span.start,
+                                end: dir.loc.span.end,
                                 is_dynamic: true,
                             });
                         }
@@ -130,8 +132,8 @@ impl Drawer {
                             name_is_dynamic,
                             handler: value,
                             modifiers: SmallVec::new(),
-                            start: dir.loc.start.offset,
-                            end: dir.loc.end.offset,
+                            start: dir.loc.span.start,
+                            end: dir.loc.span.end,
                         });
                     }
                     _ => {}
@@ -146,7 +148,7 @@ impl Drawer {
             if let PropNode::Directive(dir) = prop
                 && dir.name == "slot"
             {
-                push_slot_usage(usage, dir);
+                push_slot_usage(usage, dir, &self.template_source);
             }
         }
 
@@ -161,7 +163,7 @@ impl Drawer {
                 if let PropNode::Directive(dir) = prop
                     && dir.name == "slot"
                 {
-                    push_slot_usage(usage, dir);
+                    push_slot_usage(usage, dir, &self.template_source);
                 }
             }
         }
@@ -201,7 +203,7 @@ fn model_modifiers_value(modifiers: &[SimpleExpressionNode<'_>]) -> Option<Compa
         if idx > 0 {
             value.push_str(", ");
         }
-        push_ts_string_literal(&mut value, modifier.content.as_str());
+        push_ts_string_literal(&mut value, modifier.content);
         value.push_str(": true");
     }
     value.push_str(" }");
@@ -223,25 +225,25 @@ fn push_ts_string_literal(out: &mut String, value: &str) {
     out.push('"');
 }
 
-fn directive_argument(arg: &ExpressionNode<'_>) -> (CompactString, bool) {
+fn directive_argument(arg: &ExpressionNode<'_>, source: &str) -> (CompactString, bool) {
     match arg {
-        ExpressionNode::Simple(simple) => (simple.content.clone(), !simple.is_static),
+        ExpressionNode::Simple(simple) => (simple.content.into(), !simple.is_static),
         ExpressionNode::Compound(compound) => {
-            (CompactString::new(compound.loc.source.as_str()), true)
+            (CompactString::new(compound.loc.span.slice(source)), true)
         }
     }
 }
 
-fn push_slot_usage(usage: &mut ComponentUsage, dir: &vize_relief::DirectiveNode<'_>) {
+fn push_slot_usage(usage: &mut ComponentUsage, dir: &vize_relief::DirectiveNode<'_>, source: &str) {
     let (name, name_is_dynamic) = dir
         .arg
         .as_ref()
-        .map(directive_argument)
+        .map(|arg| directive_argument(arg, source))
         .unwrap_or_else(|| (CompactString::const_new("default"), false));
     let scope_vars = dir
         .exp
         .as_ref()
-        .map(expression_content)
+        .map(|exp| expression_content(exp, source))
         .map(extract_slot_props)
         .unwrap_or_default();
 
@@ -250,8 +252,8 @@ fn push_slot_usage(usage: &mut ComponentUsage, dir: &vize_relief::DirectiveNode<
         name_is_dynamic,
         has_scope: dir.exp.is_some(),
         scope_vars,
-        start: dir.loc.start.offset,
-        end: dir.loc.end.offset,
+        start: dir.loc.span.start,
+        end: dir.loc.span.end,
     });
 }
 
@@ -263,8 +265,8 @@ fn default_slot_child_span(el: &ElementNode<'_>) -> Option<(u32, u32)> {
         }
         let loc = child.loc();
         span = Some(match span {
-            Some((start, end)) => (start.min(loc.start.offset), end.max(loc.end.offset)),
-            None => (loc.start.offset, loc.end.offset),
+            Some((start, end)) => (start.min(loc.span.start), end.max(loc.span.end)),
+            None => (loc.span.start, loc.span.end),
         });
     }
     span
@@ -283,9 +285,9 @@ fn is_default_slot_child(child: &TemplateChildNode<'_>) -> bool {
     }
 }
 
-fn expression_content<'a>(exp: &'a ExpressionNode<'_>) -> &'a str {
+fn expression_content<'a>(exp: &'a ExpressionNode<'_>, source: &'a str) -> &'a str {
     match exp {
-        ExpressionNode::Simple(s) => s.content.as_str(),
-        ExpressionNode::Compound(c) => c.loc.source.as_str(),
+        ExpressionNode::Simple(s) => s.content,
+        ExpressionNode::Compound(c) => c.loc.span.slice(source),
     }
 }

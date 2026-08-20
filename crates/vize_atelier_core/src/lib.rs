@@ -17,9 +17,20 @@ pub mod runtime_helpers;
 pub mod test_macros;
 pub mod lane;
 pub mod steps;
+// Davinci P0-3 instrumentation; deleted when phase 1 retains parsed expressions.
+#[doc(hidden)]
+pub mod expr_parse_probe;
+// Davinci P1-7 retained-expression consumption gates; shrinks away with the
+// legacy re-parse sites at P1-8/P1-9.
+#[doc(hidden)]
+pub mod retained;
+// Davinci P2-12a pre-S2 traversal baseline; deleted when P2-12b's observer
+// counts walks through the pass manager instead.
+#[doc(hidden)]
+pub mod walk_probe;
 
 // Re-export from vize_relief (AST, errors, options)
-pub use vize_relief::errors::{CompilerError, CompilerResult, ErrorCode};
+pub use vize_relief::errors::{CompilerError, CompilerErrorWithSource, CompilerResult, ErrorCode};
 pub use vize_relief::options::{
     BindingMetadata, BindingType, CodegenMode, CodegenOptions, CompilerOptions, ParseMode,
     ParserOptions, TemplateSyntaxMode, TextMode, TransformOptions, WhitespaceStrategy,
@@ -32,9 +43,9 @@ pub use vize_relief::{
     ElementType, ExpressionNode, ForNode, ForParseResult, FunctionBody, FunctionExpression,
     FunctionParam, FunctionParams, FunctionReturns, IfBranchNode, IfNode, IfStatement,
     IfStatementAlternate, ImportItem, InterpolationNode, JsChildNode, JsExpression, Namespace,
-    NodeType, ObjectExpression, Position, PropNode, Property, PropsExpression, ReturnStatement,
-    ReturnValue, RootNode, RuntimeHelper, SequenceExpression, SimpleExpressionNode,
-    SlotsExpression, SourceLocation, TemplateChildNode, TemplateLiteral, TemplateLiteralElement,
+    NodeType, ObjectExpression, PropNode, Property, PropsExpression, ReturnStatement, ReturnValue,
+    RootNode, RuntimeHelper, SequenceExpression, SimpleExpressionNode, SlotsExpression,
+    SourceLocation, TemplateChildNode, TemplateLiteral, TemplateLiteralElement,
     TemplateTextChildNode, TextCallContent, TextCallNode, TextNode, VNodeCall, VNodeChildren,
     VNodeTag,
 };

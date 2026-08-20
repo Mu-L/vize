@@ -4,7 +4,7 @@
 //! in function mode, where the setup function returns bindings for use by a separate
 //! render function.
 
-use vize_carton::{Bump, FxHashSet, String, ToCompactString};
+use vize_carton::{FxHashSet, String, ToCompactString};
 use vize_croquis::macros::runtime_erased_macro_names;
 
 use crate::script::{
@@ -51,9 +51,9 @@ pub fn compile_script_setup(
     ctx.analyze();
     validate_macro_scope_and_props(&ctx, 0, content)?;
 
-    // Use arena-allocated Vec for better performance
-    let bump = vize_carton::Bump::new();
-    let mut output: vize_carton::Vec<u8> = vize_carton::Vec::with_capacity_in(4096, &bump);
+    // Arena-allocated Vec on this worker's pooled arena (P1-11), not a fresh one.
+    let bump = vize_carton::pool::acquire();
+    let mut output: vize_carton::Vec<u8> = vize_carton::Vec::with_capacity_in(4096, &&*bump);
 
     // Check if we have props destructure
     let has_props_destructure = ctx.macros.props_destructure.is_some();
@@ -643,7 +643,7 @@ fn build_returned_bindings(
 
     // Parse template to get used identifiers
     let template_used_ids: TemplateUsedIdentifiers = if let Some(template_src) = template_content {
-        let allocator = Bump::new();
+        let allocator = vize_carton::Allocator::new();
         let (root, _) = vize_atelier_core::parser::parse(&allocator, template_src);
         resolve_template_used_identifiers(&root)
     } else {

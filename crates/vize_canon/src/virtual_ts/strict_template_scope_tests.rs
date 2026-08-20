@@ -20,7 +20,7 @@ use vize_croquis::{Analyzer, AnalyzerOptions};
 const SCRIPT: &str = "interface Option { name: string, to: string, hide?: boolean, disabled?: boolean }\nconst { options } = defineProps<{ options: Option[] }>()\n";
 
 fn strict_context_reads(template: &str, script: Option<&str>) -> Vec<String> {
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     if let Some(script) = script {

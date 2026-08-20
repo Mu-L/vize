@@ -4,7 +4,6 @@
 //! code generation behind the public `compile_vapor*` functions.
 
 use crate::generate::generate_vapor;
-use crate::ir_drop::drop_ir_stack_safe;
 use crate::lower as vapor_lower;
 use vize_atelier_core::{
     CompilerError, Namespace,
@@ -12,7 +11,7 @@ use vize_atelier_core::{
     options::{CustomElementMatcher, ParserOptions, TemplateSyntaxMode, TransformOptions},
     parser::parse_with_options_custom_elements_and_template_syntax,
 };
-use vize_carton::{Bump, String};
+use vize_carton::{Allocator, String};
 
 /// Vapor compiler options
 #[derive(Debug, Clone, Default)]
@@ -46,7 +45,7 @@ pub struct VaporCompileResult {
 
 /// Compile a Vue template to Vapor mode
 pub fn compile_vapor<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
 ) -> VaporCompileResult {
@@ -63,7 +62,7 @@ pub fn compile_vapor<'a>(
 /// Compile a Vue template to Vapor mode with Vue parser quirk compatibility.
 #[deprecated(note = "use compile_vapor_with_template_syntax instead")]
 pub fn compile_vapor_with_vue_parser_quirks<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
 ) -> VaporCompileResult {
@@ -80,7 +79,7 @@ pub fn compile_vapor_with_vue_parser_quirks<'a>(
 /// Compile a Vue template to Vapor mode with an explicit template syntax mode.
 #[doc(hidden)]
 pub fn compile_vapor_with_template_syntax<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -98,7 +97,7 @@ pub fn compile_vapor_with_template_syntax<'a>(
 /// Compile with declarative custom-element patterns.
 #[doc(hidden)]
 pub fn compile_vapor_with_custom_elements_and_template_syntax<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -110,7 +109,7 @@ pub fn compile_vapor_with_custom_elements_and_template_syntax<'a>(
 /// Compile a Vue template to Vapor mode and return parser diagnostics.
 #[doc(hidden)]
 pub fn compile_vapor_with_diagnostics<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
 ) -> (VaporCompileResult, std::vec::Vec<CompilerError>) {
@@ -127,7 +126,7 @@ pub fn compile_vapor_with_diagnostics<'a>(
 #[doc(hidden)]
 #[deprecated(note = "use compile_vapor_with_template_syntax_and_diagnostics instead")]
 pub fn compile_vapor_with_vue_parser_quirks_and_diagnostics<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
 ) -> (VaporCompileResult, std::vec::Vec<CompilerError>) {
@@ -143,7 +142,7 @@ pub fn compile_vapor_with_vue_parser_quirks_and_diagnostics<'a>(
 /// Compile a Vue template to Vapor mode with template syntax mode and return parser diagnostics.
 #[doc(hidden)]
 pub fn compile_vapor_with_template_syntax_and_diagnostics<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -160,7 +159,7 @@ pub fn compile_vapor_with_template_syntax_and_diagnostics<'a>(
 /// Compile with template syntax, diagnostics, and declarative custom-element patterns.
 #[doc(hidden)]
 pub fn compile_vapor_with_custom_elements_template_syntax_and_diagnostics<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -170,7 +169,7 @@ pub fn compile_vapor_with_custom_elements_template_syntax_and_diagnostics<'a>(
 }
 
 fn compile_vapor_inner<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -182,7 +181,7 @@ fn compile_vapor_inner<'a>(
 }
 
 fn compile_vapor_inner_with_stack<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: VaporCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -243,12 +242,10 @@ fn compile_vapor_inner_with_stack<'a>(
 
     // Lower to Vapor IR
     let (ir, transform_diagnostics) =
-        vapor_lower::transform_to_ir_with_diagnostics(allocator, &root);
+        vapor_lower::transform_to_ir_with_diagnostics(allocator, &root, source);
 
     // Generate Vapor code
     let result = generate_vapor(&ir, binding_metadata.as_ref());
-    drop_ir_stack_safe(ir);
-    drop(root);
 
     (
         VaporCompileResult {

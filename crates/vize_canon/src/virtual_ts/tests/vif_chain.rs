@@ -16,7 +16,7 @@ const navItems: Item[] = []
   </div>
 </div>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -64,7 +64,7 @@ const aimAtReports: AimAtReport[] = []
   </template>
 </template>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -99,7 +99,7 @@ fn same_element_v_if_does_not_see_v_for_alias() {
   </ul>
 </section>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -137,7 +137,7 @@ const items: ViewItem[] = []
   </div>
 </template>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);

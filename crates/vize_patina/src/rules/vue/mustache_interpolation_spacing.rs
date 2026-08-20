@@ -74,8 +74,8 @@ impl Rule for MustacheInterpolationSpacing {
         interpolation: &InterpolationNode<'a>,
     ) {
         // Note: end.offset is exclusive (points to the character AFTER the last one)
-        let start = interpolation.loc.start.offset as usize;
-        let end = interpolation.loc.end.offset as usize;
+        let start = interpolation.loc.span.start as usize;
+        let end = interpolation.loc.span.end as usize;
         if end <= start || end > ctx.source.len() {
             return;
         }
@@ -90,8 +90,8 @@ impl Rule for MustacheInterpolationSpacing {
             return;
         }
 
-        let opening = interpolation.loc.start.offset;
-        let closing = interpolation.loc.end.offset;
+        let opening = interpolation.loc.span.start;
+        let closing = interpolation.loc.span.end;
         let leading = leading_whitespace(inner);
         let trailing = trailing_whitespace(inner);
         match self.style {

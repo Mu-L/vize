@@ -7,6 +7,8 @@
 mod comment_rewrite;
 mod generate;
 pub(crate) mod helpers;
+pub(crate) mod prefix_context;
+mod prefix_visitor;
 pub(crate) mod scope_prefix;
 
 use crate::{
@@ -66,12 +68,12 @@ pub fn generate_compound_expression(
 pub fn generate_simple_expression(ctx: &mut CodegenContext, exp: &SimpleExpressionNode<'_>) {
     if exp.is_static {
         ctx.push("\"");
-        ctx.push(&escape_js_string(exp.content.as_str()));
+        ctx.push(&escape_js_string(exp.content));
         ctx.push("\"");
     } else {
         // Strip TypeScript if needed
         let mut content: String = if ctx.options.is_ts && exp.content.contains(" as ") {
-            crate::steps::strip_typescript_from_expression(&exp.content)
+            crate::steps::strip_typescript_from_expression(exp.content)
         } else {
             exp.content.to_compact_string()
         };
@@ -89,7 +91,7 @@ pub fn generate_simple_expression(ctx: &mut CodegenContext, exp: &SimpleExpressi
         // from generated `_ctx.foo` back to template `foo`), and this is the
         // single chokepoint every dynamic expression flows through. No-op unless
         // the `source_map` flag is on.
-        ctx.record_mapping(&exp.loc.start);
+        ctx.record_mapping(exp.loc.span.start);
 
         // Replace generated scope prefixes when X is a known slot/v-for parameter.
         // This handles destructured variables that the transform phase

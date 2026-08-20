@@ -52,8 +52,8 @@ fn generate_children_inner(
                 ctx.push("\"");
                 // Anchor the inlined text literal back to its source position,
                 // just inside the opening quote. No-op without `source_map`.
-                ctx.record_mapping(&text.loc.start);
-                ctx.push(&escape_js_string(&text.content));
+                ctx.record_mapping(text.loc.span.start);
+                ctx.push(&escape_js_string(text.content));
                 ctx.push("\"");
                 return;
             }
@@ -84,8 +84,8 @@ fn generate_children_inner(
                     ctx.push("\"");
                     // Anchor each concatenated text fragment back to its own
                     // source position. No-op without `source_map`.
-                    ctx.record_mapping(&text.loc.start);
-                    ctx.push(&escape_js_string(&text.content));
+                    ctx.record_mapping(text.loc.span.start);
+                    ctx.push(&escape_js_string(text.content));
                     ctx.push("\"");
                 }
                 TemplateChildNode::Interpolation(interp) => {
@@ -173,8 +173,8 @@ fn generate_children_inner(
                             ctx.push("\"");
                             // Anchor each merged text fragment back to its own
                             // source position. No-op without `source_map`.
-                            ctx.record_mapping(&text.loc.start);
-                            ctx.push(&escape_js_string(&text.content));
+                            ctx.record_mapping(text.loc.span.start);
+                            ctx.push(&escape_js_string(text.content));
                             ctx.push("\"");
                         }
                         TemplateChildNode::Interpolation(interp) => {
@@ -194,8 +194,8 @@ fn generate_children_inner(
                         ctx.push("\"");
                         // Anchor each text fragment back to its own source
                         // position. No-op without `source_map`.
-                        ctx.record_mapping(&text.loc.start);
-                        ctx.push(&escape_js_string(&text.content));
+                        ctx.record_mapping(text.loc.span.start);
+                        ctx.push(&escape_js_string(text.content));
                         ctx.push("\"");
                     }
                 }
@@ -281,7 +281,7 @@ fn generate_cached_static_vnode(ctx: &mut CodegenContext, el: &ElementNode<'_>, 
     ctx.use_helper(RuntimeHelper::CreateElementVNode);
     ctx.push_vnode_helper(RuntimeHelper::CreateElementVNode);
     ctx.push("(\"");
-    ctx.push(&el.tag);
+    ctx.push(el.tag);
     ctx.push("\"");
 
     if has_renderable_props(el) {
@@ -326,8 +326,8 @@ pub fn generate_text(ctx: &mut CodegenContext, text: &TextNode) {
         ctx.push("(\"");
         // Anchor the generated string literal back to the text node's source
         // position, just inside the opening quote. No-op without `source_map`.
-        ctx.record_mapping(&text.loc.start);
-        ctx.push(&escape_js_string(&text.content));
+        ctx.record_mapping(text.loc.span.start);
+        ctx.push(&escape_js_string(text.content));
         ctx.push("\")");
     }
 }
@@ -346,8 +346,8 @@ pub fn generate_comment(ctx: &mut CodegenContext, comment: &CommentNode) {
     ctx.push("(\"");
     // Anchor the generated comment string back to the comment node's source
     // position, just inside the opening quote. No-op without `source_map`.
-    ctx.record_mapping(&comment.loc.start);
-    ctx.push(&escape_js_string(&comment.content));
+    ctx.record_mapping(comment.loc.span.start);
+    ctx.push(&escape_js_string(comment.content));
     ctx.push("\")");
 }
 

@@ -1,6 +1,6 @@
 //! Structural directive transforms (v-if, v-for).
 
-use vize_carton::{Box, String, Vec};
+use vize_carton::{Box, Vec};
 
 use crate::errors::ErrorCode;
 use crate::{
@@ -14,10 +14,12 @@ use super::traverse::traverse_children;
 use super::{ExitFns, ParentNode, TransformContext};
 
 /// Simple expression content for passing between functions
-pub struct SimpleExpressionContent {
-    pub content: String,
+pub struct SimpleExpressionContent<'a> {
+    pub content: &'a str,
     pub is_static: bool,
     pub loc: SourceLocation,
+    /// Retained parse of `content` when the source node carried one (P1-7).
+    pub js_ast: Option<vize_relief::JsExpression<'a>>,
 }
 
 #[derive(Clone, Copy)]
@@ -28,23 +30,27 @@ pub enum StructuralDirectiveKind {
     For,
 }
 
-fn directive_expression_to_content(exp: ExpressionNode<'_>) -> SimpleExpressionContent {
+fn directive_expression_to_content<'a>(
+    exp: ExpressionNode<'a>,
+    src: &'a str,
+) -> SimpleExpressionContent<'a> {
     match exp {
         ExpressionNode::Simple(s) => {
-            let s = Box::into_inner(s);
+            let s = Box::unbox(s);
             SimpleExpressionContent {
                 content: s.content,
                 is_static: s.is_static,
                 loc: s.loc,
+                js_ast: s.js_ast,
             }
         }
         ExpressionNode::Compound(c) => {
-            let c = Box::into_inner(c);
-            let loc = c.loc;
+            let loc = Box::unbox(c).loc;
             SimpleExpressionContent {
-                content: loc.source.clone(),
+                content: loc.span.slice(src),
                 is_static: false,
                 loc,
+                js_ast: None,
             }
         }
     }
@@ -56,9 +62,10 @@ fn directive_expression_to_content(exp: ExpressionNode<'_>) -> SimpleExpressionC
 /// This removes the selected directive from the element in the same pass we discover it.
 pub fn take_structural_directive<'a>(
     el: &mut Box<'a, ElementNode<'a>>,
+    src: &'a str,
 ) -> Option<(
     StructuralDirectiveKind,
-    Option<SimpleExpressionContent>,
+    Option<SimpleExpressionContent<'a>>,
     SourceLocation,
 )> {
     let mut selected_if = None;
@@ -66,7 +73,7 @@ pub fn take_structural_directive<'a>(
 
     for (idx, prop) in el.props.iter().enumerate() {
         if let PropNode::Directive(dir) = prop {
-            match dir.name.as_str() {
+            match dir.name {
                 "if" => {
                     selected_if = Some((idx, StructuralDirectiveKind::If));
                     break;
@@ -89,7 +96,7 @@ pub fn take_structural_directive<'a>(
 
     let (directive_idx, directive_kind) = selected_if.or(selected_for)?;
     let directive = match el.props.remove(directive_idx) {
-        PropNode::Directive(dir) => Box::into_inner(dir),
+        PropNode::Directive(dir) => Box::unbox(dir),
         PropNode::Attribute(_) => {
             // Panic path by invariant: `directive_idx` is selected only while
             // iterating over `PropNode::Directive`. Hitting this means the prop
@@ -99,11 +106,10 @@ pub fn take_structural_directive<'a>(
         }
     };
 
-    Some((
-        directive_kind,
-        directive.exp.map(directive_expression_to_content),
-        directive.loc,
-    ))
+    let exp = directive
+        .exp
+        .map(|exp| directive_expression_to_content(exp, src));
+    Some((directive_kind, exp, directive.loc))
 }
 
 /// Extract and remove key prop from element
@@ -132,7 +138,7 @@ pub fn extract_key_prop<'a>(el: &mut ElementNode<'a>) -> Option<PropNode<'a>> {
 /// Transform v-if directive
 pub fn transform_v_if<'a>(
     ctx: &mut TransformContext<'a>,
-    exp: Option<&SimpleExpressionContent>,
+    exp: Option<&SimpleExpressionContent<'a>>,
     is_root: bool,
 ) -> Option<ExitFns<'a>> {
     let directive_loc = exp
@@ -148,10 +154,43 @@ pub fn transform_v_if<'a>(
     )
 }
 
+/// Build the v-if/v-else-if condition node from the taken directive
+/// expression and run identifier prefixing over it. The retained parse rides
+/// along (P1-7): the content is the source node's own bytes.
+fn condition_expression<'a>(
+    ctx: &mut TransformContext<'a>,
+    e: &SimpleExpressionContent<'a>,
+) -> ExpressionNode<'a> {
+    let raw_exp = ExpressionNode::Simple(Box::new_in(
+        SimpleExpressionNode {
+            content: e.content,
+            is_static: e.is_static,
+            const_type: if e.is_static {
+                ConstantType::CanStringify
+            } else {
+                ConstantType::NotConstant
+            },
+            loc: e.loc.clone(),
+            js_ast: e.js_ast,
+            hoisted: None,
+            identifiers: None,
+            is_handler_key: false,
+            is_ref_transformed: false,
+        },
+        &ctx.allocator,
+    ));
+    // Process expression to add $setup. prefix
+    if ctx.options.prefix_identifiers || ctx.options.is_ts {
+        crate::steps::expression::process_expression(ctx, &raw_exp, false)
+    } else {
+        raw_exp
+    }
+}
+
 pub(crate) fn transform_v_if_with_directive<'a>(
     ctx: &mut TransformContext<'a>,
     directive_kind: StructuralDirectiveKind,
-    exp: Option<&SimpleExpressionContent>,
+    exp: Option<&SimpleExpressionContent<'a>>,
     directive_loc: &SourceLocation,
     is_root: bool,
 ) -> Option<ExitFns<'a>> {
@@ -180,32 +219,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
         };
 
         // Create condition expression and process it for identifier prefixing
-        let condition = exp.map(|e| {
-            let raw_exp = ExpressionNode::Simple(Box::new_in(
-                SimpleExpressionNode {
-                    content: e.content.clone(),
-                    is_static: e.is_static,
-                    const_type: if e.is_static {
-                        ConstantType::CanStringify
-                    } else {
-                        ConstantType::NotConstant
-                    },
-                    loc: e.loc.clone(),
-                    js_ast: None,
-                    hoisted: None,
-                    identifiers: None,
-                    is_handler_key: false,
-                    is_ref_transformed: false,
-                },
-                allocator,
-            ));
-            // Process expression to add $setup. prefix
-            if ctx.options.prefix_identifiers || ctx.options.is_ts {
-                crate::steps::expression::process_expression(ctx, &raw_exp, false)
-            } else {
-                raw_exp
-            }
-        });
+        let condition = exp.map(|e| condition_expression(ctx, e));
 
         // Extract user key from the element if present,
         // but NOT if the element also has v-for (the key belongs to v-for in that case)
@@ -215,7 +229,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
                 let has_v_for = el
                     .props
                     .iter()
-                    .any(|p| matches!(p, PropNode::Directive(d) if d.name.as_str() == "for"));
+                    .any(|p| matches!(p, PropNode::Directive(d) if d.name == "for"));
                 if !has_v_for {
                     user_key = extract_key_prop(&mut el);
                 }
@@ -234,7 +248,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
         }
 
         // Create branch with the taken element
-        let mut branch_children = Vec::new_in(allocator);
+        let mut branch_children = Vec::new_in(&allocator);
         branch_children.push(taken_node);
 
         let branch = IfBranchNode {
@@ -245,7 +259,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
             loc: element_loc.clone(),
         };
 
-        let mut branches = Vec::new_in(allocator);
+        let mut branches = Vec::new_in(&allocator);
         branches.push(branch);
 
         let if_node = IfNode {
@@ -254,7 +268,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
         };
 
         // Replace placeholder with IfNode
-        ctx.replace_node(TemplateChildNode::If(Box::new_in(if_node, allocator)));
+        ctx.replace_node(TemplateChildNode::If(Box::new_in(if_node, &allocator)));
 
         // Add helpers
         ctx.helper(RuntimeHelper::OpenBlock);
@@ -302,32 +316,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
             };
 
             // Create condition for else-if, None for else
-            let condition = exp.map(|e| {
-                let raw_exp = ExpressionNode::Simple(Box::new_in(
-                    SimpleExpressionNode {
-                        content: e.content.clone(),
-                        is_static: e.is_static,
-                        const_type: if e.is_static {
-                            ConstantType::CanStringify
-                        } else {
-                            ConstantType::NotConstant
-                        },
-                        loc: e.loc.clone(),
-                        js_ast: None,
-                        hoisted: None,
-                        identifiers: None,
-                        is_handler_key: false,
-                        is_ref_transformed: false,
-                    },
-                    allocator,
-                ));
-                // Process expression to add $setup. prefix
-                if ctx.options.prefix_identifiers || ctx.options.is_ts {
-                    crate::steps::expression::process_expression(ctx, &raw_exp, false)
-                } else {
-                    raw_exp
-                }
-            });
+            let condition = exp.map(|e| condition_expression(ctx, e));
 
             // Extract user key from the element if present,
             // but NOT if the element also has v-for (the key belongs to v-for in that case)
@@ -337,7 +326,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
                     let has_v_for = el
                         .props
                         .iter()
-                        .any(|p| matches!(p, PropNode::Directive(d) if d.name.as_str() == "for"));
+                        .any(|p| matches!(p, PropNode::Directive(d) if d.name == "for"));
                     if !has_v_for {
                         user_key = extract_key_prop(&mut el);
                     }
@@ -357,16 +346,16 @@ pub(crate) fn transform_v_if_with_directive<'a>(
 
             // Check for key collision with existing branches (vuejs/core #13881)
             let has_key_collision = if let Some(ref new_key) = user_key {
-                let new_key_str = extract_key_value_str(new_key, ctx.template_syntax_quirks());
+                let quirks = ctx.template_syntax_quirks();
+                let src = ctx.source;
+                let new_key_str = extract_key_value_str(new_key, quirks, src);
                 if let Some(parent) = &ctx.parent {
                     let children = parent.children_mut();
                     if let TemplateChildNode::If(if_node) = &children[if_idx] {
                         if_node.branches.iter().any(|existing_branch| {
                             if let Some(ref existing_key) = existing_branch.user_key {
-                                let existing_key_str = extract_key_value_str(
-                                    existing_key,
-                                    ctx.template_syntax_quirks(),
-                                );
+                                let existing_key_str =
+                                    extract_key_value_str(existing_key, quirks, src);
                                 matches!((&new_key_str, &existing_key_str), (Some(nk), Some(ek)) if nk == ek)
                             } else {
                                 false
@@ -387,7 +376,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
             }
 
             // Create new branch
-            let mut branch_children = Vec::new_in(allocator);
+            let mut branch_children = Vec::new_in(&allocator);
             branch_children.push(taken_node);
 
             let branch = IfBranchNode {
@@ -433,7 +422,7 @@ pub(crate) fn transform_v_if_with_directive<'a>(
 /// Transform v-for directive
 pub fn transform_v_for<'a>(
     ctx: &mut TransformContext<'a>,
-    exp: Option<&SimpleExpressionContent>,
+    exp: Option<&SimpleExpressionContent<'a>>,
 ) -> Option<ExitFns<'a>> {
     let allocator = ctx.allocator;
 
@@ -444,7 +433,7 @@ pub fn transform_v_for<'a>(
 
     let Some(parse_result) = crate::steps::parse_for_expression_with_options(
         allocator,
-        &exp.content,
+        exp.content,
         &exp.loc,
         ctx.template_syntax_quirks(),
     ) else {
@@ -476,15 +465,17 @@ pub fn transform_v_for<'a>(
     }
 
     // Create ForNode children with taken element
-    let mut for_children = Vec::new_in(allocator);
+    let mut for_children = Vec::new_in(&allocator);
     for_children.push(taken_node);
 
     // Create parse result (clone expressions for parse_result)
+    let src = ctx.source;
+    let clone = |e: &ExpressionNode<'a>| clone_expression(allocator, e, src);
     let parse_result = ForParseResult {
-        source: clone_expression(allocator, &source),
-        value: value_alias.as_ref().map(|e| clone_expression(allocator, e)),
-        key: key_alias.as_ref().map(|e| clone_expression(allocator, e)),
-        index: index_alias.as_ref().map(|e| clone_expression(allocator, e)),
+        source: clone_expression(allocator, &source, src),
+        value: value_alias.as_ref().map(clone),
+        key: key_alias.as_ref().map(clone),
+        index: index_alias.as_ref().map(clone),
         finalized: false,
     };
 
@@ -499,7 +490,7 @@ pub fn transform_v_for<'a>(
     };
 
     // Replace placeholder with ForNode
-    ctx.replace_node(TemplateChildNode::For(Box::new_in(for_node, allocator)));
+    ctx.replace_node(TemplateChildNode::For(Box::new_in(for_node, &allocator)));
 
     // Add helpers
     ctx.helper(RuntimeHelper::RenderList);
@@ -513,47 +504,5 @@ pub fn transform_v_for<'a>(
 
 #[cfg(test)]
 #[allow(clippy::disallowed_macros)]
-mod tests {
-    use bumpalo::Bump;
-
-    use super::super::traverse::traverse_children;
-    use super::*;
-    use crate::errors::CompilerError;
-    use crate::lane::{ParentNode, TransformContext};
-    use crate::options::TransformOptions;
-    use crate::parser::parse;
-
-    fn transform_errors(source: &str) -> std::vec::Vec<CompilerError> {
-        let allocator = Bump::new();
-        let (mut root, errors) = parse(&allocator, source);
-        assert!(errors.is_empty(), "Parse errors: {:?}", errors);
-
-        let mut ctx =
-            TransformContext::new(&allocator, root.source.clone(), TransformOptions::default());
-        traverse_children(&mut ctx, ParentNode::Root(&mut root as *mut _));
-        ctx.errors
-    }
-
-    #[test]
-    fn test_v_if_without_expression_reports_error() {
-        let errors = transform_errors(r#"<div v-if>always</div>"#);
-
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code, ErrorCode::VIfNoExpression);
-    }
-
-    #[test]
-    fn test_v_else_if_without_expression_reports_error() {
-        let errors = transform_errors(r#"<div v-if="ok">yes</div><div v-else-if>maybe</div>"#);
-
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].code, ErrorCode::VIfNoExpression);
-    }
-
-    #[test]
-    fn test_v_else_without_expression_stays_valid() {
-        let errors = transform_errors(r#"<div v-if="ok">yes</div><div v-else>no</div>"#);
-
-        assert!(errors.is_empty(), "Unexpected errors: {:?}", errors);
-    }
-}
+#[path = "structural/tests.rs"]
+mod tests;

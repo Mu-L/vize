@@ -3,7 +3,6 @@
 //! Determines what prefix (if any) an identifier needs based on binding
 //! metadata and context (e.g., `_ctx.`, `$setup.`, `__props.`).
 
-use oxc_allocator::Allocator as OxcAllocator;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
 use vize_carton::{FxHashSet, String};
@@ -109,7 +108,7 @@ pub fn prefix_identifiers_in_expression(content: &str) -> String {
     if !super::expression_is_safe_to_parse(content) {
         return String::new(content);
     }
-    let allocator = OxcAllocator::default();
+    let allocator = crate::expr_parse_probe::parse_arena();
     let source_type = SourceType::default().with_module(true);
 
     // Wrap in parentheses to make it a valid expression statement
@@ -132,17 +131,8 @@ pub fn prefix_identifiers_in_expression(content: &str) -> String {
                 return String::new(content);
             }
 
-            // Sort by position (descending) to apply replacements from end to start
-            rewrites.sort_by_key(|rewrite| std::cmp::Reverse(rewrite.0));
-
-            let mut result = String::new(content);
-            for (start, end, replacement) in rewrites {
-                if start < result.len() && end <= result.len() {
-                    result.replace_range(start..end, &replacement);
-                }
-            }
-
-            result
+            // Span-splice the replacements into the original text (P1-9).
+            super::splice::splice_replacements(content, rewrites)
         }
         Err(_) => String::new(content),
     }

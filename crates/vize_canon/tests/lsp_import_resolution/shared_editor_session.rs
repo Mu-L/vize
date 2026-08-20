@@ -82,9 +82,7 @@ fn bridge_diagnostics_and_hover_reuse_one_standard_editor_lsp_session() {
     assert!(
         diagnostics.iter().any(|diagnostic| {
             diagnostic.code == Some(serde_json::json!(2322))
-                && diagnostic
-                    .message
-                    .contains("Type 'string' is not assignable to type 'number'")
+                && diagnostic.message == "Type 'string' is not assignable to type 'number'."
         }),
         "diagnostics should resolve the in-memory imported virtual dependency: {diagnostics:#?}"
     );

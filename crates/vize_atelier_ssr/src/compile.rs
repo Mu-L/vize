@@ -5,11 +5,11 @@ use vize_atelier_core::{
     options::{CustomElementMatcher, TemplateSyntaxMode},
     parser::parse_with_options_custom_elements_and_template_syntax,
 };
-use vize_carton::{Bump, String, profile};
+use vize_carton::{Allocator, String, profile};
 
 /// Compile a Vue template for SSR with default options
 pub fn compile_ssr<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
 ) -> (RootNode<'a>, Vec<CompilerError>, SsrCodegenResult) {
     compile_ssr_with_options(allocator, source, SsrCompilerOptions::default())
@@ -17,7 +17,7 @@ pub fn compile_ssr<'a>(
 
 /// Compile a Vue template for SSR with custom options
 pub fn compile_ssr_with_options<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: SsrCompilerOptions,
 ) -> (RootNode<'a>, Vec<CompilerError>, SsrCodegenResult) {
@@ -33,7 +33,7 @@ pub fn compile_ssr_with_options<'a>(
 /// Compile a Vue template for SSR with Vue parser quirk compatibility.
 #[deprecated(note = "use compile_ssr_with_template_syntax instead")]
 pub fn compile_ssr_with_vue_parser_quirks<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: SsrCompilerOptions,
 ) -> (RootNode<'a>, Vec<CompilerError>, SsrCodegenResult) {
@@ -49,7 +49,7 @@ pub fn compile_ssr_with_vue_parser_quirks<'a>(
 /// Compile a Vue template for SSR with an explicit template syntax mode.
 #[doc(hidden)]
 pub fn compile_ssr_with_template_syntax<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: SsrCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -66,7 +66,7 @@ pub fn compile_ssr_with_template_syntax<'a>(
 /// Compile SSR with declarative custom-element patterns.
 #[doc(hidden)]
 pub fn compile_ssr_with_custom_elements_and_template_syntax<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: SsrCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -76,7 +76,7 @@ pub fn compile_ssr_with_custom_elements_and_template_syntax<'a>(
 }
 
 fn compile_ssr_inner<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     source: &'a str,
     options: SsrCompilerOptions,
     template_syntax: TemplateSyntaxMode,
@@ -113,7 +113,7 @@ fn compile_ssr_inner<'a>(
             allocator,
             &mut root,
             transform_opts,
-            options.croquis.map(|c| &*allocator.alloc(*c)),
+            options.croquis.map(|c| allocator.alloc_owned(*c)),
             custom_elements,
             template_syntax.is_quirks(),
             None,
@@ -122,7 +122,7 @@ fn compile_ssr_inner<'a>(
 
     let mut errors = errors.to_vec();
     errors.extend(transform_errors);
-    let codegen_ctx = SsrCodegenContext::new(allocator, &codegen_options);
+    let codegen_ctx = SsrCodegenContext::new(allocator, &codegen_options, source);
     let codegen_result = profile!("atelier.ssr.template.codegen", codegen_ctx.generate(&root));
 
     (root, errors, codegen_result)

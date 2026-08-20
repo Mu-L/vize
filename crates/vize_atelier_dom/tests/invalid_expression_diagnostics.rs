@@ -15,7 +15,7 @@
 
 use vize_atelier_core::{CompilerError, ErrorCode};
 use vize_atelier_dom::{DomCompilerOptions, compile_template_with_options};
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 fn analyzed_options() -> DomCompilerOptions {
     DomCompilerOptions {
@@ -27,7 +27,7 @@ fn analyzed_options() -> DomCompilerOptions {
 }
 
 fn compile(source: &str) -> (Vec<CompilerError>, String) {
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (_, errors, result) = compile_template_with_options(&allocator, source, analyzed_options());
     (errors, result.code.to_string())
 }
@@ -54,7 +54,7 @@ fn assert_single_invalid_expression(source: &str, expression: &str) {
         .as_ref()
         .unwrap_or_else(|| panic!("diagnostic for {source:?} should carry a span"));
     assert_eq!(
-        loc.source.as_str(),
+        loc.span.slice(source),
         expression,
         "span text mismatch in {source:?}"
     );
@@ -62,11 +62,11 @@ fn assert_single_invalid_expression(source: &str, expression: &str) {
         .find(expression)
         .expect("expression must appear in template") as u32;
     assert_eq!(
-        loc.start.offset, expected_offset,
+        loc.span.start, expected_offset,
         "span start offset mismatch in {source:?}"
     );
     assert_eq!(
-        loc.end.offset,
+        loc.span.end,
         expected_offset + expression.len() as u32,
         "span end offset mismatch in {source:?}"
     );
@@ -118,7 +118,7 @@ fn valid_expressions_compile_without_diagnostics() {
 fn success_path_output_is_unchanged() {
     // The diagnostic path only runs on parse failure; a valid template must
     // produce byte-identical output with zero collected errors.
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let source = r#"<div v-if="show" v-for="item in list" @click="go(item)">{{ item.name }}</div>"#;
     let (_, errors, result) = compile_template_with_options(&allocator, source, analyzed_options());
     assert!(errors.is_empty(), "unexpected diagnostics: {errors:?}");

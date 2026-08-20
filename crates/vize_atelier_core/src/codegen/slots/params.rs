@@ -1,7 +1,6 @@
 //! Slot parameter helpers (scoped slot props parsing and prefixing).
 
 use crate::{DirectiveNode, ExpressionNode};
-use oxc_allocator::Allocator;
 use oxc_ast::ast::{BindingPattern, Expression};
 use oxc_ast_visit::{
     Visit,
@@ -13,10 +12,10 @@ use vize_carton::{FxHashSet, String, ToCompactString};
 use vize_croquis::builtins::is_global_allowed;
 
 /// Get slot props expression as raw source (not transformed)
-pub(super) fn get_slot_props(dir: &DirectiveNode<'_>) -> Option<vize_carton::String> {
+pub(super) fn get_slot_props(dir: &DirectiveNode<'_>, source: &str) -> Option<vize_carton::String> {
     dir.exp.as_ref().map(|exp| match exp {
-        ExpressionNode::Simple(s) => s.loc.source.clone(),
-        ExpressionNode::Compound(c) => c.loc.source.clone(),
+        ExpressionNode::Simple(s) => String::new(s.loc.span.slice(source)),
+        ExpressionNode::Compound(c) => String::new(c.loc.span.slice(source)),
     })
 }
 
@@ -33,7 +32,7 @@ pub(super) fn prefix_slot_defaults(source: &str) -> String {
     wrapped.push_str(source);
     wrapped.push_str(") => null");
 
-    let allocator = Allocator::default();
+    let allocator = crate::expr_parse_probe::parse_arena();
     let parser = Parser::new(&allocator, &wrapped, SourceType::ts().with_module(true));
     let Ok(Expression::ArrowFunctionExpression(arrow)) = parser.parse_expression() else {
         return String::new(source);

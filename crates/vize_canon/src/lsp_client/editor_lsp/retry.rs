@@ -112,8 +112,11 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(error.contains("EOF while parsing first response"));
-        assert!(error.contains("process is closed: jsonrpc reader"));
+        assert_eq!(
+            error,
+            "protocol error: EOF while parsing first response; \
+             one editor LSP transport recovery retry failed: process is closed: jsonrpc reader"
+        );
         assert_eq!(session.recoveries, 1);
         assert_eq!(session.retries, 1);
     }
@@ -143,8 +146,11 @@ mod tests {
             |_| Err(cstr!("replacement process failed to initialize")),
         )
         .unwrap_err();
-        assert!(error.contains("Broken pipe"));
-        assert!(error.contains("shutdown acknowledgement timed out"));
-        assert!(error.contains("replacement process failed to initialize"));
+        assert_eq!(
+            error,
+            "Broken pipe; \
+             editor LSP session retirement also failed: shutdown acknowledgement timed out; \
+             one recovery retry failed: replacement process failed to initialize"
+        );
     }
 }

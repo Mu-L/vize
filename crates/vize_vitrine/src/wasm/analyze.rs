@@ -9,7 +9,7 @@
 
 use super::source_offsets::{ScriptOffsetMapper, to_sfc_utf16_range};
 use super::to_js_value;
-use vize_carton::Bump;
+use vize_carton::Allocator;
 use wasm_bindgen::prelude::*;
 
 /// Analyze Vue SFC for semantic information (scopes, bindings, etc.)
@@ -47,7 +47,7 @@ pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsVal
         .unwrap_or(0);
 
     let analysis = if let Some(ref template) = descriptor.template {
-        let allocator = Bump::new();
+        let allocator = Allocator::new();
         let (root, _errors) = parse(&allocator, &template.content);
         analyze_sfc_descriptor_with_context(&descriptor, Some(&root), SfcCroquisOptions::full())
     } else {
@@ -306,7 +306,13 @@ pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsVal
             },
         },
         "diagnostics": [],
-        "vir": vir,
+        // `vir` is deprecated in favor of the folio alias below; both carry
+        // the same croquis folio text for now (Davinci P0-10). Consumers
+        // should migrate to `folio.croquis`.
+        "vir": vir.as_str(),
+        "folio": {
+            "croquis": vir.as_str(),
+        },
     });
 
     to_js_value(&result)

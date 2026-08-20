@@ -83,14 +83,14 @@ impl NoMutatingProps {
         directive: &DirectiveNode<'a>,
         scope: &PropScope<'_>,
     ) {
-        if directive.name.as_str() != "model" {
+        if directive.name != "model" {
             return;
         }
 
         let Some(exp) = directive.exp.as_ref() else {
             return;
         };
-        let content = expression_source(exp);
+        let content = expression_source(exp, ctx.source);
         if !scope.is_mutation(content) {
             return;
         }
@@ -98,8 +98,8 @@ impl NoMutatingProps {
             crate::diagnostic::LintDiagnostic::error(
                 ctx.current_rule,
                 format!("Unexpected mutation of prop '{}' via v-model", content),
-                directive.loc.start.offset,
-                directive.loc.end.offset,
+                directive.loc.span.start,
+                directive.loc.span.end,
             )
             .with_help("Use a local ref or emit an event instead of mutating props directly"),
         );
@@ -116,14 +116,14 @@ impl NoMutatingProps {
         directive: &DirectiveNode<'a>,
         scope: &PropScope<'_>,
     ) {
-        if directive.name.as_str() != "on" {
+        if directive.name != "on" {
             return;
         }
         let Some(exp) = directive.exp.as_ref() else {
             return;
         };
         let mut mutated: Vec<String> = Vec::new();
-        handlers::for_each_mutation_target(expression_source(exp), |target| {
+        handlers::for_each_mutation_target(expression_source(exp, ctx.source), |target| {
             let target = target.trim();
             if scope.is_mutation(target) && !mutated.iter().any(|seen| seen == target) {
                 mutated.push(String::new(target));
@@ -137,8 +137,8 @@ impl NoMutatingProps {
                         "Unexpected mutation of prop '{}' in an inline handler",
                         target
                     ),
-                    directive.loc.start.offset,
-                    directive.loc.end.offset,
+                    directive.loc.span.start,
+                    directive.loc.span.end,
                 )
                 .with_help("Use a local ref or emit an event instead of mutating props directly"),
             );
@@ -183,7 +183,7 @@ impl NoMutatingProps {
         .into_iter()
         .flatten()
         {
-            push_identifier_tokens(expression_source(alias), &mut scope.shadowed);
+            push_identifier_tokens(expression_source(alias, ctx.source), &mut scope.shadowed);
         }
         self.check_children(ctx, &for_node.children, scope);
         scope.shadowed.truncate(depth);
@@ -206,9 +206,9 @@ impl NoMutatingProps {
         // the transform stage, so both spellings are handled.
         for prop in element.props.iter() {
             if let PropNode::Directive(dir) = prop
-                && dir.name.as_str() == "for"
+                && dir.name == "for"
             {
-                push_for_aliases(dir, &mut scope.shadowed);
+                push_for_aliases(dir, &mut scope.shadowed, ctx.source);
             }
         }
 
@@ -223,10 +223,10 @@ impl NoMutatingProps {
         // collected only after this element's own directives are checked.
         for prop in element.props.iter() {
             if let PropNode::Directive(dir) = prop
-                && dir.name.as_str() == "slot"
+                && dir.name == "slot"
                 && let Some(exp) = dir.exp.as_ref()
             {
-                push_identifier_tokens(expression_source(exp), &mut scope.shadowed);
+                push_identifier_tokens(expression_source(exp, ctx.source), &mut scope.shadowed);
             }
         }
 

@@ -10,7 +10,7 @@ use super::super::{
 pub(super) fn generate_set_prop(ctx: &mut GenerateContext, set_prop: &SetPropIRNode<'_>) {
     let element = cstr!("n{}", set_prop.element);
     let key = &set_prop.prop.key.content;
-    let is_svg = is_svg_tag(set_prop.tag.as_str());
+    let is_svg = is_svg_tag(set_prop.tag);
 
     // Build value handling multiple values (static+dynamic merge)
     let value = if set_prop.prop.values.len() > 1 {
@@ -20,24 +20,24 @@ pub(super) fn generate_set_prop(ctx: &mut GenerateContext, set_prop: &SetPropIRN
             .iter()
             .map(|v| {
                 if v.is_static {
-                    cstr!("\"{}\"", escape_js_string_literal(v.content.as_str()))
+                    cstr!("\"{}\"", escape_js_string_literal(v.content))
                 } else {
-                    ctx.resolve_expression(&v.content)
+                    ctx.resolve_expression_node(v)
                 }
             })
             .collect();
         cstr!("[{}]", parts.join(", "))
     } else if let Some(first) = set_prop.prop.values.first() {
         if first.is_static {
-            cstr!("\"{}\"", escape_js_string_literal(first.content.as_str()))
+            cstr!("\"{}\"", escape_js_string_literal(first.content))
         } else {
-            ctx.resolve_expression(&first.content)
+            ctx.resolve_expression_node(first)
         }
     } else {
         vize_carton::CompactString::from("undefined")
     };
 
-    if key.as_str() == "class" {
+    if *key == "class" {
         if is_svg {
             ctx.use_helper("setAttr");
             ctx.push_line_fmt(format_args!("_setAttr({element}, \"class\", {value})"));
@@ -45,7 +45,7 @@ pub(super) fn generate_set_prop(ctx: &mut GenerateContext, set_prop: &SetPropIRN
             ctx.use_helper("setClass");
             ctx.push_line_fmt(format_args!("_setClass({element}, {value})"));
         }
-    } else if key.as_str() == "style" {
+    } else if *key == "style" {
         if is_svg {
             ctx.use_helper("setAttr");
             ctx.push_line_fmt(format_args!("_setAttr({element}, \"style\", {value})"));
@@ -78,7 +78,7 @@ pub(super) fn generate_set_dynamic_props(
         // v-on="handlers" → _setDynamicEvents
         ctx.use_helper("setDynamicEvents");
         for prop in set_props.props.iter() {
-            let resolved = ctx.resolve_expression(&prop.content);
+            let resolved = ctx.resolve_expression_node(prop);
             ctx.push_line_fmt(format_args!("_setDynamicEvents({}, {})", element, resolved));
         }
     } else {
@@ -88,9 +88,9 @@ pub(super) fn generate_set_dynamic_props(
             .iter()
             .map(|p| {
                 if p.is_static {
-                    cstr!("\"{}\"", escape_js_string_literal(p.content.as_str()))
+                    cstr!("\"{}\"", escape_js_string_literal(p.content))
                 } else {
-                    ctx.resolve_expression(&p.content)
+                    ctx.resolve_expression_node(p)
                 }
             })
             .collect();
@@ -118,10 +118,10 @@ pub(super) fn generate_set_text(ctx: &mut GenerateContext, set_text: &SetTextIRN
         .iter()
         .map(|v| {
             if v.is_static {
-                cstr!("\"{}\"", escape_js_string_literal(v.content.as_str()))
+                cstr!("\"{}\"", escape_js_string_literal(v.content))
             } else {
                 ctx.use_helper("toDisplayString");
-                let resolved = ctx.resolve_expression(&v.content);
+                let resolved = ctx.resolve_expression_node(v);
                 cstr!("_toDisplayString({})", resolved)
             }
         })
@@ -143,12 +143,9 @@ pub(super) fn generate_set_html(ctx: &mut GenerateContext, set_html: &SetHtmlIRN
     let element = cstr!("n{}", set_html.element);
 
     let value = if set_html.value.is_static {
-        cstr!(
-            "\"{}\"",
-            escape_js_string_literal(set_html.value.content.as_str())
-        )
+        cstr!("\"{}\"", escape_js_string_literal(set_html.value.content))
     } else {
-        ctx.resolve_expression(set_html.value.content.as_str())
+        ctx.resolve_expression_node(&set_html.value)
     };
 
     ctx.push_line_fmt(format_args!("{}.innerHTML = {}", element, value));

@@ -115,7 +115,7 @@ impl Rule for NoTemplateTargetBlank {
 fn static_attribute<'a>(
     element: &'a ElementNode<'a>,
     name: &str,
-) -> Option<&'a vize_relief::AttributeNode> {
+) -> Option<&'a vize_relief::AttributeNode<'a>> {
     element.props.iter().find_map(|prop| match prop {
         PropNode::Attribute(attr) if attr.name == name => Some(&**attr),
         _ => None,
@@ -123,11 +123,8 @@ fn static_attribute<'a>(
 }
 
 /// The value of a static attribute, or empty string when it is valueless.
-fn attribute_value(attr: &vize_relief::AttributeNode) -> &str {
-    attr.value
-        .as_ref()
-        .map(|v| v.content.as_str())
-        .unwrap_or("")
+fn attribute_value<'a>(attr: &'a vize_relief::AttributeNode<'a>) -> &'a str {
+    attr.value.as_ref().map(|v| v.content).unwrap_or("")
 }
 
 /// The value of a static `name` attribute, or empty string when valueless.

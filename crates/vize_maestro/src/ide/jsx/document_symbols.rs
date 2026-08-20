@@ -22,7 +22,7 @@
 
 use tower_lsp::lsp_types::{DocumentSymbol, Position, Range, SymbolKind, Url};
 use vize_atelier_jsx::{JsxLang, lower_source};
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 use crate::ide::offset_to_position;
 
@@ -34,8 +34,8 @@ impl JsxDocumentSymbolsService {
     /// when the file contains no JSX components.
     pub fn symbols(content: &str, uri: &Url) -> Option<Vec<DocumentSymbol>> {
         let lang = JsxLang::from_path(uri.path());
-        let bump = Bump::new();
-        let lowered = lower_source(&bump, content, lang);
+        let allocator = Allocator::new();
+        let lowered = lower_source(&allocator, allocator.as_oxc(), content, lang);
 
         if lowered.roots.is_empty() {
             return None;
@@ -56,8 +56,8 @@ impl JsxDocumentSymbolsService {
                     }
                 });
 
-            let start = (root.root.loc.start.offset as usize).min(content.len());
-            let end = (root.root.loc.end.offset as usize)
+            let start = (root.root.loc.span.start as usize).min(content.len());
+            let end = (root.root.loc.span.end as usize)
                 .min(content.len())
                 .max(start);
             let (start_line, start_char) = offset_to_position(content, start);

@@ -32,7 +32,7 @@ pub(super) fn slot_position(
     if !is_default {
         return SlotPosition::Named;
     }
-    if element.tag.as_str() == "template" {
+    if element.tag == "template" {
         SlotPosition::DefaultOnTemplate
     } else {
         SlotPosition::AtComponent
@@ -69,8 +69,8 @@ pub(super) fn argument_text<'a>(source: &'a str, directive: &DirectiveNode<'_>) 
 }
 
 fn slot_name<'a>(source: &'a str, directive: &DirectiveNode<'_>) -> &'a str {
-    let start = directive.loc.start.offset as usize;
-    let end = directive.loc.end.offset as usize;
+    let start = directive.loc.span.start as usize;
+    let end = directive.loc.span.end as usize;
     source.get(start..end).map_or("", name_of)
 }
 

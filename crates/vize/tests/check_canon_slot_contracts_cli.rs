@@ -176,7 +176,7 @@ fn assert_diagnostic(
     line: u32,
     column: u32,
     code: u32,
-    fragments: &[&str],
+    expected: &str,
 ) {
     let files = report["files"]
         .as_array()
@@ -203,12 +203,11 @@ fn assert_diagnostic(
             panic!("missing diagnostic {prefix:?} in {file_suffix}: {diagnostics:#?}")
         });
 
-    for fragment in fragments {
-        assert!(
-            diagnostic.contains(fragment),
-            "diagnostic for {file_suffix} should contain {fragment:?}: {diagnostic}"
-        );
-    }
+    // Exact oracle (assurance §4): the whole diagnostic line, not fragments.
+    assert_eq!(
+        *diagnostic, expected,
+        "diagnostic for {file_suffix} diverged from the pinned line"
+    );
 }
 
 #[test]
@@ -320,7 +319,7 @@ import HeaderSlotChild from "./HeaderSlotChild.vue";
         7,
         27,
         2339,
-        &["missing", "msg"],
+        "error:7:27 [TS2339] Property 'missing' does not exist on type '{ msg: string; }'.",
     );
 
     let missing_slot = run_check_json(&project_root, &corsa_path, "src/MissingRequiredSlot.vue");
@@ -337,7 +336,7 @@ import HeaderSlotChild from "./HeaderSlotChild.vue";
         6,
         16,
         2741,
-        &["header"],
+        "error:6:16 [TS2741] Property '__vizeMissingSlots' is missing in type '{}' but required in type '{ readonly __vizeMissingSlots: \"header\"; }'.",
     );
 
     let _ = std::fs::remove_dir_all(&project_root);

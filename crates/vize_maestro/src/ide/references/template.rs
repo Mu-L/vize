@@ -29,7 +29,7 @@ impl ReferencesService {
         // - Directive expressions: v-if="word", :prop="word", @event="word"
 
         // Parse template to find expressions
-        let allocator = vize_carton::Bump::new();
+        let allocator = vize_carton::Allocator::new();
         let (ast, _) = vize_armature::parse(&allocator, template_content);
 
         // Extract expression locations from the AST
@@ -146,13 +146,13 @@ impl ReferencesService {
                 if simple.content.is_empty() {
                     None
                 } else {
-                    Some((simple.content.to_string(), simple.loc.start.offset as usize))
+                    Some((simple.content.to_string(), simple.loc.span.start as usize))
                 }
             }
             ExpressionNode::Compound(compound) => {
                 // For compound expressions, we can't easily get the text
                 // Return the location but mark as compound
-                Some(("<compound>".to_string(), compound.loc.start.offset as usize))
+                Some(("<compound>".to_string(), compound.loc.span.start as usize))
             }
         }
     }

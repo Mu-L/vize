@@ -44,7 +44,7 @@ pub(super) fn generate_create_component(
     let use_with_vapor_ctx = kind == ComponentKind::Suspense || kind == ComponentKind::KeepAlive;
 
     // Track if this component was already resolved by a parent (Suspense/KeepAlive)
-    let was_already_resolved = ctx.is_component_resolved(tag.as_str());
+    let was_already_resolved = ctx.is_component_resolved(tag);
 
     // For Suspense/KeepAlive, resolve inner components FIRST (before the outer component)
     if use_with_vapor_ctx {
@@ -53,14 +53,14 @@ pub(super) fn generate_create_component(
                 if let OperationNode::CreateComponent(inner_comp) = op
                     && (inner_comp.kind == ComponentKind::Regular
                         || inner_comp.kind == ComponentKind::Suspense)
-                    && !ctx.is_component_resolved(inner_comp.tag.as_str())
+                    && !ctx.is_component_resolved(inner_comp.tag)
                 {
                     emit_component_resolution(
                         ctx,
-                        component_resolution_var(inner_comp.tag.as_str()).as_str(),
-                        inner_comp.tag.as_str(),
+                        component_resolution_var(inner_comp.tag).as_str(),
+                        inner_comp.tag,
                     );
-                    ctx.mark_component_resolved(inner_comp.tag.as_str());
+                    ctx.mark_component_resolved(inner_comp.tag);
                 }
             }
         }
@@ -71,7 +71,7 @@ pub(super) fn generate_create_component(
         ComponentKind::Dynamic => {
             ctx.use_helper("createDynamicComponent");
             let is_arg = if let Some(ref is_exp) = component.is_expr {
-                let resolved = ctx.resolve_expression(is_exp.content.as_str());
+                let resolved = ctx.resolve_expression_node(is_exp);
                 cstr!("() => ({})", resolved)
             } else {
                 "null".to_compact_string()
@@ -90,19 +90,19 @@ pub(super) fn generate_create_component(
         }
         ComponentKind::Suspense => {
             ctx.use_helper("createComponentWithFallback");
-            let comp_var = component_resolution_var(tag.as_str());
-            if !ctx.is_component_resolved(tag.as_str()) {
-                emit_component_resolution(ctx, comp_var.as_str(), tag.as_str());
-                ctx.mark_component_resolved(tag.as_str());
+            let comp_var = component_resolution_var(tag);
+            if !ctx.is_component_resolved(tag) {
+                emit_component_resolution(ctx, comp_var.as_str(), tag);
+                ctx.mark_component_resolved(tag);
             }
             (comp_var, "createComponentWithFallback")
         }
         ComponentKind::Regular => {
             ctx.use_helper("createComponentWithFallback");
-            let comp_var = component_resolution_var(tag.as_str());
-            if !ctx.is_component_resolved(tag.as_str()) {
-                emit_component_resolution(ctx, comp_var.as_str(), tag.as_str());
-                ctx.mark_component_resolved(tag.as_str());
+            let comp_var = component_resolution_var(tag);
+            if !ctx.is_component_resolved(tag) {
+                emit_component_resolution(ctx, comp_var.as_str(), tag);
+                ctx.mark_component_resolved(tag);
             }
             (comp_var, "createComponentWithFallback")
         }
@@ -167,7 +167,7 @@ pub(super) fn generate_create_component(
                 ctx.push_indent();
                 ctx.push("() => ({\n");
                 ctx.indent();
-                let name_resolved = ctx.resolve_expression(slot.name.content.as_str());
+                let name_resolved = ctx.resolve_expression_node(&slot.name);
                 ctx.push_line(&cstr!("name: {},", name_resolved));
                 ctx.push_indent();
                 ctx.push("fn:");
@@ -196,7 +196,7 @@ pub(super) fn generate_create_component(
     // v-show after component creation
     if let Some(ref v_show) = component.v_show {
         ctx.use_helper("applyVShow");
-        let resolved = ctx.resolve_expression(v_show.content.as_str());
+        let resolved = ctx.resolve_expression_node(v_show);
         ctx.push_line(&cstr!(
             "_applyVShow(n{}, () => ({}))",
             component.id,

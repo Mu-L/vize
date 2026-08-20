@@ -30,7 +30,7 @@ fn test_strict_template_context_keeps_router_but_not_unknown_plugin_globals() {
 fn test_strict_template_context_does_not_inherit_public_instance_unknowns() {
     let template = r#"<div>{{ $t('account.follow') }}</div>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -68,7 +68,7 @@ fn test_strict_template_context_does_not_recheck_v_for_scope_bindings() {
     let template = r#"<div v-for="(item, index) in items">{{ item.label }} {{ index }}</div>"#;
     let script = r#"const items = [{ label: "ready" }];"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -105,7 +105,7 @@ fn test_strict_template_context_does_not_recheck_template_props() {
     let template = r#"<section>{{ title }} {{ confirm }}</section>"#;
     let script = "defineProps<{ title: string; confirm?: string }>();\n";
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -143,7 +143,7 @@ fn test_strict_template_context_does_not_recheck_template_props() {
 fn test_strict_template_unknown_refs_read_context_without_shadowing_auto_imports() {
     let template = r#"<div>{{ getPreferences() }} {{ getPreferences() }} {{ currentUser.name }} {{ $shout('ok') }}</div>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -212,7 +212,7 @@ fn test_strict_template_expression_keeps_member_root_type() {
     let template = r#"<div>{{ route.missing }}</div>"#;
     let script = "const route = { query: { tab: 'home' } };\n";
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -248,7 +248,7 @@ fn test_strict_template_expression_keeps_member_root_type() {
 fn test_strict_template_expression_reports_unknown_member_root() {
     let template = r#"<div>{{ plugin.translate }} {{ plugin["translate"] }} {{ plugin[key] }} {{ (plugin).translate }} {{ plugin /* comment */.translate }}</div>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
@@ -299,7 +299,7 @@ fn test_strict_template_expression_reports_unknown_member_root() {
 fn test_strict_template_expression_ignores_literals_and_builtins() {
     let template = r#"<div>{{ false }} {{ true }} {{ null }} {{ undefined }} {{ NaN }} {{ Infinity }} {{ Math.max(1, 2) }} {{ Date.now() }} {{ JSON.stringify({}) }}</div>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
 
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());

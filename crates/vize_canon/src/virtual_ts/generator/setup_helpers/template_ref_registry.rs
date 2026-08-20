@@ -207,7 +207,7 @@ fn collect_element(
             let Some(value) = attribute.value.as_ref() else {
                 continue;
             };
-            let name = value.content.as_str();
+            let name = value.content;
             if !name.is_empty() {
                 let kind = match element.tag_type {
                     ElementType::Element => component_ref_kind_for_element_tag(
@@ -215,10 +215,10 @@ fn collect_element(
                         options,
                         syntactic_type_only_imported_names,
                         element.ns,
-                        element.tag.as_str(),
+                        element.tag,
                     )
                     .unwrap_or_else(|| RegisteredRefKind::Element {
-                        tag: element.tag.clone(),
+                        tag: String::from(element.tag),
                         is_svg: matches!(element.ns, Namespace::Svg),
                     }),
                     ElementType::Component => RegisteredRefKind::Component {
@@ -226,7 +226,7 @@ fn collect_element(
                             summary,
                             options,
                             syntactic_type_only_imported_names,
-                            element.tag.as_str(),
+                            element.tag,
                         ),
                     },
                     _ => continue,

@@ -13,7 +13,7 @@ mod element;
 #[path = "transform/text.rs"]
 mod text;
 
-use vize_carton::{Bump, String, Vec};
+use vize_carton::{Allocator, String, Vec};
 
 use crate::ir::{BlockIRNode, RootIRNode};
 use vize_atelier_core::{RootNode, TemplateChildNode};
@@ -24,15 +24,24 @@ use element::transform_element;
 use text::{transform_interpolation, transform_text};
 
 /// Transform AST to Vapor IR
-pub fn transform_to_ir<'a>(allocator: &'a Bump, root: &RootNode<'a>) -> RootIRNode<'a> {
-    transform_to_ir_with_diagnostics(allocator, root).0
+pub fn transform_to_ir<'a>(
+    allocator: &'a Allocator,
+    root: &RootNode<'a>,
+    source: &'a str,
+) -> RootIRNode<'a> {
+    transform_to_ir_with_diagnostics(allocator, root, source).0
 }
 
 pub(crate) fn transform_to_ir_with_diagnostics<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     root: &RootNode<'a>,
+    source: &'a str,
 ) -> (RootIRNode<'a>, std::vec::Vec<String>) {
-    let mut ctx = TransformContext::new(allocator);
+    let mut ctx = TransformContext::new(allocator, source);
+
+    vize_atelier_core::walk_probe::record_walk(
+        vize_atelier_core::walk_probe::WalkStage::VaporLower,
+    );
 
     // Create block for root
     let block = transform_children(&mut ctx, &root.children);
@@ -40,12 +49,12 @@ pub(crate) fn transform_to_ir_with_diagnostics<'a>(
     (
         RootIRNode {
             node: RootNode::new(allocator, ""),
-            source: String::from(""),
+            source,
             template: Default::default(),
             template_index_map: Default::default(),
-            root_template_indexes: Vec::new_in(allocator),
-            component: Vec::new_in(allocator),
-            directive: Vec::new_in(allocator),
+            root_template_indexes: Vec::new_in(&allocator),
+            component: Vec::new_in(&allocator),
+            directive: Vec::new_in(&allocator),
             block,
             has_template_ref: false,
             has_deferred_v_show: false,
@@ -62,6 +71,10 @@ pub(crate) fn transform_children<'a>(
     ctx: &mut TransformContext<'a>,
     children: &[TemplateChildNode<'a>],
 ) -> BlockIRNode<'a> {
+    vize_atelier_core::walk_probe::record_visits(
+        vize_atelier_core::walk_probe::WalkStage::VaporLower,
+        children.len(),
+    );
     let mut block = BlockIRNode::new(ctx.allocator);
     // Note: Don't consume an ID for the block itself - element IDs should start from 0
 
@@ -135,22 +148,21 @@ fn transform_combined_block_text<'a>(
     ctx.standalone_text_elements.insert(element_id);
 
     // Collect all text values
-    let mut values = Vec::new_in(ctx.allocator);
+    let mut values = Vec::new_in(&ctx.allocator);
     for child in children.iter() {
         match child {
             TemplateChildNode::Text(text) => {
-                let exp =
-                    SimpleExpressionNode::new(text.content.clone(), true, SourceLocation::STUB);
-                values.push(Box::new_in(exp, ctx.allocator));
+                let exp = SimpleExpressionNode::new(text.content, true, SourceLocation::STUB);
+                values.push(Box::new_in(exp, &ctx.allocator));
             }
             TemplateChildNode::Interpolation(interp) => {
                 if let ExpressionNode::Simple(simple) = &interp.content {
                     let exp = SimpleExpressionNode::new(
-                        simple.content.clone(),
+                        simple.content,
                         simple.is_static,
                         simple.loc.clone(),
                     );
-                    values.push(Box::new_in(exp, ctx.allocator));
+                    values.push(Box::new_in(exp, &ctx.allocator));
                 }
             }
             _ => {}
@@ -169,22 +181,24 @@ fn transform_combined_block_text<'a>(
 mod tests {
     use super::transform_to_ir;
     use vize_atelier_core::parser::parse;
-    use vize_carton::Bump;
+    use vize_carton::Allocator;
 
     #[test]
     fn test_transform_simple_element() {
-        let allocator = Bump::new();
-        let (root, _) = parse(&allocator, "<div>hello</div>");
-        let ir = transform_to_ir(&allocator, &root);
+        let allocator = Allocator::new();
+        let source = "<div>hello</div>";
+        let (root, _) = parse(&allocator, source);
+        let ir = transform_to_ir(&allocator, &root, source);
 
         assert!(!ir.block.returns.is_empty());
     }
 
     #[test]
     fn test_transform_nested_elements() {
-        let allocator = Bump::new();
-        let (root, _) = parse(&allocator, "<div><span>nested</span></div>");
-        let ir = transform_to_ir(&allocator, &root);
+        let allocator = Allocator::new();
+        let source = "<div><span>nested</span></div>";
+        let (root, _) = parse(&allocator, source);
+        let ir = transform_to_ir(&allocator, &root, source);
 
         assert!(!ir.block.returns.is_empty());
     }

@@ -10,7 +10,7 @@ const count = "nope"
 "#;
     let template = r#"<component :is="comp" :count="count" />"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -41,7 +41,7 @@ fn dynamic_component_props_keep_contextual_keyword_setup_binding() {
 "#;
     let template = r#"<component :is="as" aria-label="Open" v-bind="$attrs" />"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);
@@ -67,7 +67,7 @@ fn dynamic_component_props_use_safe_alias_for_contextual_keyword_template_prop()
 "#;
     let template = r#"<component :is="as" :alt="alt"><slot /></component>"#;
 
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     let mut analyzer = Analyzer::with_options(AnalyzerOptions::full());
     analyzer.analyze_script_setup(script);

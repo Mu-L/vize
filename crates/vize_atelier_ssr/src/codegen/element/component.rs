@@ -2,7 +2,6 @@
 
 use super::props::{
     is_dynamic_component_tag, is_simple_identifier, is_valid_js_identifier, quoted_js_string,
-    slot_props_pattern_to_string,
 };
 use super::{
     ComponentSlotChildren, ComponentTemplateSlot, DirectiveNode, ElementNode, ElementType,
@@ -18,16 +17,16 @@ impl<'a> SsrCodegenContext<'a> {
         _disable_nested_fragments: bool,
         inherit_attrs: bool,
     ) {
-        if matches!(el.tag.as_str(), "Suspense" | "suspense") {
+        if matches!(el.tag, "Suspense" | "suspense") {
             self.process_suspense(el);
             return;
         }
-        if matches!(el.tag.as_str(), "Teleport" | "teleport") {
+        if matches!(el.tag, "Teleport" | "teleport") {
             self.process_teleport(el);
             return;
         }
         if matches!(
-            el.tag.as_str(),
+            el.tag,
             "Transition" | "transition" | "BaseTransition" | "base-transition"
         ) {
             self.process_transition(el);
@@ -324,7 +323,7 @@ impl<'a> SsrCodegenContext<'a> {
         self.push(") => {\n");
         self.indent_level += 1;
 
-        let params = super::super::helpers::collect_for_scoped_params(for_node);
+        let params = super::super::helpers::collect_for_scoped_params(for_node, self.source);
         self.push_scoped_params(params);
         self.push_indent();
         self.push("return ");
@@ -379,7 +378,7 @@ impl<'a> SsrCodegenContext<'a> {
         };
 
         let name = self.slot_entry_name(dir);
-        let props_pattern = dir.exp.as_ref().map(slot_props_pattern_to_string);
+        let props_pattern = self.slot_props_pattern(dir);
         let mut params = FxHashSet::default();
         if let Some(pattern) = props_pattern.as_deref() {
             extract_destructure_params(pattern.trim(), &mut params);
@@ -415,7 +414,7 @@ impl<'a> SsrCodegenContext<'a> {
     /// static names, or the raw bound expression for dynamic `#[name]` slots.
     pub(super) fn slot_entry_name(&mut self, dir: &DirectiveNode<'a>) -> String {
         match &dir.arg {
-            Some(ExpressionNode::Simple(arg)) if arg.is_static => quoted_js_string(&arg.content),
+            Some(ExpressionNode::Simple(arg)) if arg.is_static => quoted_js_string(arg.content),
             Some(arg) => {
                 // The dynamic slot name often references a `v-for` callback alias
                 // (`#[name]`), which is a local binding rather than a `_ctx.`
@@ -509,7 +508,7 @@ impl<'a> SsrCodegenContext<'a> {
                 self.process_children(children, false, false, false);
             }
             ComponentSlotChildren::Refs(children) => {
-                for child in children {
+                for child in vize_atelier_core::walk_probe::ssr_children(children) {
                     self.process_child(child, false, false, false);
                 }
             }
@@ -545,11 +544,11 @@ impl<'a> SsrCodegenContext<'a> {
             }
 
             let name = match &dir.arg {
-                Some(ExpressionNode::Simple(arg)) if arg.is_static => arg.content.clone(),
+                Some(ExpressionNode::Simple(arg)) if arg.is_static => String::new(arg.content),
                 Some(_) => "default".to_compact_string(),
                 None => "default".to_compact_string(),
             };
-            let props_pattern = dir.exp.as_ref().map(slot_props_pattern_to_string);
+            let props_pattern = self.slot_props_pattern(dir);
             let mut params = FxHashSet::default();
             if let Some(pattern) = props_pattern.as_deref() {
                 extract_destructure_params(pattern.trim(), &mut params);
@@ -598,10 +597,10 @@ impl<'a> SsrCodegenContext<'a> {
     pub(super) fn dynamic_arg_to_string(&mut self, expr: &ExpressionNode) -> String {
         match expr {
             ExpressionNode::Simple(simple)
-                if !simple.is_static && is_simple_identifier(&simple.content) =>
+                if !simple.is_static && is_simple_identifier(simple.content) =>
             {
                 let mut out = String::from("_ctx.");
-                out.push_str(&simple.content);
+                out.push_str(simple.content);
                 out
             }
             _ => self.expression_to_string(expr),
@@ -611,13 +610,13 @@ impl<'a> SsrCodegenContext<'a> {
     /// Render a template expression and record helper dependencies it references.
     pub(super) fn expression_to_string(&mut self, expr: &ExpressionNode) -> String {
         match expr {
-            ExpressionNode::Simple(simple) => self.strip_ctx_for_scoped_params(&simple.content),
+            ExpressionNode::Simple(simple) => self.strip_ctx_for_scoped_params(simple.content),
             ExpressionNode::Compound(compound) => {
                 let mut out = String::default();
                 for child in &compound.children {
                     use vize_atelier_core::CompoundExpressionChild;
                     match child {
-                        CompoundExpressionChild::Simple(simple) => out.push_str(&simple.content),
+                        CompoundExpressionChild::Simple(simple) => out.push_str(simple.content),
                         CompoundExpressionChild::String(value) => out.push_str(value),
                         CompoundExpressionChild::Symbol(helper) => {
                             self.use_core_helper(*helper);
@@ -700,7 +699,7 @@ impl<'a> SsrCodegenContext<'a> {
                     return Some(
                         attr.value
                             .as_ref()
-                            .map(|value| quoted_js_string(&value.content))
+                            .map(|value| quoted_js_string(value.content))
                             .unwrap_or_else(|| "true".to_compact_string()),
                     );
                 }
@@ -767,7 +766,7 @@ pub(super) fn template_slot_is_dynamic(el: &ElementNode) -> bool {
 fn child_contains_slot_outlet(child: &TemplateChildNode<'_>) -> bool {
     match child {
         TemplateChildNode::Element(el) => {
-            if el.tag_type == ElementType::Slot || el.tag.as_str() == "slot" {
+            if el.tag_type == ElementType::Slot || el.tag == "slot" {
                 return true;
             }
             el.children.iter().any(child_contains_slot_outlet)

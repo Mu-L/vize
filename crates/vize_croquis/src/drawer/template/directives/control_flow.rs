@@ -40,10 +40,16 @@ impl Drawer {
                 );
             }
 
-            let current_condition = branch.condition.as_ref().map(|cond| match cond {
-                ExpressionNode::Simple(s) => s.content.as_str(),
-                ExpressionNode::Compound(c) => c.loc.source.as_str(),
-            });
+            let compound_condition;
+            let current_condition = match branch.condition.as_ref() {
+                Some(ExpressionNode::Simple(s)) => Some(s.content),
+                Some(ExpressionNode::Compound(c)) => {
+                    compound_condition =
+                        CompactString::new(c.loc.span.slice(&self.template_source));
+                    Some(compound_condition.as_str())
+                }
+                None => None,
+            };
 
             let branch_guard =
                 build_branch_guard(previous_conditions.as_slice(), current_condition);
@@ -90,8 +96,10 @@ impl Drawer {
 
         if self.options.analyze_template_scopes && !vars_added.is_empty() {
             let source_content = match &for_node.source {
-                ExpressionNode::Simple(s) => CompactString::new(s.content.as_str()),
-                ExpressionNode::Compound(c) => CompactString::new(c.loc.source.as_str()),
+                ExpressionNode::Simple(s) => CompactString::new(s.content),
+                ExpressionNode::Compound(c) => {
+                    CompactString::new(c.loc.span.slice(&self.template_source))
+                }
             };
 
             let value_alias = vars_added
@@ -108,12 +116,12 @@ impl Drawer {
                     source: source_content,
                     key_expression: None,
                 },
-                for_node.loc.start.offset,
-                for_node.loc.end.offset,
+                for_node.loc.span.start,
+                for_node.loc.span.end,
             );
             self.croquis
                 .scopes
-                .set_v_for_source_offset(scope_id, for_node.source.loc().start.offset);
+                .set_v_for_source_offset(scope_id, for_node.source.loc().span.start);
             // Entering a v-for scope: O(1) flag read by `is_in_vfor_scope`.
             self.vfor_depth += 1;
             for var in &vars_added {
@@ -156,15 +164,15 @@ impl Drawer {
         let mut vars = Vec::new();
 
         if let Some(ExpressionNode::Simple(exp)) = &for_node.value_alias {
-            vars.push(exp.content.clone());
+            vars.push(exp.content.into());
         }
 
         if let Some(ExpressionNode::Simple(exp)) = &for_node.key_alias {
-            vars.push(exp.content.clone());
+            vars.push(exp.content.into());
         }
 
         if let Some(ExpressionNode::Simple(exp)) = &for_node.object_index_alias {
-            vars.push(exp.content.clone());
+            vars.push(exp.content.into());
         }
 
         vars

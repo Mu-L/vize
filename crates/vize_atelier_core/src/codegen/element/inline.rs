@@ -53,7 +53,7 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
     if el.tag_type == ElementType::Component
         && (is_dynamic_component(el)
             || matches!(
-                el.tag.as_str(),
+                el.tag,
                 "Teleport" | "teleport" | "Suspense" | "suspense" | "KeepAlive" | "keep-alive"
             ))
     {
@@ -120,8 +120,8 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
             ctx.push("(\"");
             // Anchor the generated tag-name string back to the element's source
             // position (the `<` of the open tag). No-op without `source_map`.
-            ctx.record_mapping(&el.loc.start);
-            ctx.push(&el.tag);
+            ctx.record_mapping(el.loc.span.start);
+            ctx.push(el.tag);
             ctx.push("\"");
 
             // Calculate patch flag and dynamic props
@@ -238,7 +238,7 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
                     if let PropNode::Attribute(attr) = p
                         && attr.name == "is"
                     {
-                        return attr.value.as_ref().map(|v| v.content.as_str());
+                        return attr.value.as_ref().map(|v| v.content);
                     }
                     None
                 });
@@ -259,12 +259,12 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
                 ctx.push("(\"");
                 ctx.push(component_name);
                 ctx.push("\")");
-            } else if let Some(builtin) = is_builtin_component(&el.tag) {
+            } else if let Some(builtin) = is_builtin_component(el.tag) {
                 ctx.use_helper(builtin);
                 ctx.push(ctx.helper(builtin));
-            } else if ctx.push_component_binding_tag(&el.tag) {
+            } else if ctx.push_component_binding_tag(el.tag) {
             } else {
-                ctx.push(&to_valid_asset_identifier("component", &el.tag));
+                ctx.push(&to_valid_asset_identifier("component", el.tag));
             }
 
             // Calculate patch flag and dynamic props for component
@@ -296,7 +296,7 @@ pub fn generate_element(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
             // slot structure is dynamic.
             if el.tag == "KeepAlive"
                 || el.tag == "keep-alive"
-                || has_dynamic_slots_flag(el)
+                || has_dynamic_slots_flag(el, &ctx.source)
                 || (ctx.has_slot_params() && has_forwarded_slot_outlet(el))
             {
                 patch_flag = Some(patch_flag.unwrap_or(0) | 1024);

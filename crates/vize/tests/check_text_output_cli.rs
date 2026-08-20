@@ -1,7 +1,11 @@
+#[path = "support/check_output.rs"]
+mod check_output;
 #[path = "support/corsa_path.rs"]
 mod corsa_path;
 #[path = "support/corsa_requirement.rs"]
 mod corsa_requirement;
+
+use check_output::normalize_check_output;
 
 use std::{
     path::{Path, PathBuf},
@@ -94,25 +98,20 @@ const count: string = 0;
         Some(1),
         "stdout:\n{stdout}\nstderr:\n{stderr}"
     );
-    assert!(
-        !stdout.contains("\u{1b}["),
-        "captured stdout must be parser-friendly plain text:\n{stdout}"
+    // Exact oracle over normalized text: the per-run project root and the
+    // `{:.2?}`-formatted durations are the only nondeterministic bytes, so
+    // they are tokenized and the whole stream is compared byte-exact. This
+    // also proves the absence of ANSI styling: an escape byte anywhere would
+    // fail the equality.
+    assert_eq!(
+        normalize_check_output(stdout, &project_root),
+        "\n<project>/src/App.vue\n  error:2:7 [TS2322] Type 'number' is not assignable to type 'string'. (source: const count: string = 0;)\n\n\u{2717} Type checked 1 files in <duration> (collect: <duration>, gen: <duration>, corsa: <duration>)\n  1 error(s)\n",
+        "stderr:\n{stderr}"
     );
-    assert!(
-        !stderr.contains("\u{1b}["),
-        "captured stderr must be parser-friendly plain text:\n{stderr}"
-    );
-    assert!(
-        stdout.contains("src/App.vue"),
-        "stdout should retain file headings:\n{stdout}"
-    );
-    assert!(
-        stdout.contains("error:2:7 [TS2322]"),
-        "stdout should retain parseable diagnostics:\n{stdout}"
-    );
-    assert!(
-        stdout.contains("Type checked") && stdout.contains("1 error(s)"),
-        "stdout should retain the text summary:\n{stdout}"
+    assert_eq!(
+        normalize_check_output(stderr, &project_root),
+        "Building Corsa virtual project for 1 files under <project>...\nRunning Corsa diagnostics for 1 files...\n",
+        "stdout:\n{stdout}"
     );
 
     let _ = std::fs::remove_dir_all(&project_root);

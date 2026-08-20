@@ -1,15 +1,15 @@
 use super::Parser;
-use vize_carton::{Bump, Vec};
+use vize_carton::{Allocator, Vec, interner::Interner};
 use vize_relief::options::{CustomElementMatcher, ParserOptions, TemplateSyntaxMode};
 
 impl<'a> Parser<'a> {
     /// Create a new parser.
-    pub fn new(allocator: &'a Bump, source: &'a str) -> Self {
+    pub fn new(allocator: &'a Allocator, source: &'a str) -> Self {
         Self::with_options(allocator, source, ParserOptions::default())
     }
 
     /// Create a new parser with options.
-    pub fn with_options(allocator: &'a Bump, source: &'a str, options: ParserOptions) -> Self {
+    pub fn with_options(allocator: &'a Allocator, source: &'a str, options: ParserOptions) -> Self {
         Self::with_options_and_template_syntax(
             allocator,
             source,
@@ -21,7 +21,7 @@ impl<'a> Parser<'a> {
     /// Create a new parser with options and invalid HTML self-closing compatibility.
     #[deprecated(note = "use with_options_and_template_syntax instead")]
     pub fn with_options_and_invalid_html_self_closing(
-        allocator: &'a Bump,
+        allocator: &'a Allocator,
         source: &'a str,
         options: ParserOptions,
         allow_invalid_html_self_closing: bool,
@@ -36,7 +36,7 @@ impl<'a> Parser<'a> {
 
     /// Create a new parser with options and template syntax compatibility.
     pub fn with_options_and_template_syntax(
-        allocator: &'a Bump,
+        allocator: &'a Allocator,
         source: &'a str,
         options: ParserOptions,
         template_syntax: TemplateSyntaxMode,
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
     /// Create a new parser with options, custom-element patterns and syntax compatibility.
     #[doc(hidden)]
     pub fn with_options_custom_elements_and_template_syntax(
-        allocator: &'a Bump,
+        allocator: &'a Allocator,
         source: &'a str,
         options: ParserOptions,
         custom_elements: CustomElementMatcher,
@@ -61,18 +61,20 @@ impl<'a> Parser<'a> {
     ) -> Self {
         Self {
             allocator,
+            oxc_allocator: allocator.as_oxc(),
             source,
             options,
             custom_elements,
             template_syntax,
-            stack: Vec::new_in(allocator),
-            flattened_tags: Vec::new_in(allocator),
+            interner: Interner::new(allocator),
+            pending_text: None,
+            stack: Vec::new_in(&allocator),
+            flattened_tags: Vec::new_in(&allocator),
             root: None,
             current_element: None,
             current_attr: None,
             current_dir: None,
-            errors: Vec::new_in(allocator),
-            newlines: Vec::new_in(allocator),
+            errors: std::vec::Vec::new(),
             in_pre: false,
             in_v_pre: false,
             open_table_count: 0,
@@ -86,16 +88,20 @@ impl<'a> Parser<'a> {
 
     /// Create a new parser in full-HTML-document mode.
     ///
-    /// Document mode is additive: it parses an entire HTML document into the
-    /// template AST. The only behavioral difference from [`Parser::with_options`]
-    /// is doctype tolerance; SFC `<template>` parsing is unaffected.
-    pub fn new_document(allocator: &'a Bump, source: &'a str) -> Self {
+    /// Document mode is additive: it parses an entire HTML document (doctype +
+    /// `<html>/<head>/<body>`, with `<script>`/`<style>` kept as raw text) into
+    /// the same template AST, so downstream analysis (lint/scope) can run over a
+    /// petite-vue HTML page where directives (`v-scope`, `v-effect`, `@click`)
+    /// live on ordinary elements. The only behavioral difference from
+    /// [`Parser::with_options`] is doctype tolerance; SFC `<template>` parsing is
+    /// unaffected.
+    pub fn new_document(allocator: &'a Allocator, source: &'a str) -> Self {
         Self::document_with_options(allocator, source, ParserOptions::default())
     }
 
     /// Create a new document-mode parser with options.
     pub fn document_with_options(
-        allocator: &'a Bump,
+        allocator: &'a Allocator,
         source: &'a str,
         options: ParserOptions,
     ) -> Self {

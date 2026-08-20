@@ -8,13 +8,17 @@ use super::super::Parser;
 impl<'a> Parser<'a> {
     /// Process comment
     pub(in crate::parser) fn on_comment_impl(&mut self, start: usize, end: usize) {
-        let content = self.get_source(start, end);
+        let content = self.get_source_retained(start, end);
         let loc_start = start.saturating_sub(4);
         let loc_end = self.comment_loc_end(start, end);
         let loc = self.create_loc(loc_start, loc_end); // Include <!-- and --> when present.
 
-        // Check for @vize: directive
-        let directive = parse_vize_directive(content, loc.start.line, loc.start.offset);
+        // Check for @vize: directive. Only `kind` survives below, so the
+        // line/offset bookkeeping the parsed directive carries is discarded;
+        // pass the constant line the retired parser tracking always reported
+        // here. Consumers that need the real line (patina's visitor) derive it
+        // from the offset at their edge.
+        let directive = parse_vize_directive(content, 1, loc.span.start);
 
         // Always preserve directive comments (even when options.comments = false)
         // so they can be explicitly handled by codegen and linter
@@ -24,7 +28,7 @@ impl<'a> Parser<'a> {
 
         let mut comment = CommentNode::new(content, loc);
         comment.directive = directive.map(|d| d.kind);
-        let boxed = Box::new_in(comment, self.allocator);
+        let boxed = Box::new_in(comment, &self.allocator);
         self.add_child(TemplateChildNode::Comment(boxed));
     }
 
@@ -32,7 +36,7 @@ impl<'a> Parser<'a> {
     pub(in crate::parser) fn on_in_tag_comment_impl(&mut self, start: usize, end: usize) {
         let content_start = start.saturating_add(2).min(end);
         let comment = CommentNode::new_in_tag(
-            self.get_source(content_start, end),
+            self.get_source_retained(content_start, end),
             self.create_loc(start, end),
         );
         if let Some(root) = self.root.as_mut() {

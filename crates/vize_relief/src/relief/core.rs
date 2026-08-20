@@ -4,7 +4,7 @@
 //! node type discriminants, source locations, and constant types.
 
 use serde::{Deserialize, Serialize};
-use vize_carton::String;
+use vize_carton::Span;
 
 /// Node type discriminant
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -75,34 +75,24 @@ pub enum ConstantType {
     CanStringify = 3,
 }
 
-/// Source position in the template
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct Position {
-    /// Byte offset from start of file
-    pub offset: u32,
-    /// 1-indexed line number
-    pub line: u32,
-    /// 1-indexed column number
-    pub column: u32,
-}
-
-impl Position {
-    pub const fn new(offset: u32, line: u32, column: u32) -> Self {
-        Self {
-            offset,
-            line,
-            column,
-        }
-    }
-}
-
 /// Source location span [start, end)
+///
+/// The covered text is not stored; it is recovered on demand from the file's
+/// source string via `loc.span.slice(source_text)` (Davinci P1-3). Line and
+/// column are not stored either (Davinci P1-4): the retired `Position` type
+/// carried per-node `line`/`column` fields, but the parser never populated
+/// its newline table, so every stored value was the frozen `line: 1,
+/// column: offset + 1` shape. The few places that render line/column derive
+/// them at the edge — real values via `vize_carton::line_index` where the
+/// output layer already did (source maps, patina, LSP), and the frozen shape
+/// via [`crate::errors::CompilerErrorWithSource`] where byte parity pins it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SourceLocation {
-    pub start: Position,
-    pub end: Position,
-    pub source: String,
+    /// Byte range `[start, end)` into the authored source.
+    pub span: Span,
 }
+
+const _: () = assert!(core::mem::size_of::<SourceLocation>() == 8);
 
 impl Default for SourceLocation {
     fn default() -> Self {
@@ -111,42 +101,23 @@ impl Default for SourceLocation {
 }
 
 /// Static stub location for returning references
-pub(crate) static STUB_LOCATION: SourceLocation = SourceLocation {
-    start: Position {
-        offset: 0,
-        line: 1,
-        column: 1,
-    },
-    end: Position {
-        offset: 0,
-        line: 1,
-        column: 1,
-    },
-    source: String::const_new(""),
-};
+pub(crate) static STUB_LOCATION: SourceLocation = SourceLocation::STUB;
 
 impl SourceLocation {
     /// Stub location for generated nodes
     pub const STUB: Self = Self {
-        start: Position {
-            offset: 0,
-            line: 1,
-            column: 1,
-        },
-        end: Position {
-            offset: 0,
-            line: 1,
-            column: 1,
-        },
-        source: String::const_new(""),
+        span: Span::new(0, 0),
     };
 
-    pub fn new(start: Position, end: Position, source: impl Into<String>) -> Self {
+    pub const fn new(start: u32, end: u32) -> Self {
         Self {
-            start,
-            end,
-            source: source.into(),
+            span: Span::new(start, end),
         }
+    }
+
+    /// Move the end offset of the location.
+    pub fn set_end(&mut self, end: u32) {
+        self.span.end = end;
     }
 }
 
@@ -354,5 +325,7 @@ impl RuntimeHelper {
 #[derive(Debug)]
 pub struct ImportItem<'a> {
     pub exp: vize_carton::Box<'a, super::SimpleExpressionNode<'a>>,
-    pub path: String,
+    /// Module specifier, arena-resident: an atom when it repeats across the
+    /// file's imports, an arena copy otherwise (Davinci P1-10).
+    pub path: &'a str,
 }

@@ -99,8 +99,8 @@ impl DiagnosticService {
     ) -> Vec<Diagnostic> {
         let lang = vize_atelier_jsx::JsxLang::from_path(uri.path());
 
-        let bump = vize_carton::Bump::new();
-        let output = vize_atelier_jsx::lower_source(&bump, content, lang);
+        let allocator = vize_carton::Allocator::new();
+        let output = vize_atelier_jsx::lower_source(&allocator, allocator.as_oxc(), content, lang);
 
         output
             .diagnostics
@@ -315,7 +315,7 @@ impl DiagnosticService {
             return vec![];
         };
 
-        let allocator = vize_carton::Bump::new();
+        let allocator = vize_carton::Allocator::new();
         let (_, errors) = vize_armature::parse(&allocator, &template.content);
         errors
             .iter()
@@ -328,8 +328,8 @@ impl DiagnosticService {
                 // block's position in the SFC. `LineIndex::line_col` counts
                 // UTF-16 code units so the position lands at the right
                 // editor column for non-ASCII content. (#965)
-                let absolute_start_offset = template.loc.start as u32 + loc.start.offset;
-                let absolute_end_offset = template.loc.start as u32 + loc.end.offset;
+                let absolute_start_offset = template.loc.start as u32 + loc.span.start;
+                let absolute_end_offset = template.loc.start as u32 + loc.span.end;
                 let (start_line, start_character) =
                     line_index.line_col(absolute_start_offset as usize);
                 let (end_line, end_character) = line_index.line_col(absolute_end_offset as usize);

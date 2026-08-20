@@ -21,9 +21,9 @@ impl<'a> Parser<'a> {
         }
 
         let delimiter_open: Vec<'a, u8> =
-            Vec::from_iter_in(self.options.delimiters.0.bytes(), self.allocator);
+            Vec::from_iter_in(self.options.delimiters.0.bytes(), &self.allocator);
         let delimiter_close: Vec<'a, u8> =
-            Vec::from_iter_in(self.options.delimiters.1.bytes(), self.allocator);
+            Vec::from_iter_in(self.options.delimiters.1.bytes(), &self.allocator);
         let document = self.document;
         let in_tag_comments = self.options.experimental_in_tag_comments;
         #[cfg(feature = "legacy")]
@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
         true
     }
 
-    pub(super) fn into_result(mut self) -> (RootNode<'a>, Vec<'a, CompilerError>) {
+    pub(super) fn into_result(mut self) -> (RootNode<'a>, std::vec::Vec<CompilerError>) {
         let root = self
             .root
             .take()
@@ -60,13 +60,13 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::super::parse_with_options;
-    use vize_carton::Bump;
+    use vize_carton::Allocator;
     use vize_relief::{ErrorCode, options::ParserOptions};
 
     #[test]
     fn empty_interpolation_delimiters_are_rejected_without_partial_output() {
         for (open, close) in [("", "}}"), ("{{", "")] {
-            let allocator = Bump::new();
+            let allocator = Allocator::new();
             let options = ParserOptions {
                 delimiters: (open.into(), close.into()),
                 ..ParserOptions::default()

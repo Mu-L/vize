@@ -20,9 +20,14 @@ members = [
   "crates/vize_musea",
   "crates/vize_maestro",
   "crates/vize_curator",
+  "crates/vize_davinci",
+  "crates/vize_davinci_derive",
+  "crates/vize_disegno",
+  "crates/vize_sinopia",
   "crates/vize_fresco",
   "crates/vize_marquette",
   "crates/vize_doctor",
+  "benchmarks/davinci_harness",
   "benchmarks/vize",
   "tests/vize_test_runner",
 ]
@@ -55,10 +60,14 @@ vize_marquette = { path = "crates/vize_marquette", version = "=0.351.0" }
 vize_doctor = { path = "crates/vize_doctor", version = "=0.351.0" }
 
 # Workspace-only internal crates (always use the local path)
+davinci_harness = { path = "benchmarks/davinci_harness" }
 vize_vitrine = { path = "crates/vize_vitrine", default-features = false }
 vize_glyph = { path = "crates/vize_glyph" }
 vize_maestro = { path = "crates/vize_maestro" }
 vize_curator = { path = "crates/vize_curator" }
+vize_davinci = { path = "crates/vize_davinci" }
+vize_davinci_derive = { path = "crates/vize_davinci_derive" }
+vize_disegno = { path = "crates/vize_disegno" }
 
 # OXC dependencies (pinned to a specific upstream revision for reproducibility)
 oxc_parser = { version = "=0.142.0", git = "https://github.com/oxc-project/oxc", rev = "fc702c1fa9f0412d06ec6908b58cd395b826cf7f" }
@@ -115,8 +124,10 @@ js-sys = "=0.3.104"
 web-sys = { version = "=0.3.104", features = ["console"] }
 getrandom = { version = "=0.3.4", features = ["wasm_js"] }
 
-# Arena allocation
-bumpalo = { version = "=3.20.3", features = ["collections", "boxed"] }
+# Proc-macro toolkit (host build dependencies; versions match the lockfile)
+proc-macro2 = "=1.0.106"
+quote = "=1.0.45"
+syn = "=2.0.117"
 
 # Utilities
 thiserror = "=2.0.20"

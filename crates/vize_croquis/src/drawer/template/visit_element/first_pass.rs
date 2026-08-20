@@ -25,7 +25,7 @@ impl Drawer {
                 };
 
                 if self.options.track_usage {
-                    let name = dir.name.as_str();
+                    let name = dir.name;
                     if !is_builtin_directive(name) {
                         self.croquis
                             .used_directives
@@ -35,40 +35,46 @@ impl Drawer {
 
                 if dir.name == "for" && self.options.analyze_template_scopes {
                     if let Some(ref exp) = dir.exp {
-                        let content = expression_content(exp);
+                        let content = expression_content(exp, &self.template_source);
                         let aliases = profile!(
                             "croquis.template.v_for.parse_expression",
                             parse_v_for_scope_expression(content)
                         );
                         if let Some(aliases) = aliases {
-                            let alias_offsets = v_for_alias_declaration_offsets(exp, &aliases);
-                            let source_offset = v_for_source_offset(exp, &aliases);
+                            let alias_offsets = v_for_alias_declaration_offsets(
+                                exp,
+                                &aliases,
+                                &self.template_source,
+                            );
+                            let source_offset =
+                                v_for_source_offset(exp, &aliases, &self.template_source);
                             let end = *subtree_end.get_or_insert_with(|| element_subtree_end(el));
                             state.for_scope = Some((
                                 aliases,
                                 alias_offsets,
                                 source_offset,
-                                el.loc.start.offset,
+                                el.loc.span.start,
                                 end,
                             ));
                         }
                     }
                 } else if dir.name == "bind" {
                     if let Some(ref arg) = dir.arg {
-                        let arg_name = expression_content(arg);
+                        let arg_name = expression_content(arg, &self.template_source);
                         if arg_name == "key"
                             && let Some(ref exp) = dir.exp
                         {
-                            state.key_expression =
-                                Some(CompactString::new(expression_content(exp)));
+                            state.key_expression = Some(CompactString::new(expression_content(
+                                exp,
+                                &self.template_source,
+                            )));
                         }
                     }
                 } else if dir.name == "if" || dir.name == "else-if" || dir.name == "else" {
-                    let condition = dir
-                        .exp
-                        .as_ref()
-                        .map(|exp| CompactString::new(expression_content(exp)));
-                    let kind = match dir.name.as_str() {
+                    let condition = dir.exp.as_ref().map(|exp| {
+                        CompactString::new(expression_content(exp, &self.template_source))
+                    });
+                    let kind = match dir.name {
                         "if" => ConditionalKind::If,
                         "else-if" => ConditionalKind::ElseIf,
                         _ => ConditionalKind::Else,
@@ -78,7 +84,9 @@ impl Drawer {
                     let slot_name = dir
                         .arg
                         .as_ref()
-                        .map(|arg| CompactString::new(expression_content(arg)))
+                        .map(|arg| {
+                            CompactString::new(expression_content(arg, &self.template_source))
+                        })
                         .unwrap_or_else(|| CompactString::const_new("default"));
                     let slot_name_is_static = dir
                         .arg
@@ -90,8 +98,8 @@ impl Drawer {
                         .unwrap_or(true);
 
                     let (prop_names, props_pattern, prop_offsets) = if let Some(ref exp) = dir.exp {
-                        let content = expression_content(exp);
-                        let base = exp.loc().start.offset;
+                        let content = expression_content(exp, &self.template_source);
+                        let base = exp.loc().span.start;
                         let prop_bindings = profile!(
                             "croquis.template.v_slot.extract_props",
                             extract_slot_prop_bindings(content)
@@ -110,14 +118,14 @@ impl Drawer {
                         prop_names,
                         props_pattern,
                         prop_offsets,
-                        dir.loc.start.offset,
+                        dir.loc.span.start,
                     ));
                 } else if dir.name == "scope" && self.options.analyze_template_scopes {
                     // petite-vue `v-scope="{ ... }"`: the object's top-level
                     // keys become in-scope names for this element's subtree.
                     if let Some(ref exp) = dir.exp {
-                        let content = expression_content(exp);
-                        let base = exp.loc().start.offset;
+                        let content = expression_content(exp, &self.template_source);
+                        let base = exp.loc().span.start;
                         let bindings: SmallVec<[(CompactString, u32); 4]> = profile!(
                             "croquis.template.v_scope.extract_keys",
                             extract_v_scope_bindings(content)
@@ -128,7 +136,7 @@ impl Drawer {
 
                         if !bindings.is_empty() {
                             let end = *subtree_end.get_or_insert_with(|| element_subtree_end(el));
-                            state.v_scope = Some((bindings, el.loc.start.offset, end));
+                            state.v_scope = Some((bindings, el.loc.span.start, end));
                         }
                     }
                 }
@@ -158,16 +166,16 @@ fn legacy_slot_scope(el: &ElementNode<'_>) -> Option<super::scopes::SlotScopeInf
             })
         })?;
     let value = scope_attr.value.as_ref()?;
-    let pattern = value.content.as_str();
+    let pattern = value.content;
     let prop_bindings = extract_slot_prop_bindings(pattern);
     let prop_names = prop_bindings.iter().map(|(name, _)| name.clone()).collect();
-    let prop_offsets = slot_prop_declaration_offsets(value.loc.start.offset, &prop_bindings);
+    let prop_offsets = slot_prop_declaration_offsets(value.loc.span.start, &prop_bindings);
     let slot_name = el
         .props
         .iter()
         .find_map(|prop| match prop {
             PropNode::Attribute(attr) if attr.name == "slot" => {
-                attr.value.as_ref().map(|value| value.content.clone())
+                attr.value.as_ref().map(|value| value.content.into())
             }
             _ => None,
         })
@@ -179,7 +187,7 @@ fn legacy_slot_scope(el: &ElementNode<'_>) -> Option<super::scopes::SlotScopeInf
         prop_names,
         Some(CompactString::new(pattern)),
         prop_offsets,
-        value.loc.start.offset,
+        value.loc.span.start,
     ))
 }
 
@@ -194,9 +202,9 @@ fn slot_prop_declaration_offsets(
     offsets
 }
 
-fn expression_content<'a>(exp: &'a ExpressionNode<'_>) -> &'a str {
+fn expression_content<'a>(exp: &'a ExpressionNode<'_>, source: &'a str) -> &'a str {
     match exp {
-        ExpressionNode::Simple(s) => s.content.as_str(),
-        ExpressionNode::Compound(c) => c.loc.source.as_str(),
+        ExpressionNode::Simple(s) => s.content,
+        ExpressionNode::Compound(c) => c.loc.span.slice(source),
     }
 }

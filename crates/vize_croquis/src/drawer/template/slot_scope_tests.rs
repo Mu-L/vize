@@ -1,14 +1,14 @@
 use super::super::{Drawer, DrawerOptions};
 use crate::scope::ScopeData;
 use vize_armature::parse;
-use vize_carton::{Bump, cstr};
+use vize_carton::{Allocator, cstr};
 
 #[test]
 fn v_slot_object_pattern_declaration_offsets_use_local_bindings() {
     let pattern = "  { name: name, label: local }";
     let template =
         cstr!(r#"<p>前置き</p><Child v-slot="{pattern}">{{{{ name }}}}{{{{ local }}}}</Child>"#,);
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (root, errors) = parse(&allocator, template.as_str());
     assert!(errors.is_empty(), "template should parse: {errors:?}");
     let mut drawer = Drawer::with_options(DrawerOptions::full());

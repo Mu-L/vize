@@ -9,34 +9,38 @@ use vize_atelier_jsx::{
     JsxLang, LowerOutput, VaporCompileOptions, VdomCompileOptions, compile_to_vapor,
     compile_to_vdom, lower_source,
 };
-use vize_carton::Bump;
+use vize_carton::Allocator;
 use vize_relief::{
     AttributeNode, DirectiveNode, ElementNode, ExpressionNode, PropNode, TemplateChildNode,
     TextNode,
 };
 
 /// Lower JSX source, asserting a single error-free render root, and return it.
-pub fn lower_one<'a>(bump: &'a Bump, source: &str) -> vize_relief::RootNode<'a> {
-    lower_one_in(bump, source, JsxLang::Jsx)
+pub fn lower_one<'a>(allocator: &'a Allocator, source: &'a str) -> vize_relief::RootNode<'a> {
+    lower_one_in(allocator, source, JsxLang::Jsx)
 }
 
 /// Lower TSX source, asserting a single error-free render root, and return it.
-pub fn lower_one_tsx<'a>(bump: &'a Bump, source: &str) -> vize_relief::RootNode<'a> {
-    lower_one_in(bump, source, JsxLang::Tsx)
+pub fn lower_one_tsx<'a>(allocator: &'a Allocator, source: &'a str) -> vize_relief::RootNode<'a> {
+    lower_one_in(allocator, source, JsxLang::Tsx)
 }
 
-fn lower_one_in<'a>(bump: &'a Bump, source: &str, lang: JsxLang) -> vize_relief::RootNode<'a> {
-    lower_single(bump, source, lang).root
+fn lower_one_in<'a>(
+    allocator: &'a Allocator,
+    source: &'a str,
+    lang: JsxLang,
+) -> vize_relief::RootNode<'a> {
+    lower_single(allocator, source, lang).root
 }
 
 /// Lower source, asserting a single error-free render root, returning the full
 /// [`LoweredRoot`] (including mode/name metadata).
 pub fn lower_single<'a>(
-    bump: &'a Bump,
-    source: &str,
+    allocator: &'a Allocator,
+    source: &'a str,
     lang: JsxLang,
 ) -> vize_atelier_jsx::LoweredRoot<'a> {
-    let out = lower_source(bump, source, lang);
+    let out = lower_source(allocator, allocator.as_oxc(), source, lang);
     assert!(
         !out.has_errors(),
         "unexpected diagnostics: {:?}",
@@ -47,13 +51,13 @@ pub fn lower_single<'a>(
 }
 
 /// Lower JSX source and return the full output (roots + diagnostics).
-pub fn lower_all<'a>(bump: &'a Bump, source: &str) -> LowerOutput<'a> {
-    lower_source(bump, source, JsxLang::Jsx)
+pub fn lower_all<'a>(allocator: &'a Allocator, source: &'a str) -> LowerOutput<'a> {
+    lower_source(allocator, allocator.as_oxc(), source, JsxLang::Jsx)
 }
 
 /// Compile one component to VDOM render code.
 pub fn vdom_code(source: &str, lang: JsxLang) -> vize_carton::String {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let out = compile_to_vdom(&bump, source, lang, VdomCompileOptions::default());
     assert!(
         !out.has_errors(),
@@ -66,7 +70,7 @@ pub fn vdom_code(source: &str, lang: JsxLang) -> vize_carton::String {
 
 /// Compile one component to Vapor render code.
 pub fn vapor_code(source: &str, lang: JsxLang, ssr: bool) -> vize_carton::String {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let out = compile_to_vapor(&bump, source, lang, VaporCompileOptions { ssr });
     assert!(
         !out.has_errors(),
@@ -138,7 +142,7 @@ pub fn as_element<'a>(child: &'a TemplateChildNode<'a>) -> &'a ElementNode<'a> {
 }
 
 /// Borrow a child as a text node, panicking otherwise.
-pub fn as_text<'a>(child: &'a TemplateChildNode<'a>) -> &'a TextNode {
+pub fn as_text<'a>(child: &'a TemplateChildNode<'a>) -> &'a TextNode<'a> {
     match child {
         TemplateChildNode::Text(text) => text,
         other => panic!("expected text child, got {:?}", other.node_type()),
@@ -151,7 +155,7 @@ pub fn root_element<'a>(root: &'a vize_relief::RootNode<'a>) -> &'a ElementNode<
 }
 
 /// Borrow a prop as a static attribute.
-pub fn as_attribute<'a>(prop: &'a PropNode<'a>) -> &'a AttributeNode {
+pub fn as_attribute<'a>(prop: &'a PropNode<'a>) -> &'a AttributeNode<'a> {
     match prop {
         PropNode::Attribute(attr) => attr,
         PropNode::Directive(dir) => panic!("expected attribute, got directive {:?}", dir.name),
@@ -169,7 +173,7 @@ pub fn as_directive<'a>(prop: &'a PropNode<'a>) -> &'a DirectiveNode<'a> {
 /// The textual content of a simple expression.
 pub fn simple_content<'a>(expr: &'a ExpressionNode<'a>) -> &'a str {
     match expr {
-        ExpressionNode::Simple(simple) => simple.content.as_str(),
+        ExpressionNode::Simple(simple) => simple.content,
         ExpressionNode::Compound(_) => panic!("expected simple expression, got compound"),
     }
 }

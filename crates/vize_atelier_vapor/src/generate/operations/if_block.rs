@@ -25,9 +25,9 @@ fn generate_if_inner(
     emit_insertion_state(ctx, if_node.parent, if_node.anchor);
 
     let condition = if if_node.condition.is_static {
-        ["\"", if_node.condition.content.as_str(), "\""].concat()
+        ["\"", if_node.condition.content, "\""].concat()
     } else {
-        let resolved = ctx.resolve_expression(&if_node.condition.content);
+        let resolved = ctx.resolve_expression_node(&if_node.condition);
         ["(", &resolved, ")"].concat()
     };
 
@@ -101,9 +101,9 @@ fn generate_nested_if(
     ctx.use_helper("createIf");
 
     let condition = if if_node.condition.is_static {
-        ["\"", if_node.condition.content.as_str(), "\""].concat()
+        ["\"", if_node.condition.content, "\""].concat()
     } else {
-        let resolved = ctx.resolve_expression(&if_node.condition.content);
+        let resolved = ctx.resolve_expression_node(&if_node.condition);
         ["(", &resolved, ")"].concat()
     };
 

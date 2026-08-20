@@ -6,7 +6,7 @@ pub(in crate::wasm) mod pipeline;
 
 pub use free_fns::*;
 
-use vize_carton::Bump;
+use vize_carton::Allocator;
 use wasm_bindgen::prelude::*;
 
 use crate::{CompilerOptions, template_syntax::resolve_template_syntax};
@@ -80,7 +80,7 @@ impl Compiler {
     #[wasm_bindgen]
     pub fn parse(&self, template: &str, options: JsValue) -> Result<JsValue, JsValue> {
         let parsed = parse_compiler_options(&options);
-        let allocator = Bump::new();
+        let allocator = Allocator::new();
         let template_syntax = resolve_template_syntax(parsed.options.template_syntax.as_deref())
             .map_err(|message| JsValue::from_str(&message))?;
 
@@ -95,7 +95,7 @@ impl Compiler {
         );
 
         if !errors.is_empty() {
-            return Err(JsValue::from_str(&format!("Parse errors: {:?}", errors)));
+            return Err(crate::parse_errors::message(&errors, template).into());
         }
 
         let ast = build_ast_json(&root);

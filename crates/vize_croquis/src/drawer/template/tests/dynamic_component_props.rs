@@ -3,11 +3,11 @@ use crate::drawer::{Drawer, DrawerOptions};
 #[test]
 fn dynamic_component_props_use_is_binding_as_target_component() {
     use vize_armature::parse;
-    use vize_carton::Bump;
+    use vize_carton::Allocator;
 
     let template = r#"<component :is="Child" :count="count"></component>"#;
 
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (root, errors) = parse(&allocator, template);
     assert!(errors.is_empty(), "Template should parse without errors");
 
@@ -34,11 +34,11 @@ fn dynamic_component_props_use_is_binding_as_target_component() {
 #[test]
 fn dynamic_component_lowercase_is_value_does_not_create_component_usage() {
     use vize_armature::parse;
-    use vize_carton::Bump;
+    use vize_carton::Allocator;
 
     let template = r#"<component :is="as" :class="klass"></component>"#;
 
-    let allocator = Bump::new();
+    let allocator = Allocator::new();
     let (root, errors) = parse(&allocator, template);
     assert!(errors.is_empty(), "Template should parse without errors");
 

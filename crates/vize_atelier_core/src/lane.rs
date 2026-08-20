@@ -17,7 +17,7 @@ mod structural_keys;
 #[path = "transform/traverse.rs"]
 pub mod traverse;
 
-use vize_carton::{Box, Bump, SmallVec, String, Vec, profile};
+use vize_carton::{Allocator, Box, SmallVec, String, Vec, interner::Interner, profile};
 use vize_croquis::{Croquis, ScopeChain};
 
 use crate::errors::CompilerError;
@@ -35,7 +35,7 @@ use traverse::traverse_children;
 pub use extensions::{
     transform_with_custom_elements_and_template_syntax_quirks_and_hoisted_scope_id,
     transform_with_hoisted_scope_id, transform_with_jsx_compatibility,
-    transform_with_plain_element_model_argument,
+    transform_with_plain_element_model_argument, transform_with_source_text,
     transform_with_template_syntax_quirks_and_hoisted_scope_id,
     transform_with_vue_parser_quirks_and_hoisted_scope_id,
 };
@@ -70,12 +70,14 @@ pub type StructuralDirectiveTransform<'a> =
 /// Transform context for AST traversal
 pub struct TransformContext<'a> {
     /// Arena allocator
-    pub allocator: &'a Bump,
+    pub allocator: &'a Allocator,
     /// Transform options
     pub options: TransformOptions,
     pub(crate) custom_elements: crate::options::CustomElementMatcher,
-    /// Source code
-    pub source: String,
+    /// Template source the spans index into, at the arena lifetime (P1-10).
+    pub source: &'a str,
+    /// Atoms for names this pass synthesizes rather than slices (P1-10).
+    pub interner: Interner<'a>,
     /// Root node reference
     pub root: Option<*mut RootNode<'a>>,
     /// Parent node stack
@@ -128,7 +130,7 @@ impl TransformContext<'_> {
     pub(crate) fn is_jsx_custom_element(&self, el: &ElementNode<'_>) -> bool {
         self.jsx_compat
             .custom_element_spans
-            .contains(&(el.loc.start.offset, el.loc.end.offset))
+            .contains(&(el.loc.span.start, el.loc.span.end))
     }
 }
 
@@ -184,7 +186,7 @@ impl<'a> ParentNode<'a> {
 /// directive usage or unparseable expressions) so callers can surface them
 /// alongside parse errors instead of silently dropping them.
 pub fn transform<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     root: &mut RootNode<'a>,
     options: TransformOptions,
     analysis: Option<&'a Croquis>,
@@ -195,12 +197,13 @@ pub fn transform<'a>(
         options,
         analysis,
         TransformLaneOptions::default(),
+        None,
     )
 }
 
 /// Transform the root AST node with template syntax quirk compatibility enabled.
 pub fn transform_with_template_syntax_quirks<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     root: &mut RootNode<'a>,
     options: TransformOptions,
     analysis: Option<&'a Croquis>,
@@ -214,13 +217,14 @@ pub fn transform_with_template_syntax_quirks<'a>(
             template_syntax_quirks: true,
             ..Default::default()
         },
+        None,
     )
 }
 
 /// Transform the root AST node with Vue parser quirk compatibility enabled.
 #[deprecated(note = "use transform_with_template_syntax_quirks instead")]
 pub fn transform_with_vue_parser_quirks<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     root: &mut RootNode<'a>,
     options: TransformOptions,
     analysis: Option<&'a Croquis>,
@@ -229,11 +233,12 @@ pub fn transform_with_vue_parser_quirks<'a>(
 }
 
 pub(crate) fn transform_inner<'a>(
-    allocator: &'a Bump,
+    allocator: &'a Allocator,
     root: &mut RootNode<'a>,
     options: TransformOptions,
     analysis: Option<&'a Croquis>,
     lane_options: TransformLaneOptions,
+    source_text: Option<&'a str>,
 ) -> std::vec::Vec<CompilerError> {
     let TransformLaneOptions {
         template_syntax_quirks,
@@ -241,7 +246,7 @@ pub(crate) fn transform_inner<'a>(
         jsx_compat,
         custom_elements,
     } = lane_options;
-    let source = root.source.clone();
+    let source = source_text.unwrap_or(root.source);
     let mut ctx = if let Some(analysis) = analysis {
         TransformContext::with_analysis_and_template_syntax_quirks(
             allocator,
@@ -280,6 +285,7 @@ pub(crate) fn transform_inner<'a>(
     }
 
     // Transform the root children
+    crate::walk_probe::record_walk(crate::walk_probe::WalkStage::Transform);
     profile!(
         "atelier.transform.traverse_children",
         traverse_children(&mut ctx, ParentNode::Root(root as *mut _))
@@ -302,16 +308,20 @@ pub(crate) fn transform_inner<'a>(
     for helper in ctx.helpers.iter() {
         root.helpers.push(helper);
     }
-    for component in ctx.components.into_iter() {
-        root.components.push(component);
+    // Asset names are computed and recur, so they land in the arena as atoms.
+    for component in ctx.components.iter() {
+        let atom = ctx.interner.intern(component);
+        root.components.push(atom);
     }
-    for directive in ctx.directives.into_iter() {
-        root.directives.push(directive);
+    for directive in ctx.directives.iter() {
+        let atom = ctx.interner.intern(directive);
+        root.directives.push(atom);
     }
     // Transfer Vue 2 pipe filters (legacy-only; empty for Vue 3).
     #[cfg(feature = "legacy")]
-    for filter in ctx.filters.into_iter() {
-        root.filters.push(filter);
+    for filter in ctx.filters.iter() {
+        let atom = ctx.interner.intern(filter);
+        root.filters.push(atom);
     }
     // Transfer hoisted nodes to root
     for hoist in ctx.hoists.into_iter() {

@@ -12,12 +12,10 @@
 //! ([`VaporGenerateOptions::jsx_closure`]): free identifiers stay bare instead
 //! of being `_ctx.`-prefixed, matching `vue-jsx-vapor`.
 
-use vize_atelier_core::lane::transform;
+use vize_atelier_core::lane::transform_with_source_text;
 use vize_atelier_core::options::TransformOptions;
-use vize_atelier_vapor::{
-    VaporGenerateOptions, drop_ir_stack_safe, generate_vapor_with_options, transform_to_ir,
-};
-use vize_carton::{Bump, String};
+use vize_atelier_vapor::{VaporGenerateOptions, generate_vapor_with_options, transform_to_ir};
+use vize_carton::{Allocator, String};
 use vize_croquis::Croquis;
 
 use crate::diagnostics::JsxDiagnostic;
@@ -72,16 +70,16 @@ impl VaporOutput {
 
 /// Compile a JSX/TSX module into Vue Vapor render code.
 pub fn compile_to_vapor(
-    bump: &Bump,
+    allocator: &Allocator,
     source: &str,
     lang: JsxLang,
     options: VaporCompileOptions,
 ) -> VaporOutput {
-    let lowered = lower_source(bump, source, lang);
+    let lowered = lower_source(allocator, allocator.as_oxc(), source, lang);
     let mut diagnostics = lowered.diagnostics;
 
-    // Move the analysis into the arena so the transform can borrow it.
-    let analysis: &Croquis = &*bump.alloc(lowered.analysis);
+    // Park the analysis on the allocator so the transform can borrow it.
+    let analysis: &Croquis = allocator.alloc_owned(lowered.analysis);
 
     let backend = if options.ssr {
         SlotsForwardingBackend::Ssr
@@ -94,10 +92,11 @@ pub fn compile_to_vapor(
         // slots object has nowhere to go; report it rather than drop it (#3467).
         reject_forwarded_slots(&lowered_root.root, backend, &mut diagnostics);
         components.push(compile_root_to_vapor(
-            bump,
+            allocator,
             lowered_root,
             analysis,
             &options,
+            source,
         ));
     }
 
@@ -110,14 +109,20 @@ pub fn compile_to_vapor(
 /// Compile a single already-lowered root to a [`VaporComponent`]. Shared by
 /// [`compile_to_vapor`] and the mode-aware dispatcher in [`crate::compile`].
 pub(crate) fn compile_root_to_vapor(
-    bump: &Bump,
+    allocator: &Allocator,
     lowered: LoweredRoot,
     analysis: &Croquis,
     options: &VaporCompileOptions,
+    source: &str,
 ) -> VaporComponent {
     if options.ssr {
-        let ssr =
-            crate::ssr::compile_lowered_root_to_ssr(bump, lowered, analysis, JsxOutputMode::Vapor);
+        let ssr = crate::ssr::compile_lowered_root_to_ssr(
+            allocator,
+            lowered,
+            analysis,
+            JsxOutputMode::Vapor,
+            source,
+        );
         return VaporComponent {
             component_name: ssr.component_name,
             component_setup: ssr.component_setup,
@@ -157,12 +162,11 @@ pub(crate) fn compile_root_to_vapor(
         binding_metadata: None,
         ..Default::default()
     };
-    transform(bump, &mut root, transform_opts, Some(analysis));
+    transform_with_source_text(allocator, &mut root, transform_opts, Some(analysis), source);
 
-    let ir = transform_to_ir(bump, &root);
+    let ir = transform_to_ir(allocator, &root, source);
     let generated =
         generate_vapor_with_options(&ir, None, VaporGenerateOptions { jsx_closure: true });
-    drop_ir_stack_safe(ir);
 
     let (code, templates) = if let Some(style) = scoped_style.as_ref() {
         inject_scope_id(&generated.code, &generated.templates, &style.scope_id)

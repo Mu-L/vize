@@ -3,21 +3,21 @@
 mod common;
 
 use common::{as_text, lower_one, root_element, simple_content};
-use vize_carton::Bump;
+use vize_carton::Allocator;
 use vize_relief::TemplateChildNode;
 
 #[test]
 fn plain_text_child_is_lowered() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>Hello</p>;");
     let p = root_element(&root);
     assert_eq!(p.children.len(), 1);
-    assert_eq!(as_text(&p.children[0]).content.as_str(), "Hello");
+    assert_eq!(as_text(&p.children[0]).content, "Hello");
 }
 
 #[test]
 fn whitespace_only_children_are_dropped() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <ul>\n   <li/>\n</ul>;");
     let ul = root_element(&root);
     // The surrounding newlines/indentation collapse to nothing, leaving one li.
@@ -26,7 +26,7 @@ fn whitespace_only_children_are_dropped() {
 
 #[test]
 fn expression_child_becomes_interpolation() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>{count}</p>;");
     let p = root_element(&root);
     match &p.children[0] {
@@ -39,7 +39,7 @@ fn expression_child_becomes_interpolation() {
 
 #[test]
 fn complex_expression_child_keeps_source_text() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>{a + b * c}</p>;");
     let p = root_element(&root);
     match &p.children[0] {
@@ -52,22 +52,22 @@ fn complex_expression_child_keeps_source_text() {
 
 #[test]
 fn string_literal_container_becomes_text() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>{'literal'}</p>;");
     let p = root_element(&root);
-    assert_eq!(as_text(&p.children[0]).content.as_str(), "literal");
+    assert_eq!(as_text(&p.children[0]).content, "literal");
 }
 
 #[test]
 fn explicit_space_idiom_is_text() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>a{' '}b</p>;");
     let p = root_element(&root);
     let texts: Vec<&str> = p
         .children
         .iter()
         .filter_map(|c| match c {
-            TemplateChildNode::Text(t) => Some(t.content.as_str()),
+            TemplateChildNode::Text(t) => Some(t.content),
             _ => None,
         })
         .collect();
@@ -76,7 +76,7 @@ fn explicit_space_idiom_is_text() {
 
 #[test]
 fn empty_expression_container_is_dropped() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>{/* a comment */}</p>;");
     let p = root_element(&root);
     assert_eq!(p.children.len(), 0);
@@ -84,15 +84,15 @@ fn empty_expression_container_is_dropped() {
 
 #[test]
 fn mixed_text_and_expression_children() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(&bump, "const a = <p>Hi {name}!</p>;");
     let p = root_element(&root);
     // "Hi " text, {name} interpolation, "!" text.
     assert_eq!(p.children.len(), 3);
-    assert_eq!(as_text(&p.children[0]).content.as_str(), "Hi ");
+    assert_eq!(as_text(&p.children[0]).content, "Hi ");
     assert!(matches!(
         &p.children[1],
         TemplateChildNode::Interpolation(_)
     ));
-    assert_eq!(as_text(&p.children[2]).content.as_str(), "!");
+    assert_eq!(as_text(&p.children[2]).content, "!");
 }

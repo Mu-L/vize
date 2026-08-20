@@ -103,12 +103,12 @@ impl Rule for PreferStaticClass {
         directive: &DirectiveNode<'a>,
     ) {
         // Check if this is :class or v-bind:class
-        if directive.name.as_str() != "bind" {
+        if directive.name != "bind" {
             return;
         }
 
         let arg = match &directive.arg {
-            Some(ExpressionNode::Simple(s)) if s.content.as_str() == "class" => s,
+            Some(ExpressionNode::Simple(s)) if s.content == "class" => s,
             _ => return,
         };
 
@@ -118,7 +118,7 @@ impl Rule for PreferStaticClass {
         };
 
         let exp_content = match exp {
-            ExpressionNode::Simple(s) => s.content.as_str(),
+            ExpressionNode::Simple(s) => s.content,
             _ => return,
         };
 
@@ -130,7 +130,7 @@ impl Rule for PreferStaticClass {
 
             // Check if element already has a static class attribute
             let has_static_class = element.props.iter().any(|p| {
-                matches!(p, PropNode::Attribute(attr) if attr.name.as_str().eq_ignore_ascii_case("class"))
+                matches!(p, PropNode::Attribute(attr) if attr.name.eq_ignore_ascii_case("class"))
             });
 
             let message = ctx.t("vapor/prefer-static-class.message");
@@ -143,8 +143,8 @@ impl Rule for PreferStaticClass {
                 let fix = Fix::new(
                     "Replace with static class attribute",
                     TextEdit::replace(
-                        directive.loc.start.offset,
-                        directive.loc.end.offset + 1, // Include closing quote
+                        directive.loc.span.start,
+                        directive.loc.span.end + 1, // Include closing quote
                         replacement,
                     ),
                 );
@@ -153,8 +153,8 @@ impl Rule for PreferStaticClass {
                     crate::diagnostic::LintDiagnostic::warn(
                         META.name,
                         message.as_ref(),
-                        arg.loc.start.offset,
-                        directive.loc.end.offset,
+                        arg.loc.span.start,
+                        directive.loc.span.end,
                     )
                     .with_fix(fix),
                 );

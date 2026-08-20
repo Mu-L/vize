@@ -52,7 +52,7 @@ impl Rule for NoUseVElseWithVFor {
             &[("directive", directive)],
         );
         ctx.report(
-            LintDiagnostic::warn(META.name, message, loc.start.offset, loc.end.offset)
+            LintDiagnostic::warn(META.name, message, loc.span.start, loc.span.end)
                 .with_help(ctx.t("vue/no-use-v-else-with-v-for.help").as_ref()),
         );
     }
@@ -60,9 +60,10 @@ impl Rule for NoUseVElseWithVFor {
 
 #[inline]
 fn has_directive(element: &ElementNode<'_>, name: &str) -> bool {
-    element.props.iter().any(
-        |prop| matches!(prop, PropNode::Directive(directive) if directive.name.as_str() == name),
-    )
+    element
+        .props
+        .iter()
+        .any(|prop| matches!(prop, PropNode::Directive(directive) if directive.name == name))
 }
 
 /// Relief stores the start tag in `ElementNode::loc`. Recover the closing tag
@@ -77,12 +78,12 @@ fn full_element_loc(source: &str, element: &ElementNode<'_>) -> SourceLocation {
     let search_from = element
         .children
         .iter()
-        .fold(loc.end.offset as usize, |end, child| {
+        .fold(loc.span.end as usize, |end, child| {
             let child_end = match child {
                 TemplateChildNode::Element(child) => {
-                    ensure_sufficient_stack(|| full_element_loc(source, child).end.offset as usize)
+                    ensure_sufficient_stack(|| full_element_loc(source, child).span.end as usize)
                 }
-                other => other.loc().end.offset as usize,
+                other => other.loc().span.end as usize,
             };
             end.max(child_end)
         });
@@ -106,7 +107,7 @@ fn full_element_loc(source: &str, element: &ElementNode<'_>) -> SourceLocation {
                 .is_some_and(|byte| byte.is_ascii_whitespace() || *byte == b'>')
             && let Some(end_relative) = bytes[name_end..].iter().position(|&byte| byte == b'>')
         {
-            loc.end.offset = (name_end + end_relative + 1) as u32;
+            loc.span.end = (name_end + end_relative + 1) as u32;
             return loc;
         }
         cursor = start + 1;

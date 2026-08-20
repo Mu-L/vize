@@ -54,7 +54,7 @@ pub(crate) fn transform_element<'a>(
 
     // Template elements don't consume an ID - they just wrap children
     if el.tag_type == ElementType::Template {
-        for child in el.children.iter() {
+        for child in vize_atelier_core::walk_probe::vapor_children(&el.children) {
             match child {
                 TemplateChildNode::Element(child_el) => {
                     ensure_sufficient_stack(|| transform_element(ctx, child_el, block));
@@ -115,7 +115,7 @@ pub(crate) fn transform_element<'a>(
 
     // Components handle their own ID allocation (slots consume IDs before the component)
     // Also handle <component :is="..."> (dynamic component) which the parser classifies as Element
-    if el.tag_type == ElementType::Component || el.tag.as_str() == "component" {
+    if el.tag_type == ElementType::Component || el.tag == "component" {
         transform_component(ctx, el, block, None, None, None, true);
         if entered_non_reactive {
             ctx.exit_non_reactive_scope();
@@ -149,34 +149,26 @@ pub(crate) fn transform_element<'a>(
             ctx.add_template(element_id, template);
         }
         ElementType::Component => {
-            let mut props = Vec::new_in(ctx.allocator);
-            let slots = Vec::new_in(ctx.allocator);
+            let mut props = Vec::new_in(&ctx.allocator);
+            let slots = Vec::new_in(&ctx.allocator);
 
             // Process props (v-bind and v-on directives, and static attributes)
             for prop in el.props.iter() {
                 match prop {
                     PropNode::Directive(dir) => {
-                        if dir.name.as_str() == "bind" {
+                        if dir.name == "bind" {
                             // v-bind -> prop, v-bind="obj" -> ordered spread source
                             if let Some(ref arg) = dir.arg {
                                 if let ExpressionNode::Simple(key_exp) = arg {
-                                    let key_node = SimpleExpressionNode::new(
-                                        key_exp.content.clone(),
-                                        key_exp.is_static,
-                                        key_exp.loc.clone(),
-                                    );
-                                    let key = Box::new_in(key_node, ctx.allocator);
+                                    let key_node = SimpleExpressionNode::from_node(key_exp);
+                                    let key = Box::new_in(key_node, &ctx.allocator);
 
-                                    let mut values = Vec::new_in(ctx.allocator);
+                                    let mut values = Vec::new_in(&ctx.allocator);
                                     if let Some(ref exp) = dir.exp
                                         && let ExpressionNode::Simple(val_exp) = exp
                                     {
-                                        let val_node = SimpleExpressionNode::new(
-                                            val_exp.content.clone(),
-                                            val_exp.is_static,
-                                            val_exp.loc.clone(),
-                                        );
-                                        values.push(Box::new_in(val_node, ctx.allocator));
+                                        let val_node = SimpleExpressionNode::from_node(val_exp);
+                                        values.push(Box::new_in(val_node, &ctx.allocator));
                                     }
 
                                     props.push(IRProp {
@@ -190,14 +182,10 @@ pub(crate) fn transform_element<'a>(
                             {
                                 let key_node =
                                     SimpleExpressionNode::new("$", true, SourceLocation::STUB);
-                                let key = Box::new_in(key_node, ctx.allocator);
-                                let mut values = Vec::new_in(ctx.allocator);
-                                let val_node = SimpleExpressionNode::new(
-                                    val_exp.content.clone(),
-                                    val_exp.is_static,
-                                    val_exp.loc.clone(),
-                                );
-                                values.push(Box::new_in(val_node, ctx.allocator));
+                                let key = Box::new_in(key_node, &ctx.allocator);
+                                let mut values = Vec::new_in(&ctx.allocator);
+                                let val_node = SimpleExpressionNode::from_node(val_exp);
+                                values.push(Box::new_in(val_node, &ctx.allocator));
 
                                 props.push(IRProp {
                                     key,
@@ -205,12 +193,12 @@ pub(crate) fn transform_element<'a>(
                                     is_component: true,
                                 });
                             }
-                        } else if dir.name.as_str() == "on" {
+                        } else if dir.name == "on" {
                             // v-on -> onXxx prop
                             if let Some(ref arg) = dir.arg
                                 && let ExpressionNode::Simple(event_exp) = arg
                             {
-                                let event_name = event_exp.content.as_str();
+                                let event_name = event_exp.content;
                                 let on_name = if event_name.is_empty() {
                                     String::from("on")
                                 } else {
@@ -225,20 +213,19 @@ pub(crate) fn transform_element<'a>(
                                     s
                                 };
 
-                                let key_node =
-                                    SimpleExpressionNode::new(on_name, true, event_exp.loc.clone());
-                                let key = Box::new_in(key_node, ctx.allocator);
+                                let key_node = SimpleExpressionNode::new(
+                                    ctx.allocator.alloc_str(&on_name),
+                                    true,
+                                    event_exp.loc.clone(),
+                                );
+                                let key = Box::new_in(key_node, &ctx.allocator);
 
-                                let mut values = Vec::new_in(ctx.allocator);
+                                let mut values = Vec::new_in(&ctx.allocator);
                                 if let Some(ref exp) = dir.exp
                                     && let ExpressionNode::Simple(val_exp) = exp
                                 {
-                                    let val_node = SimpleExpressionNode::new(
-                                        val_exp.content.clone(),
-                                        val_exp.is_static,
-                                        val_exp.loc.clone(),
-                                    );
-                                    values.push(Box::new_in(val_node, ctx.allocator));
+                                    let val_node = SimpleExpressionNode::from_node(val_exp);
+                                    values.push(Box::new_in(val_node, &ctx.allocator));
                                 }
 
                                 props.push(IRProp {
@@ -247,11 +234,11 @@ pub(crate) fn transform_element<'a>(
                                     is_component: true,
                                 });
                             }
-                        } else if dir.name.as_str() == "model" {
+                        } else if dir.name == "model" {
                             // v-model -> modelValue + onUpdate:modelValue props
                             let binding = if let Some(ref exp) = dir.exp {
                                 match exp {
-                                    ExpressionNode::Simple(s) => s.content.clone(),
+                                    ExpressionNode::Simple(s) => String::new(s.content),
                                     _ => String::from(""),
                                 }
                             } else {
@@ -263,25 +250,25 @@ pub(crate) fn transform_element<'a>(
                                 .arg
                                 .as_ref()
                                 .map(|arg| match arg {
-                                    ExpressionNode::Simple(s) => s.content.clone(),
+                                    ExpressionNode::Simple(s) => String::new(s.content),
                                     _ => String::from("modelValue"),
                                 })
                                 .unwrap_or_else(|| String::from("modelValue"));
 
                             // Add modelValue prop
                             let key_node = SimpleExpressionNode::new(
-                                prop_name.clone(),
+                                ctx.allocator.alloc_str(&prop_name.clone()),
                                 true,
                                 SourceLocation::STUB,
                             );
-                            let key = Box::new_in(key_node, ctx.allocator);
-                            let mut values = Vec::new_in(ctx.allocator);
+                            let key = Box::new_in(key_node, &ctx.allocator);
+                            let mut values = Vec::new_in(&ctx.allocator);
                             let val_node = SimpleExpressionNode::new(
-                                binding.clone(),
+                                ctx.allocator.alloc_str(&binding.clone()),
                                 false,
                                 SourceLocation::STUB,
                             );
-                            values.push(Box::new_in(val_node, ctx.allocator));
+                            values.push(Box::new_in(val_node, &ctx.allocator));
                             props.push(IRProp {
                                 key,
                                 values,
@@ -294,9 +281,12 @@ pub(crate) fn transform_element<'a>(
                                 s.push_str(prop_name.as_str());
                                 s
                             };
-                            let event_key_node =
-                                SimpleExpressionNode::new(event_key, true, SourceLocation::STUB);
-                            let event_key_box = Box::new_in(event_key_node, ctx.allocator);
+                            let event_key_node = SimpleExpressionNode::new(
+                                ctx.allocator.alloc_str(&event_key),
+                                true,
+                                SourceLocation::STUB,
+                            );
+                            let event_key_box = Box::new_in(event_key_node, &ctx.allocator);
                             // Handler getter: the Vapor runtime resolves raw
                             // component props lazily before emit invokes it.
                             let handler_content = {
@@ -306,12 +296,12 @@ pub(crate) fn transform_element<'a>(
                                 s
                             };
                             let handler_node = SimpleExpressionNode::new(
-                                handler_content,
+                                ctx.allocator.alloc_str(&handler_content),
                                 true,
                                 SourceLocation::STUB,
                             );
-                            let mut handler_values = Vec::new_in(ctx.allocator);
-                            handler_values.push(Box::new_in(handler_node, ctx.allocator));
+                            let mut handler_values = Vec::new_in(&ctx.allocator);
+                            handler_values.push(Box::new_in(handler_node, &ctx.allocator));
                             props.push(IRProp {
                                 key: event_key_box,
                                 values: handler_values,
@@ -328,28 +318,28 @@ pub(crate) fn transform_element<'a>(
                                     s
                                 };
                                 let mod_key_node = SimpleExpressionNode::new(
-                                    mod_key_name,
+                                    ctx.allocator.alloc_str(&mod_key_name),
                                     true,
                                     SourceLocation::STUB,
                                 );
-                                let mod_key = Box::new_in(mod_key_node, ctx.allocator);
+                                let mod_key = Box::new_in(mod_key_node, &ctx.allocator);
                                 // Build modifiers object content
                                 let mut mod_content = String::from("__RAW__() => ({ ");
                                 for (i, m) in dir.modifiers.iter().enumerate() {
                                     if i > 0 {
                                         mod_content.push_str(", ");
                                     }
-                                    mod_content.push_str(m.content.as_str());
+                                    mod_content.push_str(m.content);
                                     mod_content.push_str(": true");
                                 }
                                 mod_content.push_str(" })");
                                 let mod_val_node = SimpleExpressionNode::new(
-                                    mod_content,
+                                    ctx.allocator.alloc_str(&mod_content),
                                     true,
                                     SourceLocation::STUB,
                                 );
-                                let mut mod_values = Vec::new_in(ctx.allocator);
-                                mod_values.push(Box::new_in(mod_val_node, ctx.allocator));
+                                let mut mod_values = Vec::new_in(&ctx.allocator);
+                                mod_values.push(Box::new_in(mod_val_node, &ctx.allocator));
                                 props.push(IRProp {
                                     key: mod_key,
                                     values: mod_values,
@@ -360,21 +350,18 @@ pub(crate) fn transform_element<'a>(
                     }
                     PropNode::Attribute(attr) => {
                         // Static attribute -> prop
-                        let key_node = SimpleExpressionNode::new(
-                            attr.name.clone(),
-                            true,
-                            SourceLocation::STUB,
-                        );
-                        let key = Box::new_in(key_node, ctx.allocator);
+                        let key_node =
+                            SimpleExpressionNode::new(attr.name, true, SourceLocation::STUB);
+                        let key = Box::new_in(key_node, &ctx.allocator);
 
-                        let mut values = Vec::new_in(ctx.allocator);
+                        let mut values = Vec::new_in(&ctx.allocator);
                         if let Some(ref value) = attr.value {
                             let val_node = SimpleExpressionNode::new(
-                                value.content.clone(),
+                                value.content,
                                 true,
                                 SourceLocation::STUB,
                             );
-                            values.push(Box::new_in(val_node, ctx.allocator));
+                            values.push(Box::new_in(val_node, &ctx.allocator));
                         }
 
                         props.push(IRProp {
@@ -388,7 +375,7 @@ pub(crate) fn transform_element<'a>(
 
             let create_component = CreateComponentIRNode {
                 id: element_id,
-                tag: el.tag.clone(),
+                tag: el.tag,
                 props,
                 slots,
                 asset: true,
@@ -443,7 +430,7 @@ fn classify_non_reactive_directive(el: &ElementNode<'_>) -> NonReactiveDirective
     let has_once = el
         .props
         .iter()
-        .any(|prop| matches!(prop, PropNode::Directive(dir) if dir.name.as_str() == "once"));
+        .any(|prop| matches!(prop, PropNode::Directive(dir) if dir.name == "once"));
     if has_once {
         return NonReactiveDirective {
             should_lower_as_once: true,
@@ -455,7 +442,7 @@ fn classify_non_reactive_directive(el: &ElementNode<'_>) -> NonReactiveDirective
         let PropNode::Directive(dir) = prop else {
             continue;
         };
-        if dir.name.as_str() != "memo" {
+        if dir.name != "memo" {
             continue;
         }
 
@@ -500,12 +487,8 @@ fn get_slot_outlet_name<'a>(
                     && let Some(ref value) = attr.value
                 {
                     return Box::new_in(
-                        SimpleExpressionNode::new(
-                            value.content.clone(),
-                            true,
-                            SourceLocation::STUB,
-                        ),
-                        ctx.allocator,
+                        SimpleExpressionNode::new(value.content, true, SourceLocation::STUB),
+                        &ctx.allocator,
                     );
                 }
             }
@@ -515,14 +498,7 @@ fn get_slot_outlet_name<'a>(
                     && arg.content == "name"
                     && let Some(ExpressionNode::Simple(exp)) = dir.exp.as_ref()
                 {
-                    return Box::new_in(
-                        SimpleExpressionNode::new(
-                            exp.content.clone(),
-                            exp.is_static,
-                            exp.loc.clone(),
-                        ),
-                        ctx.allocator,
-                    );
+                    return Box::new_in(SimpleExpressionNode::from_node(exp), &ctx.allocator);
                 }
             }
         }
@@ -530,7 +506,7 @@ fn get_slot_outlet_name<'a>(
 
     Box::new_in(
         SimpleExpressionNode::new("default", true, SourceLocation::STUB),
-        ctx.allocator,
+        &ctx.allocator,
     )
 }
 
@@ -538,7 +514,7 @@ fn get_slot_outlet_props<'a>(
     ctx: &TransformContext<'a>,
     el: &ElementNode<'a>,
 ) -> Vec<'a, IRProp<'a>> {
-    let mut props = Vec::new_in(ctx.allocator);
+    let mut props = Vec::new_in(&ctx.allocator);
 
     for prop in el.props.iter() {
         match prop {
@@ -548,18 +524,14 @@ fn get_slot_outlet_props<'a>(
                 }
 
                 let key = Box::new_in(
-                    SimpleExpressionNode::new(attr.name.clone(), true, SourceLocation::STUB),
-                    ctx.allocator,
+                    SimpleExpressionNode::new(attr.name, true, SourceLocation::STUB),
+                    &ctx.allocator,
                 );
-                let mut values = Vec::new_in(ctx.allocator);
+                let mut values = Vec::new_in(&ctx.allocator);
                 if let Some(ref value) = attr.value {
                     values.push(Box::new_in(
-                        SimpleExpressionNode::new(
-                            value.content.clone(),
-                            true,
-                            SourceLocation::STUB,
-                        ),
-                        ctx.allocator,
+                        SimpleExpressionNode::new(value.content, true, SourceLocation::STUB),
+                        &ctx.allocator,
                     ));
                 }
 
@@ -580,22 +552,11 @@ fn get_slot_outlet_props<'a>(
                             continue;
                         }
 
-                        let key = Box::new_in(
-                            SimpleExpressionNode::new(
-                                arg.content.clone(),
-                                arg.is_static,
-                                arg.loc.clone(),
-                            ),
-                            ctx.allocator,
-                        );
-                        let mut values = Vec::new_in(ctx.allocator);
+                        let key = Box::new_in(SimpleExpressionNode::from_node(arg), &ctx.allocator);
+                        let mut values = Vec::new_in(&ctx.allocator);
                         values.push(Box::new_in(
-                            SimpleExpressionNode::new(
-                                exp.content.clone(),
-                                exp.is_static,
-                                exp.loc.clone(),
-                            ),
-                            ctx.allocator,
+                            SimpleExpressionNode::from_node(exp),
+                            &ctx.allocator,
                         ));
 
                         props.push(IRProp {
@@ -607,16 +568,12 @@ fn get_slot_outlet_props<'a>(
                     (None, Some(ExpressionNode::Simple(exp))) => {
                         let key = Box::new_in(
                             SimpleExpressionNode::new("$", true, SourceLocation::STUB),
-                            ctx.allocator,
+                            &ctx.allocator,
                         );
-                        let mut values = Vec::new_in(ctx.allocator);
+                        let mut values = Vec::new_in(&ctx.allocator);
                         values.push(Box::new_in(
-                            SimpleExpressionNode::new(
-                                exp.content.clone(),
-                                exp.is_static,
-                                exp.loc.clone(),
-                            ),
-                            ctx.allocator,
+                            SimpleExpressionNode::from_node(exp),
+                            &ctx.allocator,
                         ));
 
                         props.push(IRProp {

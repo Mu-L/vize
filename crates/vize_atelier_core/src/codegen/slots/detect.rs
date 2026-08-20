@@ -19,7 +19,7 @@ pub(super) fn slots_spread<'a, 'b>(el: &'b ElementNode<'a>) -> Option<&'b Expres
         };
         // `v-slots` takes no argument -- the slot names are the forwarded
         // object's own keys -- so an argument spelling is not this construct.
-        if dir.name.as_str() != "slots" || dir.arg.is_some() {
+        if dir.name != "slots" || dir.arg.is_some() {
             return None;
         }
         dir.exp.as_ref()
@@ -43,7 +43,7 @@ fn has_authored_slots(el: &ElementNode<'_>) -> bool {
     if el
         .props
         .iter()
-        .any(|prop| matches!(prop, PropNode::Directive(dir) if dir.name.as_str() == "slot"))
+        .any(|prop| matches!(prop, PropNode::Directive(dir) if dir.name == "slot"))
     {
         return true;
     }
@@ -58,10 +58,7 @@ fn has_authored_slots(el: &ElementNode<'_>) -> bool {
 pub fn has_slot_children(el: &ElementNode<'_>) -> bool {
     // Teleport and KeepAlive consume raw children rather than a slot object.
     // KeepAlive still gets DYNAMIC_SLOTS at the vnode patch-flag layer.
-    if matches!(
-        el.tag.as_str(),
-        "Teleport" | "teleport" | "KeepAlive" | "keep-alive"
-    ) {
+    if matches!(el.tag, "Teleport" | "teleport" | "KeepAlive" | "keep-alive") {
         return false;
     }
 
@@ -78,7 +75,7 @@ pub fn has_slot_children(el: &ElementNode<'_>) -> bool {
     // Check for v-slot on component root
     for prop in &el.props {
         if let PropNode::Directive(dir) = prop
-            && dir.name.as_str() == "slot"
+            && dir.name == "slot"
         {
             return true;
         }
@@ -101,7 +98,7 @@ pub fn has_slot_children(el: &ElementNode<'_>) -> bool {
 }
 
 /// Check if component has dynamic slots (requires DYNAMIC_SLOTS patch flag)
-pub fn has_dynamic_slots_flag(el: &ElementNode<'_>) -> bool {
+pub fn has_dynamic_slots_flag(el: &ElementNode<'_>, source: &str) -> bool {
     // A forwarded slots object can change without anything on this vnode
     // changing, and the emitted slots object carries no `_` stability flag (see
     // `generate_slots`), so the child is only re-rendered if the parent forces
@@ -111,7 +108,7 @@ pub fn has_dynamic_slots_flag(el: &ElementNode<'_>) -> bool {
     if slots_spread(el).is_some() {
         return true;
     }
-    let collected_slots = collect_slots(el);
+    let collected_slots = collect_slots(el, source);
     if collected_slots.iter().any(|s| s.is_dynamic) {
         return true;
     }
@@ -128,7 +125,7 @@ pub fn has_forwarded_slot_outlet(el: &ElementNode<'_>) -> bool {
 fn child_contains_slot_outlet(child: &TemplateChildNode<'_>) -> bool {
     match child {
         TemplateChildNode::Element(el) => {
-            if el.tag_type == ElementType::Slot || el.tag.as_str() == "slot" {
+            if el.tag_type == ElementType::Slot || el.tag == "slot" {
                 return true;
             }
             ensure_sufficient_stack(|| el.children.iter().any(child_contains_slot_outlet))
@@ -153,7 +150,7 @@ pub(super) fn has_conditional_or_loop_slots(el: &ElementNode<'_>) -> bool {
         TemplateChildNode::If(if_node) => if_node.branches.iter().any(|branch| {
             branch.children.iter().any(|c| {
                 if let TemplateChildNode::Element(el) = c {
-                    el.tag.as_str() == "template" && has_v_slot(el)
+                    el.tag == "template" && has_v_slot(el)
                 } else {
                     false
                 }
@@ -161,7 +158,7 @@ pub(super) fn has_conditional_or_loop_slots(el: &ElementNode<'_>) -> bool {
         }),
         TemplateChildNode::For(for_node) => for_node.children.iter().any(|c| {
             if let TemplateChildNode::Element(el) = c {
-                el.tag.as_str() == "template" && has_v_slot(el)
+                el.tag == "template" && has_v_slot(el)
             } else {
                 false
             }
@@ -172,13 +169,13 @@ pub(super) fn has_conditional_or_loop_slots(el: &ElementNode<'_>) -> bool {
 
 pub(super) fn child_is_slot_template(child: &TemplateChildNode<'_>) -> bool {
     match child {
-        TemplateChildNode::Element(el) => el.tag.as_str() == "template" && has_v_slot(el),
+        TemplateChildNode::Element(el) => el.tag == "template" && has_v_slot(el),
         TemplateChildNode::If(if_node) => if_node.branches.iter().any(|branch| {
             branch.children.iter().any(|child| {
                 matches!(
                     child,
                     TemplateChildNode::Element(el)
-                        if el.tag.as_str() == "template" && has_v_slot(el)
+                        if el.tag == "template" && has_v_slot(el)
                 )
             })
         }),
@@ -186,7 +183,7 @@ pub(super) fn child_is_slot_template(child: &TemplateChildNode<'_>) -> bool {
             matches!(
                 child,
                 TemplateChildNode::Element(el)
-                    if el.tag.as_str() == "template" && has_v_slot(el)
+                    if el.tag == "template" && has_v_slot(el)
             )
         }),
         _ => false,

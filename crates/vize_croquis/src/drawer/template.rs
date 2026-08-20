@@ -31,6 +31,7 @@ impl Drawer {
         if !self.options.analyze_template_scopes && !self.options.track_usage {
             return self;
         }
+        self.template_source = root.source.into();
 
         // Count root-level elements
         let root_element_count = profile!("croquis.template.root_count", {
@@ -45,8 +46,8 @@ impl Drawer {
         self.croquis.template_info.root_element_count = root_element_count;
 
         // Store template content range
-        self.croquis.template_info.content_start = root.loc.start.offset;
-        self.croquis.template_info.content_end = root.loc.end.offset;
+        self.croquis.template_info.content_start = root.loc.span.start;
+        self.croquis.template_info.content_end = root.loc.span.end;
 
         // Keep profiling around the whole traversal instead of every recursive
         // child visit. The traversal itself is the hot path; per-node spans
@@ -102,9 +103,14 @@ impl Drawer {
             }
             TemplateChildNode::Interpolation(interp) => {
                 profile!("croquis.template.interpolation", {
+                    let compound_content;
                     let content = match &interp.content {
-                        ExpressionNode::Simple(s) => s.content.as_str(),
-                        ExpressionNode::Compound(c) => c.loc.source.as_str(),
+                        ExpressionNode::Simple(s) => s.content,
+                        ExpressionNode::Compound(c) => {
+                            compound_content =
+                                CompactString::new(c.loc.span.slice(&self.template_source));
+                            compound_content.as_str()
+                        }
                     };
 
                     // Track $attrs usage
@@ -119,8 +125,8 @@ impl Drawer {
                             crate::croquis::TemplateExpression {
                                 content: CompactString::new(content),
                                 kind: crate::croquis::TemplateExpressionKind::Interpolation,
-                                start: loc.start.offset,
-                                end: loc.end.offset,
+                                start: loc.span.start,
+                                end: loc.span.end,
                                 scope_id,
                                 vif_guard: self.current_vif_guard(),
                             },

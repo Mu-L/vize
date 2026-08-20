@@ -2,7 +2,7 @@
 
 use vize_atelier_jsx::{JsxLang, lower_source};
 use vize_canon::virtual_ts::VizeMapping;
-use vize_carton::Bump;
+use vize_carton::Allocator;
 
 use super::{
     JsxEmit, collect_root_expressions, collect_style_expressions, component, push_mapped_expr, slot,
@@ -25,15 +25,15 @@ pub(in crate::ide) struct JsxVirtualTs {
 
 /// Lower a `.jsx`/`.tsx` Vize component to plain virtual TypeScript.
 pub(in crate::ide) fn generate_jsx_virtual_ts(source: &str, lang: JsxLang) -> Option<JsxVirtualTs> {
-    let bump = Bump::new();
-    let lowered = lower_source(&bump, source, lang);
+    let allocator = Allocator::new();
+    let lowered = lower_source(&allocator, allocator.as_oxc(), source, lang);
 
     let mut roots: Vec<(u32, u32, Vec<JsxEmit>)> = Vec::with_capacity(lowered.roots.len());
     for root in &lowered.roots {
         let mut emits = Vec::new();
         collect_root_expressions(&root.root, &mut emits, true);
         collect_style_expressions(&root.scoped_style_exprs, &mut emits);
-        roots.push((root.root.loc.start.offset, root.root.loc.end.offset, emits));
+        roots.push((root.root.loc.span.start, root.root.loc.span.end, emits));
     }
     roots.sort_by_key(|(start, _, _)| *start);
 

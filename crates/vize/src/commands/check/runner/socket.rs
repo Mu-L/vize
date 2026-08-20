@@ -25,11 +25,7 @@ use vize_curator::profile::{ProfilePhase, ProfilePhaseKind, ProfileReport, print
 
 pub(crate) fn run_with_socket(args: &CheckArgs, socket_path: &str) {
     let start = Instant::now();
-    if args.profile {
-        let profiler = global_profiler();
-        profiler.clear();
-        profiler.enable();
-    }
+    args.profile_export.begin(args.profile);
 
     let collect_start = Instant::now();
     #[allow(clippy::disallowed_types)]
@@ -272,6 +268,7 @@ pub(crate) fn run_with_socket(args: &CheckArgs, socket_path: &str) {
         files.len(),
         total_time
     );
+    args.profile_export.finish("check", args.profile);
     if args.profile {
         let profiler = global_profiler();
         let allocation_summary = profile_support::allocation_snapshot();

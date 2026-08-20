@@ -3,7 +3,7 @@
 mod common;
 
 use common::{as_attribute, as_directive, as_element, lower_one, lower_one_tsx, simple_content};
-use vize_carton::Bump;
+use vize_carton::Allocator;
 use vize_relief::{ElementType, ExpressionNode, TemplateChildNode};
 
 fn expr_text<'a>(expr: &'a ExpressionNode<'a>) -> &'a str {
@@ -11,12 +11,12 @@ fn expr_text<'a>(expr: &'a ExpressionNode<'a>) -> &'a str {
 }
 
 fn element_tag<'a>(child: &'a TemplateChildNode<'a>) -> &'a str {
-    as_element(child).tag.as_str()
+    as_element(child).tag
 }
 
 #[test]
 fn fragment_preserves_mixed_child_order_exactly() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(
         &bump,
         r#"const View = () => (
@@ -31,12 +31,12 @@ fn fragment_preserves_mixed_child_order_exactly() {
     assert_eq!(root.children.len(), 3);
 
     let header = as_element(&root.children[0]);
-    assert_eq!(header.tag.as_str(), "header");
+    assert_eq!(header.tag, "header");
     assert_eq!(header.tag_type, ElementType::Element);
     assert_eq!(header.props.len(), 1);
     let id = as_attribute(&header.props[0]);
-    assert_eq!(id.name.as_str(), "id");
-    assert_eq!(id.value.as_ref().unwrap().content.as_str(), "top");
+    assert_eq!(id.name, "id");
+    assert_eq!(id.value.as_ref().unwrap().content, "top");
 
     match &root.children[1] {
         TemplateChildNode::Interpolation(interpolation) => {
@@ -49,7 +49,7 @@ fn fragment_preserves_mixed_child_order_exactly() {
     // component whose `:is` binding is the member expression, ahead of the
     // element's own props (#3421).
     let panel = as_element(&root.children[2]);
-    assert_eq!(panel.tag.as_str(), "component");
+    assert_eq!(panel.tag, "component");
     assert_eq!(panel.tag_type, ElementType::Component);
     assert_eq!(panel.props.len(), 3);
     let is_binding = as_directive(&panel.props[0]);
@@ -58,22 +58,21 @@ fn fragment_preserves_mixed_child_order_exactly() {
         simple_content(is_binding.exp.as_ref().unwrap()),
         "Widget.Panel"
     );
-    assert_eq!(as_attribute(&panel.props[1]).name.as_str(), "active");
-    assert_eq!(as_attribute(&panel.props[2]).name.as_str(), "data-id");
+    assert_eq!(as_attribute(&panel.props[1]).name, "active");
+    assert_eq!(as_attribute(&panel.props[2]).name, "data-id");
     assert_eq!(
         as_attribute(&panel.props[2])
             .value
             .as_ref()
             .unwrap()
-            .content
-            .as_str(),
+            .content,
         "panel"
     );
 }
 
 #[test]
 fn tsx_generic_component_map_lowers_aliases_and_key_exactly() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one_tsx(
         &bump,
         r#"const Select = <T extends string>({ options }: { options: T[] }) => (
@@ -82,7 +81,7 @@ fn tsx_generic_component_map_lowers_aliases_and_key_exactly() {
     );
 
     let ul = as_element(&root.children[0]);
-    assert_eq!(ul.tag.as_str(), "ul");
+    assert_eq!(ul.tag, "ul");
     assert_eq!(ul.children.len(), 1);
 
     let for_node = match &ul.children[0] {
@@ -102,10 +101,10 @@ fn tsx_generic_component_map_lowers_aliases_and_key_exactly() {
     assert_eq!(for_node.children.len(), 1);
 
     let li = as_element(&for_node.children[0]);
-    assert_eq!(li.tag.as_str(), "li");
+    assert_eq!(li.tag, "li");
     assert_eq!(li.props.len(), 1);
     let key = as_directive(&li.props[0]);
-    assert_eq!(key.name.as_str(), "bind");
+    assert_eq!(key.name, "bind");
     assert_eq!(expr_text(key.arg.as_ref().expect("key arg")), "key");
     assert_eq!(expr_text(key.exp.as_ref().expect("key exp")), "option");
 
@@ -119,7 +118,7 @@ fn tsx_generic_component_map_lowers_aliases_and_key_exactly() {
 
 #[test]
 fn nested_ternary_records_each_branch_condition_and_child() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(
         &bump,
         r#"const Badge = () => (
@@ -151,21 +150,21 @@ fn nested_ternary_records_each_branch_condition_and_child() {
 
 #[test]
 fn directive_arguments_modifiers_and_plain_attrs_are_kept_separate() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let root = lower_one(
         &bump,
         r#"const Form = () => <input id="email" v-model={model.email} v-focus:lazy={focusOptions} />;"#,
     );
     let input = as_element(&root.children[0]);
-    assert_eq!(input.tag.as_str(), "input");
+    assert_eq!(input.tag, "input");
     assert_eq!(input.props.len(), 3);
 
     let id = as_attribute(&input.props[0]);
-    assert_eq!(id.name.as_str(), "id");
-    assert_eq!(id.value.as_ref().unwrap().content.as_str(), "email");
+    assert_eq!(id.name, "id");
+    assert_eq!(id.value.as_ref().unwrap().content, "email");
 
     let model = as_directive(&input.props[1]);
-    assert_eq!(model.name.as_str(), "model");
+    assert_eq!(model.name, "model");
     assert!(model.arg.is_none());
     assert_eq!(
         expr_text(model.exp.as_ref().expect("model exp")),
@@ -173,7 +172,7 @@ fn directive_arguments_modifiers_and_plain_attrs_are_kept_separate() {
     );
 
     let focus = as_directive(&input.props[2]);
-    assert_eq!(focus.name.as_str(), "focus");
+    assert_eq!(focus.name, "focus");
     assert_eq!(expr_text(focus.arg.as_ref().expect("focus arg")), "lazy");
     assert_eq!(
         expr_text(focus.exp.as_ref().expect("focus exp")),
@@ -183,7 +182,7 @@ fn directive_arguments_modifiers_and_plain_attrs_are_kept_separate() {
 
 #[test]
 fn scoped_style_extraction_removes_style_child_and_keeps_interpolations() {
-    let bump = Bump::new();
+    let bump = Allocator::new();
     let src = r#"const Themed = ({ color, gap }: { color: string; gap: number }) => (
   <>
     <section class="box">content</section>
@@ -195,7 +194,8 @@ fn scoped_style_extraction_removes_style_child_and_keeps_interpolations() {
     `}</style>
   </>
 );"#;
-    let out = vize_atelier_jsx::lower_source(&bump, src, vize_atelier_jsx::JsxLang::Tsx);
+    let out =
+        vize_atelier_jsx::lower_source(&bump, bump.as_oxc(), src, vize_atelier_jsx::JsxLang::Tsx);
     assert!(!out.has_errors(), "diagnostics: {:?}", out.diagnostics);
     assert_eq!(out.roots.len(), 1);
 
