@@ -122,28 +122,9 @@ fn element_binds_attrs_explicitly(element: &ElementNode<'_>, source: &str) -> bo
     })
 }
 
-fn expression_source<'a>(expression: &'a ExpressionNode<'a>, source: &'a str) -> &'a str {
-    match expression {
-        ExpressionNode::Simple(simple) => simple.content,
-        ExpressionNode::Compound(compound) => compound.loc.span.slice(source),
-    }
-}
-
-fn expression_spreads_attrs(source: &str) -> bool {
-    if source == "$attrs" {
-        return true;
-    }
-
-    let mut rest = source;
-    while let Some(index) = rest.find("$attrs") {
-        let before = rest[..index].trim_end();
-        if before.ends_with("...") {
-            return true;
-        }
-        rest = &rest[index + "$attrs".len()..];
-    }
-    false
-}
+#[path = "fallthrough/attrs_expr.rs"]
+mod attrs_expr;
+use attrs_expr::{expression_source, expression_spreads_attrs};
 
 fn possible_single_root_targets(root: &RootNode<'_>) -> Option<Vec<FallthroughRootTarget>> {
     possible_single_root_targets_from_children(root.children.as_slice())
