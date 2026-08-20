@@ -26,11 +26,12 @@ test("TS-24: the wasm32-wasip2 lanes ride the required clippy-and-test job", () 
   );
   assert.match(workflowJobBody(workflow, "test-report"), /- clippy-and-test\b/);
 
-  // The toolchain step must install the wasip2 std through the action's
-  // `targets:` input - the machine recipe. (The local nix flake's Rust
-  // carries only wasm32-unknown-unknown; the sysroot-overlay workaround is
-  // recorded in no-std-boundary.md, and CI must never need it.)
-  assert.match(job, /targets:\s*wasm32-wasip2$/m);
+  // The wasip2 std installs through the pinned toolchain: cargo runs under
+  // rust-toolchain.toml (channel 1.95.0), so a `targets:` input on the
+  // stable action never reaches the build - the first CI run proved that.
+  // rustup materializes the toolchain file's targets, so the pin lives there.
+  const toolchainFile = readRepoFile("rust-toolchain.toml");
+  assert.match(toolchainFile, /^targets = \[.*"wasm32-wasip2".*\]$/m);
 
   // The two lane commands, exactly as TS-24's row states them: the default
   // build and the `--no-default-features` build, both on the 32-bit target.
