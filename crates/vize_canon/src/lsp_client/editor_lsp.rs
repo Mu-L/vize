@@ -66,6 +66,10 @@ pub(super) struct EditorLspSession {
     /// A close cannot be diagnosed directly, so the next query must act as
     /// the response-backed barrier for that topology change.
     query_barrier_required: bool,
+    /// Overlay notifications written since the last response-backed barrier.
+    /// This spans synchronization calls because workspace discovery can add
+    /// one document per call faster than the bounded transport drains them.
+    unacknowledged_notifications: usize,
 }
 
 impl EditorLspSession {
@@ -95,6 +99,7 @@ impl EditorLspSession {
             ready_generation: None,
             dirty_documents: Default::default(),
             query_barrier_required: false,
+            unacknowledged_notifications: 0,
         })
     }
 

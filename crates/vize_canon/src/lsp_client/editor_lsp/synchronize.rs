@@ -19,7 +19,6 @@ impl EditorLspSession {
     ) -> Result<(), String> {
         let mut desired = documents.iter().collect::<Vec<_>>();
         desired.sort_unstable_by(|left, right| left.0.cmp(right.0));
-        let mut pending = 0;
         for (document_uri, text) in desired {
             let changed = self
                 .documents
@@ -27,7 +26,7 @@ impl EditorLspSession {
                 .is_none_or(|current| current != text);
             let uri = self.mirror(document_uri, text)?;
             if changed {
-                self.flush_if_full(&uri, &mut pending)?;
+                self.flush_if_full(Some(&uri))?;
             }
         }
 
@@ -48,17 +47,15 @@ impl EditorLspSession {
             .map(parse_document_uri)
             .transpose()?;
 
-        pending = 0;
         for document_uri in removed {
             self.close_mirrored_document(&document_uri)?;
-            if let Some(uri) = retained_uri.as_ref() {
-                self.flush_if_full(uri, &mut pending)?;
-            }
+            self.flush_if_full(retained_uri.as_ref())?;
         }
         if let Some(document_uri) = retained_barrier
             && !documents.contains_key(document_uri.as_str())
         {
             self.close_mirrored_document(&document_uri)?;
+            self.flush_if_full(None)?;
         }
         Ok(())
     }
@@ -75,14 +72,17 @@ impl EditorLspSession {
         Ok(())
     }
 
-    fn flush_if_full(&self, uri: &Uri, pending: &mut usize) -> Result<(), String> {
-        *pending += 1;
-        if *pending < NOTIFICATIONS_PER_BARRIER {
+    fn flush_if_full(&mut self, barrier_uri: Option<&Uri>) -> Result<(), String> {
+        self.unacknowledged_notifications = self.unacknowledged_notifications.saturating_add(1);
+        if self.unacknowledged_notifications < NOTIFICATIONS_PER_BARRIER {
             return Ok(());
         }
+        let Some(uri) = barrier_uri else {
+            return Ok(());
+        };
         super::super::diagnostics_lsp::request_lsp_document_diagnostic_ack(&self.client, uri)
             .map_err(|error| cstr!("Failed to drain editor LSP overlay notifications: {error}"))?;
-        *pending = 0;
+        self.unacknowledged_notifications = 0;
         Ok(())
     }
 }
