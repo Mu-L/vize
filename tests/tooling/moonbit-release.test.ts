@@ -226,6 +226,22 @@ test("release script creates immutable tags and pushes main and tag atomically",
   }
 });
 
+test("release script accepts an exact merge commit at the main tip", () => {
+  const fixture = runRepositoryGuardFixture({
+    branch: "main",
+    parentLine:
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccccccccccccc",
+  });
+
+  try {
+    assert.equal(fixture.result.status, 0, fixture.result.stderr);
+    assert.doesNotMatch(fixture.gitLog, /^rev-list\b/m);
+    assert.match(fixture.gitLog, /^commit --no-verify -m chore: release v0\.290\.1$/m);
+  } finally {
+    fs.rmSync(fixture.tempDir, { recursive: true, force: true });
+  }
+});
+
 test("release script explains local cleanup after an atomic push failure", () => {
   const fixture = runRepositoryGuardFixture({ branch: "main", pushFails: true });
 
@@ -280,14 +296,6 @@ test("release repository guard rejects unsafe refs before mutation", () => {
     [
       { branch: "main", remoteSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
       /HEAD must exactly match the current origin\/main/,
-    ],
-    [
-      {
-        branch: "main",
-        parentLine:
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb cccccccccccccccccccccccccccccccccccccccc",
-      },
-      /must have exactly one parent for benchmark comparison/,
     ],
     [{ branch: "main", localTagExists: true }, /Tag v0\.290\.1 already exists locally/],
     [{ branch: "main", remoteTagExists: true }, /Remote tag v0\.290\.1 already exists/],
