@@ -1,8 +1,9 @@
 //! Canonical printer for [`DisegnoFolio`].
 //!
 //! `Full` mode is the injective, parseable form; `Display` elides every
-//! ` @start:end` span tail (a semantic elision, hand-written per the P2-4
-//! boundary) and changes nothing else. Indentation is two spaces per
+//! ` @start:end` span - line tails and the spans inside expression
+//! payloads alike (a semantic elision, hand-written per the P2-4
+//! boundary) - and changes nothing else. Indentation is two spaces per
 //! nesting level; the fixed grouping under an element - attributes, then
 //! bindings, then children - is part of the canonical form.
 
@@ -11,7 +12,9 @@ use core::fmt::{Result, Write};
 use vize_carton::Span;
 
 use super::DisegnoFolio;
-use super::owned::{FolioAttribute, FolioBinding, FolioName, FolioOp, FolioVueDirective};
+use super::owned::{
+    FolioAttribute, FolioBinding, FolioExpr, FolioName, FolioOp, FolioVueDirective,
+};
 use crate::op::Namespace;
 use vize_davinci::folio::FolioMode;
 
@@ -62,10 +65,47 @@ fn quoted<W: Write>(w: &mut W, text: &str) -> Result {
     w.write_char('"')
 }
 
-fn print_name<W: Write>(w: &mut W, name: &FolioName) -> Result {
+/// Write one expression payload: `js("…" @s:e)` / `opaque(reason "…" @s:e)`
+/// / `foreign(dialect "…" @s:e)`; `Display` elides the inner span tail
+/// exactly as it elides line tails.
+fn print_expr<W: Write>(w: &mut W, expr: &FolioExpr, mode: FolioMode) -> Result {
+    let (head, source, span) = match expr {
+        FolioExpr::Js { source, span } => {
+            w.write_str("js(")?;
+            ("", source, span)
+        }
+        FolioExpr::Opaque {
+            reason,
+            source,
+            span,
+        } => {
+            w.write_str("opaque(")?;
+            (reason.mnemonic(), source, span)
+        }
+        FolioExpr::Foreign {
+            dialect,
+            source,
+            span,
+        } => {
+            w.write_str("foreign(")?;
+            (dialect.as_str(), source, span)
+        }
+    };
+    if !head.is_empty() {
+        w.write_str(head)?;
+        w.write_char(' ')?;
+    }
+    quoted(w, source.as_str())?;
+    if mode == FolioMode::Full {
+        write!(w, " @{}:{}", span.start, span.end)?;
+    }
+    w.write_char(')')
+}
+
+fn print_name<W: Write>(w: &mut W, name: &FolioName, mode: FolioMode) -> Result {
     match name {
         FolioName::Static(text) => quoted(w, text.as_str()),
-        FolioName::Dynamic(_) => w.write_str("?expr"),
+        FolioName::Dynamic(expr) => print_expr(w, expr, mode),
     }
 }
 
@@ -93,7 +133,10 @@ fn print_binding<W: Write>(
     match binding {
         FolioBinding::Model(model) => {
             indent(w, depth)?;
-            w.write_str("ui.model read=?expr write=?expr")?;
+            w.write_str("ui.model read=")?;
+            print_expr(w, &model.contract.read, mode)?;
+            w.write_str(" write=")?;
+            print_expr(w, &model.contract.write, mode)?;
             end_line(w, model.span, mode)?;
             for attribute in &model.attributes {
                 print_attribute(w, attribute, depth + 1, mode)?;
@@ -115,7 +158,7 @@ fn print_directive<W: Write>(
     quoted(w, directive.name.as_str())?;
     if let Some(argument) = &directive.argument {
         w.write_str(" arg=")?;
-        print_name(w, argument)?;
+        print_name(w, argument, mode)?;
     }
     if !directive.modifiers.is_empty() {
         w.write_str(" mods=\"")?;
@@ -127,8 +170,9 @@ fn print_directive<W: Write>(
         }
         w.write_char('"')?;
     }
-    if directive.value.is_some() {
-        w.write_str(" value=?expr")?;
+    if let Some(value) = &directive.value {
+        w.write_str(" value=")?;
+        print_expr(w, value, mode)?;
     }
     end_line(w, directive.span, mode)
 }
@@ -174,7 +218,8 @@ fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) ->
         }
         FolioOp::Interpolation(interpolation) => {
             indent(w, depth)?;
-            w.write_str("ui.interpolation ?expr")?;
+            w.write_str("ui.interpolation ")?;
+            print_expr(w, &interpolation.expression, mode)?;
             end_line(w, interpolation.span, mode)
         }
         FolioOp::If(if_op) => {
@@ -184,8 +229,9 @@ fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) ->
             for branch in &if_op.branches {
                 indent(w, depth + 1)?;
                 w.write_str("branch")?;
-                if branch.condition.is_some() {
-                    w.write_str(" ?expr")?;
+                if let Some(condition) = &branch.condition {
+                    w.write_char(' ')?;
+                    print_expr(w, condition, mode)?;
                 }
                 end_line(w, branch.span, mode)?;
                 for child in &branch.ops {
@@ -196,12 +242,17 @@ fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) ->
         }
         FolioOp::For(for_op) => {
             indent(w, depth)?;
-            w.write_str("ui.for source=?expr value=?expr")?;
-            if for_op.binding.key.is_some() {
-                w.write_str(" key=?expr")?;
+            w.write_str("ui.for source=")?;
+            print_expr(w, &for_op.binding.source, mode)?;
+            w.write_str(" value=")?;
+            print_expr(w, &for_op.binding.value, mode)?;
+            if let Some(key) = &for_op.binding.key {
+                w.write_str(" key=")?;
+                print_expr(w, key, mode)?;
             }
-            if for_op.binding.index.is_some() {
-                w.write_str(" index=?expr")?;
+            if let Some(index) = &for_op.binding.index {
+                w.write_str(" index=")?;
+                print_expr(w, index, mode)?;
             }
             end_line(w, for_op.span, mode)?;
             for child in &for_op.ops {
@@ -212,7 +263,7 @@ fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) ->
         FolioOp::Slot(slot) => {
             indent(w, depth)?;
             w.write_str("ui.slot name=")?;
-            print_name(w, &slot.name)?;
+            print_name(w, &slot.name, mode)?;
             end_line(w, slot.span, mode)?;
             for child in &slot.fallback {
                 print_op(w, child, depth + 1, mode)?;

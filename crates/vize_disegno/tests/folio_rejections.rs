@@ -54,7 +54,7 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
         "attribute after a child",
     ),
     (
-        "ui.model read=?expr write=?expr @1:2\n",
+        "ui.model read=js(\"m\" @1:2) write=js(\"m\" @1:2) @1:2\n",
         5,
         "binding outside an element",
     ),
@@ -64,12 +64,12 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
         "binding after a child",
     ),
     (
-        "ui.element d @1:2\n  ui.model read=?expr write=?expr @1:2\n    ui.text \"x\" @1:2\n",
+        "ui.element d @1:2\n  ui.model read=js(\"m\" @1:2) write=js(\"m\" @1:2) @1:2\n    ui.text \"x\" @1:2\n",
         7,
         "expected `attr` under `ui.model`",
     ),
     (
-        "ui.element d @1:2\n  ui.model read=?expr write=?expr @1:2\n    branch @1:2\n",
+        "ui.element d @1:2\n  ui.model read=js(\"m\" @1:2) write=js(\"m\" @1:2) @1:2\n    branch @1:2\n",
         7,
         "`branch` outside `ui.if`",
     ),
@@ -85,7 +85,7 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
         "expected `branch` under `ui.if`",
     ),
     (
-        "ui.if @1:2\n  ui.model read=?expr write=?expr @1:2\n",
+        "ui.if @1:2\n  ui.model read=js(\"m\" @1:2) write=js(\"m\" @1:2) @1:2\n",
         6,
         "expected `branch` under `ui.if`",
     ),
@@ -98,22 +98,36 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
     ("ui.text x @1:2\n", 5, "expected quoted string"),
     ("ui.text \"x @1:2\n", 5, "unterminated quoted string"),
     ("ui.text \"x\\q\" @1:2\n", 5, "invalid escape `\\q`"),
-    ("ui.interpolation @1:2\n", 5, "expected `?expr`"),
     (
-        "ui.for value=?expr @1:2\n",
+        "ui.interpolation @1:2\n",
         5,
-        "expected `source=?expr value=?expr`",
+        "expected an expression payload",
     ),
     (
-        "ui.element d @1:2\n  ui.model read=?expr @1:2\n",
+        "ui.for value=js(\"v\" @1:2) @1:2\n",
+        5,
+        "expected `source=`",
+    ),
+    (
+        "ui.for source=js(\"s\" @1:2) @1:2\n",
+        5,
+        "expected `value=`",
+    ),
+    (
+        "ui.element d @1:2\n  ui.model read=js(\"m\" @1:2) @1:2\n",
         6,
-        "expected `read=?expr write=?expr`",
+        "expected `write=`",
+    ),
+    (
+        "ui.element d @1:2\n  ui.model write=js(\"m\" @1:2) @1:2\n",
+        6,
+        "expected `read=`",
     ),
     ("ui.slot header @1:2\n", 5, "expected `name=`"),
     (
         "ui.slot name=header @1:2\n",
         5,
-        "expected quoted string or `?expr`",
+        "expected quoted string or an expression payload",
     ),
     ("ui.element\n", 5, "missing tag"),
     ("ui.component\n", 5, "missing component name"),
@@ -131,14 +145,48 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
     (
         "ui.element d @1:2\n  vue.directive \"f\" arg=top @1:2\n",
         6,
-        "expected quoted string or `?expr`",
+        "expected quoted string or an expression payload",
     ),
     (
         "ui.element d @1:2\n  attr a=b @1:2\n",
         6,
         "expected quoted string",
     ),
-    ("ui.if @1:2\n  branch x @1:2\n", 6, "invalid span `x @1:2`"),
+    (
+        "ui.if @1:2\n  branch x @1:2\n",
+        6,
+        "expected an expression payload",
+    ),
+    // -- expression payload tokens -------------------------------------------
+    ("ui.interpolation js(x) @1:2\n", 5, "expected quoted string"),
+    ("ui.interpolation js(\"x\") @1:2\n", 5, "missing span"),
+    (
+        "ui.interpolation js(\"x\" @1:2\n",
+        5,
+        "unterminated expression payload",
+    ),
+    (
+        "ui.interpolation js(\"x\" 1:2) @1:2\n",
+        5,
+        "invalid span `1:2`",
+    ),
+    (
+        "ui.interpolation opaque(mystery \"x\" @1:2) @1:2\n",
+        5,
+        "unknown opaque reason `mystery`",
+    ),
+    ("ui.interpolation opaque(\n", 5, "expected an opaque reason"),
+    ("ui.interpolation foreign(\n", 5, "expected a dialect id"),
+    (
+        "ui.interpolation foreign( \"x\" @1:2) @1:2\n",
+        5,
+        "expected a dialect id",
+    ),
+    (
+        "ui.if @1:2\n  branch js(\"c\" @1:2)x @1:2\n",
+        6,
+        "trailing content `x @1:2`",
+    ),
 ];
 
 fn assert_rejected(input: &str, line: usize, message: &str) {

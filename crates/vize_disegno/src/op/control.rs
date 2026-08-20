@@ -8,7 +8,7 @@
 use vize_carton::{Span, Vec};
 
 use super::Region;
-use crate::expr::ExprSlot;
+use crate::expr::ExprRef;
 
 /// `ui.if` - structured conditional.
 ///
@@ -28,7 +28,7 @@ pub struct IfOp<'a> {
 #[derive(Debug)]
 pub struct IfBranch<'a> {
     /// The branch condition; `None` for the unconditional (`else`) branch.
-    pub condition: Option<ExprSlot>,
+    pub condition: Option<ExprRef<'a>>,
     /// The content this branch renders.
     pub region: Region<'a>,
     /// The branch's source range.
@@ -39,7 +39,7 @@ pub struct IfBranch<'a> {
 #[derive(Debug)]
 pub struct ForOp<'a> {
     /// What is iterated and what each iteration binds.
-    pub binding: ForBinding,
+    pub binding: ForBinding<'a>,
     /// The repeated content.
     pub region: Region<'a>,
     /// The whole iteration's source range.
@@ -50,27 +50,31 @@ pub struct ForOp<'a> {
 /// binding positions.
 ///
 /// The value/key/index split mirrors the authored grammar
-/// (`(value, key, index) in source`); the positions are expression slots
-/// because v-for's binding patterns are one of the retained-`None` classes
-/// P2-5b decides.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ForBinding {
-    /// The iterated collection, object, or range (reserved; P2-5b).
-    pub source: ExprSlot,
-    /// The per-iteration value binding (reserved; P2-5b).
-    pub value: ExprSlot,
+/// (`(value, key, index) in source`). These positions are where the
+/// P2-5b escape classes bite first: the authored v-for value is
+/// [`OpaqueReason::ForValue`](crate::expr::OpaqueReason::ForValue) text
+/// (Vue's `in`/`of` split grammar disagrees with JS `in` on
+/// `a in b in c`), and the positions here hold what the splitter
+/// produced - each an [`ExprRef`] that is `Js` when its text is admitted
+/// and `Opaque` otherwise. P2-8's lowering assigns the classes; the type
+/// only makes them representable.
+#[derive(Debug, Clone, Copy)]
+pub struct ForBinding<'a> {
+    /// The iterated collection, object, or range.
+    pub source: ExprRef<'a>,
+    /// The per-iteration value binding.
+    pub value: ExprRef<'a>,
     /// The second binding position (object key), when authored.
-    pub key: Option<ExprSlot>,
+    pub key: Option<ExprRef<'a>>,
     /// The third binding position (index), when authored.
-    pub index: Option<ExprSlot>,
+    pub index: Option<ExprRef<'a>>,
 }
 
-/// See [`crate::op`] for the guard rationale; figures move when P2-5b
-/// lands.
+/// See [`crate::op`] for the guard rationale.
 #[cfg(target_pointer_width = "64")]
 const _: () = {
     assert!(core::mem::size_of::<IfOp<'_>>() == 32);
-    assert!(core::mem::size_of::<IfBranch<'_>>() == 40);
-    assert!(core::mem::size_of::<ForOp<'_>>() == 40);
-    assert!(core::mem::size_of::<ForBinding>() == 2);
+    assert!(core::mem::size_of::<IfBranch<'_>>() == 48);
+    assert!(core::mem::size_of::<ForOp<'_>>() == 96);
+    assert!(core::mem::size_of::<ForBinding<'_>>() == 64);
 };

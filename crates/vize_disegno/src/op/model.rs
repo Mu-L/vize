@@ -15,24 +15,25 @@
 use vize_carton::{Span, Vec};
 
 use super::Attribute;
-use crate::expr::ExprSlot;
+use crate::expr::ExprRef;
 
 /// The two-way binding contract of a [`ModelOp`].
 ///
 /// The value-type flow is the pair's law: **the type of what is read is
 /// the type of what is written** - one declared value type flowing
-/// view-ward through `read` and model-ward through `write`. The law lives
-/// on the pair rather than in a third field because, until P2-5b gives the
-/// slots identity, any flow *data* would either be a one-variant enum or a
-/// speculation on type-system structure that belongs to the projection;
-/// the moment the slots are real, the flow is checkable on them directly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct BindingContract {
-    /// What the view reads (reserved; P2-5b).
-    pub read: ExprSlot,
-    /// What updates write into (reserved; P2-5b). Usually the same
-    /// authored expression as `read`; custom accessors split them.
-    pub write: ExprSlot,
+/// view-ward through `read` and model-ward through `write`. The law
+/// stays on the pair rather than in a third field: now that the
+/// positions are real [`ExprRef`]s (usually two references to the *same*
+/// payload - the authored expression; custom accessors split them), the
+/// flow is checkable on them directly, and checking it is the verifier's
+/// (P2-6) and the projection's, never this type's.
+#[derive(Debug, Clone, Copy)]
+pub struct BindingContract<'a> {
+    /// What the view reads.
+    pub read: ExprRef<'a>,
+    /// What updates write into. Usually the same payload as `read`;
+    /// custom accessors split them.
+    pub write: ExprRef<'a>,
 }
 
 /// `ui.model` - a two-way binding, attached to one element or component.
@@ -44,17 +45,16 @@ pub struct BindingContract {
 #[derive(Debug)]
 pub struct ModelOp<'a> {
     /// The binding contract (see [`BindingContract`] for the flow law).
-    pub contract: BindingContract,
+    pub contract: BindingContract<'a>,
     /// Element kind and dialect modifiers, in lowering-declared order.
     pub attributes: Vec<'a, Attribute<'a>>,
     /// The authored binding's source range.
     pub span: Span,
 }
 
-/// See [`crate::op`] for the guard rationale; figures move when P2-5b
-/// lands.
+/// See [`crate::op`] for the guard rationale.
 #[cfg(target_pointer_width = "64")]
 const _: () = {
-    assert!(core::mem::size_of::<BindingContract>() == 0);
-    assert!(core::mem::size_of::<ModelOp<'_>>() == 32);
+    assert!(core::mem::size_of::<BindingContract<'_>>() == 32);
+    assert!(core::mem::size_of::<ModelOp<'_>>() == 64);
 };

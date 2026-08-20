@@ -10,7 +10,7 @@
 use vize_carton::{Span, Vec};
 
 use super::DynamicName;
-use crate::expr::ExprSlot;
+use crate::expr::ExprRef;
 
 /// `vue.directive` - a Vue custom directive (`v-pin:top.lazy="value"`),
 /// carried through S2 for a consumer that understands it.
@@ -29,12 +29,11 @@ pub struct VueDirectiveOp<'a> {
     /// Modifier names in authored order, without their leading dots.
     pub modifiers: Vec<'a, &'a str>,
     /// The directive's value expression, when authored.
-    pub value: Option<ExprSlot>,
+    pub value: Option<ExprRef<'a>>,
     /// The whole directive's source range.
     pub span: Span,
 }
 
-/// See [`crate::op`] for the guard rationale; figures move when P2-5b
-/// lands.
+/// See [`crate::op`] for the guard rationale.
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<VueDirectiveOp<'_>>() == 80);
+const _: () = assert!(core::mem::size_of::<VueDirectiveOp<'_>>() == 88);

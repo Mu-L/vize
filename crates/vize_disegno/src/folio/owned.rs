@@ -2,21 +2,24 @@
 //! conversion.
 //!
 //! One mirror type per lifetime-carrying op type; the lifetime-free op
-//! types ([`Span`], [`ExprSlot`], [`Namespace`], [`ForBinding`],
-//! [`BindingContract`]) are reused directly. [`DisegnoFolio::of`] is the
-//! bridge, and its matches are exhaustive with no `_` arm on purpose: a
-//! new op variant must break this file loudly (the same staleness
-//! discipline the canary test enforces).
+//! types ([`Span`], [`Namespace`], [`OpaqueReason`](crate::expr::OpaqueReason))
+//! are reused directly, and the expression mirrors live in [`expr`].
+//! [`DisegnoFolio::of`] is the bridge, and its matches are exhaustive
+//! with no `_` arm on purpose: a new op variant must break this file
+//! loudly (the same staleness discipline the canary test enforces).
 
 use alloc::vec::Vec;
 
 use vize_carton::{Span, String};
 
 use super::DisegnoFolio;
-use crate::expr::ExprSlot;
-use crate::op::{
-    Attribute, BindingContract, BindingOp, DynamicName, ForBinding, Namespace, Op, Region,
-};
+use crate::op::{Attribute, BindingOp, DynamicName, Namespace, Op, Region};
+
+mod expr;
+
+pub use expr::{FolioContract, FolioExpr, FolioForBinding};
+
+use expr::own_expr;
 
 /// Mirror of [`Op`]: one region op.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,8 +54,8 @@ pub enum FolioBinding {
 pub enum FolioName {
     /// A literal name.
     Static(String),
-    /// A computed name (reserved; P2-5b).
-    Dynamic(ExprSlot),
+    /// A computed name.
+    Dynamic(FolioExpr),
 }
 
 /// Mirror of [`Attribute`].
@@ -110,8 +113,8 @@ pub struct FolioText {
 /// Mirror of [`crate::op::InterpolationOp`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolioInterpolation {
-    /// The rendered expression (reserved; P2-5b).
-    pub expression: ExprSlot,
+    /// The rendered expression.
+    pub expression: FolioExpr,
     /// Source range.
     pub span: Span,
 }
@@ -129,7 +132,7 @@ pub struct FolioIf {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolioBranch {
     /// The condition; `None` for the unconditional branch.
-    pub condition: Option<ExprSlot>,
+    pub condition: Option<FolioExpr>,
     /// The branch's owned region.
     pub ops: Vec<FolioOp>,
     /// Source range.
@@ -140,7 +143,7 @@ pub struct FolioBranch {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolioFor {
     /// The iteration binding.
-    pub binding: ForBinding,
+    pub binding: FolioForBinding,
     /// The repeated region.
     pub ops: Vec<FolioOp>,
     /// Source range.
@@ -162,7 +165,7 @@ pub struct FolioSlot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolioModel {
     /// The binding contract.
-    pub contract: BindingContract,
+    pub contract: FolioContract,
     /// Element kind and dialect modifiers, in order.
     pub attributes: Vec<FolioAttribute>,
     /// Source range.
@@ -179,7 +182,7 @@ pub struct FolioVueDirective {
     /// Modifier names, in order.
     pub modifiers: Vec<String>,
     /// The value expression, when authored.
-    pub value: Option<ExprSlot>,
+    pub value: Option<FolioExpr>,
     /// Source range.
     pub span: Span,
 }
@@ -227,7 +230,7 @@ fn own_op(op: &Op<'_>) -> FolioOp {
             span: text.span,
         }),
         Op::Interpolation(interpolation) => FolioOp::Interpolation(FolioInterpolation {
-            expression: interpolation.expression,
+            expression: own_expr(&interpolation.expression),
             span: interpolation.span,
         }),
         Op::If(if_op) => FolioOp::If(FolioIf {
@@ -235,7 +238,7 @@ fn own_op(op: &Op<'_>) -> FolioOp {
                 .branches
                 .iter()
                 .map(|branch| FolioBranch {
-                    condition: branch.condition,
+                    condition: branch.condition.as_ref().map(own_expr),
                     ops: own_region(&branch.region),
                     span: branch.span,
                 })
@@ -243,7 +246,12 @@ fn own_op(op: &Op<'_>) -> FolioOp {
             span: if_op.span,
         }),
         Op::For(for_op) => FolioOp::For(FolioFor {
-            binding: for_op.binding,
+            binding: FolioForBinding {
+                source: own_expr(&for_op.binding.source),
+                value: own_expr(&for_op.binding.value),
+                key: for_op.binding.key.as_ref().map(own_expr),
+                index: for_op.binding.index.as_ref().map(own_expr),
+            },
             ops: own_region(&for_op.region),
             span: for_op.span,
         }),
@@ -258,7 +266,10 @@ fn own_op(op: &Op<'_>) -> FolioOp {
 fn own_binding(binding: &BindingOp<'_>) -> FolioBinding {
     match binding {
         BindingOp::Model(model) => FolioBinding::Model(FolioModel {
-            contract: model.contract,
+            contract: FolioContract {
+                read: own_expr(&model.contract.read),
+                write: own_expr(&model.contract.write),
+            },
             attributes: model.attributes.iter().map(own_attribute).collect(),
             span: model.span,
         }),
@@ -270,7 +281,7 @@ fn own_binding(binding: &BindingOp<'_>) -> FolioBinding {
                 .iter()
                 .map(|modifier| String::from(*modifier))
                 .collect(),
-            value: directive.value,
+            value: directive.value.as_ref().map(own_expr),
             span: directive.span,
         }),
     }
@@ -279,7 +290,7 @@ fn own_binding(binding: &BindingOp<'_>) -> FolioBinding {
 fn own_name(name: &DynamicName<'_>) -> FolioName {
     match name {
         DynamicName::Static(text) => FolioName::Static(String::from(*text)),
-        DynamicName::Dynamic(slot) => FolioName::Dynamic(*slot),
+        DynamicName::Dynamic(expr) => FolioName::Dynamic(own_expr(expr)),
     }
 }
 

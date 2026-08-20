@@ -1,18 +1,19 @@
 [disegno]
-ops=9
+ops=10
 
 [disegno.ops]
 ui.element form @0:99
   attr method="post" @5:20
-  ui.model read=?expr write=?expr @21:40
+  ui.model read=js("draft.note" @29:39) write=js("draft.note" @29:39) @21:40
     attr element-kind="textarea" @21:40
-  vue.directive "pin" arg="top" mods="lazy,trim" value=?expr @41:60
+  vue.directive "pin" arg="top" mods="lazy,trim" value=opaque(multi-statement "top++; sync()" @46:59) @41:60
   ui.if @61:90
-    branch ?expr @61:75
+    branch js("open" @65:69) @61:75
       ui.text "a\"b\\c" @66:70
     branch @75:90
-      ui.interpolation ?expr @80:88
-ui.for source=?expr value=?expr key=?expr @100:120
-  ui.slot name=?expr @105:118
-ui.component Chrome @121:130
+      ui.interpolation opaque(nesting-refused "((((x))))" @82:88) @80:88
+ui.for source=opaque(for-value "a in b in c" @110:121) value=js("a" @105:106) key=js("i" @108:109) @100:130
+  ui.slot name=js("kind" @136:140) @131:145
+    ui.interpolation foreign(moonbit "count + 1" @150:159) @148:161
+ui.component Chrome @162:171
 

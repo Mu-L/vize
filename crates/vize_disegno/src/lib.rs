@@ -17,8 +17,10 @@
 //!   types, arena-resident and **`Drop`-free by construction** through
 //!   `vize_carton::{Box, Vec}` (whose const assertion rejects `Drop`
 //!   payloads; P1-10 measured it catching two real violations).
-//! - [`expr`] — [`expr::ExprSlot`], the reserved expression position.
-//!   The real reference (`ExprRef`) is P2-5b's deliverable.
+//! - [`expr`] — [`expr::ExprRef`], the expression reference: retained JS
+//!   AST, foreign dialect (type-only until phase 6), or the classified
+//!   escape with pessimal documented semantics (P2-5b's decision; record
+//!   in `davinci-road/plan/phase-2-records/p2-5b.md`).
 //! - [`folio`] — [`folio::DisegnoFolio`], the S2 stage dump
 //!   (`davinci-road/plan/folio-format.md`, "Disegno page").
 //! - [`verify`] — the between-pass invariant checks (P2-6), debug/CI only:

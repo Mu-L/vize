@@ -65,7 +65,7 @@ pub enum Op<'a> {
     /// `ui.text` - static text.
     Text(Box<'a, TextOp<'a>>),
     /// `ui.interpolation` - an expression rendered as text.
-    Interpolation(Box<'a, InterpolationOp>),
+    Interpolation(Box<'a, InterpolationOp<'a>>),
     /// `ui.if` - structured conditional; every branch owns its region.
     If(Box<'a, IfOp<'a>>),
     /// `ui.for` - structured iteration; the repeated content is one owned
@@ -144,8 +144,11 @@ const _: () = assert!(!core::mem::needs_drop::<Region<'static>>());
 /// Node footprints are pinned per op type (64-bit only: the figures are
 /// pointer-dependent and the wasm32-wasip2 lane is 32-bit, the same guard
 /// rationale as `crates/vize_relief/src/relief/elements.rs:31-36`). The
-/// enums stay two words because every payload is boxed. These figures are
-/// expected to move when P2-5b replaces [`crate::expr::ExprSlot`].
+/// enums stay two words because every payload is boxed. The figures
+/// include the 16-byte [`crate::expr::ExprRef`] per expression position
+/// (P2-5b replaced the zero-sized `ExprSlot`, moving every
+/// expression-carrying payload's footprint - each is pinned in its own
+/// file).
 #[cfg(target_pointer_width = "64")]
 const _: () = {
     assert!(core::mem::size_of::<Op<'_>>() == 16);

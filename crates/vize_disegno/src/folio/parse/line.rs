@@ -1,9 +1,9 @@
 //! Line grammar of the disegno ops section: one op (or structural) line
 //! in, one parsed item out.
 //!
-//! Every `?expr` token is the printed form of a reserved
-//! [`ExprSlot`](crate::expr::ExprSlot) position - present/absent is all it
-//! encodes until P2-5b. Quoted strings escape `\\`, `\"`, `\n`, `\r`,
+//! Expression positions hold the payload tokens of
+//! [`expr_token`](super::expr_token) - `js(...)`, `opaque(...)`,
+//! `foreign(...)`. Quoted strings escape `\\`, `\"`, `\n`, `\r`,
 //! `\t`; values embedding other control characters, attribute names
 //! containing `=`, ` ` or `"`, and modifier names containing `,` or `"`
 //! are outside the contract (the derived-page "documented edges" rule).
@@ -12,11 +12,12 @@ use vize_carton::{Span, String, cstr};
 use vize_davinci::folio::FolioError;
 
 use super::super::owned::{
-    FolioAttribute, FolioBranch, FolioComponent, FolioElement, FolioFor, FolioIf,
-    FolioInterpolation, FolioModel, FolioName, FolioOp, FolioSlot, FolioText, FolioVueDirective,
+    FolioAttribute, FolioBranch, FolioComponent, FolioContract, FolioElement, FolioFor,
+    FolioForBinding, FolioIf, FolioInterpolation, FolioModel, FolioName, FolioOp, FolioSlot,
+    FolioText, FolioVueDirective,
 };
-use crate::expr::ExprSlot;
-use crate::op::{BindingContract, ForBinding, Namespace};
+use super::expr_token::take_expr;
+use crate::op::Namespace;
 
 /// One classified ops-section line.
 pub(in super::super) enum Item {
@@ -38,7 +39,7 @@ fn split_word(text: &str) -> (&str, &str) {
 
 /// Parse a quoted string starting at `rest[0]`; returns the content and
 /// the remainder after the closing quote.
-fn take_quoted(rest: &str, line_no: usize) -> Result<(String, &str), FolioError> {
+pub(super) fn take_quoted(rest: &str, line_no: usize) -> Result<(String, &str), FolioError> {
     let Some(body) = rest.strip_prefix('"') else {
         return Err(err(line_no, cstr!("expected quoted string")));
     };
@@ -65,7 +66,7 @@ fn take_quoted(rest: &str, line_no: usize) -> Result<(String, &str), FolioError>
 }
 
 /// Parse `@start:end` making up the whole remainder.
-fn final_span(rest: &str, line_no: usize) -> Result<Span, FolioError> {
+pub(super) fn final_span(rest: &str, line_no: usize) -> Result<Span, FolioError> {
     if rest.is_empty() {
         return Err(err(line_no, cstr!("missing span")));
     }
@@ -127,10 +128,11 @@ fn attr(rest: &str, line_no: usize) -> Result<Item, FolioError> {
 }
 
 fn branch(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let (condition, span) = if let Some(tail) = rest.strip_prefix("?expr") {
-        (Some(ExprSlot), tail_span(tail, line_no)?)
-    } else {
+    let (condition, span) = if rest.is_empty() || rest.starts_with('@') {
         (None, final_span(rest, line_no)?)
+    } else {
+        let (condition, tail) = take_expr(rest, line_no)?;
+        (Some(condition), tail_span(tail, line_no)?)
     };
     Ok(Item::Branch(FolioBranch {
         condition,
@@ -188,33 +190,38 @@ fn text(rest: &str, line_no: usize) -> Result<Item, FolioError> {
 }
 
 fn interpolation(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let Some(tail) = rest.strip_prefix("?expr") else {
-        return Err(err(line_no, cstr!("expected `?expr`")));
-    };
+    let (expression, tail) = take_expr(rest, line_no)?;
     Ok(Item::Op(FolioOp::Interpolation(FolioInterpolation {
-        expression: ExprSlot,
+        expression,
         span: tail_span(tail, line_no)?,
     })))
 }
 
 fn for_op(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let Some(mut rest) = rest.strip_prefix("source=?expr value=?expr") else {
-        return Err(err(line_no, cstr!("expected `source=?expr value=?expr`")));
+    let Some(rest) = rest.strip_prefix("source=") else {
+        return Err(err(line_no, cstr!("expected `source=`")));
     };
+    let (source, rest) = take_expr(rest, line_no)?;
+    let Some(rest) = rest.strip_prefix(" value=") else {
+        return Err(err(line_no, cstr!("expected `value=`")));
+    };
+    let (value, mut rest) = take_expr(rest, line_no)?;
     let mut key = None;
     let mut index = None;
-    if let Some(tail) = rest.strip_prefix(" key=?expr") {
-        key = Some(ExprSlot);
+    if let Some(tail) = rest.strip_prefix(" key=") {
+        let (expr, tail) = take_expr(tail, line_no)?;
+        key = Some(expr);
         rest = tail;
     }
-    if let Some(tail) = rest.strip_prefix(" index=?expr") {
-        index = Some(ExprSlot);
+    if let Some(tail) = rest.strip_prefix(" index=") {
+        let (expr, tail) = take_expr(tail, line_no)?;
+        index = Some(expr);
         rest = tail;
     }
     Ok(Item::Op(FolioOp::For(FolioFor {
-        binding: ForBinding {
-            source: ExprSlot,
-            value: ExprSlot,
+        binding: FolioForBinding {
+            source,
+            value,
             key,
             index,
         },
@@ -223,16 +230,23 @@ fn for_op(rest: &str, line_no: usize) -> Result<Item, FolioError> {
     })))
 }
 
-/// Parse a `name=` value: a quoted static name or the `?expr` marker.
+/// Parse a `name=` value: a quoted static name or an expression payload.
 fn name_value(rest: &str, line_no: usize) -> Result<(FolioName, &str), FolioError> {
     if rest.starts_with('"') {
         let (name, tail) = take_quoted(rest, line_no)?;
         return Ok((FolioName::Static(name), tail));
     }
-    match rest.strip_prefix("?expr") {
-        Some(tail) => Ok((FolioName::Dynamic(ExprSlot), tail)),
-        None => Err(err(line_no, cstr!("expected quoted string or `?expr`"))),
+    if ["js(", "opaque(", "foreign("]
+        .iter()
+        .any(|head| rest.starts_with(head))
+    {
+        let (expr, tail) = take_expr(rest, line_no)?;
+        return Ok((FolioName::Dynamic(expr), tail));
     }
+    Err(err(
+        line_no,
+        cstr!("expected quoted string or an expression payload"),
+    ))
 }
 
 fn slot(rest: &str, line_no: usize) -> Result<Item, FolioError> {
@@ -248,14 +262,16 @@ fn slot(rest: &str, line_no: usize) -> Result<Item, FolioError> {
 }
 
 fn model(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let Some(tail) = rest.strip_prefix("read=?expr write=?expr") else {
-        return Err(err(line_no, cstr!("expected `read=?expr write=?expr`")));
+    let Some(rest) = rest.strip_prefix("read=") else {
+        return Err(err(line_no, cstr!("expected `read=`")));
     };
+    let (read, rest) = take_expr(rest, line_no)?;
+    let Some(rest) = rest.strip_prefix(" write=") else {
+        return Err(err(line_no, cstr!("expected `write=`")));
+    };
+    let (write, tail) = take_expr(rest, line_no)?;
     Ok(Item::Model(FolioModel {
-        contract: BindingContract {
-            read: ExprSlot,
-            write: ExprSlot,
-        },
+        contract: FolioContract { read, write },
         attributes: alloc::vec::Vec::new(),
         span: tail_span(tail, line_no)?,
     }))
@@ -281,8 +297,9 @@ fn directive(rest: &str, line_no: usize) -> Result<Item, FolioError> {
         rest = tail;
     }
     let mut value = None;
-    if let Some(tail) = rest.strip_prefix(" value=?expr") {
-        value = Some(ExprSlot);
+    if let Some(tail) = rest.strip_prefix(" value=") {
+        let (expr, tail) = take_expr(tail, line_no)?;
+        value = Some(expr);
         rest = tail;
     }
     Ok(Item::Directive(FolioVueDirective {

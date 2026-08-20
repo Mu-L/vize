@@ -3918,6 +3918,9 @@ dependencies = [
 name = "vize_disegno"
 version = "0.350.2"
 dependencies = [
+ "oxc_ast",
+ "oxc_parser",
+ "oxc_span",
  "vize_carton",
  "vize_davinci",
 ]
