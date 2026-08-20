@@ -115,6 +115,7 @@ pub(super) fn has_inference_props(usage: &ComponentUsage) -> bool {
 /// generated code can steer.
 pub(super) fn append_prop_checker_alias(
     ts: &mut String,
+    usage: &ComponentUsage,
     component_type_name: &str,
     component_ref: &str,
     idx: usize,
@@ -128,10 +129,29 @@ pub(super) fn append_prop_checker_alias(
         *ts,
         "  type __{component_type_name}_CheckProps_{idx} = __{component_type_name}_Props_{idx} & __VizeEmitListeners<typeof {component_ref}>;\n",
     );
+    if usage_needs_per_prop_aliases(usage) {
+        append!(
+            *ts,
+            "  type __{component_type_name}_ValueProps_{idx} = __{component_type_name}_Props_{idx} & __VizeEmitListeners<typeof {component_ref}> & __VizePublicComponentAttrs;\n",
+        );
+        append!(
+            *ts,
+            "  type __{component_type_name}_FallthroughValue_{idx}<K extends PropertyKey> = __VizeFallthroughValue<typeof {component_ref}, K>;\n",
+        );
+    }
     append!(
         *ts,
         "  type __{component_type_name}_Check_{idx} = __VizePropChecker<typeof {component_ref}, __{component_type_name}_CheckProps_{idx}>;\n",
     );
+}
+
+fn usage_needs_per_prop_aliases(usage: &ComponentUsage) -> bool {
+    usage.props.iter().any(|prop| {
+        !prop.name_is_dynamic
+            && prop.name.as_str() != "key"
+            && prop.name.as_str() != "ref"
+            && prop.value.is_some()
+    })
 }
 
 /// The shared type helpers every per-usage prop check resolves through, emitted
@@ -164,7 +184,42 @@ pub(super) fn append_prop_check_helpers(ts: &mut String, usages: &[(usize, &Comp
     // members exceed the display truncation budget, so the tail is elided
     // exactly the way `vue-tsc`'s own fallthrough members are.
     ts.push_str(
-        "  type __VizeEmitListeners<C> = C extends { __vizeEmitProps?: infer __E } ? NonNullable<__E> : {};\n",
+        "  type __VizeEmitListeners<C> = C extends { __vizeEmitProps?: infer __E } ? __VizeIsAny<__E> extends true ? {} : NonNullable<__E> : {};\n",
+    );
+    ts.push_str(
+        "  type __VizeIsGeneratedComponent<C> = C extends { readonly __vizeComponentMarker: true } ? true : false;\n",
+    );
+    ts.push_str(
+        "  type __VizeHasFallthroughProps<C> = __VizeIsGeneratedComponent<C> extends true ? C extends { readonly __vizeHasFallthroughProps: true } ? true : false : false;\n",
+    );
+    ts.push_str(
+        "  type __VizeFallthroughProps<C> = __VizeHasFallthroughProps<C> extends true ? C extends { readonly __vizeFallthroughProps?: infer __F } ? __VizeIsAny<__F> extends true ? {} : NonNullable<__F> : {} : {};\n",
+    );
+    ts.push_str("  type __VizePublicComponentAttrs = { class?: unknown; style?: unknown };\n");
+    ts.push_str(
+        "  type __VizePublicProps<C> = C extends { new (): { $props: infer __P } } ? __P : C extends (props: infer __P) => any ? __P : {};\n",
+    );
+    ts.push_str(
+        "  type __VizeInstanceRawProps<C> = C extends { new (): { readonly __vizeRawProps?: infer __P } } ? __VizeIsAny<__P> extends true ? __VizePublicProps<C> : __P : __VizePublicProps<C>;\n",
+    );
+    ts.push_str(
+        "  type __VizeStaticRawProps<C> = C extends { readonly __vizeRawProps?: infer __P } ? __VizeIsAny<__P> extends true ? __VizePublicProps<C> : __P : __VizePublicProps<C>;\n",
+    );
+    ts.push_str(
+        "  type __VizeHasInstanceRawProps<C> = __VizeIsGeneratedComponent<C> extends true ? C extends { new (): { readonly __vizeRawProps?: infer __P } } ? __VizeIsAny<__P> extends true ? false : true : false : false;\n",
+    );
+    ts.push_str(
+        "  type __VizeHasStaticRawProps<C> = __VizeIsGeneratedComponent<C> extends true ? C extends { readonly __vizeRawProps?: infer __P } ? __VizeIsAny<__P> extends true ? false : true : false : false;\n",
+    );
+    ts.push_str(
+        "  type __VizeComponentRawProps<C> = __VizeHasInstanceRawProps<C> extends true ? __VizeInstanceRawProps<C> : __VizeStaticRawProps<C>;\n",
+    );
+    ts.push_str(
+        "  type __VizeHasRawProps<C> = __VizeHasInstanceRawProps<C> extends true ? true : __VizeHasStaticRawProps<C>;\n",
+    );
+    ts.push_str("  type __VizeInvalidFallthroughAttr<K extends PropertyKey> = { readonly __vizeInvalidFallthroughAttr: K };\n");
+    ts.push_str(
+        "  type __VizeFallthroughValue<C, K extends PropertyKey> = __VizeHasFallthroughProps<C> extends true ? C extends { readonly __vizeFallthroughProps?: infer __F } ? __VizeIsAny<__F> extends true ? unknown : __VizePropValue<NonNullable<__F>, K, unknown> : unknown : __VizeIsGeneratedComponent<C> extends true ? __VizeHasRawProps<C> extends true ? __VizeInvalidFallthroughAttr<K> : unknown : unknown;\n",
     );
     if usages.iter().any(|(_, usage)| {
         usage
@@ -183,10 +238,10 @@ pub(super) fn append_prop_check_helpers(ts: &mut String, usages: &[(usize, &Comp
         );
     }
     ts.push_str(
-        "  type __VizePropChecker<C, P> = __VizeIsAny<C> extends true ? (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void : C extends { __vizeCheck: infer __F } ? (__F extends (...args: any[]) => any ? __F : (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void) : (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void;\n",
+        "  type __VizePropChecker<C, P> = __VizeIsAny<C> extends true ? (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void : C extends { __vizeCheck: infer __F } ? __VizeIsAny<__F> extends true ? (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void : __F extends (...args: any[]) => any ? __F : (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void : (props: { readonly [K in keyof P]: P[K] } & Record<string, unknown>) => void;\n",
     );
     ts.push_str(
-        "  type __VizePropValue<P, K extends PropertyKey, __V = P extends unknown ? (K extends keyof P ? P[K] : never) : never> = [__V] extends [never] ? unknown : __V;\n",
+        "  type __VizePropValue<P, K extends PropertyKey, F = unknown, __V = P extends unknown ? (K extends keyof P ? P[K] : never) : never> = [__V] extends [never] ? F : __V;\n",
     );
     // Emitted only when a usage actually binds an inline callback, because
     // nothing else references these aliases and an unreferenced one is
@@ -233,7 +288,6 @@ pub(super) fn append_prop_check_helpers(ts: &mut String, usages: &[(usize, &Comp
         );
     }
 }
-
 /// The type a per-prop check is annotated with.
 ///
 /// An inline callback prop gets the `__VizeCallableProp` fallback for a child
@@ -245,9 +299,11 @@ pub(super) fn prop_alias_type(
     component_type_name: &str,
     idx: usize,
     camel_prop_name: &str,
+    fallthrough_prop_name: &str,
 ) -> String {
-    let resolved =
-        cstr!("__VizePropValue<__{component_type_name}_Props_{idx}, '{camel_prop_name}'>");
+    let resolved = cstr!(
+        "__VizePropValue<__{component_type_name}_ValueProps_{idx}, '{camel_prop_name}', __{component_type_name}_FallthroughValue_{idx}<'{fallthrough_prop_name}'>>"
+    );
     if is_inline_callback_prop(prop) {
         cstr!("__VizeCallableProp<{resolved}>")
     } else {
@@ -282,7 +338,13 @@ pub(super) fn append_per_prop_aliases(
         append!(
             *ts,
             "  type __{component_type_name}_{idx}_prop_{safe_prop_name} = {};\n",
-            prop_alias_type(prop, component_type_name, idx, &camel_prop_name),
+            prop_alias_type(
+                prop,
+                component_type_name,
+                idx,
+                &camel_prop_name,
+                prop.name.as_str()
+            ),
         );
     }
 }
