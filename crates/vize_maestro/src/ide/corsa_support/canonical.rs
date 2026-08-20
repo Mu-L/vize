@@ -17,7 +17,7 @@ pub(super) use mapping::{map_lsp_range_to_source, map_virtual_result_lsp_range_t
 pub(crate) use open::{open_canonical_virtual_document, open_canonical_virtual_document_strict};
 pub(crate) use project::{
     CanonicalProjectOpenError, open_canonical_virtual_project_document,
-    open_canonical_virtual_project_document_strict,
+    open_canonical_virtual_project_document_strict, open_canonical_virtual_workspace_document,
 };
 pub(crate) use rename::{
     map_canonical_corsa_workspace_edit, map_canonical_prepare_rename,

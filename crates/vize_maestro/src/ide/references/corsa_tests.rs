@@ -10,6 +10,8 @@ use crate::server::ServerState;
 
 #[path = "corsa_tests/package_routes.rs"]
 mod package_routes;
+#[path = "corsa_tests/project_surface.rs"]
+mod project_surface;
 
 #[test]
 fn canonical_references_cross_vue_files_and_honor_include_declaration() {

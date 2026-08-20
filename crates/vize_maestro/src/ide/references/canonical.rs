@@ -16,7 +16,7 @@ pub(super) async fn references(
     if !bridge.is_initialized() {
         return None;
     }
-    let document = corsa_support::open_canonical_virtual_project_document(ctx, bridge).await?;
+    let document = corsa_support::open_canonical_virtual_workspace_document(ctx, bridge).await?;
     let (line, character) =
         corsa_support::canonical_source_offset_to_position(&document, ctx.offset)?;
     let mut locations = bridge
@@ -51,7 +51,6 @@ pub(super) async fn references(
             .ok()?;
         locations.extend(extra);
     }
-
     let mut mapped = corsa_support::map_canonical_corsa_locations(ctx, &document, locations);
     mapped.extend(style_locations(ctx, &mapped));
     mapped.sort_by(|left, right| {

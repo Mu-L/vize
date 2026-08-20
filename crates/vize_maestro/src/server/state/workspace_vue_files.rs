@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use futures::channel::oneshot;
 use ignore::{DirEntry, WalkBuilder};
 use tower_lsp::lsp_types::Url;
 
@@ -9,6 +10,22 @@ use super::ServerState;
 use super::global_components::is_excluded_directory;
 
 impl ServerState {
+    /// Discover the complete on-disk Vue surface without blocking the LSP
+    /// executor. File-operation events are merged because they may race the
+    /// directory walk, and open buffers are included even before their first
+    /// save creates an on-disk file.
+    pub(crate) async fn discover_workspace_vue_file_uris(&self) -> Vec<Url> {
+        let mut uris = match self.get_workspace_root() {
+            Some(root) => discover_in_background(root).await,
+            None => Vec::new(),
+        };
+        uris.extend(self.workspace_vue_file_uris());
+        uris.extend(self.documents.uris().into_iter().filter(is_vue_uri));
+        uris.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        uris.dedup();
+        uris
+    }
+
     /// Track newly-created on-disk Vue files without treating them as open
     /// editor documents. Folder events recursively discover nested SFCs.
     pub(crate) fn track_workspace_vue_files(&self, uri: &str) -> bool {
@@ -88,6 +105,27 @@ fn vue_files_below(root: &Path) -> impl Iterator<Item = DirEntry> {
 
 fn is_vue_file(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension == "vue")
+}
+
+fn is_vue_uri(uri: &Url) -> bool {
+    uri.path().ends_with(".vue")
+}
+
+async fn discover_in_background(root: std::path::PathBuf) -> Vec<Url> {
+    let (sender, receiver) = oneshot::channel();
+    let spawned = std::thread::Builder::new()
+        .name("vize-workspace-vue-files".to_string())
+        .spawn(move || {
+            let uris = vue_files_below(&root)
+                .filter_map(|entry| Url::from_file_path(entry.path()).ok())
+                .collect();
+            let _ = sender.send(uris);
+        });
+    if let Err(error) = spawned {
+        tracing::warn!("failed to spawn workspace Vue discovery: {error}");
+        return Vec::new();
+    }
+    receiver.await.unwrap_or_default()
 }
 
 #[cfg(test)]
