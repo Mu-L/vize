@@ -70,18 +70,20 @@
 
 ## P2-5a — `vize_disegno` S2 op and type family
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-5a.md](./phase-2-records/p2-5a.md).
+
 **Deliverable:** the S2 crate and its ops — the pivot stage and the primary consumer surface. `vize_disegno` does not exist in the tree today.
 
 **Steps:**
 
-- [ ] `crates/vize_disegno/` created and added to `[workspace] members` in the root `Cargo.toml`; `publish = false`, `metadata.vize.stability = "experimental"`, `#![no_std]` plus `extern crate alloc;` from birth
-- [ ] Op enums: element / component / text / interpolation / `ui.if { regions }` / `ui.for { binding, region }` / `ui.slot` / `ui.model { contract }` / `vue.directive`. **Regions are owned by their op** — this is what makes fusion tractable, because the enter/exit sibling mutation in `crates/vize_atelier_core/src/transform/structural.rs` (which merges `v-else` branches on the parent's child list) is precisely the re-visit source a region-owning `ui.if` never needs
-- [ ] `ui.model` carries the **binding contract only** (what is read, what is written, the value-type flow), with element kind and dialect modifiers as attributes. Realization is never expanded in S2; IME/composition handling is runtime-owned by declaration (architecture, charter #23 tiering)
-- [ ] Whatever is genuinely Vue-specific stays a `vue.*` dialect op instead of shaping the core — the fairness litmus test P2-16 then exercises
-- [ ] **Drop-free by construction**: every type arena-resident through `vize_carton::{Box, Vec}`, whose `needs_drop` const assertion is the enforcement (P1-10 measured it catching two real violations); no `impl Drop` anywhere in the crate
-- [ ] Node-size `const` asserts per op type, guarded by `#[cfg(target_pointer_width = "64")]` (P2-14 makes wasm32 required)
-- [ ] Exhaustive-match canary: a test that matches every variant with no `_` arm, so adding a variant breaks it. No `_` arms anywhere downstream
-- [ ] S2 folio page from birth via the P2-4 derive
+- [x] `crates/vize_disegno/` created and added to `[workspace] members` in the root `Cargo.toml`; `publish = false`, `metadata.vize.stability = "experimental"`, `#![no_std]` plus `extern crate alloc;` from birth _(and TS-11 empty is mechanical: `cargo tree -i vize_disegno --workspace` prints only the crate itself)_
+- [x] Op enums: element / component / text / interpolation / `ui.if { regions }` / `ui.for { binding, region }` / `ui.slot` / `ui.model { contract }` / `vue.directive`. **Regions are owned by their op** — this is what makes fusion tractable, because the enter/exit sibling mutation in `crates/vize_atelier_core/src/transform/structural.rs` (which merges `v-else` branches on the parent's child list) is precisely the re-visit source a region-owning `ui.if` never needs _(two enums: `Op` for region positions, `BindingOp` for the attached `ui.model`/`vue.directive` — the type system rules out a floating binding instead of a verifier rule)_
+- [x] `ui.model` carries the **binding contract only** (what is read, what is written, the value-type flow), with element kind and dialect modifiers as attributes. Realization is never expanded in S2; IME/composition handling is runtime-owned by declaration (architecture, charter #23 tiering) _(`BindingContract { read, write }` with the value-type flow as the pair's documented shared-type law — the record states why flow data today would be a one-variant enum or speculation)_
+- [x] Whatever is genuinely Vue-specific stays a `vue.*` dialect op instead of shaping the core — the fairness litmus test P2-16 then exercises _(exactly one dialect op, `vue.directive`; `ui.bind`/`ui.on` deliberately absent until the transform that needs them, P2-9)_
+- [x] **Drop-free by construction**: every type arena-resident through `vize_carton::{Box, Vec}`, whose `needs_drop` const assertion is the enforcement (P1-10 measured it catching two real violations); no `impl Drop` anywhere in the crate _(grep 0; `!needs_drop` const asserts restate the property on `Op`/`BindingOp`/`Region` directly)_
+- [x] Node-size `const` asserts per op type, guarded by `#[cfg(target_pointer_width = "64")]` (P2-14 makes wasm32 required) _(all fifteen types pinned; the figures are expected to move when P2-5b replaces `ExprSlot`)_
+- [x] Exhaustive-match canary: a test that matches every variant with no `_` arm, so adding a variant breaks it. No `_` arms anywhere downstream _(proved by injection twice — the crate's own matches break, and with those patched the canary test alone still breaks; record § "The canary, proved by injection")_
+- [x] S2 folio page from birth via the P2-4 derive _(hand-written owned `DisegnoFolio` instead — the P2-4 boundary applied and recorded: the derived grammar is flat by construction, the S2 artifact is region-nested by its central design decision; grammar in [`folio-format.md`](./folio-format.md) "Disegno page")_
 
 **Acceptance:** TS-16 on the S2 folio (`Full` byte-exact, `Display` no law); TS-1; the guarded size asserts compile; the exhaustive-match canary is _demonstrably_ broken by an injected variant and green after handling it (the P0-7 staleness-check pattern — prove the canary, do not assume it); `grep -rn "impl Drop" crates/vize_disegno/src` → 0; `cargo build -p vize_disegno --target wasm32-wasip2` green; TS-11 empty (nothing consumes S2 yet); TS-13. **Deps:** P2-1, P2-4. **Non-goals:** the expression reference (P2-5b); lowering into it (P2-8); the verifier (P2-6); speculative `vue.*` ops — a dialect op lands with the transform that needs it (P2-9); S3 (`vize_impeto`, phase 3).
 
