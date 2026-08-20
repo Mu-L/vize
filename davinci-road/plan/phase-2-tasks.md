@@ -250,16 +250,18 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-14 — `no_std` boundary audit + wasm32-wasip2 lanes
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-14.md](./phase-2-records/p2-14.md).
+
 **Deliverable:** the audit the open question calls for, then the CI lanes it licenses. **The audit comes first** — the workspace makes no `no_std` claim until it says so.
 
 **Steps:**
 
-- [ ] Audit which dependencies genuinely support `no_std + alloc`: the oxc crates (which `vize_carton` and therefore everything downstream depend on), the map crate P2-1 picks, `lightningcss`, `compact_str` (which `vize_carton::String` aliases), `phf` (the interner's well-known table); and which are `std`-bound by nature — rayon (threads), salsa (resident-tier only), the CLI's filesystem and process layers
-- [ ] Document the approved boundary in a committed plan doc, including the P2-4 proc-macro crate as an approved `std` host-build edge
-- [ ] Separate the **core-compile lane** (`vize_davinci`, `vize_disegno` only) from the full-CLI lane, which stays `std`
-- [ ] Add the CI jobs to `.github/workflows/check.yml`: `cargo build -p vize_davinci -p vize_disegno --target wasm32-wasip2` and a `--no-default-features` build. **No `wasm32-wasip2` lane exists in any workflow today** — this task creates it, and it is required for the new crates only
-- [ ] Note that `vize_davinci` has no `[features]` section today, so `--no-default-features` is currently vacuous; the audit states what feature seam (if any) the crates should grow rather than leaving the flag decorative
-- [ ] Per P1-12's docs-truth precedent, the `no_std` claim must not appear in `docs/content/**` before the audit makes it true
+- [x] Audit which dependencies genuinely support `no_std + alloc`: the oxc crates (which `vize_carton` and therefore everything downstream depend on), the map crate P2-1 picks, `lightningcss`, `compact_str` (which `vize_carton::String` aliases), `phf` (the interner's well-known table); and which are `std`-bound by nature — rayon (threads), salsa (resident-tier only), the CLI's filesystem and process layers _(ledger in [`no-std-boundary.md`](./no-std-boundary.md); measured corrections: none of the six oxc crates in the closure declare `no_std` at rev `fc702c1f`, salsa is not in `Cargo.lock` at all yet, and the P2-1 map is `FxHashMap` — a `std` type crossing the boundary by carton re-export)_
+- [x] Document the approved boundary in a committed plan doc, including the P2-4 proc-macro crate as an approved `std` host-build edge _(committed as [`no-std-boundary.md`](./no-std-boundary.md) — **three** approved edges: the proc-macro, `vize_carton`, and the `davinci-opt` bin target the contract had not named)_
+- [x] Separate the **core-compile lane** (`vize_davinci`, `vize_disegno` only) from the full-CLI lane, which stays `std` _(the TS-24 step builds exactly the two claim crates; the full CLI stays `std` as the rest of the same job's clippy/test steps)_
+- [x] Add the CI jobs to `.github/workflows/check.yml`: `cargo build -p vize_davinci -p vize_disegno --target wasm32-wasip2` and a `--no-default-features` build. **No `wasm32-wasip2` lane exists in any workflow today** — this task creates it, and it is required for the new crates only _(landed as **steps of `clippy-and-test`**, not new jobs — check.yml is over the 350-line ratchet, which forbids any net growth; required-ness is inherited from `test-report`'s `needs:` and pinned by `tests/tooling/davinci-portability-lane.test.ts`; the record § "The lane is a step extension" carries the arithmetic)_
+- [x] Note that `vize_davinci` has no `[features]` section today, so `--no-default-features` is currently vacuous; the audit states what feature seam (if any) the crates should grow rather than leaving the flag decorative _(the audit's answer: **none yet** — a `std` feature would invert an unconditionally-`no_std` design; the vacuity is proven by the second lane build being a no-op rebuild, and the flag stays so the first real seam is gated from birth)_
+- [x] Per P1-12's docs-truth precedent, the `no_std` claim must not appear in `docs/content/**` before the audit makes it true _(grep empty at landing; the audit's "Docs truth" section states the claim now tellable, for exactly the two crates and phrased as the boundary phrases it)_
 
 **Acceptance:** TS-24 established and **required** for `vize_davinci` and `vize_disegno`; audit doc committed; both lanes green; the guarded size asserts from P2-1/P2-5a/P2-7 prove their purpose by compiling on a 32-bit target. **Review point:** the maintainer approves the boundary — which dependency edges are accepted as `std`, and which crates the claim covers. **Deps:** P2-5a. **Non-goals:** converting existing crates to `no_std` (the audit says which _could_, it does not do it); the WASI component model as the out-of-process contract transport (charter #15, phase 6); wasm blob size budgets (charter #19).
 
