@@ -359,6 +359,7 @@ impl RuleRegistry {
         registry.register(Box::new(crate::rules::vue::ValidVFor));
         registry.register(Box::new(crate::rules::vue::NoUseVIfWithVFor));
         registry.register(Box::new(crate::rules::vue::NoUnusedVars::default()));
+        registry.register(Box::new(crate::rules::vue::NoMutatingProps));
         registry.register(Box::new(crate::rules::vue::NoDuplicateAttributes::default()));
         registry.register(Box::new(crate::rules::vue::NoTemplateKey));
         registry.register(Box::new(crate::rules::vue::NoTextareaMustache));
