@@ -12,10 +12,10 @@ use crate::expr::ExprSlot;
 
 /// `ui.if` - structured conditional.
 ///
-/// The folio models the structure and the S2 verifier (P2-6) owns the
-/// invariants (at least one branch, at most one trailing unconditional
-/// branch); the type deliberately encodes neither, matching the "models
-/// the dump, not the analysis" folio rule.
+/// The folio models the structure and the S2 verifier ([`crate::verify`])
+/// owns the invariants (at least one branch, at most one trailing
+/// unconditional branch); the type deliberately encodes neither, matching
+/// the "models the dump, not the analysis" folio rule.
 #[derive(Debug)]
 pub struct IfOp<'a> {
     /// The branches, in authored order.

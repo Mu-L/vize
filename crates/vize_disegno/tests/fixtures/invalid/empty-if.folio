@@ -1,0 +1,6 @@
+[disegno]
+ops=1
+
+[disegno.ops]
+ui.if @0:10
+

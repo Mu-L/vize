@@ -113,15 +113,17 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-6 — S2 verifier v1
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-6.md](./phase-2-records/p2-6.md).
+
 **Deliverable:** the between-pass verifier, debug/CI only, with an invalid-folio fixture set.
 
 **Steps:**
 
-- [ ] **Local checks only** (GHC Lint discipline): region nesting, id resolution (every `NodeId` a side table references resolves), expr-ref liveness, canonical-form invariants per `PassKind`
-- [ ] Expr-ref liveness reuses the mechanism already in tree rather than inventing one: the debug arena-generation stamp (`Allocator::stamp` / `assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`) panics on a value read against a reset arena
-- [ ] Each invariant documented in [`folio-format.md`](./folio-format.md) — the format doc is where "canonical" is written down
-- [ ] Runs between passes in debug/CI **through the P2-3 observer**, never in the release hot path (guardrail 5: verification never ships)
-- [ ] Invalid-folio fixture set: hand-built invalid artifacts, each committed with its exact expected diagnostic (code + span + full message, canonical `en` locale)
+- [x] **Local checks only** (GHC Lint discipline): region nesting, id resolution (every `NodeId` a side table references resolves), expr-ref liveness, canonical-form invariants per `PassKind` _(six-code catalogue S2V001–S2V006 in one page-order walk; rigor escalates at the first `MandatoryLowering` pass and only there)_
+- [x] Expr-ref liveness reuses the mechanism already in tree rather than inventing one: the debug arena-generation stamp (`Allocator::stamp` / `assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`) panics on a value read against a reset arena _(`VerifyObserver::check_live` delegates to `assert_stamp_current`; one artifact-level stamp today because `ExprSlot` is zero-sized — the method is the recorded P2-5b seam)_
+- [x] Each invariant documented in [`folio-format.md`](./folio-format.md) — the format doc is where "canonical" is written down _("S2 verifier invariants" section: codes, rigor, node numbering, the liveness seam, the fixture contract)_
+- [x] Runs between passes in debug/CI **through the P2-3 observer**, never in the release hot path (guardrail 5: verification never ships) _(`VerifyObserver` follows the `FolioObserver` precedent — hooks track rigor, artifact-holding callers invoke the checks; release shape is a ZST with empty bodies, const-asserted)_
+- [x] Invalid-folio fixture set: hand-built invalid artifacts, each committed with its exact expected diagnostic (code + span + full message, canonical `en` locale) _(15 pages in `crates/vize_disegno/tests/fixtures/invalid/`, each with a `.expected` twin compared whole-file; the two lanes page text cannot encode — id resolution, liveness — are pinned with exact oracles in `tests/verifier_observer.rs`)_
 
 **Acceptance:** TS-18 established — the verifier rejects **every** committed invalid artifact with the exact diagnostic, no partial matching (TS-13 enforces that mechanically); a release build makes zero verifier calls, asserted by the `cfg` shape plus the P2-3 zero-cost bench (TS-10); TS-1. **Deps:** P2-5a, P2-3. **Non-goals:** whole-program or fixpoint checks — those are barrier analyses and the S3 equivalent is P3-1's phase validator; the independent Lean folio checker (C-23); verifying S1 (P2-7's `render == source` is its own verifier).
 

@@ -1,0 +1,8 @@
+[disegno]
+ops=2
+
+[disegno.ops]
+ui.if @0:30
+  branch ?expr @0:30
+    ui.text "x" @40:45
+
