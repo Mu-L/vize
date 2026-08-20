@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use tower_lsp::lsp_types::Url;
 use vize_canon::{CorsaBridge, CorsaBridgeConfig};
+use vize_carton::{String, cstr};
 
 use super::{ReferencesService, authored_text, resolve_tsgo_binary};
 use crate::ide::IdeContext;
@@ -22,7 +23,7 @@ const probeLabel = ref(sharedLabel(0))
 "#;
 
 fn component_source(index: usize) -> String {
-    format!(
+    cstr!(
         r#"<script setup lang="ts">
 import {{ computed, ref }} from 'vue'
 import {{ sharedLabel }} from './shared'
@@ -100,7 +101,8 @@ const outside = sharedLabel(999)
 
         let components = (1..=COMPONENT_COUNT)
             .map(|index| {
-                let path = src.join(format!("Comp{index:04}.vue"));
+                let name = cstr!("Comp{index:04}.vue");
+                let path = src.join(name.as_str());
                 let source = component_source(index);
                 fs::write(&path, &source).expect("generated component");
                 let uri = Url::from_file_path(path).expect("component uri");
