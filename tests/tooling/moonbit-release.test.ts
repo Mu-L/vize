@@ -236,7 +236,7 @@ test("release script accepts an exact merge commit at the main tip", () => {
   try {
     assert.equal(fixture.result.status, 0, fixture.result.stderr);
     assert.doesNotMatch(fixture.gitLog, /^rev-list\b/m);
-    assert.match(fixture.gitLog, /^commit --no-verify -m chore: release v0\.290\.1$/m);
+    assert.match(fixture.result.stdout, /Release 0\.290\.1 complete!/);
   } finally {
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
   }
