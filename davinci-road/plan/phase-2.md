@@ -56,7 +56,7 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [ ] [P2-11](./phase-2-tasks.md#p2-11--dom-backend-on-s2) DOM backend on S2
 - [x] [P2-12a](./phase-2-tasks.md#p2-12a--phase-start-baselines-and-pinned-targets) Phase-start baselines and pinned targets — landed 2026-08-19 at rev `232870a8`; DOM/SSR/Vapor ladder pinned in `[traversal]`, `[target.phase-2]` set, `walk-baseline.md` committed. One clause carried: the corpus `--check` is not evaluable by CI or a working tree ([record](./phase-2-records/p2-12a.md))
 - [ ] [P2-12b](./phase-2-tasks.md#p2-12b--fused-build-path--walk-count-instrumentation) Fused build path + walk-count instrumentation
-- [ ] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON
+- [x] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON — landed 2026-08-20; the ICE policy made real — per-file panic guard writing `repro.folio` (batch continues, exact file set pinned), the new `vize repro` command replaying to the same failure by exact equality, hash-gated `--folio-dir`/`--folio-after-change` dumps real on `davinci-opt` and pinned-empty on the build path until P2-12b, timing JSON through the P0-11 export validated by the TS-15 validator ([record](./phase-2-records/p2-13.md))
 - [ ] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes
 - [ ] [P2-15](./phase-2-tasks.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1
 - [ ] [P2-16](./phase-2-tasks.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2

@@ -111,6 +111,26 @@ The first derived page is `[budget-observer]` (P2-3's counter set), pinned
 by TS-16 in `crates/vize_davinci/tests/folio_derive_laws.rs` and reachable
 from the CLI as `davinci-opt --stage budget-observer`.
 
+## The repro page (`[repro]`, P2-13)
+
+The crash reproducer the ICE policy writes
+(`crates/vize_davinci/src/folio/repro.rs`), hand-written because two of its
+decisions are semantic: `failed-pass=` may print an **empty value** (a panic
+caught outside a driven pipeline is not attributable to a pass), and the
+`[repro.artifact]` section is **verbatim and terminal** — everything after
+its header line, byte for byte to end of input, is the embedded last-good
+stage dump, so the section must come last and is exempt from rule 4's
+one-blank-line law. That exemption is the only way to embed an arbitrary
+dump (blank lines and `[`-prefixed lines included) without an escaping
+scheme. Header scalars are `pipeline=` (validated against the P2-2 pipeline
+grammar at parse time), `failed-stage=`, `failed-pass=`, `reason=`
+(newline-normalized by the writer; scalar values stay line-atomic) and
+`artifact-stage=` (`source` = authored input verbatim); `[repro.config]` is
+a sorted `key=value` map. A missing final newline on the artifact is added
+by the first print, and `ReproFolio::normalize` applies the same to
+hand-built values — the `CroquisFolio::normalize` precedent. Round-trip
+laws pinned by `crates/vize_davinci/tests/repro_folio.rs`.
+
 ## Croquis folio grammar
 
 One entry per line unless noted; `[]` marks optional parts.

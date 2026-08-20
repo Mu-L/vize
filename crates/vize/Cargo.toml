@@ -39,6 +39,9 @@ vize_patina = { workspace = true }
 vize_canon = { workspace = true, features = ["native"] }
 vize_croquis = { workspace = true }
 vize_croquis_cf = { workspace = true }
+# Davinci ICE machinery (P2-13): repro folio + pass-manager driver. Both
+# crates are publish = false, so this edge stays out of every release graph.
+vize_davinci = { workspace = true }
 vize_doctor = { workspace = true, features = ["application-analysis"] }
 vize_fresco = { workspace = true }
 vize_musea = { workspace = true }

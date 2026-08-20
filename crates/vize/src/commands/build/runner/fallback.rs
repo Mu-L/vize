@@ -32,6 +32,10 @@ pub(super) fn report_errors(errors: &[CompileError]) {
         .iter()
         .filter(|e| e.phase == ErrorPhase::Compile)
         .collect();
+    let ice_errors: Vec<_> = errors
+        .iter()
+        .filter(|e| e.phase == ErrorPhase::Ice)
+        .collect();
 
     if !read_errors.is_empty() {
         eprintln!("  \x1b[31mRead errors ({}):\x1b[0m", read_errors.len());
@@ -58,6 +62,20 @@ pub(super) fn report_errors(errors: &[CompileError]) {
             compile_errors.len()
         );
         for err in &compile_errors {
+            eprintln!("    \x1b[1m{}\x1b[0m", err.path.display());
+            for line in err.error.lines() {
+                eprintln!("      {}", line);
+            }
+        }
+        eprintln!();
+    }
+
+    if !ice_errors.is_empty() {
+        eprintln!(
+            "  \x1b[31mInternal compiler errors ({}):\x1b[0m",
+            ice_errors.len()
+        );
+        for err in &ice_errors {
             eprintln!("    \x1b[1m{}\x1b[0m", err.path.display());
             for line in err.error.lines() {
                 eprintln!("      {}", line);
