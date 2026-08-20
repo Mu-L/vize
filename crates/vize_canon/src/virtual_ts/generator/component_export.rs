@@ -161,6 +161,8 @@ pub(super) fn emit_default_export_declaration(
     generic_component_params: Option<(&str, &str, bool)>,
     has_authored_default: bool,
     static_raw_props_ref: Option<&str>,
+    static_slots_ref: Option<&str>,
+    fallthrough_props_ref: Option<&str>,
 ) {
     emit_vue_component_options_type(ts, generic_component_params.is_some());
     let emit_props_static = emits_info.static_emit_props_field();
@@ -183,9 +185,31 @@ pub(super) fn emit_default_export_declaration(
     // settle only the first of multiple consumers of the same changed SFC.
     // Leading with the direct `Props` identity makes every dependent program
     // observe the edit while the last construct signature remains unchanged.
-    let static_raw_props_field = static_raw_props_ref
-        .map(|props_ref| cstr!("readonly __vizeRawProps?: {props_ref};"))
-        .unwrap_or_default();
+    let mut component_contract_fields = String::default();
+    if static_raw_props_ref.is_some()
+        || static_slots_ref.is_some()
+        || fallthrough_props_ref.is_some()
+    {
+        component_contract_fields.push_str("readonly __vizeComponentMarker: true;");
+    }
+    if let Some(props_ref) = static_raw_props_ref {
+        append!(
+            component_contract_fields,
+            " readonly __vizeRawProps?: {props_ref};"
+        );
+    }
+    if let Some(slots_ref) = static_slots_ref {
+        append!(
+            component_contract_fields,
+            " readonly __vizeSlots?: {slots_ref};"
+        );
+    }
+    if let Some(fallthrough_ref) = fallthrough_props_ref {
+        append!(
+            component_contract_fields,
+            " readonly __vizeHasFallthroughProps: true; readonly __vizeFallthroughProps?: {fallthrough_ref};"
+        );
+    }
     if let Some((generic_decl, generic_names, slots_is_generic)) = generic_component_params {
         let emit_resolvers = emits_info.generic_emit_resolver_fields(generic_decl, generic_names);
         let event_map_separator = if emit_props_static.is_empty() || event_map_static.is_empty() {
@@ -197,18 +221,18 @@ pub(super) fn emit_default_export_declaration(
         let slot_resolver = slot_resolver_field(generic_decl, generic_names, slots_is_generic);
         append!(
             *ts,
-            "declare const __vize_component__: {{ __vizeCheck: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => void; __vizeResolveProps?: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => Props<{generic_names}>; {slot_resolver}{emit_props_static}{event_map_separator}{event_map_static}{emit_props_separator}{emit_resolvers} {static_raw_props_field} }} & {authored_component}__VizeGenericComponentConstructor & __VizeComponentConstructor & __VizeVueComponentOptions;\n",
+            "declare const __vize_component__: {{ __vizeCheck: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => void; __vizeResolveProps?: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => Props<{generic_names}>; {slot_resolver}{emit_props_static}{event_map_separator}{event_map_static}{emit_props_separator}{emit_resolvers} {component_contract_fields} }} & {authored_component}__VizeGenericComponentConstructor & __VizeComponentConstructor & __VizeVueComponentOptions;\n",
         );
     } else if emits_info.has_emits_for_props {
         let event_map_separator = if event_map_static.is_empty() { "" } else { " " };
         append!(
             *ts,
-            "declare const __vize_component__: {{ {emit_props_static}{event_map_separator}{event_map_static} {static_raw_props_field} }} & {authored_component}__VizeComponentConstructor & __VizeVueComponentOptions;\n",
+            "declare const __vize_component__: {{ {emit_props_static}{event_map_separator}{event_map_static} {component_contract_fields} }} & {authored_component}__VizeComponentConstructor & __VizeVueComponentOptions;\n",
         );
-    } else if !static_raw_props_field.is_empty() {
+    } else if !component_contract_fields.trim().is_empty() {
         append!(
             *ts,
-            "declare const __vize_component__: {{ {static_raw_props_field} }} & {authored_component}__VizeComponentConstructor & __VizeVueComponentOptions;\n",
+            "declare const __vize_component__: {{ {component_contract_fields} }} & {authored_component}__VizeComponentConstructor & __VizeVueComponentOptions;\n",
         );
     } else {
         append!(
