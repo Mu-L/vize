@@ -49,7 +49,7 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [ ] [P2-5a](./phase-2-tasks.md#p2-5a--vize_disegno-s2-op-and-type-family) `vize_disegno` S2 op and type family
 - [ ] [P2-5b](./phase-2-tasks.md#p2-5b--exprref-contract-including-the-retained-none-classes) `ExprRef` contract incl. the retained-`None` classes
 - [ ] [P2-6](./phase-2-tasks.md#p2-6--s2-verifier-v1) S2 verifier v1
-- [ ] [P2-7](./phase-2-tasks.md#p2-7--s1-vue-surface-tree) S1 Vue surface tree
+- [x] [P2-7](./phase-2-tasks.md#p2-7--s1-vue-surface-tree) S1 Vue surface tree — landed 2026-08-20; new `vize_sinopia` crate driven by armature's tokenizer, three-clause hole policy with the intra-tag `leading` deviation recorded, TS-19 pinned over a 42-fixture battery plus 2,148 truncation parses; the corpus-widened run is deferred to a fixture-hydrated machine ([record](./phase-2-records/p2-7.md))
 - [ ] [P2-8](./phase-2-tasks.md#p2-8--s1s2-vue-lowering) S1→S2 Vue lowering
 - [ ] [P2-9](./phase-2-tasks.md#p2-9--core-transforms-as-s2-passes) Core transforms as S2 passes (marked series)
 - [ ] [P2-10](./phase-2-tasks.md#p2-10--style-v-bind-ops) Style `v-bind()` ops
