@@ -78,6 +78,14 @@ test("local release guard accepts only the exact clean main tip", () => {
   assert.doesNotMatch(safe.gitLog, /^(?:add|commit|tag|push)\b/m);
 });
 
+test("local release guard accepts an exact merge commit at the main tip", () => {
+  const mergeParent = "cccccccccccccccccccccccccccccccccccccccc";
+  const safe = runGuard({ parentLine: `${HEAD_SHA} ${OTHER_SHA} ${mergeParent}` });
+
+  assert.equal(safe.error, undefined);
+  assert.doesNotMatch(safe.gitLog, /^rev-list\b/m);
+});
+
 test("local release guard bounds stalled git commands", () => {
   const result = runGuard({ hangs: true }, 20);
 
@@ -91,11 +99,6 @@ test("local release guard rejects unsafe repository states", () => {
     [{ dirty: true }, /uncommitted changes/],
     [{ ancestor: false }, /not reachable from the current origin\/main/],
     [{ remoteSha: OTHER_SHA }, /exactly match the current origin\/main/],
-    [{ parentLine: HEAD_SHA }, /exactly one parent/],
-    [
-      { parentLine: `${HEAD_SHA} ${OTHER_SHA} cccccccccccccccccccccccccccccccccccccccc` },
-      /exactly one parent/,
-    ],
     [{ localTagExists: true }, /already exists locally/],
     [{ remoteTagExists: true }, /already exists and release tags are immutable/],
   ];

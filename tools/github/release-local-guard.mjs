@@ -65,13 +65,11 @@ export function verifyLocalReleaseGuard(
   if (head !== remoteMain) {
     throw new Error("HEAD must exactly match the current origin/main before preparing a release.");
   }
-  const revision = git(["rev-list", "--parents", "-n", "1", "HEAD"]).stdout.trim().split(/\s+/);
-  if (revision.length !== 2 || revision[0] !== head) {
-    throw new Error(
-      `Release commit ${head} must have exactly one parent for benchmark comparison.`,
-    );
-  }
 
+  // The current main tip may itself be a PR merge commit. The release command
+  // creates the single-parent version commit that the tag-time preflight uses
+  // for benchmark comparison, so validating that topology belongs after the
+  // release commit exists rather than here.
   const tagRef = `refs/tags/${tag}`;
   if (git(["rev-parse", "--verify", "--quiet", tagRef], [0, 1]).status === 0) {
     throw new Error(`Tag ${tag} already exists locally.`);
