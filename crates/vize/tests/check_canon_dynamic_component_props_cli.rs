@@ -152,6 +152,24 @@ fn run_check_json(
     }
 }
 
+fn diagnostics_for<'a>(report: &'a serde_json::Value, file_name: &str) -> Vec<&'a str> {
+    report["files"]
+        .as_array()
+        .unwrap_or_else(|| panic!("files should be an array: {report}"))
+        .iter()
+        .find(|file| file["file"] == serde_json::json!(file_name))
+        .unwrap_or_else(|| panic!("missing diagnostics for {file_name}: {report}"))["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("diagnostics should be an array: {report}"))
+        .iter()
+        .map(|diagnostic| {
+            diagnostic
+                .as_str()
+                .unwrap_or_else(|| panic!("diagnostic should be a string: {diagnostic}"))
+        })
+        .collect()
+}
+
 #[test]
 fn check_dynamic_component_props_use_resolved_component_type() {
     let Some(corsa_path) = corsa_requirement::required_or_skip(resolve_test_corsa_path()) else {
@@ -205,12 +223,13 @@ const Comp = Child;
     assert!(run_check_json(&project_root, &corsa_path, "src/Clean.vue").is_ok());
     let broken = run_check_json(&project_root, &corsa_path, "src/Broken.vue").unwrap_err();
     assert_eq!(broken["errorCount"], serde_json::json!(1), "{broken}");
-    let diagnostics = serde_json::to_string(&broken["files"]).unwrap();
-    assert!(
-        diagnostics.contains("TS2322")
-            && diagnostics.contains("string")
-            && diagnostics.contains("number"),
-        "expected dynamic component prop type mismatch, got: {diagnostics}"
+    // Exact oracle: `<component :is="Comp">` resolves props from the bound
+    // component's type, so the string literal bound to the numeric `count`
+    // prop must produce exactly this TS2322 diagnostic.
+    assert_eq!(
+        diagnostics_for(&broken, "src/Broken.vue"),
+        ["error:8:26 [TS2322] Type 'string' is not assignable to type 'number'."],
+        "{broken}"
     );
 
     let _ = std::fs::remove_dir_all(&project_root);

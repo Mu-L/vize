@@ -172,18 +172,6 @@ fn diagnostics_for<'a>(report: &'a serde_json::Value, file_name: &str) -> Vec<&'
         .collect()
 }
 
-fn assert_diagnostic(diagnostics: &[&str], line: u32, code: &str, expected_message_fragment: &str) {
-    let line_prefix = format!("error:{line}:");
-    assert!(
-        diagnostics.iter().any(|diagnostic| {
-            diagnostic.starts_with(&line_prefix)
-                && diagnostic.contains(code)
-                && diagnostic.contains(expected_message_fragment)
-        }),
-        "expected {code} on line {line} containing {expected_message_fragment:?}, got: {diagnostics:#?}"
-    );
-}
-
 #[test]
 fn check_component_use_template_ref_uses_define_expose_surface() {
     let Some(corsa_path) = corsa_requirement::required_or_skip(resolve_test_corsa_path()) else {
@@ -244,8 +232,14 @@ child.value?.hide();
 
     let report = run_check_json_report(&project_root, &corsa_path, "src");
     assert_eq!(report["errorCount"], serde_json::json!(1), "{report}");
-    let diagnostics = diagnostics_for(&report, "src/Broken.vue");
-    assert_diagnostic(&diagnostics, 7, "TS2339", "hide");
+    // Exact oracle: the template ref is typed from the child's defineExpose
+    // surface, so calling the unexposed `hide` must produce exactly this
+    // TS2339 diagnostic.
+    assert_eq!(
+        diagnostics_for(&report, "src/Broken.vue"),
+        ["error:7:14 [TS2339] Property 'hide' does not exist on type '__VizeComponentInstance'."],
+        "{report}"
+    );
 
     let _ = std::fs::remove_dir_all(&project_root);
 }

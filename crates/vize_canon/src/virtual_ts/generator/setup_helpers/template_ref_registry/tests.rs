@@ -26,7 +26,7 @@ fn registry_with_summary_and_options(
     summary: &Croquis,
     options: &VirtualTsOptions,
 ) -> Option<super::TemplateRefRegistry> {
-    let allocator = vize_carton::Bump::new();
+    let allocator = vize_carton::Allocator::new();
     let (root, _) = vize_armature::parse(&allocator, template);
     super::template_ref_registry(
         summary,
