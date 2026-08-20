@@ -173,18 +173,15 @@ pub(super) fn assert_clean(case_id: &str, report: &serde_json::Value) {
     );
 }
 
-pub(super) fn assert_error_mentions(case_id: &str, report: &serde_json::Value, expected: &[&str]) {
+pub(super) fn assert_error_diagnostics(
+    case_id: &str,
+    report: &serde_json::Value,
+    expected: &[&str],
+) {
     let diagnostics = diagnostics(report);
-    assert!(
-        report["errorCount"].as_u64().is_some_and(|count| count > 0),
-        "{case_id} should report an error, got none: {report:#}"
+    // Exact oracle (assurance §4): the whole diagnostics vector, not fragments.
+    assert_eq!(
+        diagnostics, expected,
+        "{case_id} diverged from the pinned diagnostics"
     );
-    for fragment in expected {
-        assert!(
-            diagnostics
-                .iter()
-                .any(|diagnostic| diagnostic.contains(fragment)),
-            "{case_id} should mention {fragment:?}: {diagnostics:#?}"
-        );
-    }
 }

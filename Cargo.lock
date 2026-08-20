@@ -848,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "davinci_harness"
-version = "0.350.2"
+version = "0.351.0"
 dependencies = [
  "criterion",
  "libc",
@@ -3894,7 +3894,7 @@ dependencies = [
 
 [[package]]
 name = "vize_davinci"
-version = "0.350.2"
+version = "0.351.0"
 dependencies = [
  "criterion",
  "davinci_harness",
@@ -3910,7 +3910,7 @@ dependencies = [
 
 [[package]]
 name = "vize_davinci_derive"
-version = "0.350.2"
+version = "0.351.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3919,7 +3919,7 @@ dependencies = [
 
 [[package]]
 name = "vize_disegno"
-version = "0.350.2"
+version = "0.351.0"
 dependencies = [
  "oxc_ast",
  "oxc_parser",
@@ -4093,7 +4093,7 @@ dependencies = [
 
 [[package]]
 name = "vize_sinopia"
-version = "0.350.2"
+version = "0.351.0"
 dependencies = [
  "vize_armature",
  "vize_carton",

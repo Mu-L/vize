@@ -52,33 +52,47 @@ fn targets_type_ref(targets: &[FallthroughRootTarget]) -> String {
 
 fn explicit_attrs_targets(root: &RootNode<'_>) -> Option<Vec<FallthroughRootTarget>> {
     let mut targets = Vec::new();
-    collect_explicit_attrs_targets_from_children(root.children.as_slice(), &mut targets);
+    collect_explicit_attrs_targets_from_children(
+        root.children.as_slice(),
+        root.source,
+        &mut targets,
+    );
     (!targets.is_empty()).then_some(targets)
 }
 
 fn collect_explicit_attrs_targets_from_children(
     children: &[TemplateChildNode<'_>],
+    source: &str,
     targets: &mut Vec<FallthroughRootTarget>,
 ) {
     for child in children {
-        collect_explicit_attrs_targets_from_child(child, targets);
+        collect_explicit_attrs_targets_from_child(child, source, targets);
     }
 }
 
 fn collect_explicit_attrs_targets_from_child(
     child: &TemplateChildNode<'_>,
+    source: &str,
     targets: &mut Vec<FallthroughRootTarget>,
 ) {
     match child {
         TemplateChildNode::Element(element) => {
-            if element_binds_attrs_explicitly(element) {
+            if element_binds_attrs_explicitly(element, source) {
                 targets.push(element_fallthrough_target(element));
             }
-            collect_explicit_attrs_targets_from_children(element.children.as_slice(), targets);
+            collect_explicit_attrs_targets_from_children(
+                element.children.as_slice(),
+                source,
+                targets,
+            );
         }
         TemplateChildNode::If(node) => {
             for branch in &node.branches {
-                collect_explicit_attrs_targets_from_children(branch.children.as_slice(), targets);
+                collect_explicit_attrs_targets_from_children(
+                    branch.children.as_slice(),
+                    source,
+                    targets,
+                );
             }
         }
         _ => {}
@@ -86,32 +100,32 @@ fn collect_explicit_attrs_targets_from_child(
 }
 
 fn element_fallthrough_target(element: &ElementNode<'_>) -> FallthroughRootTarget {
-    if is_native_tag(element.tag.as_str()) {
-        FallthroughRootTarget::Native(String::from(element.tag.as_str()))
+    if is_native_tag(element.tag) {
+        FallthroughRootTarget::Native(String::from(element.tag))
     } else {
         FallthroughRootTarget::Component
     }
 }
 
-fn element_binds_attrs_explicitly(element: &ElementNode<'_>) -> bool {
+fn element_binds_attrs_explicitly(element: &ElementNode<'_>, source: &str) -> bool {
     element.props.iter().any(|prop| {
         let PropNode::Directive(directive) = prop else {
             return false;
         };
-        if directive.name.as_str() != "bind" || directive.arg.is_some() {
+        if directive.name != "bind" || directive.arg.is_some() {
             return false;
         }
         directive
             .exp
             .as_ref()
-            .is_some_and(|exp| expression_spreads_attrs(expression_source(exp).trim()))
+            .is_some_and(|exp| expression_spreads_attrs(expression_source(exp, source).trim()))
     })
 }
 
-fn expression_source<'a>(expression: &'a ExpressionNode<'a>) -> &'a str {
+fn expression_source<'a>(expression: &'a ExpressionNode<'a>, source: &'a str) -> &'a str {
     match expression {
-        ExpressionNode::Simple(simple) => simple.content.as_str(),
-        ExpressionNode::Compound(compound) => compound.loc.source.as_str(),
+        ExpressionNode::Simple(simple) => simple.content,
+        ExpressionNode::Compound(compound) => compound.loc.span.slice(source),
     }
 }
 
@@ -153,7 +167,7 @@ fn possible_single_root_targets_from_child(
 ) -> Option<Vec<FallthroughRootTarget>> {
     match child {
         TemplateChildNode::Element(element)
-            if element.tag.as_str() == "template" && !has_for_directive(element) =>
+            if element.tag == "template" && !has_for_directive(element) =>
         {
             possible_single_root_targets_from_children(element.children.as_slice())
         }
@@ -242,7 +256,7 @@ fn possible_element_branch_targets(
     if has_for_directive(element) {
         return None;
     }
-    if element.tag.as_str() == "template" {
+    if element.tag == "template" {
         return possible_single_root_targets_from_children(element.children.as_slice());
     }
     Some(vec![element_fallthrough_target(element)])
@@ -259,7 +273,7 @@ fn element_branch_kind<'a>(element: &'a ElementNode<'a>) -> Option<ElementBranch
         let PropNode::Directive(directive) = prop else {
             continue;
         };
-        match directive.name.as_str() {
+        match directive.name {
             "if" => return directive.exp.as_ref().map(ElementBranchKind::If),
             "else-if" => {
                 return directive.exp.as_ref().map(ElementBranchKind::ElseIf);
@@ -275,7 +289,7 @@ fn has_for_directive(element: &ElementNode<'_>) -> bool {
     element.props.iter().any(|prop| {
         matches!(
             prop,
-            PropNode::Directive(directive) if directive.name.as_str() == "for"
+            PropNode::Directive(directive) if directive.name == "for"
         )
     })
 }

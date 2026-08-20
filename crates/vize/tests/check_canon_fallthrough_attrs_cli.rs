@@ -3,7 +3,7 @@ mod corsa_requirement;
 #[path = "check_canon_fallthrough_attrs_cli/support.rs"]
 mod support;
 use support::{
-    assert_clean, assert_error_mentions, create_case, create_case_with_files,
+    assert_clean, assert_error_diagnostics, create_case, create_case_with_files,
     resolve_test_corsa_path, run_check_json,
 };
 #[test]
@@ -16,7 +16,7 @@ fn check_fallthrough_attrs_follow_inherit_attrs_and_root_shape() {
         id: &'a str,
         child: &'a str,
         app: &'a str,
-        expected_error_fragments: &'a [&'a str],
+        expected_diagnostics: &'a [&'a str],
     }
 
     let cases = [
@@ -32,7 +32,7 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" aria-haspopup="menu" /></template>
 "#,
-            expected_error_fragments: &[],
+            expected_diagnostics: &[],
         },
         Case {
             id: "fallthrough-mono-false-bad",
@@ -47,7 +47,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" class="card" style="color: red" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:29 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-mono-false-native-binding-bad",
@@ -62,7 +64,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :disabled="'nope'" /></template>
 "#,
-            expected_error_fragments: &["disabled"],
+            expected_diagnostics: &[
+                "error:4:30 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"disabled\">'.",
+            ],
         },
         Case {
             id: "fallthrough-options-api-inherit-attrs-false-bad",
@@ -83,7 +87,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:29 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-multi-bad",
@@ -100,7 +106,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:29 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-multi-false-bad",
@@ -118,7 +126,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:29 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-native-type-bad",
@@ -132,7 +142,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :disabled="'nope'" /></template>
 "#,
-            expected_error_fragments: &["\"nope\"", "Booleanish"],
+            expected_diagnostics: &[
+                "error:4:30 [TS2322] Type '\"nope\"' is not assignable to type 'Booleanish | undefined'.",
+            ],
         },
         Case {
             id: "fallthrough-vif-both-mono-ok",
@@ -151,7 +163,7 @@ const on = ref(true);
 </script>
 <template><Child title="ok" :on="on" id="outer" /></template>
 "#,
-            expected_error_fragments: &[],
+            expected_diagnostics: &[],
         },
         Case {
             id: "fallthrough-vif-both-mono-false-bad",
@@ -171,7 +183,9 @@ const on = ref(true);
 </script>
 <template><Child title="ok" :on="on" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:6:38 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-vif-mono-multi-bad",
@@ -193,7 +207,9 @@ const on = ref(true);
 </script>
 <template><Child title="ok" :on="on" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:6:38 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-root-vfor-bad",
@@ -209,7 +225,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :items="[1, 2]" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:45 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-template-root-vfor-bad",
@@ -227,7 +245,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :items="[1, 2]" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:45 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-vif-static-ok",
@@ -244,7 +264,7 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" /></template>
 "#,
-            expected_error_fragments: &[],
+            expected_diagnostics: &[],
         },
         Case {
             id: "fallthrough-vif-elseif-static-ok",
@@ -261,7 +281,7 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :on="false" id="outer" /></template>
 "#,
-            expected_error_fragments: &[],
+            expected_diagnostics: &[],
         },
         Case {
             id: "fallthrough-vif-static-multi-bad",
@@ -280,7 +300,9 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" id="outer" /></template>
 "#,
-            expected_error_fragments: &["id"],
+            expected_diagnostics: &[
+                "error:4:29 [TS2322] Type 'string' is not assignable to type '__VizeInvalidFallthroughAttr<\"id\">'.",
+            ],
         },
         Case {
             id: "fallthrough-vif-static-prop-ok",
@@ -297,17 +319,17 @@ import Child from "./Child.vue";
 </script>
 <template><Child title="ok" :alwaysOn="true" id="outer" /></template>
 "#,
-            expected_error_fragments: &[],
+            expected_diagnostics: &[],
         },
     ];
 
     for case in cases {
         let project_root = create_case(case.id, case.child, case.app);
         let report = run_check_json(&project_root, &corsa_path);
-        if case.expected_error_fragments.is_empty() {
+        if case.expected_diagnostics.is_empty() {
             assert_clean(case.id, &report);
         } else {
-            assert_error_mentions(case.id, &report, case.expected_error_fragments);
+            assert_error_diagnostics(case.id, &report, case.expected_diagnostics);
         }
         let _ = std::fs::remove_dir_all(project_root);
     }
