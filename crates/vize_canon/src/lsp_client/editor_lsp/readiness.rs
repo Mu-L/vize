@@ -50,6 +50,7 @@ impl EditorLspSession {
         }
         self.dirty_documents.clear();
         self.query_barrier_required = false;
+        self.unacknowledged_notifications = 0;
         self.ready_generation = Some(self.document_generation);
         Ok(())
     }

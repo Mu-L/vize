@@ -35,6 +35,7 @@ mod readiness;
 mod requests;
 mod responder;
 mod retry;
+mod synchronize;
 #[cfg(test)]
 mod tests;
 mod type_definition;
@@ -65,6 +66,10 @@ pub(super) struct EditorLspSession {
     /// A close cannot be diagnosed directly, so the next query must act as
     /// the response-backed barrier for that topology change.
     query_barrier_required: bool,
+    /// Overlay notifications written since the last response-backed barrier.
+    /// This spans synchronization calls because workspace discovery can add
+    /// one document per call faster than the bounded transport drains them.
+    unacknowledged_notifications: usize,
 }
 
 impl EditorLspSession {
@@ -94,6 +99,7 @@ impl EditorLspSession {
             ready_generation: None,
             dirty_documents: Default::default(),
             query_barrier_required: false,
+            unacknowledged_notifications: 0,
         })
     }
 
@@ -124,32 +130,6 @@ impl EditorLspSession {
         self.dirty_documents.insert(document_uri.into());
         self.advance_document_generation();
         Ok(uri)
-    }
-
-    /// Bring the reusable editor transport to the same virtual-project view as
-    /// the project-session transport, including dependency removals.
-    fn synchronize(&mut self, documents: &FxHashMap<String, String>) -> Result<(), String> {
-        let removed = self
-            .documents
-            .keys()
-            .filter(|uri| !documents.contains_key(uri.as_str()))
-            .cloned()
-            .collect::<Vec<_>>();
-        for document_uri in removed {
-            let uri = Uri::from_str(document_uri.as_str())
-                .map_err(|error| cstr!("Invalid LSP document URI {document_uri}: {error}"))?;
-            self.overlay.close(&uri).map_err(|error| {
-                cstr!("Failed to close editor LSP overlay for {document_uri}: {error}")
-            })?;
-            self.documents.remove(document_uri.as_str());
-            self.dirty_documents.remove(document_uri.as_str());
-            self.query_barrier_required = true;
-            self.advance_document_generation();
-        }
-        for (document_uri, text) in documents {
-            self.mirror(document_uri, text)?;
-        }
-        Ok(())
     }
 
     fn hover(

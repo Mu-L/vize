@@ -17,7 +17,7 @@ pub(super) use mapping::{map_lsp_range_to_source, map_virtual_result_lsp_range_t
 pub(crate) use open::{open_canonical_virtual_document, open_canonical_virtual_document_strict};
 pub(crate) use project::{
     CanonicalProjectOpenError, open_canonical_virtual_project_document,
-    open_canonical_virtual_project_document_strict,
+    open_canonical_virtual_project_document_strict, open_canonical_virtual_workspace_document,
 };
 pub(crate) use rename::{
     map_canonical_corsa_workspace_edit, map_canonical_prepare_rename,
@@ -48,6 +48,25 @@ pub(crate) struct CanonicalMaterializedSource {
     pub(crate) request_uri: String,
     pub(crate) virtual_result: VirtualTsResult,
     pub(crate) mapping_kind: vize_canon::CorsaMaterializedMappingKind,
+}
+
+impl CanonicalVirtualDocument {
+    /// Authored text retained while the canonical workspace surface is open.
+    /// Closed SFCs are dependencies or materialized sources rather than editor
+    /// documents, so consumers such as style-reference expansion must resolve
+    /// them here instead of consulting only the open-buffer store.
+    pub(crate) fn authored_source(&self, uri: &Url) -> Option<&str> {
+        self.dependencies
+            .iter()
+            .find(|dependency| dependency.source_uri == *uri)
+            .map(|dependency| dependency.source.as_str())
+            .or_else(|| {
+                self.materialized_sources
+                    .iter()
+                    .find(|source| source.source_uri == *uri)
+                    .map(|source| source.source.as_str())
+            })
+    }
 }
 
 pub(crate) fn canonical_request_path(uri: &Url) -> String {
