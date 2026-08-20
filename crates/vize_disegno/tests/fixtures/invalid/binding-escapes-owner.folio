@@ -1,0 +1,7 @@
+[disegno]
+ops=2
+
+[disegno.ops]
+ui.element input @0:20
+  vue.directive "focus" @25:30
+

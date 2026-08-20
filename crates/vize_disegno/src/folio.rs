@@ -23,7 +23,8 @@
 //! the printer's computed statement about the tree (parse validates its
 //! syntax and discards the value - normalization by the first print), and
 //! no semantic invariant is enforced beyond tree shape; branch and region
-//! well-formedness beyond the grammar belongs to the S2 verifier (P2-6).
+//! well-formedness beyond the grammar belongs to the S2 verifier
+//! ([`crate::verify`]).
 
 use alloc::vec::Vec;
 

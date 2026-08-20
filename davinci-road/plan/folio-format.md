@@ -232,3 +232,57 @@ committed reference page is
 `crates/vize_disegno/tests/fixtures/reference.folio`, pinned by TS-16 in
 `crates/vize_disegno/tests/folio_laws.rs` and mirrored from a live arena
 tree in `tests/folio_mirror.rs`.
+
+## S2 verifier invariants (P2-6)
+
+The semantic invariants the disegno grammar deliberately does not encode,
+checked by `vize_disegno::verify` between passes in debug/CI builds only
+(guardrail 5: verification never ships — the release shape of
+`VerifyObserver` is a ZST with empty check bodies, const-asserted at the
+type). Checks are local in the GHC `-dcore-lint` sense — a line plus the
+facts it and its owner already declare, no global inference — and run in
+one page-order walk, so an aggregated report is deterministic. A violation
+renders as one line, `{code} @{start}:{end} {message}`, canonical `en`
+locale; a between-pass failure panics with the report headed by the
+offending pass (`` S2 verifier: {n} violation(s) after `{stage}.{pass}` ``).
+
+| code   | rigor      | invariant                                               |
+| ------ | ---------- | ------------------------------------------------------- |
+| S2V001 | structural | a span never runs backwards (`start <= end`)            |
+| S2V002 | structural | a nested line's span stays inside its immediate owner's |
+| S2V003 | structural | every `NodeId` a side table references resolves         |
+| S2V004 | canonical  | `ui.if` owns at least one branch                        |
+| S2V005 | canonical  | the leading branch of `ui.if` carries a condition       |
+| S2V006 | canonical  | an unconditional branch is the trailing branch          |
+
+**Rigor follows `PassKind`.** The structural set holds after every pass;
+the canonical set additionally holds from the first `MandatoryLowering`
+pass on — the kind that canonicalizes
+(`crates/vize_davinci/src/pass/kind.rs`) — and `MandatoryDiagnostic` /
+`Optional` passes never change the rigor. The set grows with the passes
+that establish more canonical form (P2-9); a new invariant lands here
+first, with its code.
+
+**Node numbering (S2V003).** S2 ids are dense and page-ordered: every op
+line top to bottom (`attr` and `branch` lines carry no id), so a `NodeId`
+resolves iff its index is below the artifact's total op count — the same
+count the printed `ops=` header states. P2-8's lowering mints ids in this
+order. A dangling reference renders with the `%index` display form and
+the artifact-level span `@0:0` (the reference has no source anchor of its
+own).
+
+**Expr-ref liveness** is the one check with no code of its own: it reuses
+the P1-11 debug arena-generation stamp (`Allocator::stamp` /
+`assert_stamp_current`, `crates/vize_carton/src/allocator/generation.rs`)
+and fails with that mechanism's own panic. One stamp covers the whole
+artifact today because `ExprSlot` is zero-sized; the P2-5b seam is
+`VerifyObserver::check_live`, where the walk validates each expression
+position's stamp once `ExprRef` gives the positions identity.
+
+**Invalid fixtures (TS-18).** `crates/vize_disegno/tests/fixtures/invalid/`
+holds hand-built pages that are grammar-valid and semantically invalid,
+each committed beside its exact expected rendering (`.expected`,
+whole-file equality, no partial matching). The harness is
+`crates/vize_disegno/tests/verifier_fixtures.rs`; the id-resolution and
+liveness lanes, which no page text can encode, are pinned with the same
+exact oracles in `tests/verifier_observer.rs`.
