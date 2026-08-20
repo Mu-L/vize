@@ -23,7 +23,7 @@ const probeLabel = ref(sharedLabel(0))
 "#;
 
 fn component_source(index: usize) -> String {
-    cstr!(
+    let mut source = cstr!(
         r#"<script setup lang="ts">
 import {{ computed, ref }} from 'vue'
 import {{ sharedLabel }} from './shared'
@@ -32,7 +32,11 @@ const doubled = computed(() => {index} * 2)
 </script>
 <template>{{{{ caption.value }}}} {{{{ doubled.value }}}}</template>
 "#,
-    )
+    );
+    if index == 1 {
+        source.push_str("<style scoped>.item { color: v-bind(sharedLabel) }</style>\n");
+    }
+    source
 }
 
 #[test]
@@ -152,10 +156,15 @@ const outside = sharedLabel(999)
                     .iter()
                     .filter(|location| location.uri == *uri)
                     .collect::<Vec<_>>();
+                let expected = if source.contains("v-bind(sharedLabel)") {
+                    3
+                } else {
+                    2
+                };
                 assert_eq!(
                     hits.len(),
-                    2,
-                    "each closed component import and call must be searched: {references:#?}",
+                    expected,
+                    "each closed component import and call, plus the closed style binding fixture, must be searched: {references:#?}",
                 );
                 assert!(
                     hits.iter()
@@ -165,7 +174,7 @@ const outside = sharedLabel(999)
                 hits.len()
             })
             .sum::<usize>();
-        assert_eq!(generated_references, COMPONENT_COUNT * 2);
+        assert_eq!(generated_references, COMPONENT_COUNT * 2 + 1);
         assert_eq!(
             references
                 .iter()
@@ -187,7 +196,7 @@ const outside = sharedLabel(999)
         assert_eq!(authored_text(shared_source, shared_hits[0]), "sharedLabel");
         assert_eq!(
             references.len(),
-            COMPONENT_COUNT * 2 + 3,
+            COMPONENT_COUNT * 2 + 4,
             "exact project reference set",
         );
         assert!(

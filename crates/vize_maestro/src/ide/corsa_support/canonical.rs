@@ -50,6 +50,25 @@ pub(crate) struct CanonicalMaterializedSource {
     pub(crate) mapping_kind: vize_canon::CorsaMaterializedMappingKind,
 }
 
+impl CanonicalVirtualDocument {
+    /// Authored text retained while the canonical workspace surface is open.
+    /// Closed SFCs are dependencies or materialized sources rather than editor
+    /// documents, so consumers such as style-reference expansion must resolve
+    /// them here instead of consulting only the open-buffer store.
+    pub(crate) fn authored_source(&self, uri: &Url) -> Option<&str> {
+        self.dependencies
+            .iter()
+            .find(|dependency| dependency.source_uri == *uri)
+            .map(|dependency| dependency.source.as_str())
+            .or_else(|| {
+                self.materialized_sources
+                    .iter()
+                    .find(|source| source.source_uri == *uri)
+                    .map(|source| source.source.as_str())
+            })
+    }
+}
+
 pub(crate) fn canonical_request_path(uri: &Url) -> String {
     cstr!("{}.ts", uri.path())
 }

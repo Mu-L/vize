@@ -52,7 +52,7 @@ pub(super) async fn references(
         locations.extend(extra);
     }
     let mut mapped = corsa_support::map_canonical_corsa_locations(ctx, &document, locations);
-    mapped.extend(style_locations(ctx, &mapped));
+    mapped.extend(style_locations(ctx, &document, &mapped));
     mapped.sort_by(|left, right| {
         left.uri
             .as_str()
@@ -66,16 +66,32 @@ pub(super) async fn references(
     Some(mapped)
 }
 
-fn style_locations(ctx: &IdeContext<'_>, semantic: &[Location]) -> Vec<Location> {
+fn style_locations(
+    ctx: &IdeContext<'_>,
+    document: &corsa_support::CanonicalVirtualDocument,
+    semantic: &[Location],
+) -> Vec<Location> {
     let mut seeds = FxHashSet::default();
     let mut styles = Vec::new();
-    collect_style_locations(ctx, ctx.uri, ctx.offset, &mut seeds, &mut styles);
+    collect_style_locations(
+        ctx,
+        ctx.uri,
+        &ctx.content,
+        ctx.offset,
+        &mut seeds,
+        &mut styles,
+    );
 
     for location in semantic {
         if !location.uri.path().ends_with(".vue") {
             continue;
         }
-        let Some(source) = ctx.state.documents.text(&location.uri) else {
+        let Some(source) = ctx
+            .state
+            .documents
+            .text(&location.uri)
+            .or_else(|| document.authored_source(&location.uri).map(str::to_owned))
+        else {
             continue;
         };
         let Some(offset) = crate::ide::position_to_offset(
@@ -85,7 +101,7 @@ fn style_locations(ctx: &IdeContext<'_>, semantic: &[Location]) -> Vec<Location>
         ) else {
             continue;
         };
-        collect_style_locations(ctx, &location.uri, offset, &mut seeds, &mut styles);
+        collect_style_locations(ctx, &location.uri, &source, offset, &mut seeds, &mut styles);
     }
     styles
 }
@@ -93,14 +109,12 @@ fn style_locations(ctx: &IdeContext<'_>, semantic: &[Location]) -> Vec<Location>
 fn collect_style_locations(
     query: &IdeContext<'_>,
     uri: &tower_lsp::lsp_types::Url,
+    source: &str,
     offset: usize,
     seeds: &mut FxHashSet<(tower_lsp::lsp_types::Url, vize_carton::String)>,
     locations: &mut Vec<Location>,
 ) {
-    let Some(source) = query.state.documents.text(uri) else {
-        return;
-    };
-    let Some(word) = crate::ide::token_at_offset(&source, offset, |byte| {
+    let Some(word) = crate::ide::token_at_offset(source, offset, |byte| {
         byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'$')
     }) else {
         return;
@@ -108,9 +122,7 @@ fn collect_style_locations(
     if !seeds.insert((uri.clone(), word.clone().into())) {
         return;
     }
-    let Some(ctx) = IdeContext::new(query.state, uri, offset) else {
-        return;
-    };
+    let ctx = IdeContext::with_content(query.state, uri, offset, source.to_owned());
     locations.extend(ReferencesService::find_references_in_style(&ctx, &word));
 }
 

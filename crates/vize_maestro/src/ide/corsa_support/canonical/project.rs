@@ -177,23 +177,11 @@ async fn open_canonical_virtual_project_document_with_scope(
     }
 
     if include_workspace {
-        let workspace_uris = ctx.state.discover_workspace_vue_file_uris().await;
-        for uri in same_typescript_project(ctx, workspace_uris) {
+        let workspace_sources = ctx.state.discover_workspace_vue_sources().await;
+        for (uri, source) in same_typescript_project(ctx, workspace_sources) {
             if !visited.insert(uri.clone()) || uri.path().ends_with(".art.vue") {
                 continue;
             }
-            let source = match ctx.state.documents.text(&uri) {
-                Some(source) => source,
-                None => {
-                    let Some(path) = uri.to_file_path().ok() else {
-                        continue;
-                    };
-                    let Ok(source) = std::fs::read_to_string(path) else {
-                        continue;
-                    };
-                    source
-                }
-            };
             let importer_ctx = IdeContext::with_content(ctx.state, &uri, 0, source.clone());
             if let Some(opened) = super::open::open_canonical_virtual_document_with_overlays_strict(
                 &importer_ctx,
@@ -237,9 +225,12 @@ async fn open_canonical_virtual_project_document_with_scope(
 /// Keep configured-project operations out of unrelated workspace packages.
 /// If the governing config is missing or cannot prove ownership, preserve the
 /// inferred-project fallback and search the discovered workspace surface.
-fn same_typescript_project(ctx: &IdeContext<'_>, uris: Vec<Url>) -> Vec<Url> {
+fn same_typescript_project(
+    ctx: &IdeContext<'_>,
+    sources: Vec<(Url, std::string::String)>,
+) -> Vec<(Url, std::string::String)> {
     let Some(source_path) = ctx.uri.to_file_path().ok() else {
-        return uris;
+        return sources;
     };
     let Some(tsconfig) = source_path
         .ancestors()
@@ -247,7 +238,7 @@ fn same_typescript_project(ctx: &IdeContext<'_>, uris: Vec<Url>) -> Vec<Url> {
         .map(|directory| directory.join("tsconfig.json"))
         .find(|candidate| candidate.is_file())
     else {
-        return uris;
+        return sources;
     };
     let mut ownership = vize_canon::batch::TsconfigOwnershipCache::default();
     let projects = ownership.project_paths(&tsconfig);
@@ -262,10 +253,11 @@ fn same_typescript_project(ctx: &IdeContext<'_>, uris: Vec<Url>) -> Vec<Url> {
         })
     };
     if !owns(&mut ownership, &source_path) {
-        return uris;
+        return sources;
     }
-    uris.into_iter()
-        .filter(|uri| {
+    sources
+        .into_iter()
+        .filter(|(uri, _)| {
             uri.to_file_path()
                 .ok()
                 .is_some_and(|path| owns(&mut ownership, &path))
