@@ -24,7 +24,13 @@
 //!   runtime half of the contract: a pool guard parked anywhere it must not be
 //!   would keep an arena pinned across files.
 
-use std::{fs, path::PathBuf, sync::atomic::Ordering, time::Instant};
+use std::{
+    fs,
+    panic::{AssertUnwindSafe, catch_unwind},
+    path::PathBuf,
+    sync::atomic::Ordering,
+    time::Instant,
+};
 
 use vize_atelier_core::{CodegenOptions, options::CustomElementMatcher};
 use vize_atelier_sfc::{
@@ -41,11 +47,89 @@ use crate::commands::build::ScriptExtension;
 use crate::commands::build::config::{
     CompileError, CompileOutput, CompileStats, ErrorPhase, FileProfile,
 };
+use crate::commands::davinci_ice;
 
 use super::profile_facts::{self, FileProfileFacts, StatsCacheStatus};
 use super::settings::CompileFileSettings;
 
+/// The ICE-guarded per-file compile (P2-13, charter #30): an injected panic
+/// or a panic caught around the real compile fails **this file** - with a
+/// written `repro.folio` and an `internal compiler error` report - while the
+/// rest of the batch continues. There is no fallback output on this path:
+/// charter #26 forbids degrading to possibly-wrong output, so an ICE'd file
+/// emits nothing but its repro.
+///
+/// Catching is live in every unwind build (dev, test, CI - where TS-23 pins
+/// it); the release profile's `panic = "abort"` keeps its abort semantics
+/// (see `commands::davinci_ice`).
 pub(super) fn compile_file_with_profile(
+    path: &PathBuf,
+    settings: &CompileFileSettings,
+    stats: &CompileStats,
+) -> Result<(CompileOutput, FileProfile), CompileError> {
+    if let Some(pass) = settings.davinci.injected_pass_for(path) {
+        let failure = davinci_ice::run_injected(settings.davinci.plan_string.as_str(), pass)
+            .expect_err("the injected pass was validated to be in the plan");
+        return Err(ice_error(path, settings, &failure, Some(pass)));
+    }
+    davinci_ice::silence_panics();
+    match catch_unwind(AssertUnwindSafe(|| {
+        compile_file_inner(path, settings, stats)
+    })) {
+        Ok(result) => result,
+        Err(payload) => {
+            // A panic in the real compile: the driver did not see it, so it
+            // carries the plan's stage and no pass (a stated unknown beats a
+            // plausible lie).
+            let failure = davinci_ice::IceFailure {
+                stage: settings.davinci.stage.into(),
+                pass: String::default(),
+                reason: davinci_ice::panic_reason(payload),
+            };
+            Err(ice_error(path, settings, &failure, None))
+        }
+    }
+}
+
+/// Write the failing file's repro and fold the failure into the error
+/// report: the failure line plus where the repro went.
+fn ice_error(
+    path: &PathBuf,
+    settings: &CompileFileSettings,
+    failure: &davinci_ice::IceFailure,
+    inject: Option<&str>,
+) -> CompileError {
+    let source = fs::read_to_string(path).unwrap_or_default();
+    let folio = davinci_ice::source_repro(
+        settings.davinci.plan_string.as_str(),
+        settings.davinci.mode,
+        inject,
+        failure,
+        String::from(source.as_str()),
+    );
+    let stem = path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("anonymous");
+    let error = match davinci_ice::write_repro(&settings.davinci.repro_dir, stem, &folio) {
+        Ok(repro_path) => cstr!(
+            "internal compiler error: {}\nrepro: {}",
+            failure.text(),
+            repro_path.display()
+        ),
+        Err(write_error) => cstr!(
+            "internal compiler error: {}\nrepro could not be written: {write_error}",
+            failure.text()
+        ),
+    };
+    CompileError {
+        path: path.clone(),
+        error,
+        phase: ErrorPhase::Ice,
+    }
+}
+
+fn compile_file_inner(
     path: &PathBuf,
     settings: &CompileFileSettings,
     stats: &CompileStats,

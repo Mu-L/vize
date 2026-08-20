@@ -21,4 +21,5 @@
 | [P2-6](./phase-2-records/p2-6.md)     | 2026-08-20 | local checks in one page-order walk; rigor per `PassKind`; liveness via the P1-11 stamp with `check_live` as the P2-5b seam; TS-18's 15 exact-diagnostic fixtures |
 | [P2-7](./phase-2-records/p2-7.md)     | 2026-08-20 | `vize_sinopia` driven by armature's tokenizer; the three-clause hole policy; byte fidelity by cursor-partition construction |
 | [P2-12a](./phase-2-records/p2-12a.md) | 2026-08-19 | the pre-S2 traversal baseline, the phase-2 target, and the plan finding that corpus `--check` is not evaluable                                                    |
+| [P2-13](./phase-2-records/p2-13.md)   | 2026-08-20 | the ICE policy: repro.folio + exact-equality replay via `vize repro`; dump flags real on `davinci-opt`, pinned-empty on the build path |
 | [P2-14](./phase-2-records/p2-14.md)   | 2026-08-20 | three accepted `std` edges; TS-24 as required `clippy-and-test` steps (the check.yml ratchet); oxc measured not-`no_std`                                          |

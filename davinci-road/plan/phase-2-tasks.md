@@ -241,14 +241,16 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-13 — Folio-after-change, `vize repro`, timing JSON
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-13.md](./phase-2-records/p2-13.md).
+
 **Deliverable:** the ICE policy made real (charter #30) plus the per-pass dump controls.
 
 **Steps:**
 
-- [ ] `--folio-after-change` (hash-gated: print a pass's folio only when its hash changed) and `--folio-dir <path>`, on `davinci-opt` and the CLI compile path
-- [ ] Panic handler writes `repro.folio` — last-good stage dump + pipeline string + config — and the build reports **that file** as failed while other files continue, never silently degrading to possibly-wrong output
-- [ ] `vize repro <file>` replays it. This is a **new** command: there is no `repro` module in `crates/vize/src/commands/` and no `Repro` variant in `crates/vize/src/cli.rs:19`'s enum, so the task adds both plus the module declaration in `crates/vize/src/commands.rs`
-- [ ] Timing JSON per the **P0-11** profile-export schema ([`profile-export.schema.json`](./profile-export.schema.json)) — the provisional text's "P0-4 schema" was a miscitation; P0-4 is `budgets.toml`
+- [x] `--folio-after-change` (hash-gated: print a pass's folio only when its hash changed) and `--folio-dir <path>`, on `davinci-opt` and the CLI compile path _(the mechanism is `FolioDump` in `vize_davinci` — IO-free, hashing the artifact's canonical `Full` text, which the Folio laws make interchangeable with the value. `davinci-opt --pipeline` dumps real pages; on `vize build` the driver has no folio-printable stage artifact until P2-12b, so the pinned behavior today is "directory created, zero pages" — asserted by test, so the flag is measured rather than decorative)_
+- [x] Panic handler writes `repro.folio` — last-good stage dump + pipeline string + config — and the build reports **that file** as failed while other files continue, never silently degrading to possibly-wrong output _(the guard wraps the per-file compile: an injected panic is attributed exactly through the pass-manager driver; a real-compile panic is recorded with an empty `failed-pass` (a stated unknown, not a guessed pass). The last-good stage today is the authored source, `artifact-stage=source`. Live in unwind builds; the release profile's `panic = "abort"` stands — recorded, not decided here)_
+- [x] `vize repro <file>` replays it. This is a **new** command: there is no `repro` module in `crates/vize/src/commands/` and no `Repro` variant in `crates/vize/src/cli.rs:19`'s enum, so the task adds both plus the module declaration in `crates/vize/src/commands.rs` _(added exactly so; the exact-equality comparison lives inside the tool — exit 0 = replayed to the byte-identical failure, 1 = diverged or completed, 2 = malformed)_
+- [x] Timing JSON per the **P0-11** profile-export schema ([`profile-export.schema.json`](./profile-export.schema.json)) — the provisional text's "P0-4 schema" was a miscitation; P0-4 is `budgets.toml` _(`davinci-opt --timing-json <path>` writes `vize_carton::profiler`'s own export — one producer in the tree — with the P2-3 timing observer recording one span per walk; validated through the TS-15 strict validator, reused by `#[path]` include, never re-implemented)_
 
 **Acceptance:** TS-23 established — an injected panic produces a `repro.folio` and `vize repro` replays to the **same** failure, asserted by exact equality on the failure, not a substring; the file-scoped property asserted as an exact file set (a batch with one panicking file still emits every other file); the timing JSON validates against the schema (TS-15); TS-1, TS-13. **Deps:** P2-4, P2-3. **Non-goals:** `folio-reduce` (P3-14); the DevTool pass-timeline UI (C-3); crash telemetry or upload; auto-fallback on internal errors, which charter #26 forbids outright.
 

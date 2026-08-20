@@ -4,7 +4,9 @@
 //!
 //! ```text
 //! davinci-opt --roundtrip <file> [--stage croquis]
-//! davinci-opt --pipeline "<syntax>" [--stage <stage>] < folio
+//! davinci-opt --pipeline "<syntax>" [--stage <stage>]
+//!             [--folio-dir <dir> [--folio-after-change]]
+//!             [--timing-json <path>] < folio
 //! ```
 //!
 //! `--roundtrip` reads `<file>`, parses it with the selected stage's folio,
@@ -23,82 +25,39 @@
 //! (`pass/pipeline.rs`), and this caller has nothing to bind to yet. Exit
 //! codes: 0 = ran, 1 = stdin unreadable or folio parse failure, 2 = usage.
 //!
+//! Three pipeline-mode extras (P2-13): `--folio-dir <dir>` writes the
+//! artifact's canonical folio after every pass into `<dir>` (page names
+//! `{seq:03}-{stage}.{pass}.folio`), `--folio-after-change` hash-gates that
+//! to the passes whose artifact actually changed (with today's no-op bodies:
+//! none), and `--timing-json <path>` writes the run's profile export - the
+//! per-walk spans the timing observer records - against the P0-11 schema
+//! (`davinci-road/plan/profile-export.schema.json`).
+//!
 //! Stages: `croquis` (default, the P0-10 page) and `budget-observer` (the
 //! first `#[derive(Folio)]` page, P2-4). The binary is host-side and may use
 //! `std`; the `vize_davinci` library stays `no_std + alloc`.
 
+#[path = "davinci-opt/args.rs"]
+mod args;
+#[path = "davinci-opt/export.rs"]
+mod export;
+
 use std::process::ExitCode;
 
-use vize_carton::{String, cstr};
+use args::{Args, Mode, parse_args};
+
+use vize_carton::String;
+use vize_davinci::folio::dump::FolioDump;
 use vize_davinci::folio::{Folio, FolioMode, croquis::CroquisFolio};
 use vize_davinci::pass::{
-    BudgetObserver, Fusability, PassDesc, PassKind, Pipeline, Preserved, parse_pipelines,
-    pipeline::PipelineSpec, print_pipelines, run_pipeline,
+    BudgetObserver, Fusability, Pair, PassDesc, PassKind, Pipeline, Preserved, TimingObserver,
+    parse_pipelines, pipeline::PipelineSpec, print_pipelines, run_pipeline,
 };
 
-const USAGE: &str = "usage: davinci-opt --roundtrip <file> [--stage croquis]\n       davinci-opt --pipeline \"<syntax>\" [--stage <stage>] < folio";
+const USAGE: &str = "usage: davinci-opt --roundtrip <file> [--stage croquis]\n       davinci-opt --pipeline \"<syntax>\" [--stage <stage>] [--folio-dir <dir> [--folio-after-change]] [--timing-json <path>] < folio";
 
 /// The stage list every stage-related message reports, alphabetical.
 const STAGES: &str = "budget-observer, croquis";
-
-enum Mode {
-    Roundtrip(std::path::PathBuf),
-    Pipeline(String),
-}
-
-struct Args {
-    mode: Mode,
-    stage: String,
-}
-
-fn parse_args() -> Result<Args, String> {
-    let mut roundtrip = None;
-    let mut pipeline = None;
-    let mut stage = None;
-    let mut argv = std::env::args().skip(1);
-    while let Some(arg) = argv.next() {
-        match arg.as_str() {
-            "--roundtrip" => {
-                let value = argv
-                    .next()
-                    .ok_or_else(|| cstr!("--roundtrip needs a file argument"))?;
-                roundtrip = Some(std::path::PathBuf::from(value));
-            }
-            "--pipeline" => {
-                let value = argv
-                    .next()
-                    .ok_or_else(|| cstr!("--pipeline needs a pipeline string"))?;
-                pipeline = Some(String::from(value.as_str()));
-            }
-            "--stage" => {
-                let value = argv
-                    .next()
-                    .ok_or_else(|| cstr!("--stage needs a stage name"))?;
-                stage = Some(String::from(value.as_str()));
-            }
-            "--help" | "-h" => return Err(String::default()),
-            other => return Err(cstr!("unknown argument: {other}")),
-        }
-    }
-    let mode = match (roundtrip, pipeline) {
-        (Some(_), Some(_)) => {
-            return Err(cstr!(
-                "--roundtrip and --pipeline are alternatives, give exactly one"
-            ));
-        }
-        (Some(path), None) => Mode::Roundtrip(path),
-        (None, Some(syntax)) => Mode::Pipeline(syntax),
-        (None, None) => {
-            return Err(cstr!(
-                "--roundtrip <file> or --pipeline \"<syntax>\" is required"
-            ));
-        }
-    };
-    Ok(Args {
-        mode,
-        stage: stage.unwrap_or_else(|| String::from("croquis")),
-    })
-}
 
 /// First line (1-based) at which the two texts differ, for the mismatch
 /// report.
@@ -200,7 +159,8 @@ fn build_plans(segments: &[PipelineSpec<'_>]) -> Vec<Pipeline> {
         .collect()
 }
 
-fn run_pipeline_mode(syntax: &str, stage: &str) -> ExitCode {
+fn run_pipeline_mode(syntax: &str, args: &Args) -> ExitCode {
+    let stage = args.stage.as_str();
     let segments = match parse_pipelines(syntax) {
         Ok(segments) => segments,
         Err(error) => {
@@ -231,16 +191,56 @@ fn run_pipeline_mode(syntax: &str, stage: &str) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let mut budget = BudgetObserver::new();
+    // The timing observer records one span per walk into the global profiler
+    // (P2-3); the profiler is enabled only when the export was asked for, so
+    // without --timing-json the observer costs one atomic load per walk.
+    if args.timing_json.is_some() {
+        let profiler = vize_carton::profiler::global_profiler();
+        profiler.clear();
+        profiler.enable();
+    }
+    let mut dump = args
+        .folio_dir
+        .as_ref()
+        .map(|_| FolioDump::new(args.folio_after_change));
+    if let Some(dump) = dump.as_mut() {
+        dump.seed(printed.as_str());
+    }
+    let mut observers = Pair(TimingObserver::new(), BudgetObserver::new());
     for plan in build_plans(&segments) {
-        run_pipeline(&plan, &mut budget, |_event| Ok(())).expect("a no-op pass body cannot fail");
+        run_pipeline(&plan, &mut observers, |event| {
+            if let Some(dump) = dump.as_mut() {
+                dump.after_pass(event, printed.as_str());
+            }
+            Ok(())
+        })
+        .expect("a no-op pass body cannot fail");
     }
     eprintln!(
         "davinci-opt: pipeline {}: walks={} passes={}",
         print_pipelines(&segments),
-        budget.walks,
-        budget.passes,
+        observers.1.walks,
+        observers.1.passes,
     );
+    if let (Some(dir), Some(dump)) = (args.folio_dir.as_deref(), dump.as_ref()) {
+        if let Err(message) = export::write_dump(dir, dump) {
+            eprintln!("davinci-opt: {message}");
+            return ExitCode::from(1);
+        }
+        eprintln!(
+            "davinci-opt: folio-dir {}: {} page(s)",
+            dir.display(),
+            dump.pages.len(),
+        );
+    }
+    if let Some(path) = args.timing_json.as_deref() {
+        let result = export::write_timing(path);
+        vize_carton::profiler::global_profiler().disable();
+        if let Err(message) = result {
+            eprintln!("davinci-opt: {message}");
+            return ExitCode::from(1);
+        }
+    }
     print!("{printed}");
     ExitCode::SUCCESS
 }
@@ -249,7 +249,7 @@ fn main() -> ExitCode {
     match parse_args() {
         Ok(args) => match &args.mode {
             Mode::Roundtrip(path) => run_roundtrip(path, args.stage.as_str()),
-            Mode::Pipeline(syntax) => run_pipeline_mode(syntax.as_str(), args.stage.as_str()),
+            Mode::Pipeline(syntax) => run_pipeline_mode(syntax.as_str(), &args),
         },
         Err(message) => {
             if message.is_empty() {

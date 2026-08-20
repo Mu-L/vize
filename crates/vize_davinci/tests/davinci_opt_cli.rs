@@ -16,7 +16,7 @@ use std::process::{Command, Output, Stdio};
 
 use vize_davinci::folio::{Folio, FolioMode, croquis::CroquisFolio};
 
-const USAGE: &str = "usage: davinci-opt --roundtrip <file> [--stage croquis]\n       davinci-opt --pipeline \"<syntax>\" [--stage <stage>] < folio\n";
+const USAGE: &str = "usage: davinci-opt --roundtrip <file> [--stage croquis]\n       davinci-opt --pipeline \"<syntax>\" [--stage <stage>] [--folio-dir <dir> [--folio-after-change]] [--timing-json <path>] < folio\n";
 
 fn run(args: &[&str], stdin: Option<&str>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_davinci-opt"));
