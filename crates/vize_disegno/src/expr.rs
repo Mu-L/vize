@@ -1,18 +1,135 @@
-//! The reserved expression position of the S2 op family.
+//! The S2 expression reference (P2-5b): [`ExprRef`] and its payload family.
 //!
-//! P2-5b owns the expression reference (`ExprRef<'a>`), including the
-//! retained-`None` classes P1-5/P1-9 measured (11.73% of corpus rewrites
-//! land outside the retained-AST contract). That design is a review point
-//! of its own, so this crate does not anticipate it: every expression
-//! position holds [`ExprSlot`] until P2-5b replaces it.
+//! An expression position in the op family holds an [`ExprRef`] - a shared
+//! arena reference to one of three payloads, and the enum is **total over
+//! everything the parser actually produces**:
+//!
+//! - [`ExprRef::Js`] - the retained oxc AST (the P1-5 parse-once contract):
+//!   text that parses as one complete TS-dialect expression covering the
+//!   whole content, carried beside that exact text and its authored span.
+//! - [`ExprRef::Foreign`] - a non-JS expression dialect (charter #28).
+//!   **Type-only until phase 6**: the type and its folio spelling exist so
+//!   the contract is closed, but no dialect implementation ships and no
+//!   lowering constructs one.
+//! - [`ExprRef::Opaque`] - the escape variant for the retained-`None`
+//!   classes P1-5/P1-9 measured, with **pessimal documented semantics from
+//!   day one** (the imported LLVM `undef`/`poison` rule - see
+//!   [`opaque`]'s module docs for the laws, and
+//!   `davinci-road/plan/phase-2-records/p2-5b.md` for the decision record
+//!   and the measurement that picked this resolution).
+//!
+//! # No equality, on purpose
+//!
+//! `ExprRef` implements neither `PartialEq` nor `Eq`. For [`OpaqueExpr`]
+//! textual equality must never imply semantic equality (pessimal law 4:
+//! an opaque expression is not even equal to itself), and offering
+//! structural equality on the other variants would make the unsound
+//! comparison one `match` arm away. Consumers that need identity compare
+//! the owned folio mirror, which is explicit about what it carries.
+//!
+//! # Capability resolution
+//!
+//! How a consumer asks questions about an expression (enumerate
+//! referenced bindings, classify const-ness, map spans, emit for a
+//! target) is the [`capability`] contract, resolved **once per file and
+//! never dyn-dispatched per node** (performance guardrail 1).
 
-/// Placeholder for the expression reference P2-5b decides.
+pub mod capability;
+pub mod foreign;
+pub mod js;
+pub mod opaque;
+
+pub use capability::ExprDialect;
+pub use foreign::{ForeignExpr, ForeignFact};
+pub use js::JsExpr;
+pub use opaque::{OpaqueExpr, OpaqueReason};
+
+use vize_carton::{Allocator, Span};
+
+/// One expression position's reference: retained JS AST, foreign dialect,
+/// or the classified escape.
 ///
-/// Zero-sized on purpose: the only information an op carries about an
-/// expression today is *that the position exists* (and, through
-/// `Option<ExprSlot>`, whether it is occupied). Nothing may branch on it,
-/// store data beside it, or grow it - replacing this marker with the real
-/// `ExprRef<'a>` is P2-5b's whole deliverable, and the node-size assertions
-/// in [`crate::op`] are expected to move when it lands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct ExprSlot;
+/// A *reference*, deliberately: payloads are shared `&'a` borrows of the
+/// compile arena, so two positions may name the same payload (`ui.model`'s
+/// `read`/`write` typically do), and the enum stays two words. Nothing
+/// here survives `Allocator::reset` - the folio carries the owned form
+/// (P1-11's contract; see `crate::folio`).
+#[derive(Debug, Clone, Copy)]
+pub enum ExprRef<'a> {
+    /// The retained oxc AST with its exact source text and authored span.
+    Js(&'a JsExpr<'a>),
+    /// A foreign-dialect expression (type-only until phase 6).
+    Foreign(&'a ForeignExpr<'a>),
+    /// The escape variant: no AST exists, pessimal semantics apply.
+    Opaque(&'a OpaqueExpr<'a>),
+}
+
+impl<'a> ExprRef<'a> {
+    /// The payload's stage-wide mnemonic - the keyword its folio token
+    /// starts with.
+    #[must_use]
+    pub const fn mnemonic(&self) -> &'static str {
+        match self {
+            Self::Js(_) => "js",
+            Self::Foreign(_) => "foreign",
+            Self::Opaque(_) => "opaque",
+        }
+    }
+
+    /// The exact authored (or synthesized) text of the expression.
+    ///
+    /// For [`ExprRef::Js`] this is the text the AST was parsed from and
+    /// covers (the P1-5 `raw` contract); for the other variants it is all
+    /// the compiler knows.
+    #[must_use]
+    pub const fn source(&self) -> &'a str {
+        match self {
+            Self::Js(js) => js.source,
+            Self::Foreign(foreign) => foreign.source,
+            Self::Opaque(opaque) => opaque.source,
+        }
+    }
+
+    /// The authored range of [`ExprRef::source`] in the compiled file.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        match self {
+            Self::Js(js) => js.span,
+            Self::Foreign(foreign) => foreign.span,
+            Self::Opaque(opaque) => opaque.span,
+        }
+    }
+
+    /// The **total** load-path constructor: parse `source` as one complete
+    /// TS-dialect expression into the arena, falling back to the escape
+    /// variant when the text is not admitted.
+    ///
+    /// This is how a folio's `js(...)` payload re-enters an arena (the
+    /// owned page stores slice + span only, because AST references cannot
+    /// persist across a compile - P1-11). It never panics and never
+    /// half-succeeds (the MLIR one-shot import: lowerings are total
+    /// functions): text [`JsExpr::parse_in`] refuses comes back as
+    /// [`ExprRef::Opaque`] with the classified reason and pessimal
+    /// semantics, which is exactly what a hand-edited or stale folio has
+    /// earned.
+    #[must_use]
+    pub fn parse_js_in(allocator: &'a Allocator, source: &'a str, span: Span) -> Self {
+        match JsExpr::parse_in(allocator, source, span) {
+            Ok(js) => Self::Js(js),
+            Err(reason) => Self::Opaque(allocator.alloc(OpaqueExpr {
+                reason,
+                source,
+                span,
+            })),
+        }
+    }
+}
+
+/// The reference family is `Drop`-free like every S2 type (see
+/// [`crate::op`]).
+const _: () = assert!(!core::mem::needs_drop::<ExprRef<'static>>());
+
+/// Two words: a tag plus a shared payload pointer (see [`crate::op`] for
+/// the guard rationale).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<ExprRef<'_>>() == 16);

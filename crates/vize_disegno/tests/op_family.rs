@@ -1,18 +1,30 @@
-//! The exhaustive-match canary for the S2 op family (P2-5a).
+//! The exhaustive-match canary for the S2 op family (P2-5a; the
+//! expression family P2-5b).
 //!
 //! Every enum of the family is matched with **no `_` arm**, so adding a
 //! variant breaks this file at compile time. The canary is proved by
 //! injection, not assumed (the P0-7 staleness-check pattern): the landing
-//! record (`davinci-road/plan/phase-2-records/p2-5a.md`) documents the
-//! injected variant and the resulting build failure.
+//! records (`davinci-road/plan/phase-2-records/p2-5a.md`, `p2-5b.md`)
+//! document the injected variants and the resulting build failures.
 
 use vize_carton::{Allocator, Box, Span, Vec};
-use vize_disegno::expr::ExprSlot;
+use vize_disegno::expr::{ExprRef, ForeignExpr, JsExpr, OpaqueExpr, OpaqueReason};
 use vize_disegno::op::{
     Attribute, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding, ForOp,
     IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, Op, Region, SlotOp, TextOp,
     VueDirectiveOp,
 };
+
+/// The escape payload standing in for "some expression" wherever the op
+/// under test does not care which - honest by construction, since the
+/// escape makes no claim an assertion could contradict.
+fn placeholder<'a>(allocator: &'a Allocator) -> ExprRef<'a> {
+    ExprRef::Opaque(allocator.alloc(OpaqueExpr {
+        reason: OpaqueReason::ParseRejected,
+        source: "%",
+        span: Span::new(0, 0),
+    }))
+}
 
 /// No `_` arm, by contract: a new region op must break this match.
 fn op_keyword(op: &Op<'_>) -> &'static str {
@@ -52,6 +64,27 @@ fn name_keyword(name: &DynamicName<'_>) -> &'static str {
     }
 }
 
+/// No `_` arm: the expression family is part of the op family too.
+fn expr_keyword(expr: &ExprRef<'_>) -> &'static str {
+    match expr {
+        ExprRef::Js(_) => "js",
+        ExprRef::Foreign(_) => "foreign",
+        ExprRef::Opaque(_) => "opaque",
+    }
+}
+
+/// No `_` arm: the escape classes are a closed set - a new class must
+/// break this match (and the review that names its semantics).
+fn reason_keyword(reason: OpaqueReason) -> &'static str {
+    match reason {
+        OpaqueReason::ForValue => "for-value",
+        OpaqueReason::MultiStatement => "multi-statement",
+        OpaqueReason::NestingRefused => "nesting-refused",
+        OpaqueReason::ParseRejected => "parse-rejected",
+        OpaqueReason::Compound => "compound",
+    }
+}
+
 fn region<'a>(allocator: &'a Allocator) -> Region<'a> {
     Region {
         ops: Vec::new_in(&allocator),
@@ -61,6 +94,7 @@ fn region<'a>(allocator: &'a Allocator) -> Region<'a> {
 /// One instance of every variant, built in a real arena.
 fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
     let span = Span::new(0, 0);
+    let expr = placeholder(allocator);
     Vec::from_iter_in(
         [
             Op::Element(Box::new_in(
@@ -93,7 +127,7 @@ fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
             )),
             Op::Interpolation(Box::new_in(
                 InterpolationOp {
-                    expression: ExprSlot,
+                    expression: expr,
                     span,
                 },
                 &allocator,
@@ -102,7 +136,7 @@ fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
                 IfOp {
                     branches: Vec::from_iter_in(
                         [IfBranch {
-                            condition: Some(ExprSlot),
+                            condition: Some(expr),
                             region: region(allocator),
                             span,
                         }],
@@ -115,8 +149,8 @@ fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
             Op::For(Box::new_in(
                 ForOp {
                     binding: ForBinding {
-                        source: ExprSlot,
-                        value: ExprSlot,
+                        source: expr,
+                        value: expr,
                         key: None,
                         index: None,
                     },
@@ -140,13 +174,14 @@ fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
 
 fn every_binding<'a>(allocator: &'a Allocator) -> Vec<'a, BindingOp<'a>> {
     let span = Span::new(0, 0);
+    let expr = placeholder(allocator);
     Vec::from_iter_in(
         [
             BindingOp::Model(Box::new_in(
                 ModelOp {
                     contract: BindingContract {
-                        read: ExprSlot,
-                        write: ExprSlot,
+                        read: expr,
+                        write: expr,
                     },
                     attributes: Vec::from_iter_in(
                         [Attribute {
@@ -163,9 +198,9 @@ fn every_binding<'a>(allocator: &'a Allocator) -> Vec<'a, BindingOp<'a>> {
             BindingOp::VueDirective(Box::new_in(
                 VueDirectiveOp {
                     name: "pin",
-                    argument: Some(DynamicName::Dynamic(ExprSlot)),
+                    argument: Some(DynamicName::Dynamic(expr)),
                     modifiers: Vec::from_iter_in(["lazy"], &allocator),
-                    value: Some(ExprSlot),
+                    value: Some(expr),
                     span,
                 },
                 &allocator,
@@ -210,9 +245,51 @@ fn every_attached_op_variant_is_matched_without_a_wildcard() {
 
 #[test]
 fn every_payload_enum_variant_is_matched_without_a_wildcard() {
+    let allocator = Allocator::default();
     assert_eq!(namespace_keyword(Namespace::Html), "html");
     assert_eq!(namespace_keyword(Namespace::Svg), "svg");
     assert_eq!(namespace_keyword(Namespace::MathMl), "mathml");
     assert_eq!(name_keyword(&DynamicName::Static("header")), "static");
-    assert_eq!(name_keyword(&DynamicName::Dynamic(ExprSlot)), "dynamic");
+    assert_eq!(
+        name_keyword(&DynamicName::Dynamic(placeholder(&allocator))),
+        "dynamic"
+    );
+}
+
+#[test]
+fn every_expression_variant_is_matched_without_a_wildcard() {
+    let arena = Allocator::default();
+    let allocator = &arena;
+    let js = JsExpr::parse_in(allocator, "a + b", Span::new(0, 5)).expect("`a + b` is admitted");
+    let exprs = [
+        ExprRef::Js(js),
+        ExprRef::Foreign(allocator.alloc(ForeignExpr {
+            dialect: "moonbit",
+            source: "a + b",
+            span: Span::new(0, 5),
+            facts: Vec::new_in(&allocator),
+        })),
+        ExprRef::Opaque(allocator.alloc(OpaqueExpr {
+            reason: OpaqueReason::Compound,
+            source: "a + b",
+            span: Span::new(0, 5),
+        })),
+    ];
+    let keywords: std::vec::Vec<&str> = exprs.iter().map(expr_keyword).collect();
+    assert_eq!(keywords, ["js", "foreign", "opaque"]);
+    for expr in &exprs {
+        assert_eq!(expr.mnemonic(), expr_keyword(expr));
+        assert_eq!(expr.source(), "a + b");
+        assert_eq!(expr.span(), Span::new(0, 5));
+    }
+    let reasons = [
+        OpaqueReason::ForValue,
+        OpaqueReason::MultiStatement,
+        OpaqueReason::NestingRefused,
+        OpaqueReason::ParseRejected,
+        OpaqueReason::Compound,
+    ];
+    for reason in reasons {
+        assert_eq!(reason_keyword(reason), reason.mnemonic());
+    }
 }

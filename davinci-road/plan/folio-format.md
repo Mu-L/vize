@@ -184,7 +184,7 @@ coverage):
 | `provide-inject-symbol.vue`      | `tests/_fixtures/_projects/compiler-macros/src/ProvideInjectSymbol.vue`     |
 | `top-level-await.vue`            | `tests/_fixtures/_projects/compiler-macros/src/TopLevelAwait.vue`           |
 
-## Disegno page (P2-5a)
+## Disegno page (P2-5a; expression payloads P2-5b)
 
 The S2 stage dump: an owned document model (`DisegnoFolio`,
 `crates/vize_disegno/src/folio.rs`) of one op tree. Hand-written under the
@@ -205,30 +205,46 @@ grouping is fixed: `attr` lines, then attached bindings (`ui.model`,
 legal; under `ui.model` only `attr` lines. Blank lines are separators and
 vanish; every other spelling is strict with exact, tested rejections.
 
-One line per op (`[]` optional; every `?expr` is the printed form of the
-reserved `ExprSlot` position until P2-5b):
+One line per op (`[]` optional; `<expr>` is an expression payload token,
+below):
 
-| line                                                                                  | notes                                |
-| ------------------------------------------------------------------------------------- | ------------------------------------ |
-| `ui.element <tag>[ ns=<svg\|mathml>] @s:e`                                            | HTML namespace elided                |
-| `ui.component <name> @s:e`                                                            | same body grouping as an element     |
-| `ui.text <quoted> @s:e`                                                               |                                      |
-| `ui.interpolation ?expr @s:e`                                                         |                                      |
-| `ui.if @s:e`                                                                          | `branch [?expr ]@s:e` lines beneath  |
-| `ui.for source=?expr value=?expr[ key=?expr][ index=?expr] @s:e`                      | region beneath                       |
-| `ui.slot name=<quoted>\|name=?expr @s:e`                                              | fallback region beneath              |
-| `ui.model read=?expr write=?expr @s:e`                                                | `attr` lines beneath                 |
-| `vue.directive <quoted>[ arg=<quoted>\|arg=?expr][ mods=<quoted>][ value=?expr] @s:e` | modifiers comma-joined inside quotes |
-| `attr <name>[=<quoted>] @s:e`                                                         | bare name for boolean attributes     |
+| line                                                                                    | notes                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------ |
+| `ui.element <tag>[ ns=<svg\|mathml>] @s:e`                                              | HTML namespace elided                |
+| `ui.component <name> @s:e`                                                              | same body grouping as an element     |
+| `ui.text <quoted> @s:e`                                                                 |                                      |
+| `ui.interpolation <expr> @s:e`                                                          |                                      |
+| `ui.if @s:e`                                                                            | `branch [<expr> ]@s:e` lines beneath |
+| `ui.for source=<expr> value=<expr>[ key=<expr>][ index=<expr>] @s:e`                    | region beneath                       |
+| `ui.slot name=<quoted>\|name=<expr> @s:e`                                               | fallback region beneath              |
+| `ui.model read=<expr> write=<expr> @s:e`                                                | `attr` lines beneath                 |
+| `vue.directive <quoted>[ arg=<quoted>\|arg=<expr>][ mods=<quoted>][ value=<expr>] @s:e` | modifiers comma-joined inside quotes |
+| `attr <name>[=<quoted>] @s:e`                                                           | bare name for boolean attributes     |
+
+**Expression payloads** (P2-5b): every expression position serializes as
+owned text + span, never an AST, because arena references cannot persist
+across a compile (P1-11) — a `js` payload re-parses into the arena on
+load (`vize_disegno::expr::JsExpr::parse_in`; the total fallback is
+`ExprRef::parse_js_in`, which loads unadmitted text as `opaque` with the
+text-classified reason).
+
+| token                              | payload                                                                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `js(<quoted> @s:e)`                | retained-AST text (the P1-5 admission: one complete TS expression covering the text) plus its authored span                                            |
+| `opaque(<reason> <quoted> @s:e)`   | the escape variant: classified reason + exact text + span; reasons are `for-value`, `multi-statement`, `nesting-refused`, `parse-rejected`, `compound` |
+| `foreign(<dialect> <quoted> @s:e)` | dialect id + text + span (type-only until phase 6; side tables have no spelling until the phase-6 dialect contract defines one)                        |
 
 Quoted strings escape `\\`, `\"`, `\n`, `\r`, `\t`. `Display` elides every
-` @s:e` span tail and nothing else. Documented edges (same rule as derived
-pages): attribute names containing `=`, a space or `"`, modifier names
-containing `,` or `"`, and values embedding other control characters are
-outside the contract. The folio models the dump, not the analysis: tree
-shape is validated, semantic invariants (branch ordering, region
-well-formedness beyond the grammar) belong to the S2 verifier (P2-6). The
-committed reference page is
+` @s:e` span — line tails and the spans inside expression payloads alike —
+and nothing else. Documented edges (same rule as derived pages):
+attribute names containing `=`, a space or `"`, modifier names containing
+`,` or `"`, dialect ids containing a space, `)` or `"`, and values
+embedding other control characters are outside the contract. The folio
+models the dump, not the analysis: tree shape is validated, semantic
+invariants (branch ordering, region well-formedness beyond the grammar)
+belong to the S2 verifier (P2-6). The committed reference page is
 `crates/vize_disegno/tests/fixtures/reference.folio`, pinned by TS-16 in
-`crates/vize_disegno/tests/folio_laws.rs` and mirrored from a live arena
-tree in `tests/folio_mirror.rs`.
+`crates/vize_disegno/tests/folio_laws.rs` (which also pins every opaque
+reason spelling both directions) and mirrored from a live arena tree in
+`tests/folio_mirror.rs`; the arena-reset replay law is
+`tests/expr_replay.rs`.

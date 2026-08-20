@@ -25,6 +25,7 @@ use super::owned::{
     FolioOp, FolioSlot,
 };
 
+mod expr_token;
 mod line;
 
 use line::{Item, err};

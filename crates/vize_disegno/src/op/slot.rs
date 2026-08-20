@@ -4,17 +4,20 @@
 use vize_carton::Span;
 
 use super::Region;
-use crate::expr::ExprSlot;
+use crate::expr::ExprRef;
 
 /// A name position that may be authored statically or computed at runtime:
 /// slot names (`<slot :name="n">`) and directive arguments
 /// (`v-pin:[direction]`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// No `PartialEq`, following [`ExprRef`]: the dynamic case must not be
+/// comparable (pessimal law 4 applies to whatever the expression is).
+#[derive(Debug, Clone, Copy)]
 pub enum DynamicName<'a> {
     /// Authored as a literal name, a slice of the source.
     Static(&'a str),
-    /// Computed by an expression (reserved; P2-5b).
-    Dynamic(ExprSlot),
+    /// Computed by an expression.
+    Dynamic(ExprRef<'a>),
 }
 
 /// `ui.slot` - a slot outlet owning its fallback region.
@@ -32,10 +35,9 @@ pub struct SlotOp<'a> {
     pub span: Span,
 }
 
-/// See [`crate::op`] for the guard rationale; figures move when P2-5b
-/// lands.
+/// See [`crate::op`] for the guard rationale.
 #[cfg(target_pointer_width = "64")]
 const _: () = {
-    assert!(core::mem::size_of::<DynamicName<'_>>() == 16);
-    assert!(core::mem::size_of::<SlotOp<'_>>() == 48);
+    assert!(core::mem::size_of::<DynamicName<'_>>() == 24);
+    assert!(core::mem::size_of::<SlotOp<'_>>() == 56);
 };
