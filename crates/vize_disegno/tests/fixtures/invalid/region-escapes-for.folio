@@ -2,6 +2,6 @@
 ops=2
 
 [disegno.ops]
-ui.for source=?expr value=?expr @0:10
+ui.for source=js("x" @1:2) value=js("x" @1:2) @0:10
   ui.text "x" @12:15
 

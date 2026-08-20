@@ -3,5 +3,5 @@ ops=1
 
 [disegno.ops]
 ui.if @10:20
-  branch ?expr @5:25
+  branch js("x" @6:7) @5:25
 

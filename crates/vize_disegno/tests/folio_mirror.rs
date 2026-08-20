@@ -181,14 +181,14 @@ fn arena_built<'a>(allocator: &'a Allocator) -> ArenaVec<'a, Op<'a>> {
                             fallback: Region {
                                 ops: ArenaVec::from_iter_in([foreign], &allocator),
                             },
-                            span: Span::new(131, 145),
+                            span: Span::new(131, 161),
                         },
                         &allocator,
                     ))],
                     &allocator,
                 ),
             },
-            span: Span::new(100, 130),
+            span: Span::new(100, 161),
         },
         &allocator,
     ));

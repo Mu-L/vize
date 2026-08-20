@@ -146,9 +146,9 @@ fn hand_built() -> DisegnoFolio {
                         },
                         span: Span::new(148, 161),
                     })],
-                    span: Span::new(131, 145),
+                    span: Span::new(131, 161),
                 })],
-                span: Span::new(100, 130),
+                span: Span::new(100, 161),
             }),
             FolioOp::Component(FolioComponent {
                 name: String::from("Chrome"),
