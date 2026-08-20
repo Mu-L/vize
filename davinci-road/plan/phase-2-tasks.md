@@ -125,15 +125,17 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-7 — S1 Vue surface tree
 
+**Landed 2026-08-20** — full record: [phase-2-records/p2-7.md](./phase-2-records/p2-7.md).
+
 **Deliverable:** the lossless Vue-template surface tree with typed holes.
 
 **Steps:**
 
-- [ ] Lossless tree with trivia; `Unexpected` / `Missing` typed structural error nodes (SwiftSyntax import), so every consumer sees one uniformly-shaped tree with holes and S1→S2 has a **single documented hole policy** instead of per-consumer error special-casing
-- [ ] `render(tree) == source` debug verifier asserted on **every** construction — the cheapest high-yield verifier in the prior-art survey
-- [ ] Emitted by `vize_armature`, or as a thin layer over relief until relief splits; the relief split itself is not this task's (record which shape landed and why)
-- [ ] Strings stay `&'a str` per P1-10 — trivia is a source slice or an arena copy, never an owned string; the tree is `Drop`-free and arena-resident, with the container const assertion as enforcement
-- [ ] Node-size `const` asserts, `#[cfg(target_pointer_width = "64")]`-guarded
+- [x] Lossless tree with trivia; `Unexpected` / `Missing` typed structural error nodes (SwiftSyntax import), so every consumer sees one uniformly-shaped tree with holes and S1→S2 has a **single documented hole policy** instead of per-consumer error special-casing _(three clauses at the crate root: `Missing` tokens plus the node-level `ElementClose::Missing`; `Unexpected` children; verbatim intra-tag `leading` — the third is the recorded SwiftSyntax deviation)_
+- [x] `render(tree) == source` debug verifier asserted on **every** construction — the cheapest high-yield verifier in the prior-art survey _(`check_fidelity`, allocation-free incremental compare, `debug_assert!`ed in `parse`)_
+- [x] Emitted by `vize_armature`, or as a thin layer over relief until relief splits; the relief split itself is not this task's (record which shape landed and why) _(a third shape landed: new crate `vize_sinopia` driving armature's public tokenizer `Callbacks` — the record has why neither offered shape survived the publish gate / lossy-relief measurements)_
+- [x] Strings stay `&'a str` per P1-10 — trivia is a source slice or an arena copy, never an owned string; the tree is `Drop`-free and arena-resident, with the container const assertion as enforcement _(every string a source slice; `vize_carton::{Box, Vec}` throughout)_
+- [x] Node-size `const` asserts, `#[cfg(target_pointer_width = "64")]`-guarded _(eleven figures pinned in `surface.rs`, all pointer-bearing so all guarded)_
 
 **Acceptance:** TS-19 established — `render(parse(src)) == src` **bytes** as a property over the corpus and over the malformed-fixture set, including the `Unexpected` / `Missing` paths; TS-11 empty (S1 is additive here, nothing consumes it yet); guarded size asserts; TS-1, TS-13. **Deps:** P2-1. **Non-goals:** pug as an S1 dialect (charter #12, phase 4); the OXC-backed lossless **script/JSX** wrapper — "S1" reads wider than this task and the script side is phase 4's, with the formatter and autofix consumers; retiring the `vize_glyph` byte scanner (phase 4, charter #41); `vize_musea`'s hand parser (phase 4).
 

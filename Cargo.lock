@@ -4078,6 +4078,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vize_sinopia"
+version = "0.350.2"
+dependencies = [
+ "vize_armature",
+ "vize_carton",
+ "vize_relief",
+]
+
+[[package]]
 name = "vize_test_runner"
 version = "0.350.2"
 dependencies = [

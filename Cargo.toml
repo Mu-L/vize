@@ -22,6 +22,7 @@ members = [
   "crates/vize_curator",
   "crates/vize_davinci",
   "crates/vize_davinci_derive",
+  "crates/vize_sinopia",
   "crates/vize_fresco",
   "crates/vize_marquette",
   "crates/vize_doctor",
