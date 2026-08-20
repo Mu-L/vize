@@ -1,4 +1,5 @@
 import {
+  acceptedEvidenceShas,
   latestRequiredWorkflowRun,
   requiredReleaseWorkflows,
   selectRequiredWorkflowRuns,
@@ -17,14 +18,6 @@ export function createReleaseGateDispatchPlans({ ref, headSha, baseSha }) {
     throw new Error("Release base SHA must differ from the release head SHA");
   if (!ref) throw new Error("Release dispatch ref is required");
 
-  const appE2eSuite = "all";
-  // Release evidence records most ecosystem surfaces without blocking publish.
-  // Typecheck divergence stays enforced because the release artifact verifier
-  // requires an enforcing zero-divergence budget and seeded mutation oracle.
-  // Keep the release dispatch aligned with the workflow default. Enforced
-  // typecheck divergence needs successful core typechecker evidence, and hosted
-  // release fallback runners can legitimately need the full per-project budget.
-  const releaseCoreToolsTimeoutMs = "2400000";
   // Release evidence replays the known corpus instead of running a fresh
   // campaign. A campaign is a randomized search, so it can fail a tag over an
   // input it discovered minutes earlier that has nothing to do with the release;
@@ -40,37 +33,6 @@ export function createReleaseGateDispatchPlans({ ref, headSha, baseSha }) {
       inputs: { base_sha: baseSha, head_sha: headSha },
       expectedRunName: `Benchmark ${baseSha}...${headSha}`,
       acceptsScheduledEvidence: false,
-    },
-    {
-      workflowName: "App E2E",
-      workflowId: "e2e.yml",
-      ref,
-      inputs: { suite: appE2eSuite, target_sha: headSha },
-      expectedRunName: `App E2E ${appE2eSuite} @ ${headSha}`,
-      acceptsScheduledEvidence: true,
-    },
-    {
-      workflowName: "Native Smoke",
-      workflowId: "native-smoke.yml",
-      ref,
-      inputs: {},
-      expectedRunName: "Native Smoke",
-      acceptsScheduledEvidence: true,
-    },
-    {
-      workflowName: "Real Project Matrix",
-      workflowId: "real-project-matrix.yml",
-      ref,
-      inputs: {
-        core_tools_mode: "record-only",
-        core_tools_timeout_ms: releaseCoreToolsTimeoutMs,
-        typecheck_dependencies_mode: "record-only",
-        lint_divergence_mode: "record-only",
-        lsp_mode: "record-only",
-        typecheck_divergence_mode: "enforce",
-      },
-      expectedRunName: `Real Project Matrix @ ${headSha}`,
-      acceptsScheduledEvidence: true,
     },
     {
       workflowName: "Fuzz",
@@ -101,12 +63,17 @@ export async function bootstrapRequiredWorkflowRuns({
   dispatchPlans,
   listRuns,
   dispatchWorkflow,
+  // Per gate, the SHAs whose runs count as evidence. A version-only release
+  // adds its first parent here for the gates that prove the code, so those are
+  // never dispatched at all and the release stops waiting on them.
+  evidenceShas = new Map(),
   sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   now = Date.now,
-  // Hosted release fallback budget: Real Project Matrix has 22 shards and is
-  // capped to 20 standard hosted jobs, so the budget covers two 240-minute
-  // waves plus 30 minutes for workflow dispatch, queueing, polling, and setup.
-  timeoutMs = 510 * 60 * 1000,
+  // Real Project Matrix is no longer a release gate (#4461), so the budget no
+  // longer has to cover its two 240-minute waves. Native Smoke is the long pole
+  // at 12-40 minutes, App E2E next at 21; 90 minutes leaves room for queueing
+  // and a slow runner without letting one stuck gate hold a release all day.
+  timeoutMs = 90 * 60 * 1000,
   pollIntervalMs = 15_000,
   onWait = () => {},
 }) {
@@ -116,7 +83,7 @@ export async function bootstrapRequiredWorkflowRuns({
   for (const plan of dispatchPlans) {
     const run = latestRequiredWorkflowRun(
       runs,
-      sha,
+      acceptedEvidenceShas(evidenceShas, plan.workflowName, sha),
       plan.workflowName,
       qualifiers.get(plan.workflowName),
     );
@@ -143,18 +110,35 @@ export async function bootstrapRequiredWorkflowRuns({
     const pending = [];
     let failed = false;
     for (const workflowName of requiredReleaseWorkflows) {
-      const run = latestRequiredWorkflowRun(runs, sha, workflowName, qualifiers.get(workflowName));
+      const run = latestRequiredWorkflowRun(
+        runs,
+        acceptedEvidenceShas(evidenceShas, workflowName, sha),
+        workflowName,
+        qualifiers.get(workflowName),
+      );
       if (run == null) missing.push(workflowName);
       else if (run.status !== "completed") pending.push(workflowName);
       else if (run.conclusion !== "success") failed = true;
     }
 
     if (failed || (missing.length === 0 && pending.length === 0)) {
-      return selectRequiredWorkflowRuns(runs, sha, requiredReleaseWorkflows, qualifiers);
+      return selectRequiredWorkflowRuns(
+        runs,
+        sha,
+        requiredReleaseWorkflows,
+        qualifiers,
+        evidenceShas,
+      );
     }
     if (now() >= deadline) {
       try {
-        return selectRequiredWorkflowRuns(runs, sha, requiredReleaseWorkflows, qualifiers);
+        return selectRequiredWorkflowRuns(
+          runs,
+          sha,
+          requiredReleaseWorkflows,
+          qualifiers,
+          evidenceShas,
+        );
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         throw new Error(`Timed out after ${timeoutMs}ms waiting for release gates.\n${detail}`);
