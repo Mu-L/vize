@@ -25,17 +25,25 @@ use super::element::{Analyzed, BranchKind, analyze, attr_value_text, element_cor
 use super::expr::expr_at;
 use super::forop::lower_for;
 use super::leaf::lower_leaf;
+use super::text;
 
 /// One scanned branch of a chain: its element, analysis, branch-attr
 /// index, and the gap children it consumes.
 type Branch<'a, 't> = (&'t Element<'a>, Analyzed<'a>, usize, StdVec<usize>);
 
 /// Lower one children level into a region's ops, in document order.
+///
+/// The P2-9 text plan runs first (`lower::text::plan_whitespace` — the
+/// condense decisions, computed while comments still stand in the
+/// list), then the walk lowers text/interpolation children through the
+/// run lane (`lower::text::lower_text_run` — merging), everything else
+/// as before.
 pub(crate) fn lower_children<'a>(
     cx: &mut Cx<'a>,
     children: &[SurfaceChild<'a>],
     ns: Namespace,
 ) -> Vec<'a, Op<'a>> {
+    let plan = text::plan_whitespace(cx, children);
     let mut out: Vec<'a, Op<'a>> = Vec::new_in(&cx.allocator);
     let mut i = 0usize;
     while i < children.len() {
@@ -64,6 +72,10 @@ pub(crate) fn lower_children<'a>(
                     }
                     None => out.push(lower_with_for(cx, element, &analyzed, ns)),
                 }
+            }
+            SurfaceChild::Text(_) | SurfaceChild::Interpolation(_) => {
+                i = text::lower_text_run(cx, children, &plan, i, &mut out);
+                continue;
             }
             other => lower_leaf(cx, other, &mut out),
         }

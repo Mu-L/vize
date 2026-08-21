@@ -163,9 +163,19 @@ pub(crate) fn element_core<'a>(
         }
     }
 
+    // `<pre>` and rawtext content keep their bytes: condensing is
+    // suppressed for the whole subtree (`lower::text`, the shipped
+    // `is_pre_tag` configuration plus the rawtext set).
+    let suppress = super::text::suppresses_condense(tag);
+    if suppress {
+        cx.push_condense_suppression();
+    }
     let children = Region {
         ops: lower_children(cx, &element.children, child_ns),
     };
+    if suppress {
+        cx.pop_condense_suppression();
+    }
     if component {
         Op::Component(Box::new_in(
             ComponentOp {

@@ -115,9 +115,10 @@ fn the_implicit_default_group_is_synthesized_from_non_slot_content() {
         assert_eq!(entries.len(), 1);
         let groups = &entries[0].1.groups;
         assert_eq!(groups.len(), 2);
-        // Card=0, the leading whitespace text=1, the template=2.
+        // Card=0, the template=1 (the leading whitespace text is gone —
+        // the installment-4 condense removes it before ids mint).
         assert_eq!(groups[0].name.text(), "head");
-        assert_eq!(groups[0].carrier, SlotCarrier::Template(Some(id(2))));
+        assert_eq!(groups[0].carrier, SlotCarrier::Template(Some(id(1))));
         assert_eq!(
             groups[1],
             SlotGroup {

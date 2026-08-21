@@ -9,9 +9,11 @@ use vize_carton::String;
 use vize_davinci::id::NodeId;
 use vize_davinci::side_table::SideTable;
 use vize_disegno::folio::{DisegnoFolio, FolioExpr, FolioOp};
-use vize_ricalco::pass::{IfFacts, SlotFacts};
+use vize_ricalco::pass::{IfFacts, SlotFacts, TextFacts};
 
 use super::slots::{POutlet, PUnit, s2_outlet, s2_slot_active, s2_unit};
+use super::text::{TPart, TUnit};
+use super::text_old::is_rawtext_tag;
 
 /// What stands as a branch region's single root, for the key-comparison
 /// skip classes.
@@ -69,38 +71,61 @@ pub struct S2Projection {
     pub fors: Vec<S2For>,
     pub units: Vec<PUnit>,
     pub outlets: Vec<POutlet>,
+    /// The text units (series 4): one per remaining text-family op —
+    /// the lowering already merged every unit (`lower::text`).
+    pub text_units: Vec<TUnit>,
+    /// Text-family ops inside rawtext content, excluded from the text
+    /// projection (the lane-neutral rule, counted).
+    pub text_rawtext_excluded: u64,
 }
 
-/// Collect every chain, for, slot unit and outlet in `folio`, outer
-/// before nested, document order.
+/// Collect every chain, for, slot unit, outlet and text unit in
+/// `folio`, outer before nested, document order.
 pub fn collect(
     folio: &DisegnoFolio,
     facts: &SideTable<IfFacts>,
     slot_facts: &SideTable<SlotFacts>,
+    text_facts: &SideTable<TextFacts>,
 ) -> S2Projection {
     let mut out = S2Projection {
         chains: Vec::new(),
         fors: Vec::new(),
         units: Vec::new(),
         outlets: Vec::new(),
+        text_units: Vec::new(),
+        text_rawtext_excluded: 0,
     };
     let mut next = 0u32;
-    walk(&folio.ops, facts, slot_facts, &mut next, &mut out);
+    walk(
+        &folio.ops,
+        (facts, slot_facts, text_facts),
+        0,
+        &mut next,
+        &mut out,
+    );
     out
 }
 
+type Tables<'t> = (
+    &'t SideTable<IfFacts>,
+    &'t SideTable<SlotFacts>,
+    &'t SideTable<TextFacts>,
+);
+
 fn walk(
     ops: &[FolioOp],
-    facts: &SideTable<IfFacts>,
-    slot_facts: &SideTable<SlotFacts>,
+    tables: Tables<'_>,
+    rawtext_depth: usize,
     next: &mut u32,
     out: &mut S2Projection,
 ) {
+    let (facts, slot_facts, text_facts) = tables;
     for op in ops {
         match op {
             FolioOp::Element(element) => {
                 *next += 1 + u32::try_from(element.bindings.len()).expect("binding count fits");
-                walk(&element.children, facts, slot_facts, next, out);
+                let child_depth = rawtext_depth + usize::from(is_rawtext_tag(element.tag.as_str()));
+                walk(&element.children, tables, child_depth, next, out);
             }
             FolioOp::Component(component) => {
                 let id = NodeId::from_index(*next);
@@ -108,9 +133,51 @@ fn walk(
                 if s2_slot_active(&component.bindings, &component.children) {
                     out.units.push(s2_unit(id, slot_facts));
                 }
-                walk(&component.children, facts, slot_facts, next, out);
+                walk(&component.children, tables, rawtext_depth, next, out);
             }
-            FolioOp::Text(_) | FolioOp::Interpolation(_) => *next += 1,
+            FolioOp::Text(text) => {
+                *next += 1;
+                if rawtext_depth > 0 {
+                    out.text_rawtext_excluded += 1;
+                } else {
+                    out.text_units.push(TUnit {
+                        parts: vec![TPart {
+                            dynamic: false,
+                            text: Some(text.content.clone()),
+                        }],
+                        compound: false,
+                    });
+                }
+            }
+            FolioOp::Interpolation(interpolation) => {
+                let id = NodeId::from_index(*next);
+                *next += 1;
+                if rawtext_depth > 0 {
+                    out.text_rawtext_excluded += 1;
+                    continue;
+                }
+                let compound = id.and_then(|id| text_facts.get(id));
+                out.text_units.push(match compound {
+                    Some(fact) => TUnit {
+                        parts: fact
+                            .parts
+                            .iter()
+                            .map(|part| TPart {
+                                dynamic: part.dynamic,
+                                text: Some(part.text.clone()),
+                            })
+                            .collect(),
+                        compound: true,
+                    },
+                    None => TUnit {
+                        parts: vec![TPart {
+                            dynamic: true,
+                            text: Some(expr_text(&interpolation.expression)),
+                        }],
+                        compound: false,
+                    },
+                });
+            }
             FolioOp::If(if_op) => {
                 let id = NodeId::from_index(*next).expect("page-order ids fit");
                 *next += 1;
@@ -131,7 +198,7 @@ fn walk(
                         .collect(),
                 });
                 for branch in &if_op.branches {
-                    walk(&branch.ops, facts, slot_facts, next, out);
+                    walk(&branch.ops, tables, rawtext_depth, next, out);
                 }
             }
             FolioOp::For(for_op) => {
@@ -142,12 +209,12 @@ fn walk(
                     key: alias_text(for_op.binding.key.as_ref()),
                     index: alias_text(for_op.binding.index.as_ref()),
                 });
-                walk(&for_op.ops, facts, slot_facts, next, out);
+                walk(&for_op.ops, tables, rawtext_depth, next, out);
             }
             FolioOp::Slot(slot) => {
                 *next += 1;
                 out.outlets.push(s2_outlet(&slot.name));
-                walk(&slot.fallback, facts, slot_facts, next, out);
+                walk(&slot.fallback, tables, rawtext_depth, next, out);
             }
         }
     }

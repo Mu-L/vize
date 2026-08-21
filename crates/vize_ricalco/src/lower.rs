@@ -40,11 +40,15 @@ mod forop;
 mod leaf;
 mod slot;
 mod structural;
+mod text;
 mod vfor;
 
 // The one-scanner rule (#4365): the S2 passes re-derive binding names
 // with exactly the enumeration the lowering used, never a second one.
 pub(crate) use expr::simple_identifier;
+// The one-rebuild rule (the same discipline): the text pass re-derives a
+// compound's source with exactly the spelling the lowering minted.
+pub use text::{TextPart, TextParts, rebuild_source};
 
 /// The S2 artifact one lowering produces: the op tree plus the three
 /// fact channels, all live even when diagnostics are present (the
@@ -67,6 +71,10 @@ pub struct Lowered<'a> {
     /// Hygiene scope facts per binding-introducing op
     /// (`vize_disegno::scope`).
     pub scopes: SideTable<ScopeFacts>,
+    /// The recorded parts of every merged text/interpolation run, keyed
+    /// by its compound `ui.interpolation` op (P2-9 installment 4,
+    /// [`lower::text`](text)); validated and consumed by `pass::text`.
+    pub texts: SideTable<TextParts>,
 }
 
 /// Lower a parsed S1 tree (and the tokenizer errors its parse reported)
@@ -99,5 +107,6 @@ pub fn lower<'a>(
         diagnostics: cx.diagnostics,
         provenance: cx.provenance,
         scopes: cx.scopes,
+        texts: cx.texts,
     }
 }

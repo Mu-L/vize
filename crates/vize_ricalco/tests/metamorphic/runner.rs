@@ -139,12 +139,12 @@ impl Report {
 
 /// The normalization each mutator's justification declares
 /// (`normalize.rs` for the rules, `mutators.rs` for the arguments).
+/// Split/merge and whitespace declare **none** since the P2-9 ratchet —
+/// the lowering's own condense-and-merge is the canonical operation.
 fn rules_for(kind: Kind) -> Normalization {
     match kind {
         Kind::Reorder => Normalization::REORDER,
-        Kind::Wrap => Normalization::WRAP,
-        Kind::Split | Kind::Merge => Normalization::TEXT,
-        Kind::Whitespace => Normalization::WHITESPACE,
+        Kind::Wrap | Kind::Split | Kind::Merge | Kind::Whitespace => Normalization::NONE,
     }
 }
 

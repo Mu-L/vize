@@ -1,5 +1,6 @@
 //! P2-9, the plain-suite coverage witness: the committed battery (the
-//! v-if half from series 1, the v-for half from series 2) dual-runs
+//! v-if half from series 1, the v-for half from series 2, the v-slot
+//! half from series 3, the text half from series 4) dual-runs
 //! legacy-vs-S2 with **exact-pinned** counters, so a cfg or flag
 //! regression that disarms the differential lane fails loudly here (the
 //! P1-6/P1-7 witness law). The corpus-widened entry is
@@ -7,26 +8,26 @@
 
 mod s2_support;
 
-use s2_support::{BATTERY, Counters, SlotCounters, compare};
+use s2_support::{BATTERY, Counters, SlotCounters, TextCounters, compare};
 
 /// The battery's exact accounting. The corpus entry pins the same
 /// numbers; both move together, deliberately, when the battery does.
 fn expected() -> Counters {
     Counters {
-        templates_seen: 44,
-        compared: 44,
+        templates_seen: 58,
+        compared: 58,
         skipped_legacy_flag: 0,
         skipped_old_parse_errors: 0,
         skipped_s2_errors: 0,
-        if_ops: 21,
-        branches: 39,
+        if_ops: 22,
+        branches: 41,
         keys_static: 13,
         keys_dynamic: 2,
         keys_template_if: 1,
         keys_slot_root: 1,
         conditions_compound: 0,
-        for_ops: 15,
-        for_values: 14,
+        for_ops: 16,
+        for_values: 15,
         for_keys: 4,
         for_indexes: 1,
         for_values_absent: 1,
@@ -42,6 +43,16 @@ fn expected() -> Counters {
             units_filler_default: 1,
             outlets: 6,
             outlets_dynamic: 1,
+        },
+        text: TextCounters {
+            units: 83,
+            parts_static: 70,
+            parts_dynamic: 23,
+            compound_units: 7,
+            vpre_templates: 1,
+            entity_templates: 1,
+            rawtext_excluded: 1,
+            parts_compound: 0,
         },
     }
 }

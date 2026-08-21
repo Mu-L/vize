@@ -1,7 +1,8 @@
 //! The committed battery the P2-9 comparator runs — the same sources in
 //! the plain witness and the corpus entry, so a feature-wiring
 //! regression fails loudly in both lanes. Series 1 contributed the
-//! v-if templates; series 2 the v-for half; series 3 the v-slot half.
+//! v-if templates; series 2 the v-for half; series 3 the v-slot half;
+//! series 4 the text half.
 
 /// (name, template source). Each names the projection class it pins.
 pub const BATTERY: &[(&str, &str)] = &[
@@ -165,4 +166,28 @@ pub const BATTERY: &[(&str, &str)] = &[
         "whitespace-only-default",
         "<Card>\n  <template #a>x</template>\n</Card>",
     ),
+    // -- the text half (series 4) -----------------------------------
+    ("plain-merge", r#"<p>Hello {{ name }}!</p>"#),
+    ("interpolation-only", r#"<p>{{ msg }}</p>"#),
+    ("static-only", r#"<p>just text</p>"#),
+    ("interior-condense", "<p>a   b {{ x }}\n   c</p>"),
+    ("comment-run-boundary", r#"<p>a<!--c-->b {{ x }}</p>"#),
+    ("comment-remove", "<p>a<!--c-->\n<!--d-->b</p>"),
+    ("kept-space", r#"<i>one</i> <i>two</i>"#),
+    ("dropped-newline", "<i>one</i>\n<i>two</i>"),
+    ("pre-content", r#"<pre>  a  {{ x }}  b  </pre>"#),
+    (
+        "rawtext-excluded",
+        r#"<textarea> a   b </textarea><p>t {{ y }}</p>"#,
+    ),
+    ("entity-class", r#"<p>Tom &amp; Jerry {{ x }}</p>"#),
+    (
+        "vpre-class",
+        r#"<div v-pre>{{ raw }}</div><p>after {{ x }}</p>"#,
+    ),
+    (
+        "units-in-branches",
+        r#"<div v-if="a">x {{ b }}</div><div v-else>y</div>"#,
+    ),
+    ("units-in-loop", r#"<li v-for="i in xs">#{{ i }} </li>"#),
 ];

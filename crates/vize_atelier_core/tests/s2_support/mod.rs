@@ -13,6 +13,9 @@
 //! still. Series 3 adds the slot projection — component slot grouping
 //! (canonical names with their invented-vs-authored class, params
 //! texts, group order) and outlet names — in the [`slots`] module.
+//! Series 4 adds the text projection — the merged text-unit surface
+//! (`createTextVNode` boundaries with their static/dynamic parts,
+//! condensed text included) — in the [`text`] module.
 //!
 //! # Why this lives in test space (the dependency direction)
 //!
@@ -60,24 +63,25 @@
 //! average.
 
 pub mod battery;
+mod checks;
 pub mod old_lane;
 pub mod s2_lane;
 pub mod slots;
 pub mod slots_old;
+pub mod text;
+pub mod text_old;
 
 pub use battery::BATTERY;
 pub use slots::SlotCounters;
+pub use text::TextCounters;
 
-use vize_atelier_core::parser::parse as old_parse;
-use vize_atelier_core::{TransformOptions, transform};
+use vize_atelier_core::parser::parse_with_options as old_parse_with_options;
+use vize_atelier_core::{ParserOptions, TransformOptions, transform};
 use vize_carton::Allocator;
 use vize_davinci::diagnostic::Severity;
 use vize_davinci::pass::NoObserver;
 use vize_disegno::folio::DisegnoFolio;
 use vize_ricalco::pass::{TRANSFORM_LANE_FLAG, run_transform};
-
-use old_lane::{OldChain, OldFor, OldKey};
-use s2_lane::{RootKind, S2Chain, S2For};
 
 /// The comparator's process-global accounting, pinned exactly by the
 /// plain witness and printed by the corpus entry.
@@ -128,6 +132,9 @@ pub struct Counters {
     /// The slot half (series 3): units, groups, outlets, and the
     /// counted classes ([`slots`] module docs).
     pub slots: SlotCounters,
+    /// The text half (series 4): units, parts, compounds, and the
+    /// counted classes ([`text`] module docs).
+    pub text: TextCounters,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -143,10 +150,19 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
         return;
     }
 
-    // Legacy lane: the shipped parse + transform, default options (no
-    // identifier prefixing, so condition text stays authored).
+    // Legacy lane: the shipped parse + transform. Options stay default
+    // except `is_pre_tag`, which takes the shipped DOM configuration
+    // (`crates/vize_atelier_dom/src/compile/stage_options.rs`) so both
+    // lanes exempt `<pre>` from whitespace condensing the same way —
+    // the default `|_| false` would condense inside `<pre>`, which no
+    // shipped compile does. `is_pre_tag` feeds only the condense
+    // strategy, so every pre-series-4 projection is unaffected.
     let old_allocator = Allocator::new();
-    let (mut root, parse_errors) = old_parse(&old_allocator, source);
+    let options = ParserOptions {
+        is_pre_tag: |tag| tag == "pre",
+        ..ParserOptions::default()
+    };
+    let (mut root, parse_errors) = old_parse_with_options(&old_allocator, source, options);
     if parse_errors.iter().any(|error| !error.code.is_recovery()) {
         counters.skipped_old_parse_errors += 1;
         return;
@@ -158,6 +174,8 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     let mut old_units = Vec::new();
     let mut old_outlets = Vec::new();
     slots_old::collect_old(&root.children, source, &mut old_units, &mut old_outlets);
+    let mut old_text_units = Vec::new();
+    text_old::collect_units(&root.children, &mut old_text_units);
 
     // S2 lane: sinopia parse -> ricalco lower -> the S2 passes through
     // the P2-2 pass manager (verifier between passes in debug).
@@ -174,10 +192,15 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     }
     let facts = run_transform(&mut lowered, &mut NoObserver);
     let folio = DisegnoFolio::of(&lowered.root.ops);
-    let s2 = s2_lane::collect(&folio, &facts.if_facts, &facts.slot_facts);
+    let s2 = s2_lane::collect(
+        &folio,
+        &facts.if_facts,
+        &facts.slot_facts,
+        &facts.text_facts,
+    );
 
-    check(name, source, &old_chains, &s2.chains, counters);
-    check_fors(name, source, &old_fors, &s2.fors, counters);
+    checks::check(name, source, &old_chains, &s2.chains, counters);
+    checks::check_fors(name, source, &old_fors, &s2.fors, counters);
     slots::check(
         name,
         source,
@@ -187,146 +210,25 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
         &s2.outlets,
         &mut counters.slots,
     );
+    counters.text.rawtext_excluded += s2.text_rawtext_excluded;
+    // The text projection's template-level v-pre class ([`text`] module
+    // docs): the legacy parser honours `v-pre` and then erases it from
+    // its tree, so the deterministic detector is the S2 lowering's own
+    // deferral record.
+    let has_vpre = lowered
+        .provenance
+        .iter()
+        .any(|record| record.rule.as_str() == "defer.v-pre");
+    if has_vpre {
+        counters.text.vpre_templates += 1;
+    } else {
+        text::check(
+            name,
+            source,
+            &old_text_units,
+            &s2.text_units,
+            &mut counters.text,
+        );
+    }
     counters.compared += 1;
-}
-
-/// One divergence panic, with everything needed to investigate.
-macro_rules! diverged {
-    ($name:expr, $source:expr, $old:expr, $s2:expr, $($why:tt)+) => {
-        panic!(
-            "TS-25 divergence [{}]: {}\ntemplate:\n{}\nlegacy projection: {:#?}\ns2 projection: {:#?}",
-            $name, format_args!($($why)+), $source, $old, $s2
-        )
-    };
-}
-
-fn check(name: &str, source: &str, old: &[OldChain], s2: &[S2Chain], counters: &mut Counters) {
-    if old.len() != s2.len() {
-        diverged!(
-            name,
-            source,
-            old,
-            s2,
-            "chain count {} vs {}",
-            old.len(),
-            s2.len()
-        );
-    }
-    for (chain_index, (old_chain, s2_chain)) in old.iter().zip(s2).enumerate() {
-        if old_chain.branches.len() != s2_chain.branches.len() {
-            diverged!(name, source, old, s2, "chain {chain_index} branch count");
-        }
-        counters.if_ops += 1;
-        for (old_branch, s2_branch) in old_chain.branches.iter().zip(&s2_chain.branches) {
-            counters.branches += 1;
-            match (&old_branch.condition, &s2_branch.condition) {
-                (None, None) => {}
-                (Some(None), Some(_)) => counters.conditions_compound += 1,
-                (Some(Some(old_text)), Some(s2_text)) if old_text == s2_text => {}
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "chain {chain_index} condition {:?} vs {:?}",
-                    old_branch.condition,
-                    s2_branch.condition
-                ),
-            }
-            if old_branch.template_if {
-                if !matches!(old_branch.key, OldKey::None) {
-                    counters.keys_template_if += 1;
-                }
-                continue;
-            }
-            match (&old_branch.key, &s2_branch.key, s2_branch.root) {
-                (OldKey::None, None, _) => {}
-                (OldKey::Dynamic, None, _) => counters.keys_dynamic += 1,
-                (OldKey::Static(_), None, RootKind::SlotOutlet) => counters.keys_slot_root += 1,
-                (OldKey::Static(old_value), Some(s2_value), _) if old_value == s2_value => {
-                    counters.keys_static += 1;
-                }
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "chain {chain_index} key {:?} vs {:?} (root {:?})",
-                    old_branch.key,
-                    s2_branch.key,
-                    s2_branch.root
-                ),
-            }
-        }
-    }
-}
-
-/// The series-2 half: every for's binding surface, in document order.
-fn check_fors(name: &str, source: &str, old: &[OldFor], s2: &[S2For], counters: &mut Counters) {
-    if old.len() != s2.len() {
-        diverged!(
-            name,
-            source,
-            old,
-            s2,
-            "for count {} vs {}",
-            old.len(),
-            s2.len()
-        );
-    }
-    for (for_index, (old_for, s2_for)) in old.iter().zip(s2).enumerate() {
-        counters.for_ops += 1;
-        match &old_for.source {
-            None => counters.for_compound += 1,
-            Some(old_text) if *old_text == s2_for.source => {}
-            Some(_) => diverged!(
-                name,
-                source,
-                old,
-                s2,
-                "for {for_index} source {:?} vs {:?}",
-                old_for.source,
-                s2_for.source
-            ),
-        }
-        /// What one alias position's comparison found.
-        enum Alias {
-            BothAbsent,
-            Compound,
-            Compared,
-        }
-        let alias = |position: &str,
-                     old_alias: &Option<old_lane::OldText>,
-                     s2_alias: &Option<vize_carton::String>| {
-            match (old_alias, s2_alias) {
-                (None, None) => Alias::BothAbsent,
-                (Some(None), Some(_)) => Alias::Compound,
-                (Some(Some(old_text)), Some(s2_text)) if old_text == s2_text => Alias::Compared,
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "for {for_index} {position} {:?} vs {:?}",
-                    old_alias,
-                    s2_alias
-                ),
-            }
-        };
-        match alias("value", &old_for.value, &s2_for.value) {
-            Alias::BothAbsent => counters.for_values_absent += 1,
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_values += 1,
-        }
-        match alias("key", &old_for.key, &s2_for.key) {
-            Alias::BothAbsent => {}
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_keys += 1,
-        }
-        match alias("index", &old_for.index, &s2_for.index) {
-            Alias::BothAbsent => {}
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_indexes += 1,
-        }
-    }
 }

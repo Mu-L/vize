@@ -68,14 +68,16 @@ fn the_battery_aggregates_are_pinned() {
             scopes += lowered.scopes.len();
         });
     }
-    // Re-pinned at the v-slot installment: the `#named` spelling in the
-    // directive fixture now lowers to a `ui.slot-content` op (+1 op)
-    // instead of the P2-8 `defer.v-slot` Info (-1 diagnostic); the
-    // provenance record count is unchanged (defer record -> lower
-    // record, one for one).
+    // Re-pinned at the transform_text installment (P2-9 series 4): the
+    // lowering now condenses whitespace and merges text/interpolation
+    // runs (`lower::text`), so whitespace-only text ops leave the
+    // artifact (89 -> 78 ops) and their `lower.text` records become
+    // `condense.*` ones (107 -> 101 records — merged runs collapse N
+    // leaf records into one). Diagnostics are unchanged on purpose:
+    // condensing and merging emit none in either lane.
     assert_eq!(
         (ops, diagnostics, provenance, scopes),
-        (89, 33, 107, 1),
+        (78, 33, 101, 1),
         "battery census moved: re-pin deliberately"
     );
 }

@@ -23,7 +23,7 @@ pub(crate) fn lower_leaf<'a>(cx: &mut Cx<'a>, child: &SurfaceChild<'a>, out: &mu
         // bug, and totality still holds (the child is skipped, never a
         // panic outside debug builds).
         SurfaceChild::Element(_) => debug_assert!(false, "elements take the structural path"),
-        SurfaceChild::Text(token) => lower_text(cx, token, out),
+        SurfaceChild::Text(token) => lower_text(cx, token, token.text, out),
         SurfaceChild::Interpolation(node) => lower_interpolation(cx, node, out),
         SurfaceChild::Comment(token) => {
             let span = cx.token_span(token);
@@ -47,10 +47,16 @@ pub(crate) fn lower_leaf<'a>(cx: &mut Cx<'a>, child: &SurfaceChild<'a>, out: &mu
     }
 }
 
-/// `ui.text`, verbatim: entity decoding and whitespace condensing are
-/// the transform lane's (P2-9, `transform_text.rs` as a pass); the P2-8
-/// artifact carries the authored bytes.
-fn lower_text<'a>(cx: &mut Cx<'a>, token: &Token<'a>, out: &mut Vec<'a, Op<'a>>) {
+/// `ui.text`. `content` is the rendered text — the authored bytes, or
+/// the condensed rewrite the P2-9 text plan decided (`lower::text`);
+/// entity decoding stays out of scope (the S1 v1 no-decoding deviation,
+/// re-recorded in the installment-4 record).
+pub(crate) fn lower_text<'a>(
+    cx: &mut Cx<'a>,
+    token: &Token<'a>,
+    content: &'a str,
+    out: &mut Vec<'a, Op<'a>>,
+) {
     let node = cx.mint_op();
     let span = cx.token_span(token);
     cx.record(
@@ -61,10 +67,7 @@ fn lower_text<'a>(cx: &mut Cx<'a>, token: &Token<'a>, out: &mut Vec<'a, Op<'a>>)
         span,
     );
     out.push(Op::Text(Box::new_in(
-        TextOp {
-            content: token.text,
-            span,
-        },
+        TextOp { content, span },
         &cx.allocator,
     )));
 }

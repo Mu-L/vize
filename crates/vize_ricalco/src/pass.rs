@@ -49,6 +49,8 @@ use vize_davinci::side_table::SideTable;
 
 use crate::lower::Lowered;
 
+#[path = "pass/text.rs"]
+pub mod text;
 #[path = "pass/vfor.rs"]
 pub mod vfor;
 #[path = "pass/vif.rs"]
@@ -58,6 +60,7 @@ pub mod vslot;
 #[path = "pass/walk.rs"]
 mod walk;
 
+pub use text::TextFacts;
 pub use vfor::{ForFacts, ForName};
 pub use vif::{BranchKey, IfFacts};
 pub use vslot::{SlotCarrier, SlotFacts, SlotGroup, SlotName, SlotParams};
@@ -73,21 +76,23 @@ pub const TRANSFORM_LANE_FLAG: &str = "VIZE_DAVINCI_TRANSFORM";
 
 /// The S2 transform pipeline as the series has built it so far.
 ///
-/// Three passes ([`vif::DESC`], [`vfor::DESC`], then [`vslot::DESC`] —
-/// the series' landing order; the three touch disjoint op families, so
-/// the order carries no semantic dependency today). Later installments
-/// append here, and the `const` pins below are the grouping regression
-/// guard (the P2-2 convention: a fusion-plan change is a compile error,
-/// not a surprise).
-pub const TRANSFORM_PASSES: &[PassDesc] = &[vif::DESC, vfor::DESC, vslot::DESC];
+/// Four passes ([`vif::DESC`], [`vfor::DESC`], [`vslot::DESC`], then
+/// [`text::DESC`] — the series' landing order; the four touch disjoint
+/// op families and the text pass preserves, so the order still carries
+/// no semantic dependency today). Later installments append here, and
+/// the `const` pins below are the grouping regression guard (the P2-2
+/// convention: a fusion-plan change is a compile error, not a
+/// surprise).
+pub const TRANSFORM_PASSES: &[PassDesc] = &[vif::DESC, vfor::DESC, vslot::DESC, text::DESC];
 
 /// The planned pipeline over [`TRANSFORM_PASSES`].
 pub const TRANSFORM: Pipeline = Pipeline::new(S2_STAGE, TRANSFORM_PASSES);
 
-// The plan's fusion shape, pinned: three mandatory barriers, three
+// The plan's fusion shape, pinned: four mandatory barriers, four
 // walks — law 1 leaves nothing to fuse, and every neighbour is itself a
-// barrier (slot gathering is the taxonomy's own barrier example).
-const _: () = assert!(TRANSFORM.group_count() == 3);
+// barrier (slot gathering is the taxonomy's own barrier example; the
+// text pass's adjacency law reads across sibling ops the same way).
+const _: () = assert!(TRANSFORM.group_count() == 4);
 const _: () = assert!(TRANSFORM.is_fully_serialized());
 
 /// The facts the S2 transform pipeline produces beside the tree.
@@ -105,6 +110,9 @@ pub struct S2Facts {
     /// Per-`ui.component` canonical slot grouping, keyed by the op's
     /// page-order id ([`vslot`]).
     pub slot_facts: SideTable<SlotFacts>,
+    /// Per-compound merged-run parts, keyed by the compound
+    /// `ui.interpolation` op's page-order id ([`text`]).
+    pub text_facts: SideTable<TextFacts>,
 }
 
 /// Run the S2 transform pipeline over `lowered`, firing `observer`'s
@@ -134,6 +142,8 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             facts.for_facts = vfor::run(lowered);
         } else if name == vslot::DESC.name {
             facts.slot_facts = vslot::run(lowered);
+        } else if name == text::DESC.name {
+            facts.text_facts = text::run(lowered);
         } else {
             return Err(PassFailure::new("pipeline pass has no registered body"));
         }
@@ -147,9 +157,11 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             let folio = vize_disegno::folio::DisegnoFolio::of(&lowered.root.ops);
             verify.check(event, &folio);
             verify.check_table(event, &folio, &lowered.scopes);
+            verify.check_table(event, &folio, &lowered.texts);
             verify.check_table(event, &folio, &facts.if_facts);
             verify.check_table(event, &folio, &facts.for_facts);
             verify.check_table(event, &folio, &facts.slot_facts);
+            verify.check_table(event, &folio, &facts.text_facts);
         }
         Ok(())
     });
@@ -163,16 +175,19 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
 
 #[cfg(test)]
 mod tests {
-    use super::{S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, vfor, vif, vslot};
+    use super::{
+        S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, text, vfor, vif, vslot,
+    };
     use vize_davinci::pass::{Fusability, PassKind};
 
     #[test]
     fn the_pipeline_holds_exactly_the_landed_passes() {
         assert_eq!(TRANSFORM.stage, S2_STAGE);
-        assert_eq!(TRANSFORM_PASSES.len(), 3);
+        assert_eq!(TRANSFORM_PASSES.len(), 4);
         assert_eq!(TRANSFORM_PASSES[0], vif::DESC);
         assert_eq!(TRANSFORM_PASSES[1], vfor::DESC);
         assert_eq!(TRANSFORM_PASSES[2], vslot::DESC);
+        assert_eq!(TRANSFORM_PASSES[3], text::DESC);
     }
 
     #[test]
@@ -207,16 +222,28 @@ mod tests {
     }
 
     #[test]
-    fn the_fusion_plan_is_three_lone_barriers() {
+    fn the_text_classification_is_pinned() {
+        // The review-point classification, pinned so a drive-by re-kind
+        // is a loud diff: see `text::DESC`'s docs for the reasoning
+        // (the vfor-shaped *preserving* mandatory pass — the recorded
+        // taxonomy tension, third occurrence).
+        assert_eq!(text::DESC.name, "text");
+        assert_eq!(text::DESC.kind, PassKind::MandatoryLowering);
+        assert_eq!(text::DESC.fusability, Fusability::Barrier);
+    }
+
+    #[test]
+    fn the_fusion_plan_is_four_lone_barriers() {
         // The review point's fusion question, answered as data: every
         // pass fuses with nothing — law 1 bars them as mandatory, and
         // every neighbour is itself a barrier (slot gathering being the
-        // taxonomy's own example of what fusion breaks).
-        for index in 0..3 {
+        // taxonomy's own example of what fusion breaks; the text pass's
+        // adjacency law reads across siblings the same way).
+        for index in 0..4 {
             let group = TRANSFORM.group(index).expect("group exists");
             assert!(group.is_barrier && group.len == 1);
         }
-        assert_eq!(TRANSFORM.group(3), None);
+        assert_eq!(TRANSFORM.group(4), None);
     }
 
     #[test]
