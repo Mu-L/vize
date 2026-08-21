@@ -208,93 +208,41 @@ fn api_mode_for_executable(path: &std::path::Path) -> ApiMode {
         return ApiMode::AsyncJsonRpcStdio;
     }
 
+    if is_typescript_native_preview_executable(path) {
+        return ApiMode::AsyncJsonRpcStdio;
+    }
+
+    ApiMode::SyncMsgpackStdio
+}
+
+fn is_typescript_native_preview_executable(path: &std::path::Path) -> bool {
     let Some(parent) = path.parent() else {
-        return ApiMode::SyncMsgpackStdio;
+        return false;
     };
-    let Some(grandparent) = parent.parent() else {
-        return ApiMode::SyncMsgpackStdio;
+    let Some(parent_name) = parent.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    if parent_name != "bin" && parent_name != "lib" {
+        return false;
     };
 
-    if parent.file_name().and_then(|name| name.to_str()) == Some("bin")
-        && grandparent.file_name().and_then(|name| name.to_str()) == Some("native-preview")
-    {
-        ApiMode::AsyncJsonRpcStdio
-    } else {
-        ApiMode::SyncMsgpackStdio
+    let Some(package_dir) = parent.parent() else {
+        return false;
+    };
+    let Some(package_name) = package_dir.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    if package_name != "native-preview" && !package_name.starts_with("native-preview-") {
+        return false;
     }
+
+    package_dir
+        .parent()
+        .and_then(|scope| scope.file_name())
+        .and_then(|name| name.to_str())
+        == Some("@typescript")
 }
 
 #[cfg(test)]
-mod tests {
-    use super::api_mode_for_executable;
-    use crate::linter::corsa_session::CorsaTypeAwareSession;
-    use corsa::api::ApiMode;
-    use std::path::Path;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use vize_carton::cstr;
-
-    static NEXT_CASE_ID: AtomicU64 = AtomicU64::new(0);
-
-    #[test]
-    fn uses_json_rpc_for_node_wrappers() {
-        assert_eq!(
-            api_mode_for_executable(Path::new("/workspace/node_modules/.bin/tsgo")),
-            ApiMode::AsyncJsonRpcStdio
-        );
-        assert_eq!(
-            api_mode_for_executable(Path::new(
-                "/workspace/node_modules/@typescript/native-preview/bin/tsgo.js"
-            )),
-            ApiMode::AsyncJsonRpcStdio
-        );
-    }
-
-    #[test]
-    fn uses_msgpack_for_native_binaries() {
-        assert_eq!(
-            api_mode_for_executable(Path::new(
-                "/workspace/node_modules/@typescript/native-preview-darwin-arm64/lib/tsgo"
-            )),
-            ApiMode::SyncMsgpackStdio
-        );
-    }
-
-    #[test]
-    fn cleans_session_root_when_spawn_fails() {
-        let root = case_dir("spawn-fails");
-        let _ = std::fs::remove_dir_all(&root);
-        let source = root.join("Component.vue");
-        let invalid_corsa = root.join("not-corsa");
-
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("package.json"), "{}").unwrap();
-        std::fs::write(&invalid_corsa, "").unwrap();
-
-        let error = match CorsaTypeAwareSession::new_with_corsa_path(
-            source.to_str().unwrap(),
-            Some(invalid_corsa.as_path()),
-        ) {
-            Ok(mut session) => {
-                session.close();
-                panic!("invalid corsa executable unexpectedly started");
-            }
-            Err(error) => error,
-        };
-
-        assert!(error.contains("Failed to start corsa type-aware session"));
-        assert!(!root.join(".vize").join("patina").exists());
-
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    fn case_dir(name: &str) -> std::path::PathBuf {
-        let id = NEXT_CASE_ID.fetch_add(1, Ordering::Relaxed);
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("target")
-            .join("vize-tests")
-            .join(&*cstr!(
-                "patina-corsa-session-{name}-{}-{id}",
-                std::process::id()
-            ))
-    }
-}
+#[path = "session_tests.rs"]
+mod tests;

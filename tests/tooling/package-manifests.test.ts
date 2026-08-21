@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(import.meta.url);
@@ -64,6 +65,17 @@ function collectNativeBinaryCatalogPins(workspaceYaml: string): Record<string, s
   }
 
   return pins;
+}
+
+function minimumReleaseAgeExcludeVersions(workspaceYaml: string, packageName: string): string[] {
+  const exclude = (parse(workspaceYaml) as { minimumReleaseAgeExclude?: unknown })
+    .minimumReleaseAgeExclude;
+  assert.ok(Array.isArray(exclude), "minimumReleaseAgeExclude must be an array");
+  for (const entry of exclude)
+    assert.equal(typeof entry, "string", "minimumReleaseAgeExclude entries must be strings");
+  const entry = (exclude as string[]).find((candidate) => candidate.startsWith(`${packageName}@`));
+  assert.ok(entry, `${packageName} is missing from minimumReleaseAgeExclude`);
+  return entry.slice(packageName.length + 1).split(" || ");
 }
 
 function readRepoFile(filePath: string): string {
@@ -234,9 +246,8 @@ test("native package catalog pins and generated loader version checks stay align
   };
   assert.ok(nativePackage.version);
 
-  const workspacePins = collectNativeBinaryCatalogPins(
-    fs.readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf-8"),
-  );
+  const workspaceYaml = fs.readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf-8");
+  const workspacePins = collectNativeBinaryCatalogPins(workspaceYaml);
   const nativeOptionalDependencies = Object.entries(
     nativePackage.optionalDependencies ?? {},
   ).filter(([name]) => name.startsWith("@vizejs/native-"));
@@ -259,11 +270,14 @@ test("native package catalog pins and generated loader version checks stay align
       nativePackage.version,
       `${name} catalog pin should match @vizejs/native version`,
     );
-    const escapedVersion = escapeRegExp(catalogVersion);
     assert.match(
       lockfile,
-      new RegExp(`['"]?${escapedName}['"]?:\\n\\s+specifier: ${escapedVersion}\\n`),
+      new RegExp(`['"]?${escapedName}['"]?:\\n\\s+specifier: ${escapeRegExp(catalogVersion)}\\n`),
       `${name} lockfile catalog specifier should match @vizejs/native version`,
+    );
+    assert.ok(
+      minimumReleaseAgeExcludeVersions(workspaceYaml, name).includes(catalogVersion),
+      `${name} ${catalogVersion} should be allowed by minimumReleaseAgeExclude`,
     );
   }
 
@@ -302,23 +316,6 @@ test("pkl runtime stays optional for consumers of the vize package", () => {
   assert.deepEqual(packageJson.peerDependenciesMeta?.["@pkl-community/pkl"], {
     optional: true,
   });
-});
-
-test("native preview runtime is declared for vize check users", () => {
-  const packageJson = JSON.parse(readRepoFile("npm/cli/package.json")) as {
-    dependencies?: Record<string, string>;
-    optionalDependencies?: Record<string, string>;
-    peerDependencies?: Record<string, string>;
-    peerDependenciesMeta?: Record<string, { optional?: boolean }>;
-  };
-
-  assert.equal(packageJson.dependencies?.["@typescript/native-preview"], undefined);
-  assert.equal(
-    packageJson.optionalDependencies?.["@typescript/native-preview"],
-    "catalog:typescript",
-  );
-  assert.equal(packageJson.peerDependencies?.["@typescript/native-preview"], undefined);
-  assert.equal(packageJson.peerDependenciesMeta?.["@typescript/native-preview"], undefined);
 });
 
 test("vize package leaves Vue type versions to the consuming project", () => {
