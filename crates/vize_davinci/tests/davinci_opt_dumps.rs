@@ -91,9 +91,11 @@ fn folio_dir_writes_one_page_per_pass() {
             dir.display()
         )
     );
+    // Pages plus the directory's Spolvero feed (P2-18); the feed's content
+    // is pinned by `tests/spolvero_feed.rs` (TS-52).
     assert_eq!(
         sorted_entries(&dir),
-        ["000-s2.alpha.folio", "001-s2.beta.folio"]
+        ["000-s2.alpha.folio", "001-s2.beta.folio", "spolvero.json"]
     );
     for name in ["000-s2.alpha.folio", "001-s2.beta.folio"] {
         let text = std::fs::read_to_string(dir.join(name)).expect("page reads");
@@ -126,9 +128,11 @@ fn folio_after_change_gates_noop_passes_to_an_empty_directory() {
             dir.display()
         )
     );
-    // The directory exists and is empty: "the gate emitted nothing" is
+    // The directory exists and holds no pages - only the Spolvero feed,
+    // whose zero-page content says "the gate emitted nothing" explicitly
+    // (pinned by `tests/spolvero_feed.rs`), so the empty run stays
     // observable, not indistinguishable from an ignored flag.
-    assert_eq!(sorted_entries(&dir).len(), 0);
+    assert_eq!(sorted_entries(&dir), ["spolvero.json"]);
 }
 
 #[test]

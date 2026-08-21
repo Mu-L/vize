@@ -24,6 +24,12 @@
   tier, not the default.
 - **Contract linking** → charter #15. Two tiers: compiled-in traits + features
   for first-party, out-of-process serialized contract for external.
+- **DevTool protocol** → [devtool.md §Transport](./devtool.md#transport)
+  (P2-19 spike, [record](./plan/phase-2-records/p2-19.md)). Document over
+  JSON-RPC: the P2-18 feed document is the unit everywhere; C-7's server
+  speaks content-mapper-style JSON-RPC with `initialize` negotiating
+  `schema_version` before any payload; served files stay the at-rest form,
+  the wasm playground keeps the embedding; JSON-lines rejected.
 
 ## Fusion depth for the build path
 
@@ -54,15 +60,6 @@ consumes it. Open: whether the classification is declared per rule (a
 `dialect_scope` field) or derived from the fact groups the rule demands — with
 static demand declarations (charter #8) the derived form is nearly free, so
 lean derived unless rule authors need overrides.
-
-## DevTool protocol
-
-The DevTool's name is decided — **Spolvero** ([devtool.md](./devtool.md)) —
-but the transport is not: it renders only artifacts that tests and agents also
-consume (Folio, profiler export, remarks, fact tables), and whether the local
-server streams them over JSON lines, serves them as files, or exposes the
-content-mapper-style JSON-RPC needs a phase-2 spike alongside the observer
-API.
 
 ## Complexity metric definition
 

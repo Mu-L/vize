@@ -31,7 +31,11 @@
 //! to the passes whose artifact actually changed (with today's no-op bodies:
 //! none), and `--timing-json <path>` writes the run's profile export - the
 //! per-walk spans the timing observer records - against the P0-11 schema
-//! (`davinci-road/plan/profile-export.schema.json`).
+//! (`davinci-road/plan/profile-export.schema.json`). Since P2-18 the folio
+//! directory also carries its Spolvero feed (`spolvero.json`): the same
+//! pages as one schema-versioned JSON document
+//! (`davinci-road/plan/spolvero-feed.schema.json`), written even when the
+//! hash gate emitted zero pages.
 //!
 //! Stages: `croquis` (default, the P0-10 page) and `budget-observer` (the
 //! first `#[derive(Folio)]` page, P2-4). The binary is host-side and may use
