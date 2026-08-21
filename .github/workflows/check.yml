@@ -372,12 +372,12 @@ jobs:
       - uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1
         with:
           node-version-file: ".node-version"
+          cache: true
           run-install: true
       - uses: ./.github/actions/setup-rust-sticky-cache
         with:
           key: clippy-test
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
-
       - name: Clippy
         run: cargo clippy --workspace -- -D warnings -D clippy::wildcard_imports && cargo clippy -p vize_maestro --tests -- -D warnings && bash tools/github/check-maestro-feature-contract.sh
       # TS-24 portability lanes; the accepted std edges: davinci-road/plan/no-std-boundary.md.
