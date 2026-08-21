@@ -4096,6 +4096,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vize_ricalco"
+version = "0.354.0"
+dependencies = [
+ "oxc_ast",
+ "vize_carton",
+ "vize_davinci",
+ "vize_disegno",
+ "vize_sinopia",
+]
+
+[[package]]
 name = "vize_sinopia"
 version = "0.354.0"
 dependencies = [

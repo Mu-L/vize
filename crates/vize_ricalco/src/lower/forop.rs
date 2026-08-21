@@ -1,0 +1,162 @@
+//! Building `ui.for`: the split's sub-slices admitted position by
+//! position, the whole value escape-classified when it cannot split, and
+//! the hygiene scope minted for every iteration region.
+
+use alloc::vec::Vec as StdVec;
+
+use vize_carton::{Box, String, Vec, cstr};
+use vize_sinopia::Element;
+
+use vize_disegno::expr::{ExprRef, OpaqueReason};
+use vize_disegno::op::{ForBinding, ForOp, Namespace, Op, Region};
+use vize_disegno::scope::{ScopeBinding, ScopeFacts, ScopeOrigin};
+
+use super::cx::{Cx, attr_slice, attr_span, element_span};
+use super::element::{Analyzed, attr_value_text, element_core};
+use super::expr::{desc, expr_at, opaque_at, simple_identifier, trimmed};
+use super::structural::{lower_children, record_template_drops};
+use super::vfor::{split_aliases, split_for};
+
+/// Build the `ui.for` for an element's `v-for` — or, when the directive
+/// carries no expression at all, the kept fragment without it.
+pub(crate) fn lower_for<'a>(
+    cx: &mut Cx<'a>,
+    element: &Element<'a>,
+    analyzed: &Analyzed<'a>,
+    ns: Namespace,
+) -> Op<'a> {
+    let attr_idx = analyzed.vfor.expect("caller checked v-for presence");
+    let attr = &element.open.attrs[attr_idx];
+    let raw = attr_value_text(element, attr_idx).filter(|raw| !raw.trim().is_empty());
+    let Some(raw) = raw else {
+        cx.error(
+            attr_span(cx, attr),
+            String::from("v-for is missing expression."),
+        );
+        cx.record(
+            "error.v-for-no-expression",
+            None,
+            attr_slice(cx, attr),
+            String::default(),
+            attr_span(cx, attr),
+        );
+        return element_core(cx, element, analyzed, ns);
+    };
+    let (text, text_span) = trimmed(cx, raw);
+
+    // The split runs over the **untrimmed** value, exactly as the shipped
+    // splitter does: `v-for=" in xs"` has a viable separator (its alias
+    // is empty) only because the leading whitespace counts.
+    let split = split_for(raw)
+        .and_then(|split| split_aliases(&raw[..split.alias_end]).map(|aliases| (split, aliases)));
+    let node = cx.mint_op();
+    let span = element_span(cx, element);
+    let tag = cx.mint_scope();
+
+    let binding = match split {
+        None => {
+            // The value cannot decompose under Vue's grammar: it rides
+            // whole as the classified escape with pessimal semantics —
+            // never a JS parse of the whole value (P2-5b, the
+            // `a in b in c` disagreement).
+            cx.error(text_span, String::from("v-for has invalid expression."));
+            let source = opaque_at(cx, OpaqueReason::ForValue, text, text_span);
+            let value = value_hole(cx, text);
+            cx.record(
+                "error.v-for-malformed",
+                node,
+                text,
+                String::from("ui.for source=opaque(for-value) value=opaque(for-value)"),
+                text_span,
+            );
+            cx.attach_scope(
+                node,
+                ScopeFacts {
+                    tag,
+                    bindings: StdVec::new(),
+                },
+            );
+            ForBinding {
+                source,
+                value,
+                key: None,
+                index: None,
+            }
+        }
+        Some((split, aliases)) => {
+            let source = expr_at(cx, &raw[split.source_start..]);
+            let value = match aliases.first() {
+                Some(slice) if !slice.is_empty() => expr_at(cx, slice),
+                // An absent alias is still a position: zero-width at the
+                // value's start, escape-classified (P2-5b).
+                _ => value_hole(cx, text),
+            };
+            let key = alias_position(cx, aliases.get(1));
+            let index = alias_position(cx, aliases.get(2));
+
+            let mut bindings = StdVec::new();
+            for expr in [Some(&value), key.as_ref(), index.as_ref()]
+                .into_iter()
+                .flatten()
+            {
+                if let Some(name) = simple_identifier(expr) {
+                    bindings.push(ScopeBinding {
+                        name: String::from(name),
+                        origin: ScopeOrigin::Authored { span: expr.span() },
+                    });
+                }
+            }
+            cx.attach_scope(node, ScopeFacts { tag, bindings });
+            cx.record(
+                "lower.for",
+                node,
+                text,
+                cstr!("ui.for source={} value={}", desc(&source), desc(&value)),
+                text_span,
+            );
+            ForBinding {
+                source,
+                value,
+                key,
+                index,
+            }
+        }
+    };
+
+    let region = Region {
+        ops: if element.tag() == "template" {
+            cx.report_missing_close(element);
+            record_template_drops(cx, element, analyzed);
+            lower_children(cx, &element.children, ns)
+        } else {
+            let op = element_core(cx, element, analyzed, ns);
+            let mut ops: Vec<'a, Op<'a>> = Vec::new_in(&cx.allocator);
+            ops.push(op);
+            ops
+        },
+    };
+    Op::For(Box::new_in(
+        ForOp {
+            binding,
+            region,
+            span,
+        },
+        &cx.allocator,
+    ))
+}
+
+/// The zero-width escape at the alias's position (absent alias, or the
+/// undecomposable whole).
+fn value_hole<'a>(cx: &Cx<'a>, text: &'a str) -> ExprRef<'a> {
+    let hole = &text[..0];
+    let span = cx.span_of(hole);
+    opaque_at(cx, OpaqueReason::ForValue, hole, span)
+}
+
+/// An optional key/index position: present iff authored non-empty.
+fn alias_position<'a>(cx: &mut Cx<'a>, slice: Option<&&'a str>) -> Option<ExprRef<'a>> {
+    match slice {
+        Some(slice) if !slice.is_empty() => Some(expr_at(cx, slice)),
+        _ => None,
+    }
+}

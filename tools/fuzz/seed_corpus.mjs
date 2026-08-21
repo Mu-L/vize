@@ -11,6 +11,10 @@
 //   - js_ts_expression: script snippets and template interpolation expressions
 //   - css_parse: contents of <style>...</style> blocks
 //   - template_compile: contents of <template>...</template> blocks
+//   - s1_lowering: contents of <template>...</template> blocks (Davinci
+//     P2-8 — the S1 parse + S1→S2 lowering pipeline)
+//   - folio_parse: committed .folio fixture pages (Davinci P2-8 — the
+//     hand-written folio parsers)
 //
 // Usage: node tools/fuzz/seed_corpus.mjs
 
@@ -82,12 +86,27 @@ function extractInterpolations(template) {
   return expressions;
 }
 
+const FOLIO_GLOBS = [
+  "crates/vize_davinci/tests/fixtures/**/*.folio",
+  "crates/vize_disegno/tests/fixtures/**/*.folio",
+];
+
 function main() {
   const sfcDir = resetCorpus("sfc_parse");
   const templateLexerDir = resetCorpus("template_lexer");
   const jsTsExpressionDir = resetCorpus("js_ts_expression");
   const cssParseDir = resetCorpus("css_parse");
   const templateDir = resetCorpus("template_compile");
+  const s1LoweringDir = resetCorpus("s1_lowering");
+  const folioParseDir = resetCorpus("folio_parse");
+
+  let folioCount = 0;
+  for (const pattern of FOLIO_GLOBS) {
+    for (const relativePath of globSync(pattern, { cwd: repoRoot })) {
+      writeSeed(folioParseDir, readFileSync(join(repoRoot, relativePath), "utf8"));
+      folioCount += 1;
+    }
+  }
 
   const files = findVueFiles();
   let sfcCount = 0;
@@ -103,6 +122,7 @@ function main() {
     if (template != null) {
       writeSeed(templateLexerDir, template);
       writeSeed(templateDir, template);
+      writeSeed(s1LoweringDir, template);
       for (const expression of extractInterpolations(template)) {
         writeSeed(jsTsExpressionDir, expression);
         expressionCount += 1;
@@ -122,7 +142,7 @@ function main() {
   }
 
   process.stdout.write(
-    `Seeded ${sfcCount} sfc_parse entries, ${templateCount} template entries, ${expressionCount} JS/TS expression entries, and ${styleCount} CSS entries from ${files.length} fixtures.\n`,
+    `Seeded ${sfcCount} sfc_parse entries, ${templateCount} template entries (template_lexer/template_compile/s1_lowering), ${expressionCount} JS/TS expression entries, ${styleCount} CSS entries, and ${folioCount} folio pages from ${files.length + folioCount} fixtures.\n`,
   );
 }
 

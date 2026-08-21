@@ -28,6 +28,10 @@ vize_atelier_sfc = { path = "../../crates/vize_atelier_sfc", default-features = 
 ] }
 vize_atelier_dom = { path = "../../crates/vize_atelier_dom" }
 vize_carton = { path = "../../crates/vize_carton" }
+vize_davinci = { path = "../../crates/vize_davinci" }
+vize_disegno = { path = "../../crates/vize_disegno" }
+vize_ricalco = { path = "../../crates/vize_ricalco" }
+vize_sinopia = { path = "../../crates/vize_sinopia" }
 
 [[bin]]
 name = "sfc_parse"
@@ -60,6 +64,20 @@ bench = false
 [[bin]]
 name = "template_compile"
 path = "fuzz_targets/template_compile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "s1_lowering"
+path = "fuzz_targets/s1_lowering.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "folio_parse"
+path = "fuzz_targets/folio_parse.rs"
 test = false
 doc = false
 bench = false

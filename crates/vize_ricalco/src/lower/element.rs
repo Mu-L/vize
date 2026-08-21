@@ -1,0 +1,197 @@
+//! Per-element lowering: attribute analysis, element/component/slot
+//! dispatch, and the markup-namespace inheritance.
+//!
+//! # Namespace, v1 scope (recorded in the P2-8 record)
+//!
+//! The namespace rule is tag inheritance: `<svg>` opens the SVG
+//! namespace, `<math>` opens MathML, and the SVG/MathML HTML integration
+//! points (`foreignObject`/`desc`/`title`; `mi`/`mo`/`mn`/`ms`/`mtext`)
+//! return their **children** to HTML. This approximates the HTML
+//! tree-construction namespace algorithm the way the shipped
+//! compiler-dom logic does; the full in-DOM rules are not replicated.
+
+use alloc::vec::Vec as StdVec;
+
+use vize_carton::{Box, Vec, cstr, is_native_tag};
+use vize_sinopia::Element;
+
+use vize_disegno::op::{Attribute, BindingOp, ComponentOp, ElementOp, Namespace, Op, Region};
+
+use super::binding::{Owner, lower_attr};
+use super::cx::{Cx, attr_span, element_span};
+use super::directive::{AttrForm, Head, classify};
+use super::slot::lower_slot;
+use super::structural::lower_children;
+
+/// Which branch of a `v-if` chain an element opens or continues.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BranchKind {
+    If,
+    ElseIf,
+    Else,
+}
+
+/// One element's attribute analysis, computed once per element.
+#[derive(Debug)]
+pub(crate) struct Analyzed<'a> {
+    /// One form per authored attribute, by index.
+    pub forms: StdVec<AttrForm<'a>>,
+    /// The first branch directive (attr index, kind), when present.
+    pub branch: Option<(usize, BranchKind)>,
+    /// The first `v-for` (attr index), when present.
+    pub vfor: Option<usize>,
+}
+
+/// Analyze an element's attributes: classify every name, note the
+/// structural directives.
+pub(crate) fn analyze<'a>(element: &Element<'a>) -> Analyzed<'a> {
+    let mut forms = StdVec::with_capacity(element.open.attrs.len());
+    let mut branch = None;
+    let mut vfor = None;
+    for (index, attr) in element.open.attrs.iter().enumerate() {
+        let form = classify(attr.name.text);
+        if let AttrForm::Directive(directive) = &form {
+            let kind = match directive.head {
+                Head::If => Some(BranchKind::If),
+                Head::ElseIf => Some(BranchKind::ElseIf),
+                Head::Else => Some(BranchKind::Else),
+                _ => None,
+            };
+            if let Some(kind) = kind
+                && branch.is_none()
+            {
+                branch = Some((index, kind));
+            }
+            if directive.head == Head::For && vfor.is_none() {
+                vfor = Some(index);
+            }
+        }
+        forms.push(form);
+    }
+    Analyzed {
+        forms,
+        branch,
+        vfor,
+    }
+}
+
+/// The authored value text of an attribute, when it has a value node
+/// (a `Missing` value hole is a zero-width slice, present but empty).
+pub(crate) fn attr_value_text<'a>(element: &Element<'a>, index: usize) -> Option<&'a str> {
+    element.open.attrs[index]
+        .value
+        .as_ref()
+        .map(|value| value.content.text)
+}
+
+/// An element's own namespace, entered by tag.
+fn enter_ns(parent: Namespace, tag: &str) -> Namespace {
+    match tag {
+        "svg" => Namespace::Svg,
+        "math" => Namespace::MathMl,
+        _ => parent,
+    }
+}
+
+/// The namespace an element's children live in (the integration points
+/// return to HTML).
+fn children_ns(own: Namespace, tag: &str) -> Namespace {
+    match own {
+        Namespace::Svg if matches!(tag, "foreignObject" | "desc" | "title") => Namespace::Html,
+        Namespace::MathMl if matches!(tag, "mi" | "mo" | "mn" | "ms" | "mtext") => Namespace::Html,
+        other => other,
+    }
+}
+
+/// Lower one element (its structural directives already consumed by the
+/// caller): `<slot>` outlet, component, or native element.
+pub(crate) fn element_core<'a>(
+    cx: &mut Cx<'a>,
+    element: &Element<'a>,
+    analyzed: &Analyzed<'a>,
+    ns: Namespace,
+) -> Op<'a> {
+    cx.report_missing_close(element);
+    let tag = element.tag();
+    if tag == "slot" {
+        return lower_slot(cx, element, analyzed, ns);
+    }
+    let own_ns = enter_ns(ns, tag);
+    let child_ns = children_ns(own_ns, tag);
+    let span = element_span(cx, element);
+    let node = cx.mint_op();
+    let component = !is_native_tag(tag);
+
+    let open_end = cx.token_span(&element.open.gt).end;
+    let open_slice = cx
+        .source
+        .get(cx.offset(element.open.lt_name.text) as usize..open_end as usize)
+        .unwrap_or(tag);
+    if component {
+        cx.record(
+            "lower.component",
+            node,
+            open_slice,
+            cstr!("ui.component {tag}"),
+            span,
+        );
+    } else {
+        let after = match own_ns {
+            Namespace::Html => cstr!("ui.element {tag}"),
+            Namespace::Svg => cstr!("ui.element {tag} ns=svg"),
+            Namespace::MathMl => cstr!("ui.element {tag} ns=mathml"),
+        };
+        cx.record("lower.element", node, open_slice, after, span);
+    }
+
+    let mut attributes: Vec<'a, Attribute<'a>> = Vec::new_in(&cx.allocator);
+    let mut bindings: Vec<'a, BindingOp<'a>> = Vec::new_in(&cx.allocator);
+    for (index, attr) in element.open.attrs.iter().enumerate() {
+        if Some(index) == analyzed.branch.map(|(idx, _)| idx) || Some(index) == analyzed.vfor {
+            continue;
+        }
+        match &analyzed.forms[index] {
+            AttrForm::Static => attributes.push(Attribute {
+                name: attr.name.text,
+                value: attr.value.as_ref().map(|value| value.content.text),
+                span: attr_span(cx, attr),
+            }),
+            AttrForm::Directive(directive) => {
+                let owner = Owner {
+                    node,
+                    tag,
+                    component,
+                };
+                lower_attr(cx, element, index, directive, &owner, &mut bindings);
+            }
+        }
+    }
+
+    let children = Region {
+        ops: lower_children(cx, &element.children, child_ns),
+    };
+    if component {
+        Op::Component(Box::new_in(
+            ComponentOp {
+                name: tag,
+                attributes,
+                bindings,
+                children,
+                span,
+            },
+            &cx.allocator,
+        ))
+    } else {
+        Op::Element(Box::new_in(
+            ElementOp {
+                tag,
+                namespace: own_ns,
+                attributes,
+                bindings,
+                children,
+                span,
+            },
+            &cx.allocator,
+        ))
+    }
+}

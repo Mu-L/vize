@@ -1,0 +1,252 @@
+//! The lowering context: id minting, span recovery, and the three fact
+//! channels (diagnostics, provenance, scopes).
+//!
+//! # Ids are page order
+//!
+//! S2 node ids are dense and page-ordered — every op line top to bottom,
+//! attached bindings between their owner's line and its children
+//! (`folio-format.md`, "Node numbering"; `vize_disegno::verify` checks
+//! references against exactly that numbering). [`Cx::mint_op`] therefore
+//! runs in **print order** during the walk: an op's id is minted when its
+//! line is decided, bindings as they attach, children after. The pinned
+//! law is `Cx::op_count == DisegnoFolio::of(root).op_count()`, tested per
+//! fixture.
+//!
+//! Exhaustion is a diagnostic, not a panic (the `NodeId::from_index`
+//! contract): past `u32::MAX - 1` ops the context reports once and stops
+//! minting; side tables simply stop gaining keys while the op tree stays
+//! total.
+
+use alloc::vec::Vec;
+
+use vize_carton::{Allocator, Span, String};
+use vize_davinci::diagnostic::{Diagnostic, Severity, Stage};
+use vize_davinci::id::NodeId;
+use vize_davinci::side_table::SideTable;
+use vize_disegno::provenance::ProvenanceRecord;
+use vize_disegno::scope::{ScopeFacts, ScopeTag};
+use vize_sinopia::{CloseTag, Element, ElementClose, SurfaceChild, Token};
+
+pub(crate) struct Cx<'a> {
+    pub allocator: &'a Allocator,
+    pub source: &'a str,
+    next_op: u32,
+    exhausted: bool,
+    next_scope: u32,
+    pub diagnostics: Vec<Diagnostic>,
+    pub provenance: Vec<ProvenanceRecord>,
+    pub scopes: SideTable<ScopeFacts>,
+}
+
+impl<'a> Cx<'a> {
+    pub(crate) fn new(allocator: &'a Allocator, source: &'a str) -> Self {
+        Self {
+            allocator,
+            source,
+            next_op: 0,
+            exhausted: false,
+            next_scope: 0,
+            diagnostics: Vec::new(),
+            provenance: Vec::new(),
+            scopes: SideTable::new(),
+        }
+    }
+
+    /// The next page-order op id, or `None` after exhaustion (reported
+    /// once, as a diagnostic).
+    pub(crate) fn mint_op(&mut self) -> Option<NodeId> {
+        if self.exhausted {
+            return None;
+        }
+        match NodeId::from_index(self.next_op) {
+            Some(id) => {
+                self.next_op += 1;
+                Some(id)
+            }
+            None => {
+                self.exhausted = true;
+                self.error(
+                    Span::new(0, 0),
+                    String::from(
+                        "the artifact exhausted its node ids; facts past this point are not keyed",
+                    ),
+                );
+                None
+            }
+        }
+    }
+
+    /// How many op ids were minted (the page's `ops=` count).
+    pub(crate) fn op_count(&self) -> u32 {
+        self.next_op
+    }
+
+    /// The next hygiene scope tag, dense per artifact.
+    pub(crate) fn mint_scope(&mut self) -> ScopeTag {
+        let tag = ScopeTag::from_index(self.next_scope);
+        self.next_scope = self.next_scope.saturating_add(1);
+        tag
+    }
+
+    /// Attach scope facts to an op, when the op has an id (after id
+    /// exhaustion the tree stays total and only the keying stops).
+    pub(crate) fn attach_scope(&mut self, node: Option<NodeId>, facts: ScopeFacts) {
+        if let Some(id) = node {
+            self.scopes.insert(id, facts);
+        }
+    }
+
+    /// Byte offset of `slice` inside the authored source. Every S1 string
+    /// is a slice of the one source (`vize_sinopia`'s P1-10 contract), so
+    /// this is pointer arithmetic, never a search.
+    pub(crate) fn offset(&self, slice: &str) -> u32 {
+        let base = self.source.as_ptr() as usize;
+        let ptr = slice.as_ptr() as usize;
+        debug_assert!(
+            ptr >= base && ptr + slice.len() <= base + self.source.len(),
+            "S1 handed the lowering a string that is not a source slice"
+        );
+        u32::try_from(ptr - base).unwrap_or(u32::MAX)
+    }
+
+    /// The span of a source slice.
+    pub(crate) fn span_of(&self, slice: &str) -> Span {
+        let start = self.offset(slice);
+        Span::new(start, start + slice.len() as u32)
+    }
+
+    /// The span of a token's own text (`leading` excluded; a `Missing`
+    /// token is zero-width at the offset where its syntax belongs).
+    pub(crate) fn token_span(&self, token: &Token<'a>) -> Span {
+        self.span_of(token.text)
+    }
+
+    /// A zero-width **source** slice at `offset` (snapped into range and
+    /// onto a char boundary), for positions whose syntax was never
+    /// authored — an expression hole still needs a slice the span
+    /// machinery can locate.
+    pub(crate) fn hole_at(&self, offset: u32) -> &'a str {
+        let mut at = (offset as usize).min(self.source.len());
+        while at > 0 && !self.source.is_char_boundary(at) {
+            at -= 1;
+        }
+        &self.source[at..at]
+    }
+
+    pub(crate) fn error(&mut self, span: Span, message: String) {
+        self.diagnostics.push(Diagnostic::new(
+            Severity::Error,
+            Stage::Semantic,
+            span,
+            message,
+        ));
+    }
+
+    /// Render an S1 typed hole into the unified channel. The tokenizer
+    /// never reports a missing end tag (end-tag matching is tree
+    /// construction, not lexing), so the `ElementClose::Missing` hole
+    /// becomes a diagnostic exactly here — the P2-7 hand-off's second
+    /// half. One chokepoint per lowered element; the exact relief
+    /// `MissingEndTag` message, pointing at the open tag.
+    pub(crate) fn report_missing_close(&mut self, element: &Element<'a>) {
+        if matches!(element.close, ElementClose::Missing) {
+            let span = self.token_span(&element.open.lt_name);
+            self.diagnostics.push(Diagnostic::new(
+                Severity::Error,
+                Stage::Surface,
+                span,
+                String::from("Element is missing end tag."),
+            ));
+        }
+    }
+
+    pub(crate) fn info(&mut self, span: Span, message: String) {
+        self.diagnostics.push(Diagnostic::new(
+            Severity::Info,
+            Stage::Semantic,
+            span,
+            message,
+        ));
+    }
+
+    /// One provenance record, in decision order (the survival law:
+    /// `node: None` + empty `after` is a decision that produced nothing).
+    pub(crate) fn record(
+        &mut self,
+        rule: &'static str,
+        node: Option<NodeId>,
+        before: &str,
+        after: String,
+        span: Span,
+    ) {
+        self.provenance.push(ProvenanceRecord {
+            rule: String::from(rule),
+            node,
+            before: String::from(before),
+            after,
+            span,
+        });
+    }
+}
+
+/// End offset of an element's extent: the last byte its subtree rendered.
+/// S1 is a contiguous partition of the source, so this is the end of the
+/// element's last present-or-hole token — a `Missing` close contributes
+/// its children's extent (the typed hole is zero-width by policy).
+pub(crate) fn element_end(cx: &Cx<'_>, element: &Element<'_>) -> u32 {
+    match &element.close {
+        ElementClose::Present(CloseTag { gt, .. }) => cx.token_span(gt).end,
+        ElementClose::NotExpected => cx.token_span(&element.open.gt).end,
+        ElementClose::Missing => element
+            .children
+            .last()
+            .map(|child| child_end(cx, child))
+            .unwrap_or_else(|| cx.token_span(&element.open.gt).end),
+    }
+}
+
+/// End offset of any child's extent.
+pub(crate) fn child_end(cx: &Cx<'_>, child: &SurfaceChild<'_>) -> u32 {
+    match child {
+        SurfaceChild::Element(element) => element_end(cx, element),
+        SurfaceChild::Interpolation(node) => cx.token_span(&node.close).end,
+        SurfaceChild::Text(token)
+        | SurfaceChild::Comment(token)
+        | SurfaceChild::Cdata(token)
+        | SurfaceChild::ProcessingInstruction(token)
+        | SurfaceChild::Unexpected(token) => cx.token_span(token).end,
+    }
+}
+
+/// The span of an element's whole extent (open tag through close).
+pub(crate) fn element_span(cx: &Cx<'_>, element: &Element<'_>) -> Span {
+    Span::new(
+        cx.offset(element.open.lt_name.text),
+        element_end(cx, element),
+    )
+}
+
+/// The span of one authored attribute: name through the end of its value
+/// (closing quote included when present).
+pub(crate) fn attr_span(cx: &Cx<'_>, attr: &vize_sinopia::Attribute<'_>) -> Span {
+    let start = cx.offset(attr.name.text);
+    let end = match &attr.value {
+        Some(value) => match &value.close_quote {
+            Some(close) => cx.token_span(close).end,
+            None => cx.token_span(&value.content).end,
+        },
+        None => match &attr.eq {
+            Some(eq) => cx.token_span(eq).end,
+            None => cx.token_span(&attr.name).end,
+        },
+    };
+    Span::new(start, end)
+}
+
+/// The authored slice an attribute covers (for provenance `before`).
+pub(crate) fn attr_slice<'a>(cx: &Cx<'a>, attr: &vize_sinopia::Attribute<'a>) -> &'a str {
+    let span = attr_span(cx, attr);
+    cx.source
+        .get(span.start as usize..span.end as usize)
+        .unwrap_or(attr.name.text)
+}

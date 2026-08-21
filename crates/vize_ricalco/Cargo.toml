@@ -1,0 +1,38 @@
+# Ricalco — the S1→S2 Vue lowering (Davinci P2-8).
+#
+# A ricalco is the tracing that transfers a drawing onto a new surface.
+# This crate is that act for Davinci: it traces the lossless Vue surface
+# tree (S1, vize_sinopia) into the neutral semantic op family (S2,
+# vize_disegno) — a total function that yields ops or diagnostics, never
+# a panic and never a partial-then-abandoned state.
+#
+# The home decision (recorded in the P2-8 record): a conversion crate
+# depending on both stages, the MLIR conversion-library shape, so S2
+# never depends on the Vue S1 surface and S1 never learns about S2.
+[package]
+name = "vize_ricalco"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Ricalco - the Davinci S1-to-S2 Vue template lowering (P2-8)"
+publish = false
+metadata.vize.stability = "experimental"
+
+[features]
+# Arms the corpus-runnable TS-20 lane (`tests/davinci_lowering_corpus.rs`),
+# the P1-6/P1-7 differential-lane shape: committed battery with pinned
+# counts, plus `VIZE_DAVINCI_DIFFERENTIAL_CORPUS=<dir>` widening.
+davinci-differential = []
+
+[dependencies]
+oxc_ast = { workspace = true }
+vize_carton = { workspace = true }
+vize_davinci = { workspace = true }
+vize_disegno = { workspace = true }
+vize_sinopia = { workspace = true }
+
+[[test]]
+name = "davinci_lowering_corpus"
+required-features = ["davinci-differential"]

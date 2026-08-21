@@ -1,0 +1,104 @@
+//! Shared oracle for the P2-8 suites: the totality/soundness checks every
+//! lowered artifact must pass, whatever the input, plus the owned
+//! artifact snapshot the exact-pin suites compare against.
+
+// Each test binary uses the subset of these helpers it needs.
+#![allow(dead_code)]
+
+use vize_carton::{Allocator, String};
+use vize_davinci::diagnostic::Diagnostic;
+use vize_davinci::folio::{Folio, FolioMode};
+use vize_davinci::side_table::SideTable;
+use vize_disegno::folio::DisegnoFolio;
+use vize_disegno::provenance::ProvenanceRecord;
+use vize_disegno::scope::ScopeFacts;
+use vize_disegno::verify::{Rigor, Violation, verify, verify_table};
+use vize_ricalco::{Lowered, lower};
+use vize_sinopia::parse;
+
+/// The owned snapshot of one lowering, for exact-equality pins.
+#[derive(Debug)]
+pub struct Artifact {
+    /// The canonical `Full`-mode folio text (owned, arena-free).
+    pub folio: String,
+    /// The minted op count.
+    pub op_count: u32,
+    /// The diagnostics, in emission order.
+    pub diagnostics: Vec<Diagnostic>,
+    /// The provenance records, in decision order.
+    pub provenance: Vec<ProvenanceRecord>,
+    /// The scope facts, as (op index, facts), ascending.
+    pub scopes: Vec<(u32, ScopeFacts)>,
+}
+
+/// Lower `source` and clone everything owned out of the arena's shadow.
+pub fn artifact(source: &str) -> Artifact {
+    with_lowered(source, |lowered, folio| Artifact {
+        folio: folio.print_to_string(FolioMode::Full),
+        op_count: lowered.op_count,
+        diagnostics: lowered.diagnostics.clone(),
+        provenance: lowered.provenance.clone(),
+        scopes: lowered
+            .scopes
+            .sorted_entries()
+            .into_iter()
+            .map(|(id, facts)| (id.index(), facts.clone()))
+            .collect(),
+    })
+}
+
+/// Parse + lower `source` and hand the artifact (with its owned folio
+/// mirror) to `f`.
+pub fn with_lowered<R>(source: &str, f: impl FnOnce(&Lowered<'_>, &DisegnoFolio) -> R) -> R {
+    let allocator = Allocator::new();
+    let (tree, errors) = parse(&allocator, source);
+    let lowered = lower(&allocator, &tree, &errors);
+    let folio = DisegnoFolio::of(&lowered.root.ops);
+    f(&lowered, &folio)
+}
+
+/// The soundness oracle, asserted for every input the suites touch:
+///
+/// 1. **Id accounting** — the minted count equals the folio's op count,
+///    so page-order ids resolve by construction.
+/// 2. **Verifier-clean at `Canonical` rigor** — the lowering builds
+///    canonical `ui.if` shapes from birth and every span nests.
+/// 3. **Side tables resolve** — every scope key and every provenance
+///    node id names an op the artifact numbers.
+/// 4. **Folio round-trip** — `parse(print(v)) == v` structurally and the
+///    re-print is byte-identical (TS-16 applied to lowered output).
+pub fn assert_sound(source: &str, context: &str) {
+    with_lowered(source, |lowered, folio| {
+        assert_eq!(
+            u64::from(lowered.op_count),
+            folio.op_count(),
+            "id accounting diverged: {context}"
+        );
+        assert_eq!(
+            verify(folio, Rigor::Canonical),
+            Vec::<Violation>::new(),
+            "verifier rejected lowered output: {context}"
+        );
+        assert_eq!(
+            verify_table(folio, &lowered.scopes),
+            Vec::<Violation>::new(),
+            "a scope key dangles: {context}"
+        );
+        let provenance_ids: SideTable<()> = lowered
+            .provenance
+            .iter()
+            .filter_map(|record| record.node.map(|node| (node, ())))
+            .collect();
+        assert_eq!(
+            verify_table(folio, &provenance_ids),
+            Vec::<Violation>::new(),
+            "a provenance node dangles: {context}"
+        );
+        let printed = folio.print_to_string(FolioMode::Full);
+        let reparsed = DisegnoFolio::parse(printed.as_str())
+            .unwrap_or_else(|error| panic!("folio re-parse failed ({context}): {error:?}"));
+        assert_eq!(&reparsed, folio, "folio round-trip diverged: {context}");
+        let reprinted = reparsed.print_to_string(FolioMode::Full);
+        assert_eq!(reprinted, printed, "folio re-print diverged: {context}");
+    });
+}
