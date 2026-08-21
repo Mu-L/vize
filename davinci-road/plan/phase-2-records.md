@@ -24,3 +24,4 @@
 | [P2-12a](./phase-2-records/p2-12a.md) | 2026-08-19 | the pre-S2 traversal baseline, the phase-2 target, and the plan finding that corpus `--check` is not evaluable                                                    |
 | [P2-13](./phase-2-records/p2-13.md)   | 2026-08-20 | the ICE policy: repro.folio + exact-equality replay via `vize repro`; dump flags real on `davinci-opt`, pinned-empty on the build path                            |
 | [P2-14](./phase-2-records/p2-14.md)   | 2026-08-20 | three accepted `std` edges; TS-24 as required `clippy-and-test` steps (the check.yml ratchet); oxc measured not-`no_std`                                          |
+| [P2-15](./phase-2-records/p2-15.md)   | 2026-08-21 | four justified mutators with counted skips; per-mutator declared normalization (Display + attr-sort / text-merge / condense mirror); matrix plane committed       |
