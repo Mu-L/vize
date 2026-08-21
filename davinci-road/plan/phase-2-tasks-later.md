@@ -8,16 +8,18 @@
 
 ## P2-15 — Metamorphic suite v1
 
+**Landed 2026-08-21** — full record: [phase-2-records/p2-15.md](./phase-2-records/p2-15.md).
+
 **Deliverable:** the mutator suite with per-mutator equivalence justifications — because these mutations are _not_ universally semantics-preserving in Vue.
 
 **Steps:**
 
-- [ ] Mutators: attribute reorder, pass-through `<template>` wrap, text-node split/merge, whitespace-insignificant edits
-- [ ] **Each mutator ships an equivalence justification and exclusion predicates**: no reordering across duplicate keys or across `class`/`style` merge-order-sensitive attributes; wraps only where root and slot semantics are unchanged; whitespace only within Vue's condense rules
-- [ ] A mutator with no safe applicability at a site **skips** that site rather than mutating it, and the skip is **counted** — a suite that silently degenerates to zero mutations must fail, the scope-proof discipline TS-11 established
-- [ ] Oracle: S2 folios identical modulo declared normalization (the `folio-format.md` rules), compared as full normalized artifacts
-- [ ] Commit the matrix fixture plane. `tools/davinci/matrix-gen.mjs` defaults to `tests/fixtures/davinci-matrix/`, which **is not in the tree** — P0-12 landed the deterministic generator with a `--check` staleness mode but no committed fixtures. Commit the element-kind × directive plane and wire `--check` into `tests/tooling/davinci-matrices.test.ts`
-- [ ] Runs over the matrix fixtures **and** a corpus shard in CI
+- [x] Mutators: attribute reorder, pass-through `<template>` wrap, text-node split/merge, whitespace-insignificant edits
+- [x] **Each mutator ships an equivalence justification and exclusion predicates**: no reordering across duplicate keys or across `class`/`style` merge-order-sensitive attributes; wraps only where root and slot semantics are unchanged; whitespace only within Vue's condense rules
+- [x] A mutator with no safe applicability at a site **skips** that site rather than mutating it, and the skip is **counted** — a suite that silently degenerates to zero mutations must fail, the scope-proof discipline TS-11 established
+- [x] Oracle: S2 folios identical modulo declared normalization (the `folio-format.md` rules), compared as full normalized artifacts
+- [x] Commit the matrix fixture plane. `tools/davinci/matrix-gen.mjs` defaults to `tests/fixtures/davinci-matrix/`, which **is not in the tree** — P0-12 landed the deterministic generator with a `--check` staleness mode but no committed fixtures. Commit the element-kind × directive plane and wire `--check` into `tests/tooling/davinci-matrices.test.ts`
+- [x] Runs over the matrix fixtures **and** a corpus shard in CI
 
 **Acceptance:** TS-21 established — the suite runs in CI over both sources with a scope proof (mutations applied and skips counted; a zero-mutation run fails); TS-12 green for the newly committed fixtures with the staleness check demonstrably failing on an injected edit; TS-13. **Review point:** the per-mutator equivalence justifications — an unjustified mutator is an oracle asserting a wrong expected value, which assurance §4 calls worse than no assertion. **Deps:** P2-5b, P2-8. **Non-goals:** S3 folio equivalence (phase 3); mutators needing semantic facts to decide applicability (phase 4); `folio-reduce` (P3-14); mutating the corpus submodules in place — copies only, the P0-13 convention.
 
