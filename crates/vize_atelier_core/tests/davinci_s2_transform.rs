@@ -8,51 +8,73 @@
 
 mod s2_support;
 
-use s2_support::{BATTERY, Counters, SlotCounters, TextCounters, compare};
+use s2_support::{BATTERY, Counters, SlotCounters, SurfaceCounters, TextCounters, compare};
 
 /// The battery's exact accounting. The corpus entry pins the same
 /// numbers; both move together, deliberately, when the battery does.
 fn expected() -> Counters {
     Counters {
-        templates_seen: 58,
-        compared: 58,
+        templates_seen: 75,
+        compared: 75,
         skipped_legacy_flag: 0,
         skipped_old_parse_errors: 0,
         skipped_s2_errors: 0,
-        if_ops: 22,
-        branches: 41,
-        keys_static: 13,
+        if_ops: 23,
+        branches: 43,
+        keys_static: 14,
         keys_dynamic: 2,
-        keys_template_if: 1,
-        keys_slot_root: 1,
+        keys_wrapper: 2,
+        keys_dynamic_arg: 0,
+        keys_compound: 0,
         conditions_compound: 0,
-        for_ops: 16,
-        for_values: 15,
+        for_ops: 17,
+        for_values: 16,
         for_keys: 4,
         for_indexes: 1,
         for_values_absent: 1,
         for_compound: 0,
         slots: SlotCounters {
-            units: 12,
-            groups: 16,
-            group_params: 7,
-            groups_invented: 4,
+            units: 13,
+            groups: 17,
+            group_params: 8,
+            groups_invented: 5,
             groups_dynamic: 1,
             units_conditional: 1,
             units_forwarded: 0,
             units_filler_default: 1,
-            outlets: 6,
+            outlets: 7,
             outlets_dynamic: 1,
         },
         text: TextCounters {
-            units: 83,
-            parts_static: 70,
+            units: 93,
+            parts_static: 80,
             parts_dynamic: 23,
             compound_units: 7,
             vpre_templates: 1,
             entity_templates: 1,
             rawtext_excluded: 1,
             parts_compound: 0,
+        },
+        surfaces: SurfaceCounters {
+            owners: 126,
+            attrs: 7,
+            binds: 5,
+            binds_dynamic: 1,
+            binds_spread: 1,
+            ons: 3,
+            ons_dynamic: 1,
+            ons_spread: 1,
+            directives: 1,
+            models: 3,
+            models_invalid: 2,
+            models_dynamic_arg: 1,
+            models_pattern_scope: 2,
+            keys_excluded: 2,
+            builtins_excluded: 2,
+            wrapper_attrs: 1,
+            entity_templates: 1,
+            table_templates: 0,
+            values_compound: 0,
         },
     }
 }
@@ -145,6 +167,62 @@ fn both_lanes_flag_the_duplicate_slot_name() {
             .any(|diagnostic| diagnostic.message.as_str()
                 == vize_ricalco::pass::vslot::DUPLICATE_MESSAGE),
         "the S2 pass must flag the duplicate: {:?}",
+        lowered.diagnostics
+    );
+}
+
+#[test]
+fn the_v_model_wording_never_drifts_from_relief() {
+    // The series-5 messages, same discipline: the S2 pass duplicates
+    // relief's text rather than the dependency; these pins own the
+    // relief edge.
+    use vize_atelier_core::ErrorCode;
+    use vize_ricalco::pass::vmodel;
+    assert_eq!(vmodel::ON_SCOPE_MESSAGE, ErrorCode::VModelOnScope.message());
+    assert_eq!(
+        vmodel::ARG_ON_ELEMENT_MESSAGE,
+        ErrorCode::VModelArgOnElement.message()
+    );
+}
+
+#[test]
+fn both_lanes_flag_the_scoped_model() {
+    // End-to-end wording check on the battery's invalid-scope template:
+    // the legacy transform reports `VModelOnScope`, the S2 pass appends
+    // the same text to the unified channel.
+    let (_, source) = BATTERY
+        .iter()
+        .find(|(name, _)| *name == "model-invalid-scope")
+        .expect("the battery carries the invalid-scope template");
+
+    let allocator = vize_carton::Allocator::new();
+    let (mut root, parse_errors) = vize_atelier_core::parser::parse(&allocator, source);
+    assert!(parse_errors.is_empty(), "{parse_errors:?}");
+    let transform_errors = vize_atelier_core::transform(
+        &allocator,
+        &mut root,
+        vize_atelier_core::TransformOptions::default(),
+        None,
+    );
+    assert!(
+        transform_errors
+            .iter()
+            .any(|error| error.code == vize_atelier_core::ErrorCode::VModelOnScope),
+        "the legacy lane must flag the scoped model: {transform_errors:?}"
+    );
+
+    let s2_allocator = vize_carton::Allocator::new();
+    let (tree, surface_errors) = vize_sinopia::parse(&s2_allocator, source);
+    let mut lowered = vize_ricalco::lower(&s2_allocator, &tree, &surface_errors);
+    let _facts =
+        vize_ricalco::pass::run_transform(&mut lowered, &mut vize_davinci::pass::NoObserver);
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.as_str()
+                == vize_ricalco::pass::vmodel::ON_SCOPE_MESSAGE),
+        "the S2 pass must flag the scoped model: {:?}",
         lowered.diagnostics
     );
 }

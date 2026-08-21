@@ -1,18 +1,25 @@
-//! `<slot>` outlets into `ui.slot`: name (static or computed) plus the
-//! owned fallback region.
+//! `<slot>` outlets into `ui.slot`: name (static or computed), the props
+//! surface, and the owned fallback region.
 //!
 //! An implicit name normalizes to `"default"` — the lowering decision
-//! `SlotOp` documents as the dialect's, made here. Forwarded slot props
-//! land with `ui.bind` (P2-9), so every non-name attribute defers; a
-//! custom directive on an outlet is Vue's own error and is dropped under
-//! it.
+//! `SlotOp` documents as the dialect's, made here. Since the P2-9
+//! element/binding-family installment the outlet carries its props
+//! surface: every non-name static attribute is a slot prop
+//! ([`Attribute`]), `v-bind`/`v-on` lower to their attached ops, and a
+//! `v-slot` spelled **on** the outlet lowers to `ui.slot-content` so the
+//! slot pass can fire the legacy `VSlotMisplaced` diagnostic where the
+//! shipped lane fires it. A custom directive on an outlet is Vue's own
+//! error and is dropped under it; the still-deferred built-ins
+//! (`v-html` and kin) keep their counted `defer.slot-directive` records
+//! with realization (P2-11) as the named owner.
 
-use vize_carton::{Box, String, cstr};
+use vize_carton::{Box, String, Vec, cstr};
 use vize_sinopia::Element;
 
-use vize_disegno::op::{DynamicName, Namespace, Op, Region, SlotOp};
+use vize_disegno::op::{Attribute, BindingOp, DynamicName, Namespace, Op, Region, SlotOp};
 
-use super::binding::defer;
+use super::binding::{defer, lower_slot_content};
+use super::bindop::{lower_bind, lower_on};
 use super::cx::{Cx, attr_slice, attr_span, element_span};
 use super::directive::{Arg, AttrForm, Head};
 use super::element::{Analyzed, attr_value_text};
@@ -30,6 +37,8 @@ pub(crate) fn lower_slot<'a>(
     let node = cx.mint_op();
 
     let mut name: Option<DynamicName<'a>> = None;
+    let mut attributes: Vec<'a, Attribute<'a>> = Vec::new_in(&cx.allocator);
+    let mut bindings: Vec<'a, BindingOp<'a>> = Vec::new_in(&cx.allocator);
     for (index, attr) in element.open.attrs.iter().enumerate() {
         if Some(index) == analyzed.branch.map(|(idx, _)| idx) || Some(index) == analyzed.vfor {
             continue;
@@ -43,13 +52,11 @@ pub(crate) fn lower_slot<'a>(
                     attr_value_text(element, index).unwrap_or("default"),
                 ));
             }
-            AttrForm::Static => defer(
-                cx,
-                "defer.slot-props",
-                attr_span(cx, attr),
-                attr_slice(cx, attr),
-                String::from("slot props have no S2 op at P2-8; they land with `ui.bind` (P2-9)"),
-            ),
+            AttrForm::Static => attributes.push(Attribute {
+                name: attr.name.text,
+                value: attr_value_text(element, index),
+                span: attr_span(cx, attr),
+            }),
             AttrForm::Directive(directive) => match directive.head {
                 Head::Bind if directive.arg == Some(Arg::Static("name")) && name.is_none() => {
                     // A `:name` with no expression is not a name candidate
@@ -77,15 +84,9 @@ pub(crate) fn lower_slot<'a>(
                         }
                     }
                 }
-                Head::Bind => defer(
-                    cx,
-                    "defer.slot-props",
-                    attr_span(cx, attr),
-                    attr_slice(cx, attr),
-                    String::from(
-                        "slot props have no S2 op at P2-8; they land with `ui.bind` (P2-9)",
-                    ),
-                ),
+                Head::Bind => bindings.push(lower_bind(cx, element, index, directive)),
+                Head::On => bindings.push(lower_on(cx, element, index, directive)),
+                Head::Slot => bindings.push(lower_slot_content(cx, element, index, directive)),
                 Head::Custom => {
                     cx.error(
                         attr_span(cx, attr),
@@ -118,7 +119,7 @@ pub(crate) fn lower_slot<'a>(
                     attr_span(cx, attr),
                     attr_slice(cx, attr),
                     cstr!(
-                        "`{}` on a <slot> outlet has no S2 op at P2-8 (P2-9)",
+                        "`{}` on a <slot> outlet has no S2 op; it stays with DOM realization (P2-11)",
                         attr.name.text
                     ),
                 ),
@@ -143,6 +144,8 @@ pub(crate) fn lower_slot<'a>(
     Op::Slot(Box::new_in(
         SlotOp {
             name,
+            attributes,
+            bindings,
             fallback,
             span,
         },

@@ -76,8 +76,10 @@ pub struct TUnit {
 }
 
 /// Entity-shaped text under the S1 no-decoding scope: `&` followed by
-/// an alphanumeric or `#` (`&amp;` `&#65;` — never `a && b`).
-fn entity_bearing(text: &str) -> bool {
+/// an alphanumeric or `#` (`&amp;` `&#65;` — never `a && b`). Shared
+/// with the surface projection (series 5), which applies it to
+/// attribute and directive values.
+pub fn entity_bearing(text: &str) -> bool {
     let bytes = text.as_bytes();
     bytes.iter().enumerate().any(|(index, byte)| {
         *byte == b'&'

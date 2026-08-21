@@ -96,7 +96,10 @@ pub(crate) fn visit_ops<'a>(
                 }
             }
             Op::For(for_op) => visit_ops(walk, &mut for_op.region.ops, visit),
-            Op::Slot(slot) => visit_ops(walk, &mut slot.fallback.ops, visit),
+            Op::Slot(slot) => {
+                walk.skip(slot.bindings.len());
+                visit_ops(walk, &mut slot.fallback.ops, visit);
+            }
         }
     }
 }

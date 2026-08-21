@@ -74,7 +74,14 @@ fn walk_region(ops: &mut [FolioOp]) {
                 }
             }
             FolioOp::For(for_op) => walk_region(&mut for_op.ops),
-            FolioOp::Slot(slot) => walk_region(&mut slot.fallback),
+            FolioOp::Slot(slot) => {
+                // The outlet's props surface (P2-9 series 5): static
+                // slot props sort under the same reorder quotient as
+                // element attributes.
+                sort_attrs(&mut slot.attributes);
+                sort_binding_attrs(&mut slot.bindings);
+                walk_region(&mut slot.fallback);
+            }
             FolioOp::Text(_) | FolioOp::Interpolation(_) => {}
         }
     }

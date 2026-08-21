@@ -215,6 +215,20 @@ fn visit<'a>(walk: &mut PageWalk, channels: &mut Channels<'_>, op: &Op<'a>) -> C
             }
         }
         Op::Slot(slot) => {
+            // The outlet's binding surface (P2-9 series 5): binding ids
+            // mint in page order, and a `v-slot` spelled on the outlet
+            // is the legacy `VSlotMisplaced` — a `<slot>` is neither a
+            // component nor a `<template>` carrier.
+            let slots = bindings(walk, channels, &slot.bindings);
+            if let Some(first) = slots.first() {
+                channels.error(
+                    first.span,
+                    MISPLACED_MESSAGE,
+                    "error.v-slot-misplaced",
+                    id,
+                    String::default(),
+                );
+            }
             let _views = region(walk, channels, &slot.fallback.ops);
             ChildView {
                 id,

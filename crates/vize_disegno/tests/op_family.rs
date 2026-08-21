@@ -10,9 +10,9 @@
 use vize_carton::{Allocator, Box, Span, Vec};
 use vize_disegno::expr::{ExprRef, ForeignExpr, JsExpr, OpaqueExpr, OpaqueReason};
 use vize_disegno::op::{
-    Attribute, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding, ForOp,
-    IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, Op, Region, SlotContentOp, SlotOp, TextOp,
-    VueDirectiveOp,
+    Attribute, BindOp, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding,
+    ForOp, IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, OnOp, Op, Region, SlotContentOp,
+    SlotOp, TextOp, VueDirectiveOp,
 };
 
 /// The escape payload standing in for "some expression" wherever the op
@@ -42,6 +42,8 @@ fn op_keyword(op: &Op<'_>) -> &'static str {
 /// No `_` arm, by contract: a new attached op must break this match.
 fn binding_keyword(op: &BindingOp<'_>) -> &'static str {
     match op {
+        BindingOp::Bind(_) => "ui.bind",
+        BindingOp::On(_) => "ui.on",
         BindingOp::Model(_) => "ui.model",
         BindingOp::SlotContent(_) => "ui.slot-content",
         BindingOp::VueDirective(_) => "vue.directive",
@@ -163,6 +165,8 @@ fn every_op<'a>(allocator: &'a Allocator) -> Vec<'a, Op<'a>> {
             Op::Slot(Box::new_in(
                 SlotOp {
                     name: DynamicName::Static("default"),
+                    attributes: Vec::new_in(&allocator),
+                    bindings: Vec::new_in(&allocator),
                     fallback: region(allocator),
                     span,
                 },
@@ -178,6 +182,24 @@ fn every_binding<'a>(allocator: &'a Allocator) -> Vec<'a, BindingOp<'a>> {
     let expr = placeholder(allocator);
     Vec::from_iter_in(
         [
+            BindingOp::Bind(Box::new_in(
+                BindOp {
+                    name: Some(DynamicName::Dynamic(expr)),
+                    modifiers: Vec::from_iter_in(["camel"], &allocator),
+                    value: Some(expr),
+                    span,
+                },
+                &allocator,
+            )),
+            BindingOp::On(Box::new_in(
+                OnOp {
+                    name: None,
+                    modifiers: Vec::new_in(&allocator),
+                    handler: Some(expr),
+                    span,
+                },
+                &allocator,
+            )),
             BindingOp::Model(Box::new_in(
                 ModelOp {
                     contract: BindingContract {
@@ -247,7 +269,16 @@ fn every_attached_op_variant_is_matched_without_a_wildcard() {
     let allocator = Allocator::default();
     let bindings = every_binding(&allocator);
     let keywords: std::vec::Vec<&str> = bindings.iter().map(binding_keyword).collect();
-    assert_eq!(keywords, ["ui.model", "ui.slot-content", "vue.directive"]);
+    assert_eq!(
+        keywords,
+        [
+            "ui.bind",
+            "ui.on",
+            "ui.model",
+            "ui.slot-content",
+            "vue.directive"
+        ]
+    );
     for binding in &bindings {
         assert_eq!(binding.mnemonic(), binding_keyword(binding));
     }

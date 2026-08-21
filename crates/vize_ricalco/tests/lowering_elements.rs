@@ -115,21 +115,77 @@ fn a_slot_outlet_owns_its_fallback_and_normalizes_the_implicit_name() {
 }
 
 #[test]
-fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
-    // `:key` has no S2 op until P2-9's normalized binding ops: the
-    // element and its `ui.for` are kept, the deferral is an exact Info
-    // diagnostic — the input is not wrong, the stage is younger than the
-    // construct.
+fn one_way_bindings_lower_to_the_normalized_ops() {
+    // The P2-9 series-5 surface: `:key` rides `ui.bind` on the iterated
+    // element (element surface, exactly where the legacy lane keeps the
+    // prop), and `@` spellings ride `ui.on` with modifiers verbatim.
     let art = artifact("<li v-for=\"(item, i) in items\" :key=\"item.id\">{{ item.name }}</li>");
+    assert_eq!(
+        art.folio,
+        "[disegno]\n\
+         ops=4\n\
+         \n\
+         [disegno.ops]\n\
+         ui.for source=js(\"items\" @24:29) value=js(\"item\" @12:16) key=js(\"i\" @18:19) @0:66\n\
+         \x20 ui.element li @0:66\n\
+         \x20   ui.bind name=\"key\" value=js(\"item.id\" @37:44) @31:45\n\
+         \x20   ui.interpolation js(\"item.name\" @49:58) @46:61\n\
+         \n"
+    );
+    assert_eq!(art.diagnostics, vec![]);
+
+    let on = artifact("<button @click.stop.prevent=\"go()\" v-on=\"handlers\">x</button>");
+    assert_eq!(
+        on.folio,
+        "[disegno]\n\
+         ops=4\n\
+         \n\
+         [disegno.ops]\n\
+         ui.element button @0:61\n\
+         \x20 ui.on name=\"click\" mods=\"stop,prevent\" handler=js(\"go()\" @29:33) @8:34\n\
+         \x20 ui.on handler=js(\"handlers\" @41:49) @35:50\n\
+         \x20 ui.text \"x\" @51:52\n\
+         \n"
+    );
+    assert_eq!(on.diagnostics, vec![]);
+}
+
+#[test]
+fn the_parser_shorthands_are_mirrored_at_lowering() {
+    // The same-name shorthand (`:foo-bar` reads its camelized argument)
+    // and the `.` dot shorthand (a synthesized leading `prop` modifier),
+    // both exactly as the shipped parser applies them
+    // (`vize_armature/src/parser/attribute.rs:267-340`).
+    let art = artifact("<a :model-value .innerHTML=\"h\"></a>");
     assert_eq!(
         art.folio,
         "[disegno]\n\
          ops=3\n\
          \n\
          [disegno.ops]\n\
-         ui.for source=js(\"items\" @24:29) value=js(\"item\" @12:16) key=js(\"i\" @18:19) @0:66\n\
-         \x20 ui.element li @0:66\n\
-         \x20   ui.interpolation js(\"item.name\" @49:58) @46:61\n\
+         ui.element a @0:35\n\
+         \x20 ui.bind name=\"model-value\" value=js(\"modelValue\" @4:15) @3:15\n\
+         \x20 ui.bind name=\"innerHTML\" mods=\"prop\" value=js(\"h\" @28:29) @16:30\n\
+         \n"
+    );
+    assert_eq!(art.diagnostics, vec![]);
+}
+
+#[test]
+fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
+    // `v-show` still has no S2 op — its behaviour is DOM realization
+    // (display patching), owned by P2-11: the element is kept, the
+    // deferral is an exact Info diagnostic — the input is not wrong, the
+    // stage is younger than the construct.
+    let art = artifact("<p v-show=\"open\">x</p>");
+    assert_eq!(
+        art.folio,
+        "[disegno]\n\
+         ops=2\n\
+         \n\
+         [disegno.ops]\n\
+         ui.element p @0:22\n\
+         \x20 ui.text \"x\" @17:18\n\
          \n"
     );
     assert_eq!(
@@ -137,8 +193,8 @@ fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
         vec![Diagnostic::new(
             Severity::Info,
             Stage::Semantic,
-            Span::new(31, 45),
-            "`:key` has no S2 op at P2-8; the normalized binding ops land with the transform that needs them (P2-9)",
+            Span::new(3, 16),
+            "`v-show` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
         )]
     );
 }

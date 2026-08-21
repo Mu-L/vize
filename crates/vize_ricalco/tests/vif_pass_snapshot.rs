@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use vize_davinci::assert_folio_snapshot;
 use vize_davinci::folio::{Folio, FolioMode};
-use vize_ricalco::pass::vif;
+use vize_ricalco::pass::{BranchKeyKind, vif};
 
 use support::{assert_transformed_sound, with_transformed};
 
@@ -38,10 +38,10 @@ fn the_chain_fixture_snapshots_the_post_pass_folio() {
         assert_folio_snapshot!(*folio);
 
         // Supplements: the plan's walk accounting through the budget
-        // observer's own derived page (installment 4's four barrier passes).
+        // observer's own derived page (series 5's five barrier passes).
         assert_eq!(
             budget.print_to_string(FolioMode::Full).as_str(),
-            "[budget-observer]\nwalks=4\npasses=4\nanalyses=0\npipelines=1\nfailures=0\n\n"
+            "[budget-observer]\nwalks=5\npasses=5\nanalyses=0\npipelines=1\nfailures=0\n\n"
         );
         // One fact entry (the chain's `ui.if`), keys on branches 0 and 2.
         let entries = facts.if_facts.sorted_entries();
@@ -51,11 +51,13 @@ fn the_chain_fixture_snapshots_the_post_pass_folio() {
         assert_eq!(
             branches
                 .iter()
-                .map(|branch| branch
-                    .as_ref()
-                    .and_then(|key| key.value.as_ref().map(vize_carton::String::as_str)))
+                .map(|branch| branch.as_ref().map(|key| key.kind.clone()))
                 .collect::<Vec<_>>(),
-            vec![Some("story"), None, Some("fallback")]
+            vec![
+                Some(BranchKeyKind::Static(Some("story".into()))),
+                None,
+                Some(BranchKeyKind::Static(Some("fallback".into()))),
+            ]
         );
         // Distinct keys: no diagnostics beyond the lowering's own.
         assert_eq!(lowered.diagnostics, vec![]);

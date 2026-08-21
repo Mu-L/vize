@@ -190,4 +190,53 @@ pub const BATTERY: &[(&str, &str)] = &[
         r#"<div v-if="a">x {{ b }}</div><div v-else>y</div>"#,
     ),
     ("units-in-loop", r#"<li v-for="i in xs">#{{ i }} </li>"#),
+    // -- the binding-surface half (series 5) --------------------------
+    (
+        "bind-forms",
+        r#"<a :href="url" :[attr]="val" v-bind="rest">x</a>"#,
+    ),
+    (
+        "bind-shorthands",
+        r#"<i :model-value .innerHTML="h" :data-x="1">t</i>"#,
+    ),
+    (
+        "on-forms",
+        r#"<button @click.stop.prevent="go()" @[evt]="run" v-on="handlers" @press>x</button>"#,
+    ),
+    ("model-native", r#"<input v-model.lazy.trim="draft.note">"#),
+    ("model-component", r#"<Field v-model="doc.title"></Field>"#),
+    (
+        "model-component-arg-mods",
+        r#"<Field v-model:title.trim="doc.title"></Field>"#,
+    ),
+    (
+        "model-invalid-scope",
+        r#"<li v-for="item in xs"><input v-model="item"></li>"#,
+    ),
+    ("model-invalid-arg", r#"<input v-model:value="name">"#),
+    ("model-dynamic-arg", r#"<Comp v-model:[k]="x"></Comp>"#),
+    (
+        "model-pattern-scope",
+        r#"<Card v-slot="{ row }"><input v-model="row"></Card>"#,
+    ),
+    (
+        "classifier-ambiguous-model",
+        r#"<foobar v-model="x">y</foobar>"#,
+    ),
+    ("custom-directive", r#"<p v-pin:top.lazy="offset">x</p>"#),
+    (
+        "outlet-props",
+        r#"<slot name="cell" tone="brisk" :item="row" @pick="choose(row)"></slot>"#,
+    ),
+    ("deferred-builtins", r#"<p v-show="open" v-once>x</p>"#),
+    // A duplicate attribute is a hard legacy parse error
+    // (`DuplicateAttribute` — the vue2-elm corpus skip), so the #958
+    // dedupe question stays outside both lanes' shared domain; plain
+    // statics pin the attr surface instead.
+    ("static-attrs", r#"<a id="top" data-x="1" title="hi">x</a>"#),
+    ("entity-attr", r#"<a title="Tom &amp; Jerry" :x="1">x</a>"#),
+    (
+        "wrapper-dynamic-key",
+        r#"<template v-if="a" :key="wk"><p>1</p></template><p v-else>2</p>"#,
+    ),
 ];

@@ -175,7 +175,7 @@ fn dropped_content_is_never_silent() {
     assert_eq!(wrapper.diagnostics.len(), 1);
     assert_eq!(
         wrapper.diagnostics[0].message.as_str(),
-        "`class` on an unwrapped `<template>` wrapper has no S2 home at P2-8; it is dropped under provenance"
+        "`class` on an unwrapped `<template>` wrapper has no S2 home; it is dropped under provenance"
     );
 }
 

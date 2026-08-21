@@ -15,7 +15,12 @@
 //! texts, group order) and outlet names — in the [`slots`] module.
 //! Series 4 adds the text projection — the merged text-unit surface
 //! (`createTextVNode` boundaries with their static/dynamic parts,
-//! condensed text included) — in the [`text`] module.
+//! condensed text included) — in the [`text`] module. Series 5 adds
+//! the binding-surface projection — per owner: static attributes,
+//! `v-bind`/`v-on` units, custom directives, and the reconstructed
+//! `v-model` contract — in the [`surface`] module, and turns the
+//! dynamic-key, wrapper-key, and outlet-key skip classes into
+//! comparisons.
 //!
 //! # Why this lives in test space (the dependency direction)
 //!
@@ -44,16 +49,16 @@
 //! compares exactly the domain both lanes claim to model — templates
 //! neither lane **rejects** — and **counts** everything it declines:
 //! legacy hard parse errors, S2 error diagnostics (evaluated pre-pass,
-//! so the pass's own duplicate-key errors never mask a comparison; a
-//! malformed or expressionless `v-for` skips here, matching the legacy
-//! transform's refusal to build a `ForNode` from it), dynamic keys
-//! (deferred until `ui.bind`), template-wrapper keys (dropped at
-//! lowering — the recorded series gap), slot-outlet keys (no S2
-//! attribute surface), compound condition rebuilds, compound
-//! source/alias rebuilds in a for's binding surface, and the slot
-//! projection's counted classes — conditional carriers, the `v-slots`
-//! spread, filler-only implicit defaults ([`slots`] module docs,
-//! series 3).
+//! so a pass's own diagnostics never mask a comparison; a malformed or
+//! expressionless `v-for` skips here, matching the legacy transform's
+//! refusal to build a `ForNode` from it), the legacy dynamic-argument
+//! `:[key]` quirk, compound rebuilds of any expression position, the
+//! slot projection's counted classes — conditional carriers, the
+//! `v-slots` spread, filler-only implicit defaults ([`slots`] module
+//! docs, series 3) — and the surface projection's counted classes
+//! ([`surface`] module docs, series 5: still-deferred built-ins,
+//! wrapper props, entity-bearing values, dynamic-argument and
+//! pattern-scoped models).
 //! Recovery-level legacy notes (`ErrorCode::is_recovery` — spec repairs
 //! such as self-closing rewrites the parser already applied) do **not**
 //! skip: the first corpus run measured them on 3,027 of 12,021
@@ -68,11 +73,17 @@ pub mod old_lane;
 pub mod s2_lane;
 pub mod slots;
 pub mod slots_old;
+pub mod surface;
+pub mod surface_check;
+pub mod surface_old;
+pub mod surface_old_help;
+pub mod surface_s2;
 pub mod text;
 pub mod text_old;
 
 pub use battery::BATTERY;
 pub use slots::SlotCounters;
+pub use surface::SurfaceCounters;
 pub use text::TextCounters;
 
 use vize_atelier_core::parser::parse_with_options as old_parse_with_options;
@@ -103,16 +114,20 @@ pub struct Counters {
     pub if_ops: u64,
     /// Branches compared.
     pub branches: u64,
-    /// Static-key value comparisons that ran.
+    /// Static-key value comparisons that ran (carriers, outlets
+    /// included since series 5).
     pub keys_static: u64,
-    /// Old lane saw a `:key` binding; S2 defers it until `ui.bind`.
+    /// Dynamic-key text comparisons that ran (series 5 closed the
+    /// deferral class of the same name).
     pub keys_dynamic: u64,
-    /// Old lane extracted a `<template v-if>` wrapper key; the lowering
-    /// dropped the wrapper's attributes (the recorded series gap).
-    pub keys_template_if: u64,
-    /// Old lane extracted a key from a slot outlet; `ui.slot` carries
-    /// no attribute surface.
-    pub keys_slot_root: u64,
+    /// `<template v-if>` wrapper keys compared (series 5 closed the
+    /// installment-1 drop through the lowering's capture channel).
+    pub keys_wrapper: u64,
+    /// The legacy arg-content quirk: a dynamic-argument `:[key]` the
+    /// legacy lane lifts as the branch key; S2 counts, never imitates.
+    pub keys_dynamic_arg: u64,
+    /// A legacy compound key rebuild: no single source text.
+    pub keys_compound: u64,
     /// Old lane rebuilt a compound condition; no single source text to
     /// compare.
     pub conditions_compound: u64,
@@ -135,6 +150,10 @@ pub struct Counters {
     /// The text half (series 4): units, parts, compounds, and the
     /// counted classes ([`text`] module docs).
     pub text: TextCounters,
+    /// The binding-surface half (series 5): owners, attrs, binds, ons,
+    /// directives, models, and the counted classes ([`surface`] module
+    /// docs).
+    pub surfaces: SurfaceCounters,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -176,6 +195,13 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     slots_old::collect_old(&root.children, source, &mut old_units, &mut old_outlets);
     let mut old_text_units = Vec::new();
     text_old::collect_units(&root.children, &mut old_text_units);
+    let mut old_surfaces = Vec::new();
+    surface_old::collect_surfaces(
+        &root.children,
+        false,
+        &mut old_surfaces,
+        &mut counters.surfaces,
+    );
 
     // S2 lane: sinopia parse -> ricalco lower -> the S2 passes through
     // the P2-2 pass manager (verifier between passes in debug).
@@ -194,9 +220,12 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     let folio = DisegnoFolio::of(&lowered.root.ops);
     let s2 = s2_lane::collect(
         &folio,
-        &facts.if_facts,
-        &facts.slot_facts,
-        &facts.text_facts,
+        &s2_lane::Tables {
+            if_facts: &facts.if_facts,
+            slot_facts: &facts.slot_facts,
+            text_facts: &facts.text_facts,
+            model_faults: &facts.model_faults,
+        },
     );
 
     checks::check(name, source, &old_chains, &s2.chains, counters);
@@ -211,6 +240,22 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
         &mut counters.slots,
     );
     counters.text.rawtext_excluded += s2.text_rawtext_excluded;
+    if s2.has_table {
+        // The legacy in-table tree construction class ([`surface`]
+        // module docs): owner order and count can genuinely differ
+        // inside table subtrees, so the surface half skips whole.
+        counters.surfaces.table_templates += 1;
+    } else {
+        counters.surfaces.models_invalid += s2.models_invalid;
+        counters.surfaces.keys_excluded += s2.keys_excluded;
+        surface_check::check(
+            name,
+            source,
+            &old_surfaces,
+            &s2.surfaces,
+            &mut counters.surfaces,
+        );
+    }
     // The text projection's template-level v-pre class ([`text`] module
     // docs): the legacy parser honours `v-pre` and then erases it from
     // its tree, so the deterministic detector is the S2 lowering's own

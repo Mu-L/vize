@@ -1,23 +1,23 @@
-//! Attached bindings: `v-model` into the `ui.model` contract, custom
-//! directives into `vue.directive`, and the deferral of every built-in
-//! the P2-8 op family cannot carry yet.
+//! Attached bindings: `v-bind`/`v-on` into the normalized one-way ops
+//! ([`super::bindop`], P2-9 series 5), `v-model` into the `ui.model`
+//! contract, `v-slot` into `ui.slot-content`, custom directives into
+//! `vue.directive`, and the deferral of what remains.
 //!
 //! # Unmappable means diagnostic, never a new op
 //!
-//! `ui.bind` / `ui.on` land with the transform that needs them (P2-9);
-//! until then `v-bind`, `v-on`, `v-html`, `v-text`, `v-show`, `v-cloak`,
-//! `v-once`, `v-memo` and `v-pre` have **no S2 op**, and forcing them
-//! into `vue.directive` would break its documented contract ("built-in
+//! `v-html`, `v-text`, `v-show`, `v-cloak`, `v-once`, `v-memo` and
+//! `v-pre` still have **no S2 op**, and forcing them into
+//! `vue.directive` would break its documented contract ("built-in
 //! directives never appear here"). Each is deferred: an `Info`
 //! diagnostic — the input is not wrong, the stage is younger than the
 //! construct — plus a provenance record naming the rule, with the owner
-//! op kept as the fragment. `v-slot` left the deferred set with the
-//! slot-normalization installment: it lowers to the attached
-//! [`SlotContentOp`] exactly as authored (name position, modifiers,
-//! params), and its slot-props scope facts — recorded since P2-8 — now
-//! key the **binding op itself** (each spelling is its own introduction
-//! site, so two `v-slot`s on one carrier never share an entry). The
-//! canonical grouping stays the `v-slot` pass's published fact.
+//! op kept as the fragment. The owner of the remaining set is **DOM
+//! realization (P2-11)**, a measured statement: the element-family port
+//! found every one of their old transform files dead in the shipped
+//! lane — the living reads are all codegen-time (`has_v_once`,
+//! `get_memo_exp`, `has_vshow_directive`, ... in `codegen/element/`) —
+//! so there is no transform-time behaviour left for an S2 pass to
+//! carry, and their ops land with the stage that reads them.
 
 use alloc::vec::Vec as StdVec;
 
@@ -54,6 +54,8 @@ pub(crate) fn lower_attr<'a>(
 ) {
     let attr = &element.open.attrs[index];
     match directive.head {
+        Head::Bind => bindings.push(super::bindop::lower_bind(cx, element, index, directive)),
+        Head::On => bindings.push(super::bindop::lower_on(cx, element, index, directive)),
         Head::Model => {
             if let Some(op) = lower_model(cx, element, index, directive, owner) {
                 bindings.push(op);
@@ -67,20 +69,11 @@ pub(crate) fn lower_attr<'a>(
             attr_span(cx, attr),
             attr_slice(cx, attr),
             String::from(
-                "`v-pre` has no S2 representation at P2-8; its subtree lowers as ordinary content",
+                "`v-pre` has no S2 representation; its subtree lowers as ordinary content",
             ),
         ),
-        Head::Bind
-        | Head::On
-        | Head::Html
-        | Head::Text
-        | Head::Show
-        | Head::Cloak
-        | Head::Once
-        | Head::Memo => {
+        Head::Html | Head::Text | Head::Show | Head::Cloak | Head::Once | Head::Memo => {
             let rule = match directive.head {
-                Head::Bind => "defer.v-bind",
-                Head::On => "defer.v-on",
                 Head::Html => "defer.v-html",
                 Head::Text => "defer.v-text",
                 Head::Show => "defer.v-show",
@@ -94,7 +87,7 @@ pub(crate) fn lower_attr<'a>(
                 attr_span(cx, attr),
                 attr_slice(cx, attr),
                 cstr!(
-                    "`{}` has no S2 op at P2-8; the normalized binding ops land with the transform that needs them (P2-9)",
+                    "`{}` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
                     attr.name.text
                 ),
             );
@@ -269,7 +262,7 @@ fn lower_custom<'a>(
 /// `v-slot`s on one carrier never share an entry. The props name is
 /// recorded when it is a simple identifier; patterns wait for the one
 /// identifier-enumeration seam (#4365).
-fn lower_slot_content<'a>(
+pub(crate) fn lower_slot_content<'a>(
     cx: &mut Cx<'a>,
     element: &Element<'a>,
     index: usize,

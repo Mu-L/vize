@@ -89,6 +89,47 @@ const OPS_REJECTIONS: &[(&str, usize, &str)] = &[
         6,
         "expected `branch` under `ui.if`",
     ),
+    // -- the ui.bind / ui.on lines (P2-9 series 5) ---------------------------
+    (
+        "ui.bind name=\"a\" value=js(\"v\" @1:2) @1:2\n",
+        5,
+        "binding outside an element",
+    ),
+    (
+        "ui.on name=\"click\" handler=js(\"go()\" @1:2) @1:2\n",
+        5,
+        "binding outside an element",
+    ),
+    (
+        "ui.element d @1:2\n  ui.bind name=top @1:2\n",
+        6,
+        "expected quoted string or an expression payload",
+    ),
+    (
+        "ui.element d @1:2\n  ui.bind mods=\"a,,b\" value=js(\"v\" @1:2) @1:2\n",
+        6,
+        "invalid modifier list",
+    ),
+    (
+        "ui.element d @1:2\n  ui.on name=\"click\" handler=x @1:2\n",
+        6,
+        "expected an expression payload",
+    ),
+    (
+        "ui.element d @1:2\n  ui.bind name=\"a\" value=js(\"v\" @1:2)\n",
+        6,
+        "missing span",
+    ),
+    (
+        "ui.slot name=\"s\" @1:2\n  ui.text \"x\" @1:2\n  ui.bind name=\"a\" value=js(\"v\" @1:2) @1:2\n",
+        7,
+        "binding after a child",
+    ),
+    (
+        "ui.slot name=\"s\" @1:2\n  ui.on name=\"e\" @1:2\n  attr a @1:2\n",
+        7,
+        "attribute after a binding",
+    ),
     // -- line grammar --------------------------------------------------------
     ("ui.if\n", 5, "missing span"),
     ("ui.text \"x\"\n", 5, "missing span"),

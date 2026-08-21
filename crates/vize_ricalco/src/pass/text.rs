@@ -210,7 +210,12 @@ fn visit_region(
                 }
             }
             Op::For(for_op) => visit_region(walk, &for_op.region.ops, texts, provenance, facts),
-            Op::Slot(slot) => visit_region(walk, &slot.fallback.ops, texts, provenance, facts),
+            Op::Slot(slot) => {
+                for _ in slot.bindings.iter() {
+                    let _ = walk.mint();
+                }
+                visit_region(walk, &slot.fallback.ops, texts, provenance, facts);
+            }
         }
     }
 }

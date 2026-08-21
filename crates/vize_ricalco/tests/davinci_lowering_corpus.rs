@@ -73,11 +73,11 @@ fn lowering_corpus_is_total() {
             scopes += lowered.scopes.len();
         });
     }
-    // Re-pinned at the transform_text installment (see
+    // Re-pinned at the element/binding-family installment (see
     // `lowering_battery.rs` for the movement's account).
     assert_eq!(
         (ops, diagnostics, provenance, scopes),
-        (78, 33, 101, 1),
+        (83, 28, 101, 1),
         "battery census moved: re-pin in both lanes deliberately"
     );
 

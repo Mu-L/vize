@@ -20,13 +20,17 @@
 //!
 //! What remains — and is this pass's body — is the branch-key half:
 //! `extract_key_prop`'s lift of the authored `key` off the branch's
-//! element into a per-branch fact, and the duplicate-key diagnostic
-//! (vuejs/core #13881, `ErrorCode::VIfSameKey`). Static keys only in
-//! this installment: a dynamic `:key` is still a P2-8 `defer.v-bind`
-//! with no op to read, so its extraction and its collision arm land with
-//! the `ui.bind` installment; a `<template v-if>` wrapper's `key` was
-//! dropped at lowering (`drop.template-attribute`) and is recorded as a
-//! series gap in the P2-9 record.
+//! carrier into a per-branch fact, and the duplicate-key diagnostic
+//! (vuejs/core #13881, `ErrorCode::VIfSameKey`). The element/binding
+//! installment (series 5) completed the surface: a dynamic `:key` rides
+//! `ui.bind` and is extracted beside the static arm ([`keys`]), slot
+//! outlets carry an attribute surface of their own, and a
+//! `<template v-if>` wrapper's key — captured at lowering into
+//! [`WrapperKeys`](crate::lower::WrapperKeys), since the wrapper unwraps
+//! before any pass runs — folds into the same fact. The collision check
+//! is kind-blind text equality, exactly the legacy
+//! `extract_key_value_str` under the default dialect (a bare `key` or a
+//! valueless dynamic spelling never collides).
 //!
 //! # Classification (the review point)
 //!
@@ -69,11 +73,14 @@ use vize_davinci::diagnostic::{Diagnostic, Severity, Stage};
 use vize_davinci::id::NodeId;
 use vize_davinci::pass::{Fusability, PassDesc, PassKind, Preserved};
 use vize_davinci::side_table::SideTable;
-use vize_disegno::op::{Attribute, IfOp, Op};
+use vize_disegno::op::{IfOp, Op};
 use vize_disegno::provenance::ProvenanceRecord;
 
 use super::walk::{PageWalk, assert_accounting, visit_ops};
-use crate::lower::Lowered;
+use crate::lower::{Lowered, WrapperKey, WrapperKeys};
+
+#[path = "vif/keys.rs"]
+mod keys;
 
 /// The pass name in pipeline strings and folio pages.
 pub const NAME: &str = "v-if";
@@ -98,11 +105,44 @@ pub const DESC: PassDesc = PassDesc::new(
 /// One branch's extracted `key`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BranchKey {
-    /// The authored value; `None` for a bare `key` attribute — which,
-    /// exactly as the legacy `extract_key_value_str`, never collides.
-    pub value: Option<String>,
+    /// Which spelling carried the key.
+    pub kind: BranchKeyKind,
     /// The authored attribute's range.
     pub span: Span,
+}
+
+/// The two key spellings a branch carrier can author.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BranchKeyKind {
+    /// A static `key` attribute; `None` for a bare `key` — which,
+    /// exactly as the legacy `extract_key_value_str`, never collides.
+    Static(Option<String>),
+    /// A `:key` binding: the trimmed authored value text, plus the index
+    /// of the carrier binding that carries it (`None` for a
+    /// wrapper-captured key, which has no op).
+    Dynamic {
+        /// The trimmed value text (the parser's same-name expansion
+        /// applied — a valueless `:key` reads `key`).
+        source: String,
+        /// The carrier's binding index, for the surface exclusion.
+        bind_index: Option<usize>,
+    },
+}
+
+impl BranchKey {
+    /// The text the collision check compares — kind-blind, exactly the
+    /// legacy `extract_key_value_str` under the default dialect. `None`
+    /// never collides: a bare `key`, or a `:key` whose value position
+    /// holds no expression (the authored-blank spelling, which the
+    /// shipped parser leaves without one).
+    #[must_use]
+    pub fn collision_text(&self) -> Option<&str> {
+        match &self.kind {
+            BranchKeyKind::Static(value) => value.as_deref(),
+            BranchKeyKind::Dynamic { source, .. } if source.is_empty() => None,
+            BranchKeyKind::Dynamic { source, .. } => Some(source.as_str()),
+        }
+    }
 }
 
 /// Per-`ui.if` branch-key facts, one slot per branch in authored order.
@@ -117,6 +157,7 @@ pub struct IfFacts {
 const _: () = {
     const fn assert_owned<T: 'static>() {}
     assert_owned::<BranchKey>();
+    assert_owned::<BranchKeyKind>();
     assert_owned::<IfFacts>();
 };
 
@@ -124,7 +165,7 @@ const _: () = {
 /// lane is 32-bit).
 #[cfg(target_pointer_width = "64")]
 const _: () = {
-    assert!(core::mem::size_of::<BranchKey>() == 32);
+    assert!(core::mem::size_of::<BranchKey>() == 48);
     assert!(core::mem::size_of::<IfFacts>() == 24);
 };
 
@@ -147,11 +188,13 @@ pub fn run(lowered: &mut Lowered<'_>) -> SideTable<IfFacts> {
         op_count,
         diagnostics,
         provenance,
+        wrappers,
         ..
     } = lowered;
     let mut channels = Channels {
         diagnostics,
         provenance,
+        wrappers,
         facts: SideTable::new(),
     };
     let mut walk = PageWalk::new();
@@ -167,24 +210,40 @@ pub fn run(lowered: &mut Lowered<'_>) -> SideTable<IfFacts> {
 struct Channels<'l> {
     diagnostics: &'l mut StdVec<Diagnostic>,
     provenance: &'l mut StdVec<ProvenanceRecord>,
+    /// The lowering's captured `<template v-if>` wrapper keys, read-only.
+    wrappers: &'l SideTable<WrapperKeys>,
     facts: SideTable<IfFacts>,
 }
 
-/// Lift each branch's static `key` into a fact, then diagnose duplicate
-/// authored values (later branch flagged, per the legacy transform).
+/// Lift each branch's key (wrapper-captured or carrier-extracted) into a
+/// fact, then diagnose duplicate key texts (later branch flagged, per the
+/// legacy transform; kind-blind text equality).
 fn process_if<'a>(walk: &mut Channels<'_>, id: Option<NodeId>, if_op: &mut IfOp<'a>) {
+    let wrapper = id.and_then(|id| walk.wrappers.get(id));
     let mut keys: StdVec<Option<BranchKey>> = StdVec::with_capacity(if_op.branches.len());
     for (index, branch) in if_op.branches.iter_mut().enumerate() {
-        let key = branch_root_attributes(branch.span, &mut branch.region.ops)
-            .and_then(|attributes| take_key(attributes));
+        let captured = wrapper
+            .and_then(|keys| keys.branches.get(index))
+            .and_then(|key| key.as_ref())
+            .map(|key| match key {
+                WrapperKey::Static { value, span } => BranchKey {
+                    kind: BranchKeyKind::Static(value.clone()),
+                    span: *span,
+                },
+                WrapperKey::Dynamic { source, span } => BranchKey {
+                    kind: BranchKeyKind::Dynamic {
+                        source: source.clone(),
+                        bind_index: None,
+                    },
+                    span: *span,
+                },
+            });
+        let key = captured.or_else(|| keys::take_carrier_key(branch.span, &mut branch.region.ops));
         if let Some(key) = &key {
             walk.provenance.push(ProvenanceRecord {
                 rule: String::from("pass.v-if.branch-key"),
                 node: id,
-                before: match &key.value {
-                    Some(value) => cstr!("key=\"{value}\""),
-                    None => String::from("key"),
-                },
+                before: keys::key_spelling(key),
                 after: cstr!("fact key branch={index}"),
                 span: key.span,
             });
@@ -193,29 +252,31 @@ fn process_if<'a>(walk: &mut Channels<'_>, id: Option<NodeId>, if_op: &mut IfOp<
     }
 
     for index in 1..keys.len() {
-        let Some(BranchKey {
-            value: Some(value),
-            span,
-        }) = &keys[index]
-        else {
+        let Some(later) = &keys[index] else {
+            continue;
+        };
+        let Some(text) = later.collision_text() else {
             continue;
         };
         let collides = keys[..index].iter().any(|earlier| {
-            matches!(earlier, Some(BranchKey { value: Some(existing), .. }) if existing == value)
+            earlier
+                .as_ref()
+                .and_then(BranchKey::collision_text)
+                .is_some_and(|existing| existing == text)
         });
         if collides {
             walk.diagnostics.push(Diagnostic::new(
                 Severity::Error,
                 Stage::Semantic,
-                *span,
+                later.span,
                 String::from(SAME_KEY_MESSAGE),
             ));
             walk.provenance.push(ProvenanceRecord {
                 rule: String::from("error.v-if-same-key"),
                 node: id,
-                before: cstr!("key=\"{value}\""),
+                before: keys::key_spelling(later),
                 after: String::default(),
-                span: *span,
+                span: later.span,
             });
         }
     }
@@ -225,50 +286,4 @@ fn process_if<'a>(walk: &mut Channels<'_>, id: Option<NodeId>, if_op: &mut IfOp<
     {
         walk.facts.insert(id, IfFacts { branches: keys });
     }
-}
-
-/// The attribute list a branch's key may ride on: the branch region's
-/// single root op when it is an element or component **and it is the
-/// branch's own carrier** (its span equals the branch span).
-///
-/// The span-identity guard is what keeps an unwrapped
-/// `<template v-if><div key>` honest: the lowering unwraps the wrapper,
-/// so the region's single root can be an inner child whose `key`
-/// belongs to that child's own vnode, exactly as the legacy transform
-/// leaves it — an inner op's span is strictly inside the branch's, the
-/// carrier's is equal. A `ui.for` root means the key belongs to `v-for`
-/// (Vue 3 precedence — the legacy transform skips extraction the same
-/// way); a `ui.slot` root carries no attribute surface.
-fn branch_root_attributes<'w, 'a>(
-    branch_span: Span,
-    ops: &'w mut [Op<'a>],
-) -> Option<&'w mut vize_carton::Vec<'a, Attribute<'a>>> {
-    let [op] = ops else {
-        return None;
-    };
-    match op {
-        Op::Element(element) if element.span == branch_span => Some(&mut element.attributes),
-        Op::Component(component) if component.span == branch_span => {
-            Some(&mut component.attributes)
-        }
-        Op::Element(_)
-        | Op::Component(_)
-        | Op::Text(_)
-        | Op::Interpolation(_)
-        | Op::If(_)
-        | Op::For(_)
-        | Op::Slot(_) => None,
-    }
-}
-
-/// Remove the first `key` attribute, returning it as a fact.
-fn take_key<'a>(attributes: &mut vize_carton::Vec<'a, Attribute<'a>>) -> Option<BranchKey> {
-    let index = attributes
-        .iter()
-        .position(|attribute| attribute.name == "key")?;
-    let attribute = attributes.remove(index);
-    Some(BranchKey {
-        value: attribute.value.map(String::from),
-        span: attribute.span,
-    })
 }

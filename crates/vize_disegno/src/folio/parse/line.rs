@@ -12,9 +12,9 @@ use vize_carton::{Span, String, cstr};
 use vize_davinci::folio::FolioError;
 
 use super::super::owned::{
-    FolioAttribute, FolioBranch, FolioComponent, FolioElement, FolioFor, FolioForBinding, FolioIf,
-    FolioInterpolation, FolioModel, FolioName, FolioOp, FolioSlot, FolioSlotContent, FolioText,
-    FolioVueDirective,
+    FolioAttribute, FolioBind, FolioBranch, FolioComponent, FolioElement, FolioFor,
+    FolioForBinding, FolioIf, FolioInterpolation, FolioModel, FolioName, FolioOn, FolioOp,
+    FolioSlot, FolioSlotContent, FolioText, FolioVueDirective,
 };
 use super::expr_token::take_expr;
 use crate::op::Namespace;
@@ -22,6 +22,8 @@ use crate::op::Namespace;
 /// One classified ops-section line.
 pub(in super::super) enum Item {
     Attr(FolioAttribute),
+    Bind(FolioBind),
+    On(FolioOn),
     Model(FolioModel),
     SlotContent(FolioSlotContent),
     Directive(FolioVueDirective),
@@ -103,6 +105,8 @@ pub(in super::super) fn parse_item(content: &str, line_no: usize) -> Result<Item
         }))),
         "ui.for" => for_op(rest, line_no),
         "ui.slot" => slot(rest, line_no),
+        "ui.bind" => super::binding_line::bind(rest, line_no),
+        "ui.on" => super::binding_line::on(rest, line_no),
         "ui.slot-content" => super::binding_line::slot_content(rest, line_no),
         "ui.model" => super::binding_line::model(rest, line_no),
         "vue.directive" => super::binding_line::directive(rest, line_no),
@@ -258,6 +262,8 @@ fn slot(rest: &str, line_no: usize) -> Result<Item, FolioError> {
     let (name, tail) = name_value(rest, line_no)?;
     Ok(Item::Op(FolioOp::Slot(FolioSlot {
         name,
+        attributes: alloc::vec::Vec::new(),
+        bindings: alloc::vec::Vec::new(),
         fallback: alloc::vec::Vec::new(),
         span: tail_span(tail, line_no)?,
     })))

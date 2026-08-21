@@ -281,6 +281,23 @@ fn the_pass_preserves_the_tree() {
 }
 
 #[test]
+fn a_v_slot_on_an_outlet_is_misplaced_with_reliefs_wording() {
+    // Installment 3 recorded the outlet's missing `VSlotMisplaced` twin
+    // as waiting on the outlet binding surface; series 5 landed it: the
+    // spelling lowers to `ui.slot-content` on the `ui.slot`, and this
+    // pass fires the legacy diagnostic where the legacy lane fires it
+    // (`validate_v_slot_usage` — a `<slot>` is neither a component nor
+    // a `<template>` carrier).
+    let source = r#"<slot v-slot="p"></slot>"#;
+    with_transformed(source, |lowered, _, facts, _| {
+        assert_eq!(lowered.diagnostics.len(), 1);
+        assert_eq!(lowered.diagnostics[0].message.as_str(), MISPLACED_MESSAGE);
+        assert!(facts.slot_facts.is_empty(), "no grouping exists");
+    });
+    assert_transformed_sound(source, "misplaced-on-outlet");
+}
+
+#[test]
 fn the_pass_is_total_over_malformed_slots() {
     for (name, source) in [
         ("empty-params", r#"<Card v-slot="">x</Card>"#),

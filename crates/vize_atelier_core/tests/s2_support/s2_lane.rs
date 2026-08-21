@@ -1,5 +1,6 @@
 //! The S2-lane projection: the DOM-output-determining facts of every
-//! `ui.if` (post v-if pass) and every `ui.for`, in document order.
+//! `ui.if` (post v-if pass), every `ui.for`, and — since series 5 —
+//! every owner's binding surface, in document order.
 //!
 //! Facts are keyed by page-order ids, so the walk re-derives them with
 //! the same numbering rule the folio's `ops=` header states: op line,
@@ -9,24 +10,21 @@ use vize_carton::String;
 use vize_davinci::id::NodeId;
 use vize_davinci::side_table::SideTable;
 use vize_disegno::folio::{DisegnoFolio, FolioExpr, FolioOp};
-use vize_ricalco::pass::{IfFacts, SlotFacts, TextFacts};
+use vize_ricalco::pass::{BranchKeyKind, IfFacts, ModelFacts, SlotFacts, TextFacts};
 
 use super::slots::{POutlet, PUnit, s2_outlet, s2_slot_active, s2_unit};
+use super::surface::PSurface;
+use super::surface_s2::{opens_pattern_scope, surface_of};
 use super::text::{TPart, TUnit};
 use super::text_old::is_rawtext_tag;
 
-/// What stands as a branch region's single root, for the key-comparison
-/// skip classes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RootKind {
-    /// An element or component — the attribute surface a key rides on.
-    Element,
-    /// A `ui.for` — the key belongs to the iteration (Vue 3 precedence).
-    ForWrapped,
-    /// A `ui.slot` — no attribute surface in S2.
-    SlotOutlet,
-    /// Anything else (unwrapped template content, empty region, ...).
-    Other,
+/// One branch's extracted key, as the fact records it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum S2Key {
+    /// A static `key` attribute (`None` = bare).
+    Static(Option<String>),
+    /// A `:key` binding's trimmed value text.
+    Dynamic(String),
 }
 
 /// One branch's projected facts.
@@ -34,11 +32,8 @@ pub enum RootKind {
 pub struct S2Branch {
     /// The trimmed condition source text; `None` = unconditional.
     pub condition: Option<String>,
-    /// The extracted key fact: `Some(value)` when the pass lifted one
-    /// (`Some(None)` for a bare `key`).
-    pub key: Option<Option<String>>,
-    /// The region's single-root shape.
-    pub root: RootKind,
+    /// The extracted key fact, when the pass lifted one.
+    pub key: Option<S2Key>,
 }
 
 /// One `ui.if`.
@@ -77,16 +72,30 @@ pub struct S2Projection {
     /// Text-family ops inside rawtext content, excluded from the text
     /// projection (the lane-neutral rule, counted).
     pub text_rawtext_excluded: u64,
+    /// The owner surfaces (series 5), in document order.
+    pub surfaces: Vec<PSurface>,
+    /// Models excluded because the v-model pass faulted them (the
+    /// legacy lane removed the same models).
+    pub models_invalid: u64,
+    /// Branch-key bindings excluded from the surface (the chain
+    /// projection owns them).
+    pub keys_excluded: u64,
+    /// The template authors a `<table>` (the legacy in-table tree
+    /// construction class — the surface half skips, counted).
+    pub has_table: bool,
 }
 
-/// Collect every chain, for, slot unit, outlet and text unit in
-/// `folio`, outer before nested, document order.
-pub fn collect(
-    folio: &DisegnoFolio,
-    facts: &SideTable<IfFacts>,
-    slot_facts: &SideTable<SlotFacts>,
-    text_facts: &SideTable<TextFacts>,
-) -> S2Projection {
+/// The fact tables the walk reads.
+pub struct Tables<'t> {
+    pub if_facts: &'t SideTable<IfFacts>,
+    pub slot_facts: &'t SideTable<SlotFacts>,
+    pub text_facts: &'t SideTable<TextFacts>,
+    pub model_faults: &'t SideTable<ModelFacts>,
+}
+
+/// Collect every chain, for, slot unit, outlet, text unit and owner
+/// surface in `folio`, outer before nested, document order.
+pub fn collect(folio: &DisegnoFolio, tables: &Tables<'_>) -> S2Projection {
     let mut out = S2Projection {
         chains: Vec::new(),
         fors: Vec::new(),
@@ -94,50 +103,101 @@ pub fn collect(
         outlets: Vec::new(),
         text_units: Vec::new(),
         text_rawtext_excluded: 0,
+        surfaces: Vec::new(),
+        models_invalid: 0,
+        keys_excluded: 0,
+        has_table: false,
     };
     let mut next = 0u32;
-    walk(
-        &folio.ops,
-        (facts, slot_facts, text_facts),
-        0,
-        &mut next,
-        &mut out,
-    );
+    let state = WalkState {
+        rawtext_depth: 0,
+        pattern_scoped: false,
+        excluded_bind: None,
+    };
+    walk(&folio.ops, tables, state, &mut next, &mut out);
     out
 }
 
-type Tables<'t> = (
-    &'t SideTable<IfFacts>,
-    &'t SideTable<SlotFacts>,
-    &'t SideTable<TextFacts>,
-);
+/// The inherited walk state.
+#[derive(Clone, Copy)]
+struct WalkState {
+    rawtext_depth: usize,
+    pattern_scoped: bool,
+    /// The branch-key binding index to exclude on the next owner (set
+    /// for a branch's single root, consumed immediately).
+    excluded_bind: Option<usize>,
+}
 
 fn walk(
     ops: &[FolioOp],
-    tables: Tables<'_>,
-    rawtext_depth: usize,
+    tables: &Tables<'_>,
+    state: WalkState,
     next: &mut u32,
     out: &mut S2Projection,
 ) {
-    let (facts, slot_facts, text_facts) = tables;
-    for op in ops {
+    for (position, op) in ops.iter().enumerate() {
+        let excluded_bind = if position == 0 {
+            state.excluded_bind
+        } else {
+            None
+        };
         match op {
             FolioOp::Element(element) => {
+                if element.tag.as_str().eq_ignore_ascii_case("table") {
+                    out.has_table = true;
+                }
+                let owner_index = *next;
                 *next += 1 + u32::try_from(element.bindings.len()).expect("binding count fits");
-                let child_depth = rawtext_depth + usize::from(is_rawtext_tag(element.tag.as_str()));
-                walk(&element.children, tables, child_depth, next, out);
+                let surface = surface_of(
+                    &element.attributes,
+                    &element.bindings,
+                    owner_index,
+                    tables,
+                    state.pattern_scoped,
+                    excluded_bind,
+                    false,
+                    out,
+                );
+                out.surfaces.push(surface);
+                let child_state = WalkState {
+                    rawtext_depth: state.rawtext_depth
+                        + usize::from(is_rawtext_tag(element.tag.as_str())),
+                    pattern_scoped: state.pattern_scoped
+                        || (element.tag == "template"
+                            && opens_pattern_scope(&element.bindings, &element.children)),
+                    excluded_bind: None,
+                };
+                walk(&element.children, tables, child_state, next, out);
             }
             FolioOp::Component(component) => {
-                let id = NodeId::from_index(*next);
+                let owner_index = *next;
+                let id = NodeId::from_index(owner_index);
                 *next += 1 + u32::try_from(component.bindings.len()).expect("binding count fits");
                 if s2_slot_active(&component.bindings, &component.children) {
-                    out.units.push(s2_unit(id, slot_facts));
+                    out.units.push(s2_unit(id, tables.slot_facts));
                 }
-                walk(&component.children, tables, rawtext_depth, next, out);
+                let surface = surface_of(
+                    &component.attributes,
+                    &component.bindings,
+                    owner_index,
+                    tables,
+                    state.pattern_scoped,
+                    excluded_bind,
+                    true,
+                    out,
+                );
+                out.surfaces.push(surface);
+                let child_state = WalkState {
+                    rawtext_depth: state.rawtext_depth,
+                    pattern_scoped: state.pattern_scoped
+                        || opens_pattern_scope(&component.bindings, &component.children),
+                    excluded_bind: None,
+                };
+                walk(&component.children, tables, child_state, next, out);
             }
             FolioOp::Text(text) => {
                 *next += 1;
-                if rawtext_depth > 0 {
+                if state.rawtext_depth > 0 {
                     out.text_rawtext_excluded += 1;
                 } else {
                     out.text_units.push(TUnit {
@@ -152,11 +212,11 @@ fn walk(
             FolioOp::Interpolation(interpolation) => {
                 let id = NodeId::from_index(*next);
                 *next += 1;
-                if rawtext_depth > 0 {
+                if state.rawtext_depth > 0 {
                     out.text_rawtext_excluded += 1;
                     continue;
                 }
-                let compound = id.and_then(|id| text_facts.get(id));
+                let compound = id.and_then(|id| tables.text_facts.get(id));
                 out.text_units.push(match compound {
                     Some(fact) => TUnit {
                         parts: fact
@@ -181,7 +241,7 @@ fn walk(
             FolioOp::If(if_op) => {
                 let id = NodeId::from_index(*next).expect("page-order ids fit");
                 *next += 1;
-                let fact = facts.get(id);
+                let fact = tables.if_facts.get(id);
                 out.chains.push(S2Chain {
                     branches: if_op
                         .branches
@@ -192,13 +252,34 @@ fn walk(
                             key: fact
                                 .and_then(|fact| fact.branches.get(index))
                                 .and_then(|key| key.as_ref())
-                                .map(|key| key.value.clone()),
-                            root: root_kind(&branch.ops),
+                                .map(|key| match &key.kind {
+                                    BranchKeyKind::Static(value) => S2Key::Static(
+                                        value.as_ref().map(|value| String::from(value.as_str())),
+                                    ),
+                                    BranchKeyKind::Dynamic { source, .. } => {
+                                        S2Key::Dynamic(String::from(source.as_str()))
+                                    }
+                                }),
                         })
                         .collect(),
                 });
-                for branch in &if_op.branches {
-                    walk(&branch.ops, tables, rawtext_depth, next, out);
+                for (index, branch) in if_op.branches.iter().enumerate() {
+                    // The dynamic branch key's binding is excluded from
+                    // its carrier's surface — the chain projection owns
+                    // it, exactly as the legacy `extract_key_prop`
+                    // removes the prop.
+                    let excluded = fact
+                        .and_then(|fact| fact.branches.get(index))
+                        .and_then(|key| key.as_ref())
+                        .and_then(|key| match &key.kind {
+                            BranchKeyKind::Dynamic { bind_index, .. } => *bind_index,
+                            BranchKeyKind::Static(_) => None,
+                        });
+                    let branch_state = WalkState {
+                        excluded_bind: excluded,
+                        ..state
+                    };
+                    walk(&branch.ops, tables, branch_state, next, out);
                 }
             }
             FolioOp::For(for_op) => {
@@ -209,12 +290,32 @@ fn walk(
                     key: alias_text(for_op.binding.key.as_ref()),
                     index: alias_text(for_op.binding.index.as_ref()),
                 });
-                walk(&for_op.ops, tables, rawtext_depth, next, out);
+                let region_state = WalkState {
+                    excluded_bind: None,
+                    ..state
+                };
+                walk(&for_op.ops, tables, region_state, next, out);
             }
             FolioOp::Slot(slot) => {
-                *next += 1;
+                let owner_index = *next;
+                *next += 1 + u32::try_from(slot.bindings.len()).expect("binding count fits");
                 out.outlets.push(s2_outlet(&slot.name));
-                walk(&slot.fallback, tables, rawtext_depth, next, out);
+                let surface = surface_of(
+                    &slot.attributes,
+                    &slot.bindings,
+                    owner_index,
+                    tables,
+                    state.pattern_scoped,
+                    excluded_bind,
+                    false,
+                    out,
+                );
+                out.surfaces.push(surface);
+                let fallback_state = WalkState {
+                    excluded_bind: None,
+                    ..state
+                };
+                walk(&slot.fallback, tables, fallback_state, next, out);
             }
         }
     }
@@ -232,14 +333,5 @@ fn expr_text(expr: &FolioExpr) -> String {
         FolioExpr::Js { source, .. }
         | FolioExpr::Foreign { source, .. }
         | FolioExpr::Opaque { source, .. } => String::from(source.trim()),
-    }
-}
-
-fn root_kind(ops: &[FolioOp]) -> RootKind {
-    match ops {
-        [FolioOp::Element(_)] | [FolioOp::Component(_)] => RootKind::Element,
-        [FolioOp::For(_)] => RootKind::ForWrapped,
-        [FolioOp::Slot(_)] => RootKind::SlotOutlet,
-        _ => RootKind::Other,
     }
 }

@@ -55,6 +55,8 @@ pub mod text;
 pub mod vfor;
 #[path = "pass/vif.rs"]
 pub mod vif;
+#[path = "pass/vmodel.rs"]
+pub mod vmodel;
 #[path = "pass/vslot.rs"]
 pub mod vslot;
 #[path = "pass/walk.rs"]
@@ -62,7 +64,8 @@ mod walk;
 
 pub use text::TextFacts;
 pub use vfor::{ForFacts, ForName};
-pub use vif::{BranchKey, IfFacts};
+pub use vif::{BranchKey, BranchKeyKind, IfFacts};
+pub use vmodel::{ModelFacts, ModelFault};
 pub use vslot::{SlotCarrier, SlotFacts, SlotGroup, SlotName, SlotParams};
 
 /// The stage name S2 transform pipelines print and parse under.
@@ -76,23 +79,28 @@ pub const TRANSFORM_LANE_FLAG: &str = "VIZE_DAVINCI_TRANSFORM";
 
 /// The S2 transform pipeline as the series has built it so far.
 ///
-/// Four passes ([`vif::DESC`], [`vfor::DESC`], [`vslot::DESC`], then
-/// [`text::DESC`] — the series' landing order; the four touch disjoint
-/// op families and the text pass preserves, so the order still carries
-/// no semantic dependency today). Later installments append here, and
-/// the `const` pins below are the grouping regression guard (the P2-2
-/// convention: a fusion-plan change is a compile error, not a
-/// surprise).
-pub const TRANSFORM_PASSES: &[PassDesc] = &[vif::DESC, vfor::DESC, vslot::DESC, text::DESC];
+/// Five passes ([`vif::DESC`], [`vfor::DESC`], [`vslot::DESC`],
+/// [`text::DESC`], then [`vmodel::DESC`] — the series' landing order;
+/// the five touch disjoint op families and the model pass preserves, so
+/// the order still carries no semantic dependency today). Later
+/// installments append here, and the `const` pins below are the
+/// grouping regression guard (the P2-2 convention: a fusion-plan change
+/// is a compile error, not a surprise).
+pub const TRANSFORM_PASSES: &[PassDesc] =
+    &[vif::DESC, vfor::DESC, vslot::DESC, text::DESC, vmodel::DESC];
 
 /// The planned pipeline over [`TRANSFORM_PASSES`].
 pub const TRANSFORM: Pipeline = Pipeline::new(S2_STAGE, TRANSFORM_PASSES);
 
-// The plan's fusion shape, pinned: four mandatory barriers, four
-// walks — law 1 leaves nothing to fuse, and every neighbour is itself a
-// barrier (slot gathering is the taxonomy's own barrier example; the
-// text pass's adjacency law reads across sibling ops the same way).
-const _: () = assert!(TRANSFORM.group_count() == 4);
+// The plan's fusion shape, pinned: five mandatory barriers, five
+// walks — law 1 leaves nothing to fuse (mandatory passes are unfusable
+// by construction), and every neighbour is itself a barrier (slot
+// gathering is the taxonomy's own barrier example; the model pass's
+// scope environment is ancestor context a fused visit does not carry).
+// The element-family installment asked whether the series' first
+// fusable pass lands here; the measured answer is no — everything the
+// family ports is diagnostics, which are meaning at every tier.
+const _: () = assert!(TRANSFORM.group_count() == 5);
 const _: () = assert!(TRANSFORM.is_fully_serialized());
 
 /// The facts the S2 transform pipeline produces beside the tree.
@@ -113,6 +121,10 @@ pub struct S2Facts {
     /// Per-compound merged-run parts, keyed by the compound
     /// `ui.interpolation` op's page-order id ([`text`]).
     pub text_facts: SideTable<TextFacts>,
+    /// Per-`ui.model` validation faults, keyed by the binding op's
+    /// page-order id ([`vmodel`]); sparse — entries only for models the
+    /// legacy lane would remove.
+    pub model_faults: SideTable<ModelFacts>,
 }
 
 /// Run the S2 transform pipeline over `lowered`, firing `observer`'s
@@ -144,6 +156,8 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             facts.slot_facts = vslot::run(lowered);
         } else if name == text::DESC.name {
             facts.text_facts = text::run(lowered);
+        } else if name == vmodel::DESC.name {
+            facts.model_faults = vmodel::run(lowered);
         } else {
             return Err(PassFailure::new("pipeline pass has no registered body"));
         }
@@ -158,10 +172,12 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             verify.check(event, &folio);
             verify.check_table(event, &folio, &lowered.scopes);
             verify.check_table(event, &folio, &lowered.texts);
+            verify.check_table(event, &folio, &lowered.wrappers);
             verify.check_table(event, &folio, &facts.if_facts);
             verify.check_table(event, &folio, &facts.for_facts);
             verify.check_table(event, &folio, &facts.slot_facts);
             verify.check_table(event, &folio, &facts.text_facts);
+            verify.check_table(event, &folio, &facts.model_faults);
         }
         Ok(())
     });
@@ -176,18 +192,19 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
 #[cfg(test)]
 mod tests {
     use super::{
-        S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, text, vfor, vif, vslot,
+        S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, text, vfor, vif, vmodel, vslot,
     };
     use vize_davinci::pass::{Fusability, PassKind};
 
     #[test]
     fn the_pipeline_holds_exactly_the_landed_passes() {
         assert_eq!(TRANSFORM.stage, S2_STAGE);
-        assert_eq!(TRANSFORM_PASSES.len(), 4);
+        assert_eq!(TRANSFORM_PASSES.len(), 5);
         assert_eq!(TRANSFORM_PASSES[0], vif::DESC);
         assert_eq!(TRANSFORM_PASSES[1], vfor::DESC);
         assert_eq!(TRANSFORM_PASSES[2], vslot::DESC);
         assert_eq!(TRANSFORM_PASSES[3], text::DESC);
+        assert_eq!(TRANSFORM_PASSES[4], vmodel::DESC);
     }
 
     #[test]
@@ -233,17 +250,29 @@ mod tests {
     }
 
     #[test]
-    fn the_fusion_plan_is_four_lone_barriers() {
+    fn the_vmodel_classification_is_pinned() {
+        // The review-point classification, pinned so a drive-by re-kind
+        // is a loud diff: see `vmodel::DESC`'s docs for the reasoning —
+        // the series' FIRST `MandatoryDiagnostic` (the pass preserves
+        // everything and its whole product is diagnostics plus the
+        // fault record; nothing canonicalizes).
+        assert_eq!(vmodel::DESC.name, "v-model");
+        assert_eq!(vmodel::DESC.kind, PassKind::MandatoryDiagnostic);
+        assert_eq!(vmodel::DESC.fusability, Fusability::Barrier);
+    }
+
+    #[test]
+    fn the_fusion_plan_is_five_lone_barriers() {
         // The review point's fusion question, answered as data: every
-        // pass fuses with nothing — law 1 bars them as mandatory, and
-        // every neighbour is itself a barrier (slot gathering being the
-        // taxonomy's own example of what fusion breaks; the text pass's
-        // adjacency law reads across siblings the same way).
-        for index in 0..4 {
+        // pass fuses with nothing — law 1 bars them as mandatory (the
+        // element-family installment asked whether the first fusable
+        // pass lands here; measured: no — the family's residue is all
+        // diagnostics), and every neighbour is itself a barrier.
+        for index in 0..5 {
             let group = TRANSFORM.group(index).expect("group exists");
             assert!(group.is_barrier && group.len == 1);
         }
-        assert_eq!(TRANSFORM.group(4), None);
+        assert_eq!(TRANSFORM.group(5), None);
     }
 
     #[test]

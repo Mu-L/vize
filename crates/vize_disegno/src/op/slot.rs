@@ -23,13 +23,21 @@ pub enum DynamicName<'a> {
 
 /// `ui.slot` - a slot outlet owning its fallback region.
 ///
-/// Forwarded slot props are one-way bindings and land with `ui.bind`
-/// (P2-9); the outlet itself carries only its name and fallback.
+/// Since the P2-9 element/binding-family installment the outlet carries
+/// its own props surface - the slot props the parent's slot function
+/// receives: static attributes plus attached one-way bindings
+/// ([`super::BindOp`] / [`super::OnOp`]). The `name` position is not part
+/// of that surface (it selects the slot, it is not passed to it), which
+/// is why it stays a dedicated field.
 #[derive(Debug)]
 pub struct SlotOp<'a> {
     /// The outlet name (`default` when the dialect leaves it implicit is a
     /// lowering decision, not this type's).
     pub name: DynamicName<'a>,
+    /// Static slot props (`name` excluded), in authored order.
+    pub attributes: Vec<'a, super::Attribute<'a>>,
+    /// Attached bindings, in authored order.
+    pub bindings: Vec<'a, super::BindingOp<'a>>,
     /// Content rendered when the parent passes nothing.
     pub fallback: Region<'a>,
     /// The outlet's full source range.
@@ -66,10 +74,11 @@ pub struct SlotContentOp<'a> {
     pub span: Span,
 }
 
-/// See [`crate::op`] for the guard rationale.
+/// See [`crate::op`] for the guard rationale. `SlotOp` moved 56 → 104
+/// when the outlet gained its props surface (two 24-byte arena vectors).
 #[cfg(target_pointer_width = "64")]
 const _: () = {
     assert!(core::mem::size_of::<DynamicName<'_>>() == 24);
-    assert!(core::mem::size_of::<SlotOp<'_>>() == 56);
+    assert!(core::mem::size_of::<SlotOp<'_>>() == 104);
     assert!(core::mem::size_of::<SlotContentOp<'_>>() == 72);
 };

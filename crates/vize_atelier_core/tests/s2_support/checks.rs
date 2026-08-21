@@ -5,7 +5,7 @@
 
 use super::Counters;
 use super::old_lane::{self, OldChain, OldFor, OldKey};
-use super::s2_lane::{RootKind, S2Chain, S2For};
+use super::s2_lane::{S2Chain, S2For, S2Key};
 
 /// One divergence panic, with everything needed to investigate.
 macro_rules! diverged {
@@ -50,28 +50,58 @@ pub fn check(name: &str, source: &str, old: &[OldChain], s2: &[S2Chain], counter
                     s2_branch.condition
                 ),
             }
-            if old_branch.template_if {
-                if !matches!(old_branch.key, OldKey::None) {
-                    counters.keys_template_if += 1;
+            // Key comparison, wrapper and carrier alike (series 5
+            // closed the dynamic-key and outlet-key classes; the
+            // wrapper key rides the lowering's capture channel). The
+            // counted classes: a legacy dynamic-argument `:[key]`
+            // (the arg-content quirk S2 never imitates) and a legacy
+            // compound key rebuild.
+            let wrapper = old_branch.template_if;
+            match (&old_branch.key, &s2_branch.key) {
+                (OldKey::None, None) => {}
+                (
+                    OldKey::Dynamic {
+                        dynamic_arg: true, ..
+                    },
+                    None,
+                ) => counters.keys_dynamic_arg += 1,
+                (OldKey::Static(old_value), Some(S2Key::Static(s2_value)))
+                    if old_value == s2_value =>
+                {
+                    if wrapper {
+                        counters.keys_wrapper += 1;
+                    } else {
+                        counters.keys_static += 1;
+                    }
                 }
-                continue;
-            }
-            match (&old_branch.key, &s2_branch.key, s2_branch.root) {
-                (OldKey::None, None, _) => {}
-                (OldKey::Dynamic, None, _) => counters.keys_dynamic += 1,
-                (OldKey::Static(_), None, RootKind::SlotOutlet) => counters.keys_slot_root += 1,
-                (OldKey::Static(old_value), Some(s2_value), _) if old_value == s2_value => {
-                    counters.keys_static += 1;
+                (
+                    OldKey::Dynamic {
+                        text: Some(old_text),
+                        dynamic_arg: false,
+                    },
+                    Some(S2Key::Dynamic(s2_text)),
+                ) if old_text == s2_text => {
+                    if wrapper {
+                        counters.keys_wrapper += 1;
+                    } else {
+                        counters.keys_dynamic += 1;
+                    }
                 }
+                (
+                    OldKey::Dynamic {
+                        text: None,
+                        dynamic_arg: false,
+                    },
+                    Some(S2Key::Dynamic(_)),
+                ) => counters.keys_compound += 1,
                 _ => diverged!(
                     name,
                     source,
                     old,
                     s2,
-                    "chain {chain_index} key {:?} vs {:?} (root {:?})",
+                    "chain {chain_index} key {:?} vs {:?}",
                     old_branch.key,
-                    s2_branch.key,
-                    s2_branch.root
+                    s2_branch.key
                 ),
             }
         }

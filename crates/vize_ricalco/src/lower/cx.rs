@@ -40,6 +40,7 @@ pub(crate) struct Cx<'a> {
     pub provenance: Vec<ProvenanceRecord>,
     pub scopes: SideTable<ScopeFacts>,
     pub texts: SideTable<super::text::TextParts>,
+    pub wrappers: SideTable<super::structural::WrapperKeys>,
 }
 
 impl<'a> Cx<'a> {
@@ -55,6 +56,7 @@ impl<'a> Cx<'a> {
             provenance: Vec::new(),
             scopes: SideTable::new(),
             texts: SideTable::new(),
+            wrappers: SideTable::new(),
         }
     }
 
@@ -78,6 +80,18 @@ impl<'a> Cx<'a> {
     pub(crate) fn attach_texts(&mut self, node: Option<NodeId>, parts: super::text::TextParts) {
         if let Some(id) = node {
             self.texts.insert(id, parts);
+        }
+    }
+
+    /// Attach captured wrapper keys to their `ui.if` op, when the op has
+    /// an id (the `attach_scope` exhaustion rule).
+    pub(crate) fn attach_wrappers(
+        &mut self,
+        node: Option<NodeId>,
+        keys: super::structural::WrapperKeys,
+    ) {
+        if let Some(id) = node {
+            self.wrappers.insert(id, keys);
         }
     }
 

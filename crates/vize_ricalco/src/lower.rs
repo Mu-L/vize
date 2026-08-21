@@ -32,6 +32,7 @@ use vize_disegno::provenance::ProvenanceRecord;
 use vize_disegno::scope::ScopeFacts;
 
 mod binding;
+mod bindop;
 mod cx;
 mod directive;
 mod element;
@@ -46,6 +47,9 @@ mod vfor;
 // The one-scanner rule (#4365): the S2 passes re-derive binding names
 // with exactly the enumeration the lowering used, never a second one.
 pub(crate) use expr::simple_identifier;
+// The wrapper-key channel (P2-9 series 5): captured `<template v-if>`
+// keys, folded into branch-key facts by the v-if pass.
+pub use structural::{WrapperKey, WrapperKeys};
 // The one-rebuild rule (the same discipline): the text pass re-derives a
 // compound's source with exactly the spelling the lowering minted.
 pub use text::{TextPart, TextParts, rebuild_source};
@@ -75,6 +79,10 @@ pub struct Lowered<'a> {
     /// by its compound `ui.interpolation` op (P2-9 installment 4,
     /// [`lower::text`](text)); validated and consumed by `pass::text`.
     pub texts: SideTable<TextParts>,
+    /// Captured `<template v-if>` wrapper keys, keyed by the `ui.if`
+    /// op's page-order id (P2-9 series 5, [`WrapperKeys`]); folded into
+    /// branch-key facts by `pass::vif`.
+    pub wrappers: SideTable<WrapperKeys>,
 }
 
 /// Lower a parsed S1 tree (and the tokenizer errors its parse reported)
@@ -108,5 +116,6 @@ pub fn lower<'a>(
         provenance: cx.provenance,
         scopes: cx.scopes,
         texts: cx.texts,
+        wrappers: cx.wrappers,
     }
 }

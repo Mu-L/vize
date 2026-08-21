@@ -1,14 +1,17 @@
-//! Attached-binding line grammar: `ui.model`, `ui.slot-content`,
-//! `vue.directive` — split from [`line`](super::line) along the
-//! op-family boundary (region-op lines there, binding lines here) so
-//! each file stays within the source budget.
+//! Attached-binding line grammar: `ui.bind`, `ui.on`, `ui.model`,
+//! `ui.slot-content`, `vue.directive` — split from [`line`](super::line)
+//! along the op-family boundary (region-op lines there, binding lines
+//! here) so each file stays within the source budget.
 
 use alloc::vec::Vec;
 
 use vize_carton::{String, cstr};
 use vize_davinci::folio::FolioError;
 
-use super::super::owned::{FolioContract, FolioModel, FolioSlotContent, FolioVueDirective};
+use super::super::owned::{
+    FolioBind, FolioContract, FolioExpr, FolioModel, FolioName, FolioOn, FolioSlotContent,
+    FolioVueDirective,
+};
 use super::expr_token::take_expr;
 use super::line::{Item, err, final_span, name_value, tail_span, take_quoted};
 
@@ -25,10 +28,24 @@ fn take_mods(rest: &str, line_no: usize) -> Result<(Vec<String>, &str), FolioErr
     Ok((modifiers, tail))
 }
 
-pub(super) fn slot_content(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    // Every field is optional; the first present one follows the keyword's
-    // space (already consumed by `split_word`), each later one carries its
-    // own leading space — the same strictness as `vue.directive`'s tail.
+/// The optional-field walker every all-optional binding line shares:
+/// the first present field follows the keyword's space (already consumed
+/// by `split_word`), each later one carries its own leading space — the
+/// same strictness as `vue.directive`'s tail. The walker parses
+/// `name=` / `mods=` / one trailing expression field (`params=`,
+/// `value=`, `handler=`), then the span.
+struct OptionalFields {
+    name: Option<FolioName>,
+    modifiers: Vec<String>,
+    expr: Option<FolioExpr>,
+    span: vize_carton::Span,
+}
+
+fn optional_fields(
+    rest: &str,
+    expr_key: &str,
+    line_no: usize,
+) -> Result<OptionalFields, FolioError> {
     let mut rest = rest;
     let mut any_field = false;
     let field = |rest: &'_ str, key: &str, any_field: bool| -> Option<usize> {
@@ -54,10 +71,10 @@ pub(super) fn slot_content(rest: &str, line_no: usize) -> Result<Item, FolioErro
         rest = tail;
         any_field = true;
     }
-    let mut params = None;
-    if let Some(skip) = field(rest, "params=", any_field) {
-        let (expr, tail) = take_expr(&rest[skip..], line_no)?;
-        params = Some(expr);
+    let mut expr = None;
+    if let Some(skip) = field(rest, expr_key, any_field) {
+        let (parsed, tail) = take_expr(&rest[skip..], line_no)?;
+        expr = Some(parsed);
         rest = tail;
         any_field = true;
     }
@@ -66,11 +83,41 @@ pub(super) fn slot_content(rest: &str, line_no: usize) -> Result<Item, FolioErro
     } else {
         final_span(rest, line_no)?
     };
-    Ok(Item::SlotContent(FolioSlotContent {
+    Ok(OptionalFields {
         name,
         modifiers,
-        params,
+        expr,
         span,
+    })
+}
+
+pub(super) fn slot_content(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let fields = optional_fields(rest, "params=", line_no)?;
+    Ok(Item::SlotContent(FolioSlotContent {
+        name: fields.name,
+        modifiers: fields.modifiers,
+        params: fields.expr,
+        span: fields.span,
+    }))
+}
+
+pub(super) fn bind(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let fields = optional_fields(rest, "value=", line_no)?;
+    Ok(Item::Bind(FolioBind {
+        name: fields.name,
+        modifiers: fields.modifiers,
+        value: fields.expr,
+        span: fields.span,
+    }))
+}
+
+pub(super) fn on(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let fields = optional_fields(rest, "handler=", line_no)?;
+    Ok(Item::On(FolioOn {
+        name: fields.name,
+        modifiers: fields.modifiers,
+        handler: fields.expr,
+        span: fields.span,
     }))
 }
 
