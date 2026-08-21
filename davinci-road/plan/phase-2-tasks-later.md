@@ -64,13 +64,15 @@
 
 ## P2-19 — DevTool protocol spike
 
+**Landed 2026-08-21** — full record: [phase-2-records/p2-19.md](./phase-2-records/p2-19.md).
+
 **Deliverable:** the open question closed with a working prototype, and the spike disposed of deliberately.
 
 **Steps:**
 
-- [ ] Prototype the three candidates against the P2-18 feed: JSON-lines stream, served files, or a content-mapper-style JSON-RPC (`vize content-mapper` is the existing precedent for the last)
-- [ ] Evaluate against the three consumers devtool.md names — browser playground (`vize_vitrine` wasm), local server, and `--format agent` output under `vize_doctor::ai_context` budgeting — plus the `schema_version` negotiation requirement
-- [ ] Record the decision in [`devtool.md`](../devtool.md) and convert the `open-questions.md` "DevTool protocol" entry into a decided stub pointing at it, per that document's own convention
+- [x] Prototype the three candidates against the P2-18 feed: JSON-lines stream, served files, or a content-mapper-style JSON-RPC (`vize content-mapper` is the existing precedent for the last)
+- [x] Evaluate against the three consumers devtool.md names — browser playground (`vize_vitrine` wasm), local server, and `--format agent` output under `vize_doctor::ai_context` budgeting — plus the `schema_version` negotiation requirement
+- [x] Record the decision in [`devtool.md`](../devtool.md) and convert the `open-questions.md` "DevTool protocol" entry into a decided stub pointing at it, per that document's own convention
 
 **Acceptance:** decision recorded in `devtool.md`; the open-questions entry is a stub; the spike code is either kept (with tests and a home) or deleted, and the PR says which and why. **Review point** — a transport choice is a judgement, and "spike code left lying around" is the failure mode this acceptance names. **Deps:** P2-18. **Non-goals:** implementing the chosen transport at production quality (C-7); the JS plugin API shape (charter #29, phase 4/5 spike); authentication or remote access.
 
