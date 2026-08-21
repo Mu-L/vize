@@ -14,8 +14,21 @@ use wasm_bindgen::prelude::*;
 
 /// Analyze Vue SFC for semantic information (scopes, bindings, etc.)
 #[wasm_bindgen(js_name = "analyzeSfc")]
-#[allow(clippy::disallowed_macros)]
 pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    let filename: String = js_sys::Reflect::get(&options, &JsValue::from_str("filename"))
+        .ok()
+        .and_then(|v| v.as_string())
+        .unwrap_or_else(|| "anonymous.vue".to_string());
+
+    let result =
+        analyze_sfc_json(source, &filename).map_err(|message| JsValue::from_str(&message))?;
+    to_js_value(&result)
+}
+
+/// The `analyzeSfc` result as a plain `serde_json::Value` - the whole
+/// analysis short of the FFI conversion, so native tests can pin the
+/// croquis alias and the Spolvero feed byte-exactly (P2-18).
+pub(super) fn analyze_sfc_json(source: &str, filename: &str) -> Result<serde_json::Value, String> {
     use vize_atelier_core::parser::parse;
     use vize_atelier_sfc::{
         SfcParseOptions,
@@ -23,20 +36,15 @@ pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsVal
         parse_sfc,
     };
 
-    let filename: String = js_sys::Reflect::get(&options, &JsValue::from_str("filename"))
-        .ok()
-        .and_then(|v| v.as_string())
-        .unwrap_or_else(|| "anonymous.vue".to_string());
-
     // Parse SFC first
     let parse_opts = SfcParseOptions {
-        filename: filename.clone().into(),
+        filename: filename.to_string().into(),
         ..Default::default()
     };
 
     let descriptor = match parse_sfc(source, parse_opts) {
         Ok(d) => d,
-        Err(e) => return Err(JsValue::from_str(&e.message)),
+        Err(e) => return Err(e.message.to_string()),
     };
 
     // Track template offset for coordinate adjustment
@@ -251,10 +259,21 @@ pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsVal
         })
         .collect();
 
+    // The Spolvero feed (P2-18): the S1 surface-tree page for the template,
+    // through the one producer/serializer pair in `vize_curator`. S2 pages
+    // join the same feed once the S1→S2 lowering (P2-8) has a producer.
+    let spolvero_pages: Vec<vize_curator::inspector::SpolveroPage> = descriptor
+        .template
+        .as_ref()
+        .map(|template| vize_curator::inspector::s1_page(filename, &template.content))
+        .into_iter()
+        .collect();
+    let spolvero = vize_curator::inspector::spolvero_value("analyze-sfc", spolvero_pages);
+
     // Build result with croquis wrapper to match TypeScript interface
     let result = serde_json::json!({
         "croquis": {
-            "component_name": filename.clone(),
+            "component_name": filename,
             "is_setup": summary.bindings.is_script_setup,
             "scopes": scopes,
             "bindings": bindings,
@@ -308,12 +327,15 @@ pub fn analyze_sfc_wasm(source: &str, options: JsValue) -> Result<JsValue, JsVal
         "diagnostics": [],
         // `vir` is deprecated in favor of the folio alias below; both carry
         // the same croquis folio text for now (Davinci P0-10). Consumers
-        // should migrate to `folio.croquis`.
+        // should migrate to `folio.croquis`. Byte-identity of the two keys
+        // is pinned by `wasm::tests_spolvero` (P2-18); the stage pages live
+        // in the sibling `spolvero` feed, not in this alias object.
         "vir": vir.as_str(),
         "folio": {
             "croquis": vir.as_str(),
         },
+        "spolvero": spolvero,
     });
 
-    to_js_value(&result)
+    Ok(result)
 }

@@ -38,6 +38,31 @@ refuses mismatches loudly instead of misrendering. Anything the DevTool can show
 snapshot test can pin and an agent can consume. That equivalence is the design
 constraint that keeps the tool honest.
 
+## Transport
+
+**Decided: document over JSON-RPC** (P2-19 spike, 2026-08-21 —
+[record](./plan/phase-2-records/p2-19.md), with the measurements). The
+schema-versioned feed document (P2-18, `spolvero-feed.schema.json`) is the
+unit on every surface; transports differ only in how the same bytes arrive:
+
+- **At rest / CLI** — served files: `davinci-opt --folio-dir` writes
+  `spolvero.json` beside the pages (production since P2-18, TS-52).
+- **Browser playground** — the P2-18 embedding: wasm can open no socket and
+  read no directory, so the feed value rides inside the inspector payload
+  and the `analyzeSfc` result. No transport reaches the browser; the
+  embedding is the delivery.
+- **Local server (C-7)** — content-mapper-style JSON-RPC over
+  `Content-Length` frames: `initialize` negotiates the feed
+  `schema_version` **before any payload is serialized** — the only
+  candidate that can negotiate rather than merely refuse after the fact —
+  then whole-feed or per-page pulls carry the unchanged document.
+  `vize content-mapper` is the in-tree precedent for framing and handshake.
+- **JSON-lines streaming is rejected**: every named consumer (the wasm
+  embedding, agent budgeting under `vize_doctor::ai_context`) reassembles
+  the whole document anyway, per-page RPC pulls match the stream's
+  incremental grain, and a one-way stream cannot re-negotiate or serve a
+  late joiner without replay.
+
 ## Surfaces
 
 - **Playground / browser** — the existing Compiler Inspector
@@ -55,5 +80,5 @@ constraint that keeps the tool honest.
 
 **Decided: Spolvero** (charter round, 2026-08-13) — the pounced transfer of a
 disegno onto the wall. The DevTool shows how the Disegno got transferred into
-what runs: the name and the mechanism are the same statement. Transport and
-protocol details remain open ([Open Questions](./open-questions.md)).
+what runs: the name and the mechanism are the same statement. The transport
+is decided above ([Transport](#transport), P2-19).
