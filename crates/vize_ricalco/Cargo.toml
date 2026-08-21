@@ -33,6 +33,9 @@ vize_davinci = { workspace = true }
 vize_disegno = { workspace = true }
 vize_sinopia = { workspace = true }
 
+[dev-dependencies]
+insta = { workspace = true }
+
 [[test]]
 name = "davinci_lowering_corpus"
 required-features = ["davinci-differential"]

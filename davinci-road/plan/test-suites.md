@@ -52,7 +52,7 @@
 
 | ID    | Suite                        | Command                                                                                | Oracle                                                                                                 | From  |
 | ----- | ---------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----- |
-| TS-25 | Differential migration lanes | old-path vs new-path comparison jobs (P1-6/7 identifiers, P1-8 scanner, P4 projection) | exact agreement; divergence = investigated bug, never averaged                                         | P1-6  |
+| TS-25 | Differential migration lanes | old-path vs new-path comparison jobs (P1-6/7 identifiers, P1-8 scanner, P2-9 transform lane, P4 projection) | exact agreement; divergence = investigated bug, never averaged                                         | P1-6  |
 | TS-26 | Expr parse-count assert      | profiler export check in CI                                                            | `davinci.expr.parses == distinct expressions`                                                          | P1-7  |
 | TS-27 | Impeto phase validator       | between-pass validator + invalid-IR fixtures                                           | edges resolve, regions nest, effects well-scoped — exact rejections                                    | P3-1  |
 | TS-28 | Lean reference differential  | Lean-built reference runner vs compiled output on S3 fixtures                          | exact agreement on observable semantics                                                                | P3-4  |
