@@ -27,7 +27,11 @@ mod tests;
 use crate::options::CodegenOptions;
 
 pub use context::{CodegenContext, CodegenResult, CodegenResultWithSections, CodegenSections};
-pub(crate) use helpers::is_constant_simple_expression;
+// `pub` (P2-9 series 6): the Davinci differential comparator drives the
+// shipped constant classifier from test space to detect where the S2
+// lane's deliberately weaker const rule diverges (`consts_templates`),
+// so the oracle is this function itself rather than a drift-prone copy.
+pub use helpers::is_constant_simple_expression;
 // Shared with the dialect-gated Vue 2 filter transform, which builds the same
 // `_filter_<name>` asset id the codegen preamble declares.
 pub use emit::{

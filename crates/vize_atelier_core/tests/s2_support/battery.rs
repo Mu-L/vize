@@ -239,4 +239,56 @@ pub const BATTERY: &[(&str, &str)] = &[
         "wrapper-dynamic-key",
         r#"<template v-if="a" :key="wk"><p>1</p></template><p v-else>2</p>"#,
     ),
+    // -- the hoist-decision half (series 6) ---------------------------
+    (
+        "hoist-root-props",
+        r#"<div id="page" class="wrap"><b>t</b></div>"#,
+    ),
+    (
+        "hoist-root-dynamic-text-props",
+        r#"<p tabindex="0">greeting {{ user }}</p>"#,
+    ),
+    (
+        "hoist-quiet-nesting",
+        r#"<div><i>{{ a }}</i><section data-x="1"><b>s</b></section></div>"#,
+    ),
+    (
+        "hoist-under-directive-parent",
+        r#"<div v-pin="cfg"><section><b>s</b></section></div>"#,
+    ),
+    (
+        "hoist-under-component-parent",
+        r#"<Card><section><b>s</b></section></Card>"#,
+    ),
+    (
+        "hoist-in-branches",
+        r#"<div v-if="a"><p><b>x</b></p></div><div v-else>d</div>"#,
+    ),
+    (
+        "hoist-for-carrier",
+        r#"<li v-for="i in xs"><em>fixed</em></li>"#,
+    ),
+    (
+        "hoist-svg-foreign-props",
+        r#"<svg :width="100"><rect fill="red"></rect></svg>"#,
+    ),
+    ("hoist-ref-blocker", r#"<div ref="el">x</div>"#),
+    (
+        "hoist-const-bind",
+        r#"<i :tabindex="4 + 4" data-a="b">t</i>"#,
+    ),
+    (
+        "hoist-comment-blocker",
+        r#"<div><span>a</span><!-- keep --></div>"#,
+    ),
+    (
+        "hoist-builtin-subtree",
+        r#"<article v-memo="[a]"><p><b>y</b></p></article>"#,
+    ),
+    ("hoist-consts-conservative", r#"<em :max="Math.PI">m</em>"#),
+    ("hoist-classifier-skip", r#"<foobar><b>x</b></foobar>"#),
+    (
+        "hoist-wrapper-props",
+        r#"<template v-for="i in 3" data-x="1"><b>c</b></template>"#,
+    ),
 ];

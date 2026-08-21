@@ -69,6 +69,10 @@
 
 pub mod battery;
 mod checks;
+pub mod hoist;
+pub mod hoist_old;
+pub mod hoist_owner;
+pub mod hoist_walk;
 pub mod old_lane;
 pub mod s2_lane;
 pub mod slots;
@@ -82,6 +86,7 @@ pub mod text;
 pub mod text_old;
 
 pub use battery::BATTERY;
+pub use hoist::HoistCounters;
 pub use slots::SlotCounters;
 pub use surface::SurfaceCounters;
 pub use text::TextCounters;
@@ -154,6 +159,10 @@ pub struct Counters {
     /// directives, models, and the counted classes ([`surface`] module
     /// docs).
     pub surfaces: SurfaceCounters,
+    /// The hoist-decision half (series 6): compared positions, agreed
+    /// whole/props hoists, and the counted classes ([`hoist`] module
+    /// docs).
+    pub hoist: HoistCounters,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -274,6 +283,63 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
             &s2.text_units,
             &mut counters.text,
         );
+    }
+
+    // The hoist-decision half (series 6): the shipped hoisting run's
+    // actual mutations against the S2 facts' predictions. Template-
+    // level classes first (each detector's reasoning: [`hoist`] module
+    // docs), then the shape pre-check (the pairing contract), then the
+    // hoist-armed second legacy run and the three-tree walk.
+    let models_excluded = s2.models_invalid > 0
+        || s2
+            .surfaces
+            .iter()
+            .any(|surface| surface.pattern_scoped && !surface.models.is_empty());
+    if has_vpre {
+        counters.hoist.vpre_templates += 1;
+    } else if s2.has_table {
+        counters.hoist.table_templates += 1;
+    } else if models_excluded {
+        counters.hoist.models_templates += 1;
+    } else {
+        let mut scan = hoist_old::TemplateScan::default();
+        hoist_old::scan_template(&root.children, &mut scan);
+        let mut old_shape = vize_carton::String::default();
+        hoist_old::shape_of(&root.children, &mut old_shape);
+        let mut s2_shape = vize_carton::String::default();
+        hoist::shape_of_s2(&folio.ops, &mut s2_shape);
+        if scan.classifier {
+            counters.hoist.classifier_templates += 1;
+        } else if scan.consts {
+            counters.hoist.consts_templates += 1;
+        } else if old_shape != s2_shape {
+            counters.hoist.tree_templates += 1;
+        } else {
+            let hoist_allocator = Allocator::new();
+            let options = ParserOptions {
+                is_pre_tag: |tag| tag == "pre",
+                ..ParserOptions::default()
+            };
+            let (mut hoisted_root, _) = old_parse_with_options(&hoist_allocator, source, options);
+            let _ = transform(
+                &hoist_allocator,
+                &mut hoisted_root,
+                TransformOptions {
+                    hoist_static: true,
+                    ..TransformOptions::default()
+                },
+                None,
+            );
+            hoist::check(
+                name,
+                source,
+                &root.children,
+                &hoisted_root.children,
+                &folio.ops,
+                &facts.static_facts,
+                &mut counters.hoist,
+            );
+        }
     }
     counters.compared += 1;
 }

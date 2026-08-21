@@ -4044,6 +4044,7 @@ version = "0.355.0"
 dependencies = [
  "insta",
  "oxc_ast",
+ "oxc_ast_visit",
  "vize_carton",
  "vize_davinci",
  "vize_disegno",

@@ -28,6 +28,7 @@ davinci-differential = []
 
 [dependencies]
 oxc_ast = { workspace = true }
+oxc_ast_visit = { workspace = true }
 vize_carton = { workspace = true }
 vize_davinci = { workspace = true }
 vize_disegno = { workspace = true }
