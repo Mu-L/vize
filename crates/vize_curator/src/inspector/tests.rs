@@ -20,13 +20,17 @@ fn builds_inspector_payload_json_and_url() {
     );
     let json = serialize_payload(&payload).expect("payload serializes");
 
+    // The `spolvero` member (P2-18) rides in the payload as an embedded
+    // JSON value, so its keys serialize alphabetically here; the canonical
+    // byte form stays `SpolveroFeed::to_json`, pinned in
+    // `tests/spolvero_payload.rs`.
     assert_eq!(
         json.as_str(),
-        r#"{"version":1,"target":"dom","selectedFile":"src/App.vue","options":{"customRenderer":false,"templateSyntax":"quirks"},"files":[{"path":"src/App.vue","source":"<template><div>msg</div></template>"}]}"#
+        r#"{"version":1,"target":"dom","selectedFile":"src/App.vue","options":{"customRenderer":false,"templateSyntax":"quirks"},"files":[{"path":"src/App.vue","source":"<template><div>msg</div></template>"}],"spolvero":{"command":"inspector","pages":[{"pass":"parse","path":"src/App.vue","stage":"s1","text":"<div>msg</div>"}],"schema_version":1}}"#
     );
     assert_eq!(
         build_playground_url("https://vizejs.dev/play/?foo=bar#old", json.as_str()).as_str(),
-        "https://vizejs.dev/play/?foo=bar&tab=inspector#inspector=%7B%22version%22%3A1%2C%22target%22%3A%22dom%22%2C%22selectedFile%22%3A%22src%2FApp.vue%22%2C%22options%22%3A%7B%22customRenderer%22%3Afalse%2C%22templateSyntax%22%3A%22quirks%22%7D%2C%22files%22%3A%5B%7B%22path%22%3A%22src%2FApp.vue%22%2C%22source%22%3A%22%3Ctemplate%3E%3Cdiv%3Emsg%3C%2Fdiv%3E%3C%2Ftemplate%3E%22%7D%5D%7D"
+        "https://vizejs.dev/play/?foo=bar&tab=inspector#inspector=%7B%22version%22%3A1%2C%22target%22%3A%22dom%22%2C%22selectedFile%22%3A%22src%2FApp.vue%22%2C%22options%22%3A%7B%22customRenderer%22%3Afalse%2C%22templateSyntax%22%3A%22quirks%22%7D%2C%22files%22%3A%5B%7B%22path%22%3A%22src%2FApp.vue%22%2C%22source%22%3A%22%3Ctemplate%3E%3Cdiv%3Emsg%3C%2Fdiv%3E%3C%2Ftemplate%3E%22%7D%5D%2C%22spolvero%22%3A%7B%22command%22%3A%22inspector%22%2C%22pages%22%3A%5B%7B%22pass%22%3A%22parse%22%2C%22path%22%3A%22src%2FApp.vue%22%2C%22stage%22%3A%22s1%22%2C%22text%22%3A%22%3Cdiv%3Emsg%3C%2Fdiv%3E%22%7D%5D%2C%22schema_version%22%3A1%7D%7D"
     );
 }
 
