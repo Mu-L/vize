@@ -1,6 +1,7 @@
-//! The committed v-if battery the P2-9 series 1 comparator runs — the
-//! same sources in the plain witness and the corpus entry, so a
-//! feature-wiring regression fails loudly in both lanes.
+//! The committed battery the P2-9 comparator runs — the same sources in
+//! the plain witness and the corpus entry, so a feature-wiring
+//! regression fails loudly in both lanes. Series 1 contributed the
+//! v-if templates; series 2 appends the v-for half.
 
 /// (name, template source). Each names the projection class it pins.
 pub const BATTERY: &[(&str, &str)] = &[
@@ -69,5 +70,45 @@ pub const BATTERY: &[(&str, &str)] = &[
     (
         "deep-siting",
         r#"<ul><li v-for="i in xs"><em v-if="i.ok" key="ok">y</em><em v-else key="no">n</em></li></ul>"#,
+    ),
+    // -- the v-for half (series 2) ----------------------------------
+    ("simple-for", r#"<li v-for="item in items">{{ item }}</li>"#),
+    (
+        "for-of-pair",
+        r#"<li v-for="(item, i) of items">{{ i }}</li>"#,
+    ),
+    (
+        "for-three-aliases",
+        r#"<td v-for="(value, key, index) in obj">{{ key }}</td>"#,
+    ),
+    (
+        "for-destructure",
+        r#"<tr v-for="({ id, name }, i) in rows">{{ id }}</tr>"#,
+    ),
+    (
+        "for-no-parens",
+        r#"<li v-for="item, index in items">{{ index }}</li>"#,
+    ),
+    (
+        "template-for",
+        r#"<template v-for="n in count"><i>{{ n }}</i><b>fixed</b></template>"#,
+    ),
+    (
+        "for-keyed-element",
+        r#"<li v-for="item in items" key="row">{{ item }}</li>"#,
+    ),
+    ("for-absent-alias", r#"<div v-for=" in xs">filler</div>"#),
+    (
+        "for-first-viable-in",
+        r#"<p v-for="a in b in c">{{ a }}</p>"#,
+    ),
+    (
+        "nested-for",
+        r#"<ul v-for="row in grid"><li v-for="cell in row">{{ cell }}</li></ul>"#,
+    ),
+    ("for-on-slot", r#"<slot v-for="x in xs"></slot>"#),
+    (
+        "if-for-precedence",
+        r#"<li v-if="ready" v-for="i in xs">{{ i }}</li><li v-else>empty</li>"#,
     ),
 ];

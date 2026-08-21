@@ -51,15 +51,16 @@
 //!
 //! # Facts and accounting
 //!
-//! Ids are positional (page order), so the pass re-derives them by
-//! walking in print order — op line, attached bindings, then children —
-//! and asserts its count against the lowering's minted accounting on
-//! every run. [`IfFacts`] is keyed by the `ui.if` op's id; entries exist
-//! only for ops with at least one extracted key (sparse-table
-//! discipline). Every extraction and every diagnostic leaves a
-//! provenance record (`pass.v-if.branch-key` / `error.v-if-same-key`);
-//! `before` carries the folio-normalized `key="value"` spelling because
-//! the arena attribute does not retain its authored quoting.
+//! Ids are positional (page order), so the pass re-derives them through
+//! the shared [`super::walk`] — op line, attached bindings, then
+//! children — and asserts its count against the lowering's minted
+//! accounting on every run. [`IfFacts`] is keyed by the `ui.if` op's id;
+//! entries exist only for ops with at least one extracted key
+//! (sparse-table discipline). Every extraction and every diagnostic
+//! leaves a provenance record (`pass.v-if.branch-key` /
+//! `error.v-if-same-key`); `before` carries the folio-normalized
+//! `key="value"` spelling because the arena attribute does not retain
+//! its authored quoting.
 
 use alloc::vec::Vec as StdVec;
 
@@ -71,6 +72,7 @@ use vize_davinci::side_table::SideTable;
 use vize_disegno::op::{Attribute, IfOp, Op};
 use vize_disegno::provenance::ProvenanceRecord;
 
+use super::walk::{PageWalk, assert_accounting, visit_ops};
 use crate::lower::Lowered;
 
 /// The pass name in pipeline strings and folio pages.
@@ -140,99 +142,37 @@ const _: () = {
 /// input property.
 #[must_use]
 pub fn run(lowered: &mut Lowered<'_>) -> SideTable<IfFacts> {
-    let op_count = lowered.op_count;
-    let mut walk = Walk {
-        next: 0,
-        exhausted: false,
-        diagnostics: &mut lowered.diagnostics,
-        provenance: &mut lowered.provenance,
+    let Lowered {
+        root,
+        op_count,
+        diagnostics,
+        provenance,
+        ..
+    } = lowered;
+    let mut channels = Channels {
+        diagnostics,
+        provenance,
         facts: SideTable::new(),
     };
-    visit_ops(&mut walk, &mut lowered.root.ops);
-    assert!(
-        walk.exhausted || walk.next == op_count,
-        "v-if pass renumbering diverged from the minted accounting: \
-         walked {} ops, the lowering minted {op_count}",
-        walk.next,
-    );
-    walk.facts
+    let mut walk = PageWalk::new();
+    visit_ops(&mut walk, &mut root.ops, &mut |id, op| {
+        if let Op::If(if_op) = op {
+            process_if(&mut channels, id, if_op);
+        }
+    });
+    assert_accounting(&walk, *op_count, NAME);
+    channels.facts
 }
 
-struct Walk<'l> {
-    next: u32,
-    exhausted: bool,
+struct Channels<'l> {
     diagnostics: &'l mut StdVec<Diagnostic>,
     provenance: &'l mut StdVec<ProvenanceRecord>,
     facts: SideTable<IfFacts>,
 }
 
-impl Walk<'_> {
-    /// The current op's page-order id; `None` once the id space is
-    /// exhausted (mirroring `Cx::mint_op`'s saturation).
-    fn mint(&mut self) -> Option<NodeId> {
-        if self.exhausted {
-            return None;
-        }
-        match NodeId::from_index(self.next) {
-            Some(id) => {
-                self.next += 1;
-                Some(id)
-            }
-            None => {
-                self.exhausted = true;
-                None
-            }
-        }
-    }
-
-    /// Skip `count` ids (an owner's attached bindings, numbered between
-    /// its line and its children).
-    fn skip(&mut self, count: usize) {
-        if self.exhausted {
-            return;
-        }
-        match u32::try_from(count)
-            .ok()
-            .and_then(|count| self.next.checked_add(count))
-        {
-            Some(next) => self.next = next,
-            None => self.exhausted = true,
-        }
-    }
-}
-
-fn visit_ops<'a>(walk: &mut Walk<'_>, ops: &mut [Op<'a>]) {
-    for op in ops.iter_mut() {
-        visit_op(walk, op);
-    }
-}
-
-fn visit_op<'a>(walk: &mut Walk<'_>, op: &mut Op<'a>) {
-    let id = walk.mint();
-    match op {
-        Op::Element(element) => {
-            walk.skip(element.bindings.len());
-            visit_ops(walk, &mut element.children.ops);
-        }
-        Op::Component(component) => {
-            walk.skip(component.bindings.len());
-            visit_ops(walk, &mut component.children.ops);
-        }
-        Op::Text(_) | Op::Interpolation(_) => {}
-        Op::If(if_op) => {
-            process_if(walk, id, if_op);
-            for branch in if_op.branches.iter_mut() {
-                visit_ops(walk, &mut branch.region.ops);
-            }
-        }
-        Op::For(for_op) => visit_ops(walk, &mut for_op.region.ops),
-        Op::Slot(slot) => visit_ops(walk, &mut slot.fallback.ops),
-    }
-}
-
 /// Lift each branch's static `key` into a fact, then diagnose duplicate
 /// authored values (later branch flagged, per the legacy transform).
-fn process_if<'a>(walk: &mut Walk<'_>, id: Option<NodeId>, if_op: &mut IfOp<'a>) {
+fn process_if<'a>(walk: &mut Channels<'_>, id: Option<NodeId>, if_op: &mut IfOp<'a>) {
     let mut keys: StdVec<Option<BranchKey>> = StdVec::with_capacity(if_op.branches.len());
     for (index, branch) in if_op.branches.iter_mut().enumerate() {
         let key = branch_root_attributes(branch.span, &mut branch.region.ops)

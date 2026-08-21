@@ -1,11 +1,16 @@
-//! The P2-9 series 1 differential comparator: legacy transform lane vs
-//! the S2 `v-if` pass, compared at the DOM-output level — the facts DOM
-//! codegen consumes from an if structure (chain order, branch count and
-//! order, condition text, branch keys). The byte-level DOM comparison
-//! arrives when a DOM backend exists to emit from S2 (P2-11); until
-//! then this projection is the strongest output-determining oracle the
-//! transform lane has, and TS-11 (`corpus-diff --surface compiler`)
-//! holds the actual output bytes still.
+//! The P2-9 differential comparator: legacy transform lane vs the S2
+//! passes, compared at the DOM-output level — the facts DOM codegen
+//! consumes from an if structure (chain order, branch count and order,
+//! condition text, branch keys — series 1) and from a for structure
+//! (document order, source text, value/key/index alias texts — series
+//! 2: `renderList`'s whole input surface; the iterated element's `key`
+//! prop stays element surface in both lanes and is compared there by
+//! neither, exactly as legacy codegen reads it per vnode). The
+//! byte-level DOM comparison arrives when a DOM backend exists to emit
+//! from S2 (P2-11); until then this projection is the strongest
+//! output-determining oracle the transform lane has, and TS-11
+//! (`corpus-diff --surface compiler`) holds the actual output bytes
+//! still.
 //!
 //! # Why this lives in test space (the dependency direction)
 //!
@@ -34,10 +39,13 @@
 //! compares exactly the domain both lanes claim to model — templates
 //! neither lane **rejects** — and **counts** everything it declines:
 //! legacy hard parse errors, S2 error diagnostics (evaluated pre-pass,
-//! so the pass's own duplicate-key errors never mask a comparison),
-//! dynamic keys (deferred until `ui.bind`), template-wrapper keys
-//! (dropped at lowering — the recorded series gap), slot-outlet keys
-//! (no S2 attribute surface), and compound condition rebuilds.
+//! so the pass's own duplicate-key errors never mask a comparison; a
+//! malformed or expressionless `v-for` skips here, matching the legacy
+//! transform's refusal to build a `ForNode` from it), dynamic keys
+//! (deferred until `ui.bind`), template-wrapper keys (dropped at
+//! lowering — the recorded series gap), slot-outlet keys (no S2
+//! attribute surface), compound condition rebuilds, and compound
+//! source/alias rebuilds in a for's binding surface.
 //! Recovery-level legacy notes (`ErrorCode::is_recovery` — spec repairs
 //! such as self-closing rewrites the parser already applied) do **not**
 //! skip: the first corpus run measured them on 3,027 of 12,021
@@ -60,8 +68,8 @@ use vize_davinci::pass::NoObserver;
 use vize_disegno::folio::DisegnoFolio;
 use vize_ricalco::pass::{TRANSFORM_LANE_FLAG, run_transform};
 
-use old_lane::{OldChain, OldKey};
-use s2_lane::{RootKind, S2Chain};
+use old_lane::{OldChain, OldFor, OldKey};
+use s2_lane::{RootKind, S2Chain, S2For};
 
 /// The comparator's process-global accounting, pinned exactly by the
 /// plain witness and printed by the corpus entry.
@@ -96,6 +104,19 @@ pub struct Counters {
     /// Old lane rebuilt a compound condition; no single source text to
     /// compare.
     pub conditions_compound: u64,
+    /// `ui.for`s compared (series 2).
+    pub for_ops: u64,
+    /// Value-alias text comparisons that ran.
+    pub for_values: u64,
+    /// Key-alias text comparisons that ran.
+    pub for_keys: u64,
+    /// Index-alias text comparisons that ran.
+    pub for_indexes: u64,
+    /// Both lanes agreed the value alias is absent (`v-for=" in xs"`).
+    pub for_values_absent: u64,
+    /// Old lane rebuilt a compound source or alias; no single source
+    /// text to compare.
+    pub for_compound: u64,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -121,9 +142,10 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     }
     let _transform_errors = transform(&old_allocator, &mut root, TransformOptions::default(), None);
     let mut old_chains = Vec::new();
-    old_lane::collect(&root.children, &mut old_chains);
+    let mut old_fors = Vec::new();
+    old_lane::collect(&root.children, &mut old_chains, &mut old_fors);
 
-    // S2 lane: sinopia parse -> ricalco lower -> the v-if pass through
+    // S2 lane: sinopia parse -> ricalco lower -> the S2 passes through
     // the P2-2 pass manager (verifier between passes in debug).
     let s2_allocator = Allocator::new();
     let (tree, surface_errors) = vize_sinopia::parse(&s2_allocator, source);
@@ -138,9 +160,10 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     }
     let facts = run_transform(&mut lowered, &mut NoObserver);
     let folio = DisegnoFolio::of(&lowered.root.ops);
-    let s2_chains = s2_lane::collect(&folio, &facts.if_facts);
+    let (s2_chains, s2_fors) = s2_lane::collect(&folio, &facts.if_facts);
 
     check(name, source, &old_chains, &s2_chains, counters);
+    check_fors(name, source, &old_fors, &s2_fors, counters);
     counters.compared += 1;
 }
 
@@ -211,6 +234,76 @@ fn check(name: &str, source: &str, old: &[OldChain], s2: &[S2Chain], counters: &
                     s2_branch.root
                 ),
             }
+        }
+    }
+}
+
+/// The series-2 half: every for's binding surface, in document order.
+fn check_fors(name: &str, source: &str, old: &[OldFor], s2: &[S2For], counters: &mut Counters) {
+    if old.len() != s2.len() {
+        diverged!(
+            name,
+            source,
+            old,
+            s2,
+            "for count {} vs {}",
+            old.len(),
+            s2.len()
+        );
+    }
+    for (for_index, (old_for, s2_for)) in old.iter().zip(s2).enumerate() {
+        counters.for_ops += 1;
+        match &old_for.source {
+            None => counters.for_compound += 1,
+            Some(old_text) if *old_text == s2_for.source => {}
+            Some(_) => diverged!(
+                name,
+                source,
+                old,
+                s2,
+                "for {for_index} source {:?} vs {:?}",
+                old_for.source,
+                s2_for.source
+            ),
+        }
+        /// What one alias position's comparison found.
+        enum Alias {
+            BothAbsent,
+            Compound,
+            Compared,
+        }
+        let alias = |position: &str,
+                     old_alias: &Option<old_lane::OldText>,
+                     s2_alias: &Option<vize_carton::String>| {
+            match (old_alias, s2_alias) {
+                (None, None) => Alias::BothAbsent,
+                (Some(None), Some(_)) => Alias::Compound,
+                (Some(Some(old_text)), Some(s2_text)) if old_text == s2_text => Alias::Compared,
+                _ => diverged!(
+                    name,
+                    source,
+                    old,
+                    s2,
+                    "for {for_index} {position} {:?} vs {:?}",
+                    old_alias,
+                    s2_alias
+                ),
+            }
+        };
+        match alias("value", &old_for.value, &s2_for.value) {
+            Alias::BothAbsent => counters.for_values_absent += 1,
+            Alias::Compound => counters.for_compound += 1,
+            Alias::Compared => counters.for_values += 1,
+        }
+        match alias("key", &old_for.key, &s2_for.key) {
+            Alias::BothAbsent => {}
+            Alias::Compound => counters.for_compound += 1,
+            Alias::Compared => counters.for_keys += 1,
+        }
+        match alias("index", &old_for.index, &s2_for.index) {
+            Alias::BothAbsent => {}
+            Alias::Compound => counters.for_compound += 1,
+            Alias::Compared => counters.for_indexes += 1,
         }
     }
 }

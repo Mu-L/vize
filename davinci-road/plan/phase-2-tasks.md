@@ -168,7 +168,7 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 **Steps** — the checklist is the actual directory, `crates/vize_atelier_core/src/transforms/`, reached through the Rust module `vize_atelier_core::steps` (`#[path]` attributes in `src/steps.rs`):
 
 - [x] `v_if.rs` → `ui.if` regions — the first and highest-value port, because regions replace the sibling mutation in `src/transform/structural.rs` _(installment 1, 2026-08-21: the structural half was already the P2-8 lowering's; the pass body is the branch-key lift + `VIfSameKey`, classified `MandatoryLowering`/barrier in `vize_ricalco::pass::vif` — see the [series record](./phase-2-records/p2-9.md))_
-- [ ] `v_for.rs` → `ui.for` region
+- [x] `v_for.rs` → `ui.for` region _(installment 2, 2026-08-21: the step file ports **whole** into the P2-8 lowering — split, both grammar diagnostics, the region restructure, the scope recording; the pass body is the hygiene consumption (validate + publish `ForFacts`), classified `MandatoryLowering`/barrier in `vize_ricalco::pass::vfor` with the preserving-mandatory taxonomy tension recorded — see the [series record](./phase-2-records/p2-9.md))_
 - [ ] `v_slot.rs` (+ `v_slot/params.rs`, `v_slot/validate.rs`) → slot normalization
 - [ ] `transform_text.rs` → text / interpolation merging
 - [ ] `hoist_static.rs` (+ `hoist_static/props.rs`, `static_type.rs`) → an S2 **analysis** pass (a fact, not a mutation)
@@ -185,6 +185,7 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 **Series log** — one line per landed installment; the full account is the [series record](./phase-2-records/p2-9.md):
 
 - **1 (2026-08-21):** the series substrate — pass bodies in `vize_ricalco::pass`, comparator in `vize_atelier_core` dev-dep test space (the publish gate's stripped-dev-dep carve-out), lane flag `VIZE_DAVINCI_TRANSFORM` — plus the `v-if` port: TS-17 snapshots committed, differential lane zero-divergence over the 18-template battery (pinned) and 12,017 of 12,021 corpus templates (4 hard-parse-error skips, named), the 11.73%-class seed re-measured twice (12.73% on today's hydration state, byte-identical to P2-5b's runs — the series baseline).
+- **2 (2026-08-21):** the `v-for` port: old `v_for.rs` measured **fully absorbed** by the P2-8 lowering; the pass body is the hygiene consumption of the P2-8 `ScopeFacts` (validate against the binding surface, publish the consumed `ForFacts` view, synthesize nothing), `MandatoryLowering`/barrier with the fusion plan re-pinned at two lone barriers; comparator gains the for projection (`renderList`'s input surface): battery 30 templates exact-pinned, corpus ×2 identical — 12,017 compared, zero divergence, 2,882 for-ops (2,882 values / 1,083 keys / 3 indexes); the residual class re-measured twice, **12.73% unmoved** (no rewriter feed yet — `ForFacts` is the prepared feed).
 
 ## P2-10 — Style `v-bind()` ops
 
