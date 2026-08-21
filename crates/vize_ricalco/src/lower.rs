@@ -1,0 +1,99 @@
+//! The lowering entry: S1 surface tree in, S2 artifact out — **total,
+//! no rollback** (the MLIR import).
+//!
+//! [`lower`] never panics and never abandons partial work: every S1
+//! construct either becomes an op of the existing S2 family or leaves a
+//! [`Diagnostic`] beside the kept fragments, and the three fact channels
+//! (diagnostics, provenance, hygiene scopes) are all populated by the
+//! time the function returns — including on inputs that are wrong from
+//! the first byte. The tokenizer's [`SurfaceError`]s enter the unified
+//! channel here (`Stage::Surface`, the exact `ErrorCode` message),
+//! ahead of the lowering's own `Stage::Semantic` findings.
+//!
+//! # Id accounting (the numbering law)
+//!
+//! Ops are numbered densely in page order as they are decided
+//! ([`lower::cx`]); [`Lowered::op_count`] equals
+//! `DisegnoFolio::of(&lowered.root.ops).op_count()` on every input —
+//! the law the side tables and the S2 verifier's `verify_table` key on.
+//!
+//! [`Diagnostic`]: vize_davinci::diagnostic::Diagnostic
+//! [`SurfaceError`]: vize_sinopia::SurfaceError
+
+use alloc::vec::Vec as StdVec;
+
+use vize_carton::{Allocator, Span, String};
+use vize_davinci::diagnostic::{Diagnostic, Severity, Stage};
+use vize_davinci::side_table::SideTable;
+use vize_sinopia::{SurfaceError, SurfaceTree};
+
+use vize_disegno::op::{Namespace, Region};
+use vize_disegno::provenance::ProvenanceRecord;
+use vize_disegno::scope::ScopeFacts;
+
+mod binding;
+mod cx;
+mod directive;
+mod element;
+mod expr;
+mod forop;
+mod leaf;
+mod slot;
+mod structural;
+mod vfor;
+
+/// The S2 artifact one lowering produces: the op tree plus the three
+/// fact channels, all live even when diagnostics are present (the
+/// Lean-InfoTree survival property — kept fragments, not rollback).
+#[derive(Debug)]
+pub struct Lowered<'a> {
+    /// The root region's ops, in document order.
+    pub root: Region<'a>,
+    /// How many ops were numbered (page order: every region op and
+    /// attached binding, top to bottom). Equals the folio's `ops=`
+    /// header.
+    pub op_count: u32,
+    /// Surface diagnostics (the converted tokenizer errors) followed by
+    /// the lowering's own, in decision order. Owned and `'static` — they
+    /// outlive the arena.
+    pub diagnostics: StdVec<Diagnostic>,
+    /// One record per lowering decision, in decision order, dropped
+    /// content included (`vize_disegno::provenance`).
+    pub provenance: StdVec<ProvenanceRecord>,
+    /// Hygiene scope facts per binding-introducing op
+    /// (`vize_disegno::scope`).
+    pub scopes: SideTable<ScopeFacts>,
+}
+
+/// Lower a parsed S1 tree (and the tokenizer errors its parse reported)
+/// into S2.
+///
+/// Total over arbitrary input: malformed source arrives as typed S1
+/// holes and lowers structurally; whatever the op family cannot carry
+/// becomes a diagnostic plus a kept fragment. The only inherited
+/// precondition is [`vize_sinopia::parse`]'s own u32-addressability
+/// assertion, which every tree passed here has already satisfied.
+#[must_use]
+pub fn lower<'a>(
+    allocator: &'a Allocator,
+    tree: &SurfaceTree<'a>,
+    errors: &[SurfaceError],
+) -> Lowered<'a> {
+    let mut cx = cx::Cx::new(allocator, tree.source);
+    for error in errors {
+        cx.diagnostics.push(Diagnostic::new(
+            Severity::Error,
+            Stage::Surface,
+            Span::new(error.offset, error.offset),
+            String::from(error.code.message()),
+        ));
+    }
+    let ops = structural::lower_children(&mut cx, &tree.children, Namespace::Html);
+    Lowered {
+        root: Region { ops },
+        op_count: cx.op_count(),
+        diagnostics: cx.diagnostics,
+        provenance: cx.provenance,
+        scopes: cx.scopes,
+    }
+}

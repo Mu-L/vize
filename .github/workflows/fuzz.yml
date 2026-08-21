@@ -34,6 +34,10 @@ on:
       - "crates/vize_atelier_vapor/**"
       - "crates/vize_armature/**"
       - "crates/vize_carton/**"
+      - "crates/vize_davinci/**"
+      - "crates/vize_disegno/**"
+      - "crates/vize_ricalco/**"
+      - "crates/vize_sinopia/**"
       - "tests/fuzz/**"
       - "tools/fuzz/**"
       - ".github/workflows/fuzz.yml"
@@ -67,7 +71,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [sfc_parse, template_lexer, js_ts_expression, css_parse, template_compile]
+        target:
+          [
+            sfc_parse,
+            template_lexer,
+            js_ts_expression,
+            css_parse,
+            template_compile,
+            s1_lowering,
+            folio_parse,
+          ]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 

@@ -147,15 +147,17 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 ## P2-8 — S1→S2 Vue lowering
 
+**Landed 2026-08-21** — full record: [phase-2-records/p2-8.md](./phase-2-records/p2-8.md).
+
 **Deliverable:** a total lowering function, with provenance and a fuzz lane.
 
 **Steps:**
 
-- [ ] **Total function, no rollback** (MLIR import): every input yields S2 or a diagnostic, never a panic and never a partial-then-abandoned state
-- [ ] Hygiene scope-tags on synthesized identifiers (slot props, v-for scopes) so a later pass can never confuse a synthesized name with an author's
-- [ ] `MacroExpansionInfo`-style provenance pairs recorded at each lowering decision (before/after, by pass name); provenance **survives failure** — partial S2 fragments are kept on error, Lean-InfoTree style, so the LSP and Spolvero stay live on broken SFCs
-- [ ] v-for consumes P2-5b's decision for its alias/source sub-expressions rather than re-deriving it; the `a in b in c` disagreement recorded at P1-6 is the reason the retained AST of the v-for value must not be consumed naively
-- [ ] Fuzz targets for S1→S2 and the folio parsers added under `tests/fuzz/fuzz_targets/` (joining the five that exist: `css_parse`, `js_ts_expression`, `sfc_parse`, `template_compile`, `template_lexer`) and the new crate paths added to `.github/workflows/fuzz.yml`'s PR path filter
+- [x] **Total function, no rollback** (MLIR import): every input yields S2 or a diagnostic, never a panic and never a partial-then-abandoned state _(new conversion crate `crates/vize_ricalco/` — the home decision and its dependency-direction reasoning are in the record; anything the existing op family cannot carry is an `Info` deferral or an `Error` plus a kept fragment, and the property is asserted over the whole S1 battery **and every prefix/suffix truncation of it** with the folio round-trip and the S2 verifier at `Canonical` rigor as the oracle)_
+- [x] Hygiene scope-tags on synthesized identifiers (slot props, v-for scopes) so a later pass can never confuse a synthesized name with an author's _(`vize_disegno::scope`: `ScopeTag` per introduction site, `ScopeOrigin::{Authored, Synthesized}` per binding, in a `SideTable<ScopeFacts>` keyed by page-order `NodeId`; P2-8 itself synthesizes no names — the record states why — and pattern-name enumeration stays at the one #4365 seam)_
+- [x] `MacroExpansionInfo`-style provenance pairs recorded at each lowering decision (before/after, by pass name); provenance **survives failure** — partial S2 fragments are kept on error, Lean-InfoTree style, so the LSP and Spolvero stay live on broken SFCs _(`vize_disegno::provenance::ProvenanceRecord`, fully materialized — the ring-buffer decision stays P2-12b's; a decision that produced nothing is still a record, pinned by test)_
+- [x] v-for consumes P2-5b's decision for its alias/source sub-expressions rather than re-deriving it; the `a in b in c` disagreement recorded at P1-6 is the reason the retained AST of the v-for value must not be consumed naively _(the split is the shipped splitter's text grammar over the **untrimmed** value, then each sub-slice goes through the one shared admission rule; `OpaqueReason::ForValue` lands on the unsplittable whole and on the absent-alias position, both pinned)_
+- [x] Fuzz targets for S1→S2 and the folio parsers added under `tests/fuzz/fuzz_targets/` (joining the five that exist: `css_parse`, `js_ts_expression`, `sfc_parse`, `template_compile`, `template_lexer`) and the new crate paths added to `.github/workflows/fuzz.yml`'s PR path filter _(`s1_lowering` and `folio_parse` — both assert the id-accounting and round-trip laws, not just no-crash; matrix entries, corpus seeding and the four crate paths added; cargo-fuzz cannot run on this machine, so locally the targets are `cargo check`-green in the isolated fuzz workspace and the record splits what ran here from what CI covers)_
 
 **Acceptance:** TS-20 established — no panic on arbitrary bytes, diagnostics rather than crashes, with fixed crashes carrying deterministic reproducers (TS-8's convention). Every corpus template lowers or produces a diagnostic, asserted by a corpus-runnable entry in the P1-6/P1-7 differential-lane shape (`#[cfg(any(test, feature = "davinci-differential"))]`, env-var corpus widening, exact-pinned counts in the plain suite so a cfg regression fails loudly). TS-19 unaffected; TS-11 empty; TS-1, TS-13. **Deps:** P2-5b, P2-7. **Non-goals:** JSX lowering (P2-16); pug (phase 4); replacing the atelier transform lane (P2-9); emitting anything (P2-11).
 

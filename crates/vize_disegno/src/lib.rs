@@ -8,8 +8,8 @@
 //! (`davinci-road/architecture.md`, "S2 — Disegno"). Vue templates, JSX and
 //! pug all lower into the same [`op`] family; whatever is genuinely
 //! Vue-specific stays a `vue.*` dialect op instead of shaping the core.
-//! Nothing lowers into this crate yet - the DOM-backend lowering is P2-8 -
-//! so the crate holds the type family, its folio page, the invariants that
+//! The Vue template lowering into this family is `vize_ricalco` (P2-8);
+//! this crate holds the type family, its folio page, the invariants that
 //! are enforceable by construction, and the verifier for the ones that are
 //! not:
 //!
@@ -25,6 +25,11 @@
 //!   (`davinci-road/plan/folio-format.md`, "Disegno page").
 //! - [`verify`] — the between-pass invariant checks (P2-6), debug/CI only:
 //!   local in the GHC `-dcore-lint` sense, and never in a release build.
+//! - [`scope`] / [`provenance`] — the side-table vocabulary lowerings
+//!   attach beside the tree (P2-8): hygiene scope tags on
+//!   binding-introducing ops, and before/after provenance records that
+//!   survive failure. Neutral types here so every input dialect's lowering
+//!   (Vue today, JSX at P2-16) speaks the same facts.
 //!
 //! The crate is `no_std + alloc` from birth so S2 artifacts print and parse
 //! on any target (wasm32-wasip2 included; P2-14 makes that lane required).
@@ -36,4 +41,6 @@ extern crate alloc;
 pub mod expr;
 pub mod folio;
 pub mod op;
+pub mod provenance;
+pub mod scope;
 pub mod verify;
