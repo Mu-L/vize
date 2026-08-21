@@ -51,7 +51,10 @@ fn consumption_publishes_the_scope_view_per_position() {
                 }
             )]
         );
-        // The consumption left exactly one pass record, spelled exactly.
+        // The consumption left exactly one v-for record, spelled
+        // exactly; the series-6 analysis pass adds its per-owner fact
+        // record behind it (the iterated element: dynamic text, no
+        // hoistable props).
         let records: Vec<(&str, &str, &str)> = lowered
             .provenance
             .iter()
@@ -66,11 +69,18 @@ fn consumption_publishes_the_scope_view_per_position() {
             .collect();
         assert_eq!(
             records,
-            vec![(
-                "pass.v-for.scope",
-                "scope #0 bindings=3",
-                "fact value=item key=k index=idx",
-            )]
+            vec![
+                (
+                    "pass.v-for.scope",
+                    "scope #0 bindings=3",
+                    "fact value=item key=k index=idx",
+                ),
+                (
+                    "pass.hoist-static.fact",
+                    "ui.element",
+                    "level=dynamic-text props=false nested=true native=true",
+                ),
+            ]
         );
     });
     assert_transformed_sound(source, "three-positions");

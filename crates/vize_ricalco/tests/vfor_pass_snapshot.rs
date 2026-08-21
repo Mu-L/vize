@@ -41,7 +41,7 @@ fn the_loops_fixture_snapshots_the_post_pass_folio() {
         // observer's own derived page (four barrier passes since the        // v-slot installment).
         assert_eq!(
             budget.print_to_string(FolioMode::Full).as_str(),
-            "[budget-observer]\nwalks=5\npasses=5\nanalyses=0\npipelines=1\nfailures=0\n\n"
+            "[budget-observer]\nwalks=6\npasses=6\nanalyses=0\npipelines=1\nfailures=0\n\n"
         );
         // Three loops, consumed in document order with fresh tags: the
         // keyed `li`, the destructuring `<template v-for>`, the

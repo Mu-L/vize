@@ -49,6 +49,8 @@ use vize_davinci::side_table::SideTable;
 
 use crate::lower::Lowered;
 
+#[path = "pass/hoist.rs"]
+pub mod hoist;
 #[path = "pass/text.rs"]
 pub mod text;
 #[path = "pass/vfor.rs"]
@@ -62,6 +64,7 @@ pub mod vslot;
 #[path = "pass/walk.rs"]
 mod walk;
 
+pub use hoist::{StaticFacts, StaticLevel};
 pub use text::TextFacts;
 pub use vfor::{ForFacts, ForName};
 pub use vif::{BranchKey, BranchKeyKind, IfFacts};
@@ -79,29 +82,46 @@ pub const TRANSFORM_LANE_FLAG: &str = "VIZE_DAVINCI_TRANSFORM";
 
 /// The S2 transform pipeline as the series has built it so far.
 ///
-/// Five passes ([`vif::DESC`], [`vfor::DESC`], [`vslot::DESC`],
-/// [`text::DESC`], then [`vmodel::DESC`] — the series' landing order;
-/// the five touch disjoint op families and the model pass preserves, so
-/// the order still carries no semantic dependency today). Later
+/// Six passes ([`vif::DESC`], [`vfor::DESC`], [`vslot::DESC`],
+/// [`text::DESC`], [`vmodel::DESC`], then [`hoist::DESC`] — the
+/// series' landing order; the passes touch disjoint op families, the
+/// model pass preserves, and the analysis pass mutates nothing, so the
+/// order still carries no semantic dependency today). Later
 /// installments append here, and the `const` pins below are the
 /// grouping regression guard (the P2-2 convention: a fusion-plan change
 /// is a compile error, not a surprise).
-pub const TRANSFORM_PASSES: &[PassDesc] =
-    &[vif::DESC, vfor::DESC, vslot::DESC, text::DESC, vmodel::DESC];
+pub const TRANSFORM_PASSES: &[PassDesc] = &[
+    vif::DESC,
+    vfor::DESC,
+    vslot::DESC,
+    text::DESC,
+    vmodel::DESC,
+    hoist::DESC,
+];
 
 /// The planned pipeline over [`TRANSFORM_PASSES`].
 pub const TRANSFORM: Pipeline = Pipeline::new(S2_STAGE, TRANSFORM_PASSES);
 
-// The plan's fusion shape, pinned: five mandatory barriers, five
-// walks — law 1 leaves nothing to fuse (mandatory passes are unfusable
-// by construction), and every neighbour is itself a barrier (slot
-// gathering is the taxonomy's own barrier example; the model pass's
-// scope environment is ancestor context a fused visit does not carry).
-// The element-family installment asked whether the series' first
-// fusable pass lands here; the measured answer is no — everything the
-// family ports is diagnostics, which are meaning at every tier.
-const _: () = assert!(TRANSFORM.group_count() == 5);
+// The plan's fusion shape, pinned: five mandatory barriers plus the
+// series' first `Optional`/`Fusable` pass (installment 6, the
+// hoist-static analysis). What the fusion machinery actually does with
+// it, measured and pinned: the pass forms the pipeline's first
+// NON-BARRIER group — a singleton, because grouping starts fresh after
+// a barrier and no fusable neighbour exists yet — so `group_count()`
+// rises to 6 and `is_fully_serialized()` stays true in its literal
+// sense (fusion still buys nothing: six groups for six passes). The
+// door the P2-2 laws hold open is now real: the next fusable pass to
+// land adjacent joins this group and drops the walk count below the
+// pass count for the first time.
+const _: () = assert!(TRANSFORM.group_count() == 6);
 const _: () = assert!(TRANSFORM.is_fully_serialized());
+const _: () = {
+    let group = match TRANSFORM.group(5) {
+        Some(group) => group,
+        None => panic!("the sixth group exists"),
+    };
+    assert!(group.start == 5 && group.len == 1 && !group.is_barrier);
+};
 
 /// The facts the S2 transform pipeline produces beside the tree.
 ///
@@ -125,6 +145,11 @@ pub struct S2Facts {
     /// page-order id ([`vmodel`]); sparse — entries only for models the
     /// legacy lane would remove.
     pub model_faults: SideTable<ModelFacts>,
+    /// Per-owner static-analysis facts, keyed by the `ui.element` /
+    /// `ui.component` op's page-order id ([`hoist`]); dense over the
+    /// owner family. The series' first `Optional` product: skipping the
+    /// pass loses these and nothing else.
+    pub static_facts: SideTable<StaticFacts>,
 }
 
 /// Run the S2 transform pipeline over `lowered`, firing `observer`'s
@@ -158,6 +183,8 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             facts.text_facts = text::run(lowered);
         } else if name == vmodel::DESC.name {
             facts.model_faults = vmodel::run(lowered);
+        } else if name == hoist::DESC.name {
+            facts.static_facts = hoist::run(lowered);
         } else {
             return Err(PassFailure::new("pipeline pass has no registered body"));
         }
@@ -178,6 +205,7 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             verify.check_table(event, &folio, &facts.slot_facts);
             verify.check_table(event, &folio, &facts.text_facts);
             verify.check_table(event, &folio, &facts.model_faults);
+            verify.check_table(event, &folio, &facts.static_facts);
         }
         Ok(())
     });
@@ -192,19 +220,21 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
 #[cfg(test)]
 mod tests {
     use super::{
-        S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, text, vfor, vif, vmodel, vslot,
+        S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, hoist, text, vfor, vif, vmodel,
+        vslot,
     };
-    use vize_davinci::pass::{Fusability, PassKind};
+    use vize_davinci::pass::{Fusability, PassKind, Preserved};
 
     #[test]
     fn the_pipeline_holds_exactly_the_landed_passes() {
         assert_eq!(TRANSFORM.stage, S2_STAGE);
-        assert_eq!(TRANSFORM_PASSES.len(), 5);
+        assert_eq!(TRANSFORM_PASSES.len(), 6);
         assert_eq!(TRANSFORM_PASSES[0], vif::DESC);
         assert_eq!(TRANSFORM_PASSES[1], vfor::DESC);
         assert_eq!(TRANSFORM_PASSES[2], vslot::DESC);
         assert_eq!(TRANSFORM_PASSES[3], text::DESC);
         assert_eq!(TRANSFORM_PASSES[4], vmodel::DESC);
+        assert_eq!(TRANSFORM_PASSES[5], hoist::DESC);
     }
 
     #[test]
@@ -262,17 +292,36 @@ mod tests {
     }
 
     #[test]
-    fn the_fusion_plan_is_five_lone_barriers() {
-        // The review point's fusion question, answered as data: every
-        // pass fuses with nothing — law 1 bars them as mandatory (the
-        // element-family installment asked whether the first fusable
-        // pass lands here; measured: no — the family's residue is all
-        // diagnostics), and every neighbour is itself a barrier.
+    fn the_hoist_classification_is_pinned() {
+        // The review-point classification, pinned so a drive-by re-kind
+        // is a loud diff: see `hoist::DESC`'s docs for the reasoning —
+        // the series' FIRST `Optional` (skipping loses optimization
+        // facts only; the shipped lane's own `hoist_static: false`
+        // default is the proof) and FIRST `Fusable` (a synthesized-
+        // attribute analysis, single-visit and local).
+        assert_eq!(hoist::DESC.name, "hoist-static");
+        assert_eq!(hoist::DESC.kind, PassKind::Optional);
+        assert_eq!(hoist::DESC.fusability, Fusability::Fusable);
+        assert_eq!(hoist::DESC.preserved, Preserved::ALL);
+    }
+
+    #[test]
+    fn the_fusion_plan_is_five_lone_barriers_plus_one_fusable_singleton() {
+        // The review point's fusion question, answered as data: the
+        // five mandatory passes fuse with nothing (law 1), and the
+        // series' first fusable pass lands in the first NON-barrier
+        // group — a singleton, because its only neighbour is a barrier.
+        // Fusion still buys nothing (six groups, six passes), but the
+        // grouping machinery has now actually grouped a fusable pass.
         for index in 0..5 {
             let group = TRANSFORM.group(index).expect("group exists");
             assert!(group.is_barrier && group.len == 1);
         }
-        assert_eq!(TRANSFORM.group(5), None);
+        let fusable = TRANSFORM.group(5).expect("the sixth group exists");
+        assert!(!fusable.is_barrier);
+        assert_eq!((fusable.start, fusable.len), (5, 1));
+        assert!(fusable.preserved == Preserved::ALL);
+        assert_eq!(TRANSFORM.group(6), None);
     }
 
     #[test]
