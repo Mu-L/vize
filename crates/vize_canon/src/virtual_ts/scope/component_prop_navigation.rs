@@ -5,6 +5,7 @@ use vize_croquis::croquis::{ComponentUsage, PassedProp};
 
 use crate::virtual_ts::component_reference::component_binding_reference;
 use crate::virtual_ts::helpers::{to_camel_case, to_safe_identifier_fragment};
+use crate::virtual_ts::semantic_links::{VizeSemanticLink, VizeSemanticLinkKind};
 use crate::virtual_ts::types::VizeMapping;
 
 use super::component_navigation::{is_ts_identifier, push_ts_single_quoted_literal};
@@ -13,6 +14,7 @@ use super::context::ComponentPropsContext;
 pub(super) fn emit_references(
     ts: &mut String,
     mappings: &mut Vec<VizeMapping>,
+    semantic_links: &mut Vec<VizeSemanticLink>,
     ctx: &ComponentPropsContext<'_>,
     checkable_usages: &[(usize, &ComponentUsage)],
 ) {
@@ -24,7 +26,6 @@ pub(super) fn emit_references(
             ctx.syntactic_type_only_imported_names,
             usage.name.as_str(),
         );
-        let component_type_name = to_safe_identifier_fragment(usage.name.as_str());
         let tag_src_start = (ctx.template_offset + usage.start + 1) as usize;
         let tag_src_end = tag_src_start + usage.name.len();
 
@@ -33,24 +34,35 @@ pub(super) fn emit_references(
         ts.push_str(&component_ref);
         let tag_gen_end = ts.len();
         ts.push_str(";\n");
+        let tag_gen_range = tag_gen_start..tag_gen_end;
         mappings.push(VizeMapping {
-            gen_range: tag_gen_start..tag_gen_end,
+            gen_range: tag_gen_range.clone(),
             src_range: tag_src_start..tag_src_end,
             sub_spans: Vec::new(),
         });
 
-        emit_prop_references(ts, mappings, ctx, idx, usage, component_type_name.as_str());
+        emit_prop_references(
+            ts,
+            mappings,
+            semantic_links,
+            ctx,
+            idx,
+            usage,
+            &tag_gen_range,
+        );
     }
 }
 
 fn emit_prop_references(
     ts: &mut String,
     mappings: &mut Vec<VizeMapping>,
+    semantic_links: &mut Vec<VizeSemanticLink>,
     ctx: &ComponentPropsContext<'_>,
     idx: usize,
     usage: &ComponentUsage,
-    component_type_name: &str,
+    component_gen_range: &Range<usize>,
 ) {
+    let component_type_name = to_safe_identifier_fragment(usage.name.as_str());
     let props_ref = cstr!("__vize_props_nav_{idx}");
     let mut emitted_props_ref = false;
     for prop in &usage.props {
@@ -83,6 +95,11 @@ fn emit_prop_references(
             range
         };
         ts.push_str(";\n");
+        semantic_links.push(VizeSemanticLink {
+            source_range: component_gen_range.clone(),
+            target_range: prop_gen_range.clone(),
+            kind: VizeSemanticLinkKind::VueComponentPropNavigation,
+        });
         mappings.push(VizeMapping {
             gen_range: prop_gen_range,
             src_range: (ctx.template_offset as usize + source_range.start)
