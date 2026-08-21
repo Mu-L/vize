@@ -36,8 +36,11 @@ pub(crate) fn lower_slot<'a>(
         }
         match &analyzed.forms[index] {
             AttrForm::Static if attr.name.text == "name" && name.is_none() => {
+                // A value-less `name` reads as the implicit name — the
+                // shipped resolution (`codegen/slots/outlet.rs`), matched
+                // exactly so the two lanes never differ on the spelling.
                 name = Some(DynamicName::Static(
-                    attr_value_text(element, index).unwrap_or(""),
+                    attr_value_text(element, index).unwrap_or("default"),
                 ));
             }
             AttrForm::Static => defer(
@@ -49,9 +52,30 @@ pub(crate) fn lower_slot<'a>(
             ),
             AttrForm::Directive(directive) => match directive.head {
                 Head::Bind if directive.arg == Some(Arg::Static("name")) && name.is_none() => {
-                    let text = attr_value_text(element, index)
-                        .unwrap_or_else(|| cx.hole_at(cx.token_span(&attr.name).end));
-                    name = Some(DynamicName::Dynamic(expr_at(cx, text)));
+                    // A `:name` with no expression is not a name candidate
+                    // in the shipped resolution (a later `name` attribute
+                    // may still win, else the implicit name); dropped
+                    // under a record, never silently.
+                    match attr_value_text(element, index).map(str::trim) {
+                        Some(text) if !text.is_empty() => {
+                            name = Some(DynamicName::Dynamic(expr_at(cx, text)));
+                        }
+                        _ => {
+                            cx.info(
+                                attr_span(cx, attr),
+                                String::from(
+                                    "`:name` with no expression names no slot; the outlet keeps the implicit name",
+                                ),
+                            );
+                            cx.record(
+                                "drop.slot-name-hole",
+                                None,
+                                attr_slice(cx, attr),
+                                String::default(),
+                                attr_span(cx, attr),
+                            );
+                        }
+                    }
                 }
                 Head::Bind => defer(
                     cx,

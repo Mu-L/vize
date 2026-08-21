@@ -10,7 +10,9 @@
 //! from S2 (P2-11); until then this projection is the strongest
 //! output-determining oracle the transform lane has, and TS-11
 //! (`corpus-diff --surface compiler`) holds the actual output bytes
-//! still.
+//! still. Series 3 adds the slot projection — component slot grouping
+//! (canonical names with their invented-vs-authored class, params
+//! texts, group order) and outlet names — in the [`slots`] module.
 //!
 //! # Why this lives in test space (the dependency direction)
 //!
@@ -44,8 +46,11 @@
 //! transform's refusal to build a `ForNode` from it), dynamic keys
 //! (deferred until `ui.bind`), template-wrapper keys (dropped at
 //! lowering — the recorded series gap), slot-outlet keys (no S2
-//! attribute surface), compound condition rebuilds, and compound
-//! source/alias rebuilds in a for's binding surface.
+//! attribute surface), compound condition rebuilds, compound
+//! source/alias rebuilds in a for's binding surface, and the slot
+//! projection's counted classes — conditional carriers, the `v-slots`
+//! spread, filler-only implicit defaults ([`slots`] module docs,
+//! series 3).
 //! Recovery-level legacy notes (`ErrorCode::is_recovery` — spec repairs
 //! such as self-closing rewrites the parser already applied) do **not**
 //! skip: the first corpus run measured them on 3,027 of 12,021
@@ -57,8 +62,11 @@
 pub mod battery;
 pub mod old_lane;
 pub mod s2_lane;
+pub mod slots;
+pub mod slots_old;
 
 pub use battery::BATTERY;
+pub use slots::SlotCounters;
 
 use vize_atelier_core::parser::parse as old_parse;
 use vize_atelier_core::{TransformOptions, transform};
@@ -117,6 +125,9 @@ pub struct Counters {
     /// Old lane rebuilt a compound source or alias; no single source
     /// text to compare.
     pub for_compound: u64,
+    /// The slot half (series 3): units, groups, outlets, and the
+    /// counted classes ([`slots`] module docs).
+    pub slots: SlotCounters,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -144,6 +155,9 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     let mut old_chains = Vec::new();
     let mut old_fors = Vec::new();
     old_lane::collect(&root.children, &mut old_chains, &mut old_fors);
+    let mut old_units = Vec::new();
+    let mut old_outlets = Vec::new();
+    slots_old::collect_old(&root.children, source, &mut old_units, &mut old_outlets);
 
     // S2 lane: sinopia parse -> ricalco lower -> the S2 passes through
     // the P2-2 pass manager (verifier between passes in debug).
@@ -160,10 +174,19 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     }
     let facts = run_transform(&mut lowered, &mut NoObserver);
     let folio = DisegnoFolio::of(&lowered.root.ops);
-    let (s2_chains, s2_fors) = s2_lane::collect(&folio, &facts.if_facts);
+    let s2 = s2_lane::collect(&folio, &facts.if_facts, &facts.slot_facts);
 
-    check(name, source, &old_chains, &s2_chains, counters);
-    check_fors(name, source, &old_fors, &s2_fors, counters);
+    check(name, source, &old_chains, &s2.chains, counters);
+    check_fors(name, source, &old_fors, &s2.fors, counters);
+    slots::check(
+        name,
+        source,
+        &old_units,
+        &s2.units,
+        &old_outlets,
+        &s2.outlets,
+        &mut counters.slots,
+    );
     counters.compared += 1;
 }
 

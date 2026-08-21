@@ -68,9 +68,14 @@ fn the_battery_aggregates_are_pinned() {
             scopes += lowered.scopes.len();
         });
     }
+    // Re-pinned at the v-slot installment: the `#named` spelling in the
+    // directive fixture now lowers to a `ui.slot-content` op (+1 op)
+    // instead of the P2-8 `defer.v-slot` Info (-1 diagnostic); the
+    // provenance record count is unchanged (defer record -> lower
+    // record, one for one).
     assert_eq!(
         (ops, diagnostics, provenance, scopes),
-        (88, 34, 107, 1),
+        (89, 33, 107, 1),
         "battery census moved: re-pin deliberately"
     );
 }

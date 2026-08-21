@@ -45,6 +45,8 @@ pub enum FolioOp {
 pub enum FolioBinding {
     /// `ui.model`.
     Model(FolioModel),
+    /// `ui.slot-content`.
+    SlotContent(FolioSlotContent),
     /// `vue.directive`.
     VueDirective(FolioVueDirective),
 }
@@ -172,6 +174,19 @@ pub struct FolioModel {
     pub span: Span,
 }
 
+/// Mirror of [`crate::op::SlotContentOp`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FolioSlotContent {
+    /// The authored slot name, when present.
+    pub name: Option<FolioName>,
+    /// Modifier names, in order.
+    pub modifiers: Vec<String>,
+    /// The authored params position, when non-blank.
+    pub params: Option<FolioExpr>,
+    /// Source range.
+    pub span: Span,
+}
+
 /// Mirror of [`crate::op::VueDirectiveOp`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolioVueDirective {
@@ -273,18 +288,24 @@ fn own_binding(binding: &BindingOp<'_>) -> FolioBinding {
             attributes: model.attributes.iter().map(own_attribute).collect(),
             span: model.span,
         }),
+        BindingOp::SlotContent(content) => FolioBinding::SlotContent(FolioSlotContent {
+            name: content.name.as_ref().map(own_name),
+            modifiers: own_modifiers(&content.modifiers),
+            params: content.params.as_ref().map(own_expr),
+            span: content.span,
+        }),
         BindingOp::VueDirective(directive) => FolioBinding::VueDirective(FolioVueDirective {
             name: String::from(directive.name),
             argument: directive.argument.as_ref().map(own_name),
-            modifiers: directive
-                .modifiers
-                .iter()
-                .map(|modifier| String::from(*modifier))
-                .collect(),
+            modifiers: own_modifiers(&directive.modifiers),
             value: directive.value.as_ref().map(own_expr),
             span: directive.span,
         }),
     }
+}
+
+fn own_modifiers(modifiers: &[&str]) -> Vec<String> {
+    modifiers.iter().map(|text| String::from(*text)).collect()
 }
 
 fn own_name(name: &DynamicName<'_>) -> FolioName {

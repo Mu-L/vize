@@ -13,7 +13,8 @@ use vize_carton::Span;
 
 use super::DisegnoFolio;
 use super::owned::{
-    FolioAttribute, FolioBinding, FolioExpr, FolioName, FolioOp, FolioVueDirective,
+    FolioAttribute, FolioBinding, FolioExpr, FolioName, FolioOp, FolioSlotContent,
+    FolioVueDirective,
 };
 use crate::op::Namespace;
 use vize_davinci::folio::FolioMode;
@@ -143,8 +144,38 @@ fn print_binding<W: Write>(
             }
             Ok(())
         }
+        FolioBinding::SlotContent(content) => print_slot_content(w, content, depth, mode),
         FolioBinding::VueDirective(directive) => print_directive(w, directive, depth, mode),
     }
+}
+
+fn print_slot_content<W: Write>(
+    w: &mut W,
+    content: &FolioSlotContent,
+    depth: usize,
+    mode: FolioMode,
+) -> Result {
+    indent(w, depth)?;
+    w.write_str("ui.slot-content")?;
+    if let Some(name) = &content.name {
+        w.write_str(" name=")?;
+        print_name(w, name, mode)?;
+    }
+    if !content.modifiers.is_empty() {
+        w.write_str(" mods=\"")?;
+        for (i, modifier) in content.modifiers.iter().enumerate() {
+            if i > 0 {
+                w.write_char(',')?;
+            }
+            w.write_str(modifier.as_str())?;
+        }
+        w.write_char('"')?;
+    }
+    if let Some(params) = &content.params {
+        w.write_str(" params=")?;
+        print_expr(w, params, mode)?;
+    }
+    end_line(w, content.span, mode)
 }
 
 fn print_directive<W: Write>(

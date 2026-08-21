@@ -9,7 +9,9 @@ use vize_carton::String;
 use vize_davinci::id::NodeId;
 use vize_davinci::side_table::SideTable;
 use vize_disegno::folio::{DisegnoFolio, FolioExpr, FolioOp};
-use vize_ricalco::pass::IfFacts;
+use vize_ricalco::pass::{IfFacts, SlotFacts};
+
+use super::slots::{POutlet, PUnit, s2_outlet, s2_slot_active, s2_unit};
 
 /// What stands as a branch region's single root, for the key-comparison
 /// skip classes.
@@ -61,39 +63,59 @@ pub struct S2For {
     pub index: Option<String>,
 }
 
-/// Collect every chain and every for in `folio`, outer before nested,
-/// document order.
-pub fn collect(folio: &DisegnoFolio, facts: &SideTable<IfFacts>) -> (Vec<S2Chain>, Vec<S2For>) {
-    let mut chains = Vec::new();
-    let mut fors = Vec::new();
+/// Everything the S2 lane projects out of one artifact.
+pub struct S2Projection {
+    pub chains: Vec<S2Chain>,
+    pub fors: Vec<S2For>,
+    pub units: Vec<PUnit>,
+    pub outlets: Vec<POutlet>,
+}
+
+/// Collect every chain, for, slot unit and outlet in `folio`, outer
+/// before nested, document order.
+pub fn collect(
+    folio: &DisegnoFolio,
+    facts: &SideTable<IfFacts>,
+    slot_facts: &SideTable<SlotFacts>,
+) -> S2Projection {
+    let mut out = S2Projection {
+        chains: Vec::new(),
+        fors: Vec::new(),
+        units: Vec::new(),
+        outlets: Vec::new(),
+    };
     let mut next = 0u32;
-    walk(&folio.ops, facts, &mut next, &mut chains, &mut fors);
-    (chains, fors)
+    walk(&folio.ops, facts, slot_facts, &mut next, &mut out);
+    out
 }
 
 fn walk(
     ops: &[FolioOp],
     facts: &SideTable<IfFacts>,
+    slot_facts: &SideTable<SlotFacts>,
     next: &mut u32,
-    chains: &mut Vec<S2Chain>,
-    fors: &mut Vec<S2For>,
+    out: &mut S2Projection,
 ) {
     for op in ops {
         match op {
             FolioOp::Element(element) => {
                 *next += 1 + u32::try_from(element.bindings.len()).expect("binding count fits");
-                walk(&element.children, facts, next, chains, fors);
+                walk(&element.children, facts, slot_facts, next, out);
             }
             FolioOp::Component(component) => {
+                let id = NodeId::from_index(*next);
                 *next += 1 + u32::try_from(component.bindings.len()).expect("binding count fits");
-                walk(&component.children, facts, next, chains, fors);
+                if s2_slot_active(&component.bindings, &component.children) {
+                    out.units.push(s2_unit(id, slot_facts));
+                }
+                walk(&component.children, facts, slot_facts, next, out);
             }
             FolioOp::Text(_) | FolioOp::Interpolation(_) => *next += 1,
             FolioOp::If(if_op) => {
                 let id = NodeId::from_index(*next).expect("page-order ids fit");
                 *next += 1;
                 let fact = facts.get(id);
-                chains.push(S2Chain {
+                out.chains.push(S2Chain {
                     branches: if_op
                         .branches
                         .iter()
@@ -109,22 +131,23 @@ fn walk(
                         .collect(),
                 });
                 for branch in &if_op.branches {
-                    walk(&branch.ops, facts, next, chains, fors);
+                    walk(&branch.ops, facts, slot_facts, next, out);
                 }
             }
             FolioOp::For(for_op) => {
                 *next += 1;
-                fors.push(S2For {
+                out.fors.push(S2For {
                     source: expr_text(&for_op.binding.source),
                     value: alias_text(Some(&for_op.binding.value)),
                     key: alias_text(for_op.binding.key.as_ref()),
                     index: alias_text(for_op.binding.index.as_ref()),
                 });
-                walk(&for_op.ops, facts, next, chains, fors);
+                walk(&for_op.ops, facts, slot_facts, next, out);
             }
             FolioOp::Slot(slot) => {
                 *next += 1;
-                walk(&slot.fallback, facts, next, chains, fors);
+                out.outlets.push(s2_outlet(&slot.name));
+                walk(&slot.fallback, facts, slot_facts, next, out);
             }
         }
     }

@@ -7,19 +7,19 @@
 
 mod s2_support;
 
-use s2_support::{BATTERY, Counters, compare};
+use s2_support::{BATTERY, Counters, SlotCounters, compare};
 
 /// The battery's exact accounting. The corpus entry pins the same
 /// numbers; both move together, deliberately, when the battery does.
 fn expected() -> Counters {
     Counters {
-        templates_seen: 30,
-        compared: 30,
+        templates_seen: 44,
+        compared: 44,
         skipped_legacy_flag: 0,
         skipped_old_parse_errors: 0,
         skipped_s2_errors: 0,
-        if_ops: 20,
-        branches: 38,
+        if_ops: 21,
+        branches: 39,
         keys_static: 13,
         keys_dynamic: 2,
         keys_template_if: 1,
@@ -31,6 +31,18 @@ fn expected() -> Counters {
         for_indexes: 1,
         for_values_absent: 1,
         for_compound: 0,
+        slots: SlotCounters {
+            units: 12,
+            groups: 16,
+            group_params: 7,
+            groups_invented: 4,
+            groups_dynamic: 1,
+            units_conditional: 1,
+            units_forwarded: 0,
+            units_filler_default: 1,
+            outlets: 6,
+            outlets_dynamic: 1,
+        },
     }
 }
 
@@ -56,6 +68,73 @@ fn the_same_key_wording_never_drifts_from_relief() {
     assert_eq!(
         vize_ricalco::pass::vif::SAME_KEY_MESSAGE,
         vize_atelier_core::ErrorCode::VIfSameKey.message()
+    );
+}
+
+#[test]
+fn the_v_slot_wording_never_drifts_from_relief() {
+    // The series-3 messages, same discipline: the S2 pass duplicates
+    // relief's text rather than the dependency; these pins own the
+    // relief edge.
+    use vize_atelier_core::ErrorCode;
+    use vize_ricalco::pass::vslot;
+    assert_eq!(
+        vslot::MISPLACED_MESSAGE,
+        ErrorCode::VSlotMisplaced.message()
+    );
+    assert_eq!(
+        vslot::MIXED_MESSAGE,
+        ErrorCode::VSlotMixedSlotUsage.message()
+    );
+    assert_eq!(
+        vslot::DUPLICATE_MESSAGE,
+        ErrorCode::VSlotDuplicateSlotNames.message()
+    );
+    assert_eq!(
+        vslot::EXTRANEOUS_MESSAGE,
+        ErrorCode::VSlotExtraneousDefaultSlotChildren.message()
+    );
+}
+
+#[test]
+fn both_lanes_flag_the_duplicate_slot_name() {
+    // End-to-end wording check on the battery's duplicate template: the
+    // legacy transform reports `VSlotDuplicateSlotNames`, the S2 pass
+    // appends the same text to the unified channel.
+    let (_, source) = BATTERY
+        .iter()
+        .find(|(name, _)| *name == "duplicate-slot-names")
+        .expect("the battery carries the duplicate template");
+
+    let allocator = vize_carton::Allocator::new();
+    let (mut root, parse_errors) = vize_atelier_core::parser::parse(&allocator, source);
+    assert!(parse_errors.is_empty(), "{parse_errors:?}");
+    let transform_errors = vize_atelier_core::transform(
+        &allocator,
+        &mut root,
+        vize_atelier_core::TransformOptions::default(),
+        None,
+    );
+    assert!(
+        transform_errors
+            .iter()
+            .any(|error| error.code == vize_atelier_core::ErrorCode::VSlotDuplicateSlotNames),
+        "the legacy lane must flag the duplicate: {transform_errors:?}"
+    );
+
+    let s2_allocator = vize_carton::Allocator::new();
+    let (tree, surface_errors) = vize_sinopia::parse(&s2_allocator, source);
+    let mut lowered = vize_ricalco::lower(&s2_allocator, &tree, &surface_errors);
+    let _facts =
+        vize_ricalco::pass::run_transform(&mut lowered, &mut vize_davinci::pass::NoObserver);
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.as_str()
+                == vize_ricalco::pass::vslot::DUPLICATE_MESSAGE),
+        "the S2 pass must flag the duplicate: {:?}",
+        lowered.diagnostics
     );
 }
 

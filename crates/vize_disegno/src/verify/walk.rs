@@ -144,6 +144,9 @@ fn body(
                     line_checks("attr", attribute.span, Some(("ui.model", model.span)), out);
                 }
             }
+            FolioBinding::SlotContent(content) => {
+                line_checks("ui.slot-content", content.span, owner, out);
+            }
             FolioBinding::VueDirective(directive) => {
                 line_checks("vue.directive", directive.span, owner, out);
             }

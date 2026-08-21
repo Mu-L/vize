@@ -73,9 +73,10 @@ fn lowering_corpus_is_total() {
             scopes += lowered.scopes.len();
         });
     }
+    // Re-pinned at the v-slot installment (see `lowering_battery.rs`).
     assert_eq!(
         (ops, diagnostics, provenance, scopes),
-        (88, 34, 107, 1),
+        (89, 33, 107, 1),
         "battery census moved: re-pin in both lanes deliberately"
     );
 

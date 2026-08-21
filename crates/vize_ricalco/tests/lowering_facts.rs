@@ -53,15 +53,18 @@ fn a_destructuring_alias_contributes_no_names_but_the_scope_stands() {
 }
 
 #[test]
-fn slot_props_are_a_tagged_introduction_site_even_while_grouping_defers() {
-    // The v-slot grouping op waits for P2-9, but the slot-props scope is
-    // a binding-introduction fact today, attached to the carrying
-    // element's op.
+fn slot_props_are_a_tagged_introduction_site_on_their_own_binding_op() {
+    // Since the v-slot installment the spelling lowers to a
+    // `ui.slot-content` binding op, and the slot-props scope keys that
+    // op (P2-8 recorded it on the carrying element while no op
+    // existed): each spelling is its own introduction site, so two
+    // `v-slot`s on one carrier never share an entry.
     let art = artifact("<Comp><template #head=\"props\"><b>x</b></template></Comp>");
+    // Comp=0, template=1, its slot-content binding=2, b=3, text=4.
     assert_eq!(
         art.scopes,
         vec![(
-            1,
+            2,
             ScopeFacts {
                 tag: ScopeTag::from_index(0),
                 bindings: vec![authored("props", 23, 28)],

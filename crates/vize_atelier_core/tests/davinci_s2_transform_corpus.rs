@@ -20,7 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use davinci_harness::fixtures::template_block;
-use s2_support::{BATTERY, Counters, compare};
+use s2_support::{BATTERY, Counters, SlotCounters, compare};
 
 fn collect_vue_files(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else {
@@ -54,13 +54,13 @@ fn the_s2_transform_lane_holds_over_the_corpus() {
     assert_eq!(
         counters,
         Counters {
-            templates_seen: 30,
-            compared: 30,
+            templates_seen: 44,
+            compared: 44,
             skipped_legacy_flag: 0,
             skipped_old_parse_errors: 0,
             skipped_s2_errors: 0,
-            if_ops: 20,
-            branches: 38,
+            if_ops: 21,
+            branches: 39,
             keys_static: 13,
             keys_dynamic: 2,
             keys_template_if: 1,
@@ -72,6 +72,18 @@ fn the_s2_transform_lane_holds_over_the_corpus() {
             for_indexes: 1,
             for_values_absent: 1,
             for_compound: 0,
+            slots: SlotCounters {
+                units: 12,
+                groups: 16,
+                group_params: 7,
+                groups_invented: 4,
+                groups_dynamic: 1,
+                units_conditional: 1,
+                units_forwarded: 0,
+                units_filler_default: 1,
+                outlets: 6,
+                outlets_dynamic: 1,
+            },
         },
         "battery accounting moved: re-pin in BOTH lanes deliberately"
     );

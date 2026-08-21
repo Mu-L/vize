@@ -53,11 +53,14 @@ use crate::lower::Lowered;
 pub mod vfor;
 #[path = "pass/vif.rs"]
 pub mod vif;
+#[path = "pass/vslot.rs"]
+pub mod vslot;
 #[path = "pass/walk.rs"]
 mod walk;
 
 pub use vfor::{ForFacts, ForName};
 pub use vif::{BranchKey, IfFacts};
+pub use vslot::{SlotCarrier, SlotFacts, SlotGroup, SlotName, SlotParams};
 
 /// The stage name S2 transform pipelines print and parse under.
 pub const S2_STAGE: &str = "s2";
@@ -70,20 +73,21 @@ pub const TRANSFORM_LANE_FLAG: &str = "VIZE_DAVINCI_TRANSFORM";
 
 /// The S2 transform pipeline as the series has built it so far.
 ///
-/// Two passes ([`vif::DESC`], then [`vfor::DESC`] — the series' landing
-/// order; the two touch disjoint op families, so the order carries no
-/// semantic dependency today). Later installments append here, and the
-/// `const` pins below are the grouping regression guard (the P2-2
-/// convention: a fusion-plan change is a compile error, not a surprise).
-pub const TRANSFORM_PASSES: &[PassDesc] = &[vif::DESC, vfor::DESC];
+/// Three passes ([`vif::DESC`], [`vfor::DESC`], then [`vslot::DESC`] —
+/// the series' landing order; the three touch disjoint op families, so
+/// the order carries no semantic dependency today). Later installments
+/// append here, and the `const` pins below are the grouping regression
+/// guard (the P2-2 convention: a fusion-plan change is a compile error,
+/// not a surprise).
+pub const TRANSFORM_PASSES: &[PassDesc] = &[vif::DESC, vfor::DESC, vslot::DESC];
 
 /// The planned pipeline over [`TRANSFORM_PASSES`].
 pub const TRANSFORM: Pipeline = Pipeline::new(S2_STAGE, TRANSFORM_PASSES);
 
-// The plan's fusion shape, pinned: two mandatory barriers, two walks —
-// law 1 leaves the v-for pass nothing to fuse with, and its one
-// potential neighbour is itself a barrier.
-const _: () = assert!(TRANSFORM.group_count() == 2);
+// The plan's fusion shape, pinned: three mandatory barriers, three
+// walks — law 1 leaves nothing to fuse, and every neighbour is itself a
+// barrier (slot gathering is the taxonomy's own barrier example).
+const _: () = assert!(TRANSFORM.group_count() == 3);
 const _: () = assert!(TRANSFORM.is_fully_serialized());
 
 /// The facts the S2 transform pipeline produces beside the tree.
@@ -98,6 +102,9 @@ pub struct S2Facts {
     /// Per-`ui.for` consumed-scope facts, keyed by the op's page-order
     /// id ([`vfor`]).
     pub for_facts: SideTable<ForFacts>,
+    /// Per-`ui.component` canonical slot grouping, keyed by the op's
+    /// page-order id ([`vslot`]).
+    pub slot_facts: SideTable<SlotFacts>,
 }
 
 /// Run the S2 transform pipeline over `lowered`, firing `observer`'s
@@ -125,6 +132,8 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             facts.if_facts = vif::run(lowered);
         } else if name == vfor::DESC.name {
             facts.for_facts = vfor::run(lowered);
+        } else if name == vslot::DESC.name {
+            facts.slot_facts = vslot::run(lowered);
         } else {
             return Err(PassFailure::new("pipeline pass has no registered body"));
         }
@@ -140,6 +149,7 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
             verify.check_table(event, &folio, &lowered.scopes);
             verify.check_table(event, &folio, &facts.if_facts);
             verify.check_table(event, &folio, &facts.for_facts);
+            verify.check_table(event, &folio, &facts.slot_facts);
         }
         Ok(())
     });
@@ -153,15 +163,16 @@ pub fn run_transform<'a, O: PassObserver>(lowered: &mut Lowered<'a>, observer: &
 
 #[cfg(test)]
 mod tests {
-    use super::{S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, vfor, vif};
+    use super::{S2_STAGE, TRANSFORM, TRANSFORM_LANE_FLAG, TRANSFORM_PASSES, vfor, vif, vslot};
     use vize_davinci::pass::{Fusability, PassKind};
 
     #[test]
     fn the_pipeline_holds_exactly_the_landed_passes() {
         assert_eq!(TRANSFORM.stage, S2_STAGE);
-        assert_eq!(TRANSFORM_PASSES.len(), 2);
+        assert_eq!(TRANSFORM_PASSES.len(), 3);
         assert_eq!(TRANSFORM_PASSES[0], vif::DESC);
         assert_eq!(TRANSFORM_PASSES[1], vfor::DESC);
+        assert_eq!(TRANSFORM_PASSES[2], vslot::DESC);
     }
 
     #[test]
@@ -185,15 +196,27 @@ mod tests {
     }
 
     #[test]
-    fn the_fusion_plan_is_two_lone_barriers() {
-        // The review point's fusion question, answered as data: the
-        // v-for pass fuses with nothing — law 1 bars it as mandatory,
-        // and its only neighbour is itself a barrier.
-        let first = TRANSFORM.group(0).expect("group 0 exists");
-        let second = TRANSFORM.group(1).expect("group 1 exists");
-        assert!(first.is_barrier && first.len == 1);
-        assert!(second.is_barrier && second.len == 1);
-        assert_eq!(TRANSFORM.group(2), None);
+    fn the_vslot_classification_is_pinned() {
+        // The review-point classification, pinned so a drive-by re-kind
+        // is a loud diff: see `vslot::DESC`'s docs for the reasoning
+        // (again a *preserving* mandatory pass — installment 2's
+        // recorded taxonomy tension, in the milder diagnosing form).
+        assert_eq!(vslot::DESC.name, "v-slot");
+        assert_eq!(vslot::DESC.kind, PassKind::MandatoryLowering);
+        assert_eq!(vslot::DESC.fusability, Fusability::Barrier);
+    }
+
+    #[test]
+    fn the_fusion_plan_is_three_lone_barriers() {
+        // The review point's fusion question, answered as data: every
+        // pass fuses with nothing — law 1 bars them as mandatory, and
+        // every neighbour is itself a barrier (slot gathering being the
+        // taxonomy's own example of what fusion breaks).
+        for index in 0..3 {
+            let group = TRANSFORM.group(index).expect("group exists");
+            assert!(group.is_barrier && group.len == 1);
+        }
+        assert_eq!(TRANSFORM.group(3), None);
     }
 
     #[test]

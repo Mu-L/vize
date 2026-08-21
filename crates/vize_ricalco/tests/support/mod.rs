@@ -107,6 +107,11 @@ pub fn assert_transformed_sound(source: &str, context: &str) {
             Vec::<Violation>::new(),
             "a for-facts key dangles: {context}"
         );
+        assert_eq!(
+            verify_table(folio, &facts.slot_facts),
+            Vec::<Violation>::new(),
+            "a slot-facts key dangles: {context}"
+        );
         let printed = folio.print_to_string(FolioMode::Full);
         let reparsed = DisegnoFolio::parse(printed.as_str()).unwrap_or_else(|error| {
             panic!("post-pass folio re-parse failed ({context}): {error:?}")

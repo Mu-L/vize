@@ -157,11 +157,7 @@ pub(crate) fn element_core<'a>(
                 span: attr_span(cx, attr),
             }),
             AttrForm::Directive(directive) => {
-                let owner = Owner {
-                    node,
-                    tag,
-                    component,
-                };
+                let owner = Owner { tag, component };
                 lower_attr(cx, element, index, directive, &owner, &mut bindings);
             }
         }

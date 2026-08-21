@@ -11,7 +11,7 @@ use vize_carton::{Allocator, Box, Span, Vec};
 use vize_disegno::expr::{ExprRef, ForeignExpr, JsExpr, OpaqueExpr, OpaqueReason};
 use vize_disegno::op::{
     Attribute, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding, ForOp,
-    IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, Op, Region, SlotOp, TextOp,
+    IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, Op, Region, SlotContentOp, SlotOp, TextOp,
     VueDirectiveOp,
 };
 
@@ -43,6 +43,7 @@ fn op_keyword(op: &Op<'_>) -> &'static str {
 fn binding_keyword(op: &BindingOp<'_>) -> &'static str {
     match op {
         BindingOp::Model(_) => "ui.model",
+        BindingOp::SlotContent(_) => "ui.slot-content",
         BindingOp::VueDirective(_) => "vue.directive",
     }
 }
@@ -195,6 +196,15 @@ fn every_binding<'a>(allocator: &'a Allocator) -> Vec<'a, BindingOp<'a>> {
                 },
                 &allocator,
             )),
+            BindingOp::SlotContent(Box::new_in(
+                SlotContentOp {
+                    name: Some(DynamicName::Static("header")),
+                    modifiers: Vec::new_in(&allocator),
+                    params: Some(expr),
+                    span,
+                },
+                &allocator,
+            )),
             BindingOp::VueDirective(Box::new_in(
                 VueDirectiveOp {
                     name: "pin",
@@ -237,7 +247,7 @@ fn every_attached_op_variant_is_matched_without_a_wildcard() {
     let allocator = Allocator::default();
     let bindings = every_binding(&allocator);
     let keywords: std::vec::Vec<&str> = bindings.iter().map(binding_keyword).collect();
-    assert_eq!(keywords, ["ui.model", "vue.directive"]);
+    assert_eq!(keywords, ["ui.model", "ui.slot-content", "vue.directive"]);
     for binding in &bindings {
         assert_eq!(binding.mnemonic(), binding_keyword(binding));
     }

@@ -1,7 +1,7 @@
 //! The committed battery the P2-9 comparator runs — the same sources in
 //! the plain witness and the corpus entry, so a feature-wiring
 //! regression fails loudly in both lanes. Series 1 contributed the
-//! v-if templates; series 2 appends the v-for half.
+//! v-if templates; series 2 the v-for half; series 3 the v-slot half.
 
 /// (name, template source). Each names the projection class it pins.
 pub const BATTERY: &[(&str, &str)] = &[
@@ -110,5 +110,59 @@ pub const BATTERY: &[(&str, &str)] = &[
     (
         "if-for-precedence",
         r#"<li v-if="ready" v-for="i in xs">{{ i }}</li><li v-else>empty</li>"#,
+    ),
+    // -- the v-slot half (series 3) ----------------------------------
+    (
+        "named-slots",
+        r#"<Card><template #head="{ icon }"><b>t</b></template><template v-slot:body="row"><p>{{ row }}</p></template></Card>"#,
+    ),
+    (
+        "self-slot-default",
+        r#"<Panel v-slot="props"><em>{{ props.x }}</em></Panel>"#,
+    ),
+    (
+        "authored-default-name",
+        r#"<Panel v-slot:default="p">{{ p }}</Panel>"#,
+    ),
+    (
+        "dynamic-slot-name",
+        r#"<List><template #[cell]="value">{{ value }}</template></List>"#,
+    ),
+    (
+        "slot-name-modifiers",
+        r#"<Box><template #head.raw>x</template></Box>"#,
+    ),
+    (
+        "implicit-default-beside-named",
+        r#"<Card><template #a>x</template><p>body</p></Card>"#,
+    ),
+    (
+        "duplicate-slot-names",
+        r#"<Grid><template #cell="c">a</template><template #cell>b</template></Grid>"#,
+    ),
+    (
+        "mixed-usage",
+        r#"<Modal v-slot="own"><template #late>y</template></Modal>"#,
+    ),
+    (
+        "extraneous-children",
+        r#"<Grid><template #default>c</template><hr></Grid>"#,
+    ),
+    (
+        "outlet-names",
+        r#"<slot></slot><slot name="s"><b>f</b></slot><slot :name="n"></slot>"#,
+    ),
+    ("bare-name-outlet", r#"<slot name></slot>"#),
+    (
+        "comment-filler-default",
+        r#"<List><template #row>r</template><!-- note --></List>"#,
+    ),
+    (
+        "conditional-carrier",
+        r#"<Tabs><template #fixed>f</template><template v-if="ok" #maybe>m</template></Tabs>"#,
+    ),
+    (
+        "whitespace-only-default",
+        "<Card>\n  <template #a>x</template>\n</Card>",
     ),
 ];

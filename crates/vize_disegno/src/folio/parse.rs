@@ -25,6 +25,7 @@ use super::owned::{
     FolioOp, FolioSlot,
 };
 
+mod binding_line;
 mod expr_token;
 mod line;
 
@@ -158,19 +159,14 @@ impl Parser {
                 self.stack.push(Frame::Model(model));
                 Ok(())
             }
+            Item::SlotContent(content) => {
+                self.guard_binding(line_no)?;
+                self.push_leaf_binding(FolioBinding::SlotContent(content));
+                Ok(())
+            }
             Item::Directive(directive) => {
                 self.guard_binding(line_no)?;
-                match self.stack.last_mut() {
-                    Some(Frame::Element(element, _)) => {
-                        element.bindings.push(FolioBinding::VueDirective(directive));
-                    }
-                    Some(Frame::Component(component, _)) => {
-                        component
-                            .bindings
-                            .push(FolioBinding::VueDirective(directive));
-                    }
-                    _ => unreachable!("guard_binding admitted the owner"),
-                }
+                self.push_leaf_binding(FolioBinding::VueDirective(directive));
                 Ok(())
             }
             Item::Branch(branch) => match self.stack.last() {
@@ -240,8 +236,18 @@ impl Parser {
         }
     }
 
-    /// A binding line (`ui.model` / `vue.directive`) needs an open
-    /// element or component whose children have not started.
+    /// Attach a completed leaf binding (`ui.slot-content` /
+    /// `vue.directive`) to the owner `guard_binding` admitted.
+    fn push_leaf_binding(&mut self, binding: FolioBinding) {
+        match self.stack.last_mut() {
+            Some(Frame::Element(element, _)) => element.bindings.push(binding),
+            Some(Frame::Component(component, _)) => component.bindings.push(binding),
+            _ => unreachable!("guard_binding admitted the owner"),
+        }
+    }
+
+    /// A binding line (`ui.model` / `ui.slot-content` / `vue.directive`)
+    /// needs an open element or component whose children have not started.
     fn guard_binding(&mut self, line_no: usize) -> Result<(), FolioError> {
         match self.stack.last_mut() {
             Some(Frame::Element(_, phase) | Frame::Component(_, phase)) => {

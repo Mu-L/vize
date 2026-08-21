@@ -42,7 +42,7 @@ pub mod vue;
 pub use control::{ForBinding, ForOp, IfBranch, IfOp};
 pub use element::{Attribute, ComponentOp, ElementOp, Namespace};
 pub use model::{BindingContract, ModelOp};
-pub use slot::{DynamicName, SlotOp};
+pub use slot::{DynamicName, SlotContentOp, SlotOp};
 pub use text::{InterpolationOp, TextOp};
 pub use vue::VueDirectiveOp;
 
@@ -100,11 +100,16 @@ impl Op<'_> {
 ///
 /// The normalized one-way bindings (`ui.bind`, `ui.on`) are **not** here
 /// yet by design: an op lands with the transform that needs it (P2-9), and
-/// the exhaustive-match canary makes their arrival loud.
+/// the exhaustive-match canary makes their arrival loud —
+/// `ui.slot-content` landed exactly that way with the slot-normalization
+/// installment.
 #[derive(Debug)]
 pub enum BindingOp<'a> {
     /// `ui.model` - the two-way binding contract (never its realization).
     Model(Box<'a, ModelOp<'a>>),
+    /// `ui.slot-content` - one authored `v-slot` spelling on its carrier
+    /// (the syntactic surface; grouping is the slot pass's fact).
+    SlotContent(Box<'a, SlotContentOp<'a>>),
     /// `vue.directive` - a Vue custom directive carried through as a
     /// dialect op.
     VueDirective(Box<'a, VueDirectiveOp<'a>>),
@@ -117,6 +122,7 @@ impl BindingOp<'_> {
     pub const fn mnemonic(&self) -> &'static str {
         match self {
             Self::Model(_) => "ui.model",
+            Self::SlotContent(_) => "ui.slot-content",
             Self::VueDirective(_) => "vue.directive",
         }
     }

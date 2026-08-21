@@ -1,0 +1,120 @@
+//! Attached-binding line grammar: `ui.model`, `ui.slot-content`,
+//! `vue.directive` — split from [`line`](super::line) along the
+//! op-family boundary (region-op lines there, binding lines here) so
+//! each file stays within the source budget.
+
+use alloc::vec::Vec;
+
+use vize_carton::{String, cstr};
+use vize_davinci::folio::FolioError;
+
+use super::super::owned::{FolioContract, FolioModel, FolioSlotContent, FolioVueDirective};
+use super::expr_token::take_expr;
+use super::line::{Item, err, final_span, name_value, tail_span, take_quoted};
+
+/// Parse a `"a,b"` modifier payload into owned names.
+fn take_mods(rest: &str, line_no: usize) -> Result<(Vec<String>, &str), FolioError> {
+    let (joined, tail) = take_quoted(rest, line_no)?;
+    let mut modifiers = Vec::new();
+    for part in joined.as_str().split(',') {
+        if part.is_empty() {
+            return Err(err(line_no, cstr!("invalid modifier list")));
+        }
+        modifiers.push(String::from(part));
+    }
+    Ok((modifiers, tail))
+}
+
+pub(super) fn slot_content(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    // Every field is optional; the first present one follows the keyword's
+    // space (already consumed by `split_word`), each later one carries its
+    // own leading space — the same strictness as `vue.directive`'s tail.
+    let mut rest = rest;
+    let mut any_field = false;
+    let field = |rest: &'_ str, key: &str, any_field: bool| -> Option<usize> {
+        if any_field {
+            rest.strip_prefix(' ')
+                .is_some_and(|tail| tail.starts_with(key))
+                .then_some(key.len() + 1)
+        } else {
+            rest.starts_with(key).then_some(key.len())
+        }
+    };
+    let mut name = None;
+    if let Some(skip) = field(rest, "name=", any_field) {
+        let (value, tail) = name_value(&rest[skip..], line_no)?;
+        name = Some(value);
+        rest = tail;
+        any_field = true;
+    }
+    let mut modifiers = Vec::new();
+    if let Some(skip) = field(rest, "mods=", any_field) {
+        let (parsed, tail) = take_mods(&rest[skip..], line_no)?;
+        modifiers = parsed;
+        rest = tail;
+        any_field = true;
+    }
+    let mut params = None;
+    if let Some(skip) = field(rest, "params=", any_field) {
+        let (expr, tail) = take_expr(&rest[skip..], line_no)?;
+        params = Some(expr);
+        rest = tail;
+        any_field = true;
+    }
+    let span = if any_field {
+        tail_span(rest, line_no)?
+    } else {
+        final_span(rest, line_no)?
+    };
+    Ok(Item::SlotContent(FolioSlotContent {
+        name,
+        modifiers,
+        params,
+        span,
+    }))
+}
+
+pub(super) fn model(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let Some(rest) = rest.strip_prefix("read=") else {
+        return Err(err(line_no, cstr!("expected `read=`")));
+    };
+    let (read, rest) = take_expr(rest, line_no)?;
+    let Some(rest) = rest.strip_prefix(" write=") else {
+        return Err(err(line_no, cstr!("expected `write=`")));
+    };
+    let (write, tail) = take_expr(rest, line_no)?;
+    Ok(Item::Model(FolioModel {
+        contract: FolioContract { read, write },
+        attributes: Vec::new(),
+        span: tail_span(tail, line_no)?,
+    }))
+}
+
+pub(super) fn directive(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let (name, mut rest) = take_quoted(rest, line_no)?;
+    let mut argument = None;
+    if let Some(after) = rest.strip_prefix(" arg=") {
+        let (value, tail) = name_value(after, line_no)?;
+        argument = Some(value);
+        rest = tail;
+    }
+    let mut modifiers = Vec::new();
+    if let Some(after) = rest.strip_prefix(" mods=") {
+        let (parsed, tail) = take_mods(after, line_no)?;
+        modifiers = parsed;
+        rest = tail;
+    }
+    let mut value = None;
+    if let Some(tail) = rest.strip_prefix(" value=") {
+        let (expr, tail) = take_expr(tail, line_no)?;
+        value = Some(expr);
+        rest = tail;
+    }
+    Ok(Item::Directive(FolioVueDirective {
+        name,
+        argument,
+        modifiers,
+        value,
+        span: tail_span(rest, line_no)?,
+    }))
+}
