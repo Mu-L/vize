@@ -98,18 +98,7 @@ impl LanguageServer for MaestroServer {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let uri = params.text_document.uri;
-        let content = params.text_document.text;
-        let version = params.text_document.version;
-        let language_id = params.text_document.language_id;
-
-        self.state
-            .documents
-            .open(uri.clone(), content.clone(), version, language_id);
-
-        self.state.update_virtual_docs(&uri, &content);
-
-        self.publish_diagnostics(&uri).await;
+        self.open_document(params).await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -214,6 +203,9 @@ impl LanguageServer for MaestroServer {
 
         #[cfg(feature = "native")]
         {
+            if let Some(response) = CompletionService::complete_static_object_member(&ctx) {
+                return Ok(Some(response));
+            }
             let corsa_bridge = self.state.get_corsa_bridge().await;
             if let Some(response) = CompletionService::complete_with_corsa(&ctx, corsa_bridge).await
             {
