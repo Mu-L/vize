@@ -4,6 +4,7 @@ mod diff;
 mod graph;
 mod imports;
 mod payload;
+mod spolvero;
 
 #[cfg(test)]
 mod tests;
@@ -21,3 +22,4 @@ pub use payload::{
     InspectorTemplateSyntax, build_agent_report, build_payload, build_playground_url,
     serialize_agent_report, serialize_payload,
 };
+pub use spolvero::{SpolveroFeed, SpolveroPage, s1_page, spolvero_value};

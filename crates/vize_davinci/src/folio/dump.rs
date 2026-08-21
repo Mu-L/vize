@@ -8,9 +8,10 @@
 //! text is hashing the artifact, and the driver holding the artifact prints
 //! once and feeds every consumer the same bytes.
 //!
-//! The library half is deliberately IO-free (`no_std + alloc`): pages are
-//! `(name, text)` pairs, and writing them into a directory is the host
-//! binary's job (`davinci-opt`, the `vize` CLI). Page names are
+//! The library half is deliberately IO-free (`no_std + alloc`): pages carry
+//! their text plus stage/pass provenance (which the P2-18 Spolvero feed
+//! serializes), and writing them into a directory is the host binary's job
+//! (`davinci-opt`, the `vize` CLI). Page names are
 //! `{seq:03}-{stage}.{pass}.folio` in emission order, so a directory listing
 //! sorts into the order the passes ran and two dumps of the same pass name
 //! (one pipeline may run a pass twice) cannot collide.
@@ -22,11 +23,19 @@ use vize_carton::{String, cstr};
 
 use crate::pass::PassEvent;
 
-/// One page a dump run produced: the file name to write and its text.
+/// One page a dump run produced: the file name to write and its text,
+/// plus the stage/pass provenance the Spolvero feed (P2-18) serializes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DumpPage {
-    /// `{seq:03}-{stage}.{pass}.folio`, emission-ordered.
+    /// `{seq:03}-{stage}.{pass}.folio`, emission-ordered. Derived from
+    /// (`seq`, [`stage`](Self::stage), [`pass`](Self::pass)) once, at
+    /// emission - the one place the sequence number is known - and cached
+    /// here; the semantic fields are the two below.
     pub name: String,
+    /// Stage whose pipeline emitted the page (`event.pipeline.stage`).
+    pub stage: String,
+    /// Pass after which the page was emitted (`event.desc().name`).
+    pub pass: String,
     /// The artifact's canonical `Full`-mode text after the named pass.
     pub text: String,
 }
@@ -80,6 +89,8 @@ impl FolioDump {
                 event.pipeline.stage,
                 event.desc().name
             ),
+            stage: String::from(event.pipeline.stage),
+            pass: String::from(event.desc().name),
             text: String::from(canonical_text),
         });
     }
