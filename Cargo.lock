@@ -3883,6 +3883,7 @@ dependencies = [
  "oxc_ast_visit",
  "oxc_parser",
  "oxc_span",
+ "regex-lite",
  "serde",
  "serde_json",
  "vize_atelier_core",
@@ -3890,6 +3891,8 @@ dependencies = [
  "vize_carton",
  "vize_croquis",
  "vize_croquis_cf",
+ "vize_davinci",
+ "vize_sinopia",
 ]
 
 [[package]]

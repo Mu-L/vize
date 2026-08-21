@@ -12,12 +12,21 @@ use std::path::Path;
 use vize_carton::profiler::{ProfileExportBudget, ProfileExportOptions, global_profiler};
 use vize_carton::{String, cstr};
 use vize_davinci::folio::dump::FolioDump;
+use vize_davinci::folio::feed::SpolveroFeed;
 
-/// Write every collected page into `dir`, creating it first.
+/// The Spolvero feed's file name inside a `--folio-dir` directory (P2-18).
+/// Pages end in `.folio`, so the name cannot collide with a page.
+const FEED_FILE: &str = "spolvero.json";
+
+/// Write every collected page into `dir`, creating it first, plus the
+/// directory's Spolvero feed (`spolvero.json`, P2-18): the same pages as
+/// one schema-versioned JSON document, `SpolveroFeed::of_dump` over the
+/// same [`FolioDump`] - the directory and the feed cannot disagree.
 ///
 /// The directory is created even when the dump is empty (a fully hash-gated
-/// run over no-op passes), so "the gate emitted nothing" is observable as an
-/// empty directory rather than indistinguishable from "the flag was ignored".
+/// run over no-op passes), and the feed is written even then, with zero
+/// pages - so "the gate emitted nothing" is observable in both artifacts
+/// rather than indistinguishable from "the flag was ignored".
 ///
 /// # Errors
 ///
@@ -31,7 +40,10 @@ pub fn write_dump(dir: &Path, dump: &FolioDump) -> Result<(), String> {
         std::fs::write(&path, page.text.as_bytes())
             .map_err(|error| cstr!("--folio-dir: cannot write {}: {error}", path.display()))?;
     }
-    Ok(())
+    let feed_path = dir.join(FEED_FILE);
+    let feed = SpolveroFeed::of_dump("davinci-opt", dump);
+    std::fs::write(&feed_path, feed.to_json().as_bytes())
+        .map_err(|error| cstr!("--folio-dir: cannot write {}: {error}", feed_path.display()))
 }
 
 /// Write the enabled global profiler's export - the timing JSON - to `path`.

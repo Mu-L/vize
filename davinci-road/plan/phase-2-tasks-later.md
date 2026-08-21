@@ -52,25 +52,29 @@
 
 ## P2-18 — Spolvero feed v1
 
+**Landed 2026-08-21** — full record: [phase-2-records/p2-18.md](./phase-2-records/p2-18.md).
+
 **Deliverable:** the observer's folio output as a consumable feed, rendered in the existing inspector.
 
 **Steps:**
 
-- [ ] P2-3's folio-printing observer writes a folio directory with a payload schema carrying `schema_version` (devtool.md's data-layer requirement)
-- [ ] `vize_curator`'s inspector renders S1/S2 pages — `crates/vize_curator/src/inspector/payload.rs` (`InspectorPayload`, `build_payload`, `serialize_payload`) — next to the existing croquis alias. The alias itself lives in `crates/vize_vitrine/src/wasm/analyze.rs:312-315`, which carries both the deprecated `vir` key and nested `folio.croquis` (P0-10 corrected the location; the inspector payload never carried it)
-- [ ] **Registry gap to close in this task:** [`test-suites.md`](./test-suites.md) has no suite covering the Spolvero feed payload. Add one there in the same PR — the registry is the source of TS-ids and a gate naming an unregistered suite is a plan bug, so this task must not invent an id here
+- [x] P2-3's folio-printing observer writes a folio directory with a payload schema carrying `schema_version` (devtool.md's data-layer requirement)
+- [x] `vize_curator`'s inspector renders S1/S2 pages — `crates/vize_curator/src/inspector/payload.rs` (`InspectorPayload`, `build_payload`, `serialize_payload`) — next to the existing croquis alias. The alias itself lives in `crates/vize_vitrine/src/wasm/analyze.rs:312-315`, which carries both the deprecated `vir` key and nested `folio.croquis` (P0-10 corrected the location; the inspector payload never carried it)
+- [x] **Registry gap to close in this task:** [`test-suites.md`](./test-suites.md) has no suite covering the Spolvero feed payload. Add one there in the same PR — the registry is the source of TS-ids and a gate naming an unregistered suite is a plan bug, so this task must not invent an id here
 
 **Acceptance:** the feed payload validates against its committed schema, gated by the newly registered suite; the croquis alias keeps working byte-identically (`folio.croquis` and `vir` both present). **Review point:** that the playground actually shows the stage ladder for a compiled SFC — a rendering claim no CI job evaluates today, which is why it is marked rather than dressed up as a gate. TS-3, TS-13. **Deps:** P2-4, P2-3. **Non-goals:** the `vize devtool` local server (C-7); the transport decision (P2-19); provenance navigation and remarks rendering (C-5, needs P3-13); the Fresco TUI (C-8).
 
 ## P2-19 — DevTool protocol spike
 
+**Landed 2026-08-21** — full record: [phase-2-records/p2-19.md](./phase-2-records/p2-19.md).
+
 **Deliverable:** the open question closed with a working prototype, and the spike disposed of deliberately.
 
 **Steps:**
 
-- [ ] Prototype the three candidates against the P2-18 feed: JSON-lines stream, served files, or a content-mapper-style JSON-RPC (`vize content-mapper` is the existing precedent for the last)
-- [ ] Evaluate against the three consumers devtool.md names — browser playground (`vize_vitrine` wasm), local server, and `--format agent` output under `vize_doctor::ai_context` budgeting — plus the `schema_version` negotiation requirement
-- [ ] Record the decision in [`devtool.md`](../devtool.md) and convert the `open-questions.md` "DevTool protocol" entry into a decided stub pointing at it, per that document's own convention
+- [x] Prototype the three candidates against the P2-18 feed: JSON-lines stream, served files, or a content-mapper-style JSON-RPC (`vize content-mapper` is the existing precedent for the last)
+- [x] Evaluate against the three consumers devtool.md names — browser playground (`vize_vitrine` wasm), local server, and `--format agent` output under `vize_doctor::ai_context` budgeting — plus the `schema_version` negotiation requirement
+- [x] Record the decision in [`devtool.md`](../devtool.md) and convert the `open-questions.md` "DevTool protocol" entry into a decided stub pointing at it, per that document's own convention
 
 **Acceptance:** decision recorded in `devtool.md`; the open-questions entry is a stub; the spike code is either kept (with tests and a home) or deleted, and the PR says which and why. **Review point** — a transport choice is a judgement, and "spike code left lying around" is the failure mode this acceptance names. **Deps:** P2-18. **Non-goals:** implementing the chosen transport at production quality (C-7); the JS plugin API shape (charter #29, phase 4/5 spike); authentication or remote access.
 
