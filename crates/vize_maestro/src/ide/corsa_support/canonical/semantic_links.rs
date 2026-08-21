@@ -1,14 +1,25 @@
 use vize_canon::{LspPosition, LspRange};
-use vize_carton::String;
+use vize_carton::{FxHashSet, String};
 
 use super::{CanonicalVirtualDocument, location_matches_uri};
 use crate::ide::diagnostics::VirtualTsResult;
+
+mod component_props;
+
+pub(crate) use component_props::{
+    component_prop_location_matches, matching_component_prop_navigation_positions,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct CanonicalSemanticPosition {
     pub(crate) request_uri: String,
     pub(crate) line: u32,
     pub(crate) character: u32,
+}
+
+pub(crate) struct ComponentPropNavigationMatches {
+    pub(crate) positions: Vec<CanonicalSemanticPosition>,
+    pub(crate) names: FxHashSet<String>,
 }
 
 /// Return every live TypeScript identity Canon materialized for one authored
@@ -132,6 +143,9 @@ fn linked_offset(
     end: usize,
 ) -> Option<usize> {
     links.iter().find_map(|link| {
+        if link.kind != vize_canon::virtual_ts::VizeSemanticLinkKind::VueSetupTemplateRefUnwrap {
+            return None;
+        }
         if link.source_range.start == start && link.source_range.end == end {
             Some(link.target_range.start)
         } else if link.target_range.start == start && link.target_range.end == end {
