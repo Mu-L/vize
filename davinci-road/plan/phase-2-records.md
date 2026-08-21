@@ -23,3 +23,4 @@
 | [P2-12a](./phase-2-records/p2-12a.md) | 2026-08-19 | the pre-S2 traversal baseline, the phase-2 target, and the plan finding that corpus `--check` is not evaluable                                                    |
 | [P2-13](./phase-2-records/p2-13.md)   | 2026-08-20 | the ICE policy: repro.folio + exact-equality replay via `vize repro`; dump flags real on `davinci-opt`, pinned-empty on the build path                            |
 | [P2-14](./phase-2-records/p2-14.md)   | 2026-08-20 | three accepted `std` edges; TS-24 as required `clippy-and-test` steps (the check.yml ratchet); oxc measured not-`no_std`                                          |
+| [P2-18](./phase-2-records/p2-18.md)   | 2026-08-21 | the feed as a serialization of `FolioDump`, never a second collector; `schema_version` negotiation pinned at the validator; the croquis alias byte-pinned         |

@@ -68,6 +68,7 @@ vize_curator = { path = "crates/vize_curator" }
 vize_davinci = { path = "crates/vize_davinci" }
 vize_davinci_derive = { path = "crates/vize_davinci_derive" }
 vize_disegno = { path = "crates/vize_disegno" }
+vize_sinopia = { path = "crates/vize_sinopia" }
 
 # OXC dependencies (pinned to a specific upstream revision for reproducibility)
 oxc_parser = { version = "=0.142.0", git = "https://github.com/oxc-project/oxc", rev = "fc702c1fa9f0412d06ec6908b58cd395b826cf7f" }
