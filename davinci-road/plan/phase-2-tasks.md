@@ -167,7 +167,7 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 
 **Steps** — the checklist is the actual directory, `crates/vize_atelier_core/src/transforms/`, reached through the Rust module `vize_atelier_core::steps` (`#[path]` attributes in `src/steps.rs`):
 
-- [ ] `v_if.rs` → `ui.if` regions — the first and highest-value port, because regions replace the sibling mutation in `src/transform/structural.rs`
+- [x] `v_if.rs` → `ui.if` regions — the first and highest-value port, because regions replace the sibling mutation in `src/transform/structural.rs` _(installment 1, 2026-08-21: the structural half was already the P2-8 lowering's; the pass body is the branch-key lift + `VIfSameKey`, classified `MandatoryLowering`/barrier in `vize_ricalco::pass::vif` — see the [series record](./phase-2-records/p2-9.md))_
 - [ ] `v_for.rs` → `ui.for` region
 - [ ] `v_slot.rs` (+ `v_slot/params.rs`, `v_slot/validate.rs`) → slot normalization
 - [ ] `transform_text.rs` → text / interpolation merging
@@ -181,6 +181,10 @@ VIZE_DAVINCI_DIFFERENTIAL_CORPUS=tests/_fixtures/_git \
 - [ ] Measure and record the effect on the P1-9 residual classes: does region-structured lowering shrink `transform_expression/reparse.rs`'s 11.73%? A number from the existing `retained::differential` counters, not a prediction
 
 **Acceptance:** per-pass full normalized folio snapshots (TS-17); DOM output through the **old** codegen unchanged — `node tools/davinci/corpus-diff.mjs --surface compiler` empty with scope proof (TS-11); differential lane green over the corpus, zero divergence (TS-25); the touched benches' `allocs` re-recorded in `budgets.toml` as tightened numbers with their measurement (TS-10, ratchet); TS-1, TS-13. **Deps:** P2-6, P2-8, P2-12a. **Non-goals:** the DOM backend itself (P2-11); the SSR and Vapor lanes (phase 3 — they stay on the old lane, which is the strangler design, not an oversight); deleting the old transform lane (exit gate); porting `transform_expression/` (P2-5b decides its contract first).
+
+**Series log** — one line per landed installment; the full account is the [series record](./phase-2-records/p2-9.md):
+
+- **1 (2026-08-21):** the series substrate — pass bodies in `vize_ricalco::pass`, comparator in `vize_atelier_core` dev-dep test space (the publish gate's stripped-dev-dep carve-out), lane flag `VIZE_DAVINCI_TRANSFORM` — plus the `v-if` port: TS-17 snapshots committed, differential lane zero-divergence over the 18-template battery (pinned) and 12,017 of 12,021 corpus templates (4 hard-parse-error skips, named), the 11.73%-class seed re-measured twice (12.73% on today's hydration state, byte-identical to P2-5b's runs — the series baseline).
 
 ## P2-10 — Style `v-bind()` ops
 

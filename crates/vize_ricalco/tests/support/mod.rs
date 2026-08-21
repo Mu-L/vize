@@ -57,6 +57,62 @@ pub fn with_lowered<R>(source: &str, f: impl FnOnce(&Lowered<'_>, &DisegnoFolio)
     f(&lowered, &folio)
 }
 
+/// Parse + lower `source`, run the S2 transform pipeline (P2-9) under
+/// the budget observer, and hand the post-pass artifact to `f`.
+pub fn with_transformed<R>(
+    source: &str,
+    f: impl FnOnce(
+        &Lowered<'_>,
+        &DisegnoFolio,
+        &vize_ricalco::pass::S2Facts,
+        &vize_davinci::pass::BudgetObserver,
+    ) -> R,
+) -> R {
+    let allocator = Allocator::new();
+    let (tree, errors) = parse(&allocator, source);
+    let mut lowered = lower(&allocator, &tree, &errors);
+    let mut budget = vize_davinci::pass::BudgetObserver::new();
+    let facts = vize_ricalco::pass::run_transform(&mut lowered, &mut budget);
+    let folio = DisegnoFolio::of(&lowered.root.ops);
+    f(&lowered, &folio, &facts, &budget)
+}
+
+/// The soundness oracle of [`assert_sound`], applied **after** the S2
+/// transform pipeline ran: the pass may move facts, never break the
+/// accounting, the invariants, a side-table key, or the round-trip.
+pub fn assert_transformed_sound(source: &str, context: &str) {
+    with_transformed(source, |lowered, folio, facts, _budget| {
+        assert_eq!(
+            u64::from(lowered.op_count),
+            folio.op_count(),
+            "id accounting diverged post-pass: {context}"
+        );
+        assert_eq!(
+            verify(folio, Rigor::Canonical),
+            Vec::<Violation>::new(),
+            "verifier rejected post-pass output: {context}"
+        );
+        assert_eq!(
+            verify_table(folio, &lowered.scopes),
+            Vec::<Violation>::new(),
+            "a scope key dangles post-pass: {context}"
+        );
+        assert_eq!(
+            verify_table(folio, &facts.if_facts),
+            Vec::<Violation>::new(),
+            "an if-facts key dangles: {context}"
+        );
+        let printed = folio.print_to_string(FolioMode::Full);
+        let reparsed = DisegnoFolio::parse(printed.as_str()).unwrap_or_else(|error| {
+            panic!("post-pass folio re-parse failed ({context}): {error:?}")
+        });
+        assert_eq!(
+            &reparsed, folio,
+            "post-pass folio round-trip diverged: {context}"
+        );
+    });
+}
+
 /// The soundness oracle, asserted for every input the suites touch:
 ///
 /// 1. **Id accounting** — the minted count equals the folio's op count,

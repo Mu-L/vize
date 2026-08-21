@@ -3640,7 +3640,11 @@ dependencies = [
  "vize_armature",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
+ "vize_disegno",
  "vize_relief",
+ "vize_ricalco",
+ "vize_sinopia",
 ]
 
 [[package]]
@@ -4099,6 +4103,7 @@ dependencies = [
 name = "vize_ricalco"
 version = "0.354.0"
 dependencies = [
+ "insta",
  "oxc_ast",
  "vize_carton",
  "vize_davinci",

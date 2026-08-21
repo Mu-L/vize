@@ -57,5 +57,6 @@
 extern crate alloc;
 
 pub mod lower;
+pub mod pass;
 
 pub use lower::{Lowered, lower};
