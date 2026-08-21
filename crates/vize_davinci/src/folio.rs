@@ -25,6 +25,7 @@ use vize_carton::String;
 
 pub mod croquis;
 pub mod dump;
+pub mod feed;
 pub mod page;
 pub mod repro;
 pub mod value;
