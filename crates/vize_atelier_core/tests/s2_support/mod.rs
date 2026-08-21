@@ -10,7 +10,17 @@
 //! from S2 (P2-11); until then this projection is the strongest
 //! output-determining oracle the transform lane has, and TS-11
 //! (`corpus-diff --surface compiler`) holds the actual output bytes
-//! still.
+//! still. Series 3 adds the slot projection — component slot grouping
+//! (canonical names with their invented-vs-authored class, params
+//! texts, group order) and outlet names — in the [`slots`] module.
+//! Series 4 adds the text projection — the merged text-unit surface
+//! (`createTextVNode` boundaries with their static/dynamic parts,
+//! condensed text included) — in the [`text`] module. Series 5 adds
+//! the binding-surface projection — per owner: static attributes,
+//! `v-bind`/`v-on` units, custom directives, and the reconstructed
+//! `v-model` contract — in the [`surface`] module, and turns the
+//! dynamic-key, wrapper-key, and outlet-key skip classes into
+//! comparisons.
 //!
 //! # Why this lives in test space (the dependency direction)
 //!
@@ -39,13 +49,16 @@
 //! compares exactly the domain both lanes claim to model — templates
 //! neither lane **rejects** — and **counts** everything it declines:
 //! legacy hard parse errors, S2 error diagnostics (evaluated pre-pass,
-//! so the pass's own duplicate-key errors never mask a comparison; a
-//! malformed or expressionless `v-for` skips here, matching the legacy
-//! transform's refusal to build a `ForNode` from it), dynamic keys
-//! (deferred until `ui.bind`), template-wrapper keys (dropped at
-//! lowering — the recorded series gap), slot-outlet keys (no S2
-//! attribute surface), compound condition rebuilds, and compound
-//! source/alias rebuilds in a for's binding surface.
+//! so a pass's own diagnostics never mask a comparison; a malformed or
+//! expressionless `v-for` skips here, matching the legacy transform's
+//! refusal to build a `ForNode` from it), the legacy dynamic-argument
+//! `:[key]` quirk, compound rebuilds of any expression position, the
+//! slot projection's counted classes — conditional carriers, the
+//! `v-slots` spread, filler-only implicit defaults ([`slots`] module
+//! docs, series 3) — and the surface projection's counted classes
+//! ([`surface`] module docs, series 5: still-deferred built-ins,
+//! wrapper props, entity-bearing values, dynamic-argument and
+//! pattern-scoped models).
 //! Recovery-level legacy notes (`ErrorCode::is_recovery` — spec repairs
 //! such as self-closing rewrites the parser already applied) do **not**
 //! skip: the first corpus run measured them on 3,027 of 12,021
@@ -55,21 +68,31 @@
 //! average.
 
 pub mod battery;
+mod checks;
 pub mod old_lane;
 pub mod s2_lane;
+pub mod slots;
+pub mod slots_old;
+pub mod surface;
+pub mod surface_check;
+pub mod surface_old;
+pub mod surface_old_help;
+pub mod surface_s2;
+pub mod text;
+pub mod text_old;
 
 pub use battery::BATTERY;
+pub use slots::SlotCounters;
+pub use surface::SurfaceCounters;
+pub use text::TextCounters;
 
-use vize_atelier_core::parser::parse as old_parse;
-use vize_atelier_core::{TransformOptions, transform};
+use vize_atelier_core::parser::parse_with_options as old_parse_with_options;
+use vize_atelier_core::{ParserOptions, TransformOptions, transform};
 use vize_carton::Allocator;
 use vize_davinci::diagnostic::Severity;
 use vize_davinci::pass::NoObserver;
 use vize_disegno::folio::DisegnoFolio;
 use vize_ricalco::pass::{TRANSFORM_LANE_FLAG, run_transform};
-
-use old_lane::{OldChain, OldFor, OldKey};
-use s2_lane::{RootKind, S2Chain, S2For};
 
 /// The comparator's process-global accounting, pinned exactly by the
 /// plain witness and printed by the corpus entry.
@@ -91,16 +114,20 @@ pub struct Counters {
     pub if_ops: u64,
     /// Branches compared.
     pub branches: u64,
-    /// Static-key value comparisons that ran.
+    /// Static-key value comparisons that ran (carriers, outlets
+    /// included since series 5).
     pub keys_static: u64,
-    /// Old lane saw a `:key` binding; S2 defers it until `ui.bind`.
+    /// Dynamic-key text comparisons that ran (series 5 closed the
+    /// deferral class of the same name).
     pub keys_dynamic: u64,
-    /// Old lane extracted a `<template v-if>` wrapper key; the lowering
-    /// dropped the wrapper's attributes (the recorded series gap).
-    pub keys_template_if: u64,
-    /// Old lane extracted a key from a slot outlet; `ui.slot` carries
-    /// no attribute surface.
-    pub keys_slot_root: u64,
+    /// `<template v-if>` wrapper keys compared (series 5 closed the
+    /// installment-1 drop through the lowering's capture channel).
+    pub keys_wrapper: u64,
+    /// The legacy arg-content quirk: a dynamic-argument `:[key]` the
+    /// legacy lane lifts as the branch key; S2 counts, never imitates.
+    pub keys_dynamic_arg: u64,
+    /// A legacy compound key rebuild: no single source text.
+    pub keys_compound: u64,
     /// Old lane rebuilt a compound condition; no single source text to
     /// compare.
     pub conditions_compound: u64,
@@ -117,6 +144,16 @@ pub struct Counters {
     /// Old lane rebuilt a compound source or alias; no single source
     /// text to compare.
     pub for_compound: u64,
+    /// The slot half (series 3): units, groups, outlets, and the
+    /// counted classes ([`slots`] module docs).
+    pub slots: SlotCounters,
+    /// The text half (series 4): units, parts, compounds, and the
+    /// counted classes ([`text`] module docs).
+    pub text: TextCounters,
+    /// The binding-surface half (series 5): owners, attrs, binds, ons,
+    /// directives, models, and the counted classes ([`surface`] module
+    /// docs).
+    pub surfaces: SurfaceCounters,
 }
 
 /// Dual-run `source` through both lanes and compare the projections.
@@ -132,10 +169,19 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
         return;
     }
 
-    // Legacy lane: the shipped parse + transform, default options (no
-    // identifier prefixing, so condition text stays authored).
+    // Legacy lane: the shipped parse + transform. Options stay default
+    // except `is_pre_tag`, which takes the shipped DOM configuration
+    // (`crates/vize_atelier_dom/src/compile/stage_options.rs`) so both
+    // lanes exempt `<pre>` from whitespace condensing the same way —
+    // the default `|_| false` would condense inside `<pre>`, which no
+    // shipped compile does. `is_pre_tag` feeds only the condense
+    // strategy, so every pre-series-4 projection is unaffected.
     let old_allocator = Allocator::new();
-    let (mut root, parse_errors) = old_parse(&old_allocator, source);
+    let options = ParserOptions {
+        is_pre_tag: |tag| tag == "pre",
+        ..ParserOptions::default()
+    };
+    let (mut root, parse_errors) = old_parse_with_options(&old_allocator, source, options);
     if parse_errors.iter().any(|error| !error.code.is_recovery()) {
         counters.skipped_old_parse_errors += 1;
         return;
@@ -144,6 +190,18 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     let mut old_chains = Vec::new();
     let mut old_fors = Vec::new();
     old_lane::collect(&root.children, &mut old_chains, &mut old_fors);
+    let mut old_units = Vec::new();
+    let mut old_outlets = Vec::new();
+    slots_old::collect_old(&root.children, source, &mut old_units, &mut old_outlets);
+    let mut old_text_units = Vec::new();
+    text_old::collect_units(&root.children, &mut old_text_units);
+    let mut old_surfaces = Vec::new();
+    surface_old::collect_surfaces(
+        &root.children,
+        false,
+        &mut old_surfaces,
+        &mut counters.surfaces,
+    );
 
     // S2 lane: sinopia parse -> ricalco lower -> the S2 passes through
     // the P2-2 pass manager (verifier between passes in debug).
@@ -160,150 +218,62 @@ pub fn compare(name: &str, source: &str, counters: &mut Counters) {
     }
     let facts = run_transform(&mut lowered, &mut NoObserver);
     let folio = DisegnoFolio::of(&lowered.root.ops);
-    let (s2_chains, s2_fors) = s2_lane::collect(&folio, &facts.if_facts);
+    let s2 = s2_lane::collect(
+        &folio,
+        &s2_lane::Tables {
+            if_facts: &facts.if_facts,
+            slot_facts: &facts.slot_facts,
+            text_facts: &facts.text_facts,
+            model_faults: &facts.model_faults,
+        },
+    );
 
-    check(name, source, &old_chains, &s2_chains, counters);
-    check_fors(name, source, &old_fors, &s2_fors, counters);
+    checks::check(name, source, &old_chains, &s2.chains, counters);
+    checks::check_fors(name, source, &old_fors, &s2.fors, counters);
+    slots::check(
+        name,
+        source,
+        &old_units,
+        &s2.units,
+        &old_outlets,
+        &s2.outlets,
+        &mut counters.slots,
+    );
+    counters.text.rawtext_excluded += s2.text_rawtext_excluded;
+    if s2.has_table {
+        // The legacy in-table tree construction class ([`surface`]
+        // module docs): owner order and count can genuinely differ
+        // inside table subtrees, so the surface half skips whole.
+        counters.surfaces.table_templates += 1;
+    } else {
+        counters.surfaces.models_invalid += s2.models_invalid;
+        counters.surfaces.keys_excluded += s2.keys_excluded;
+        surface_check::check(
+            name,
+            source,
+            &old_surfaces,
+            &s2.surfaces,
+            &mut counters.surfaces,
+        );
+    }
+    // The text projection's template-level v-pre class ([`text`] module
+    // docs): the legacy parser honours `v-pre` and then erases it from
+    // its tree, so the deterministic detector is the S2 lowering's own
+    // deferral record.
+    let has_vpre = lowered
+        .provenance
+        .iter()
+        .any(|record| record.rule.as_str() == "defer.v-pre");
+    if has_vpre {
+        counters.text.vpre_templates += 1;
+    } else {
+        text::check(
+            name,
+            source,
+            &old_text_units,
+            &s2.text_units,
+            &mut counters.text,
+        );
+    }
     counters.compared += 1;
-}
-
-/// One divergence panic, with everything needed to investigate.
-macro_rules! diverged {
-    ($name:expr, $source:expr, $old:expr, $s2:expr, $($why:tt)+) => {
-        panic!(
-            "TS-25 divergence [{}]: {}\ntemplate:\n{}\nlegacy projection: {:#?}\ns2 projection: {:#?}",
-            $name, format_args!($($why)+), $source, $old, $s2
-        )
-    };
-}
-
-fn check(name: &str, source: &str, old: &[OldChain], s2: &[S2Chain], counters: &mut Counters) {
-    if old.len() != s2.len() {
-        diverged!(
-            name,
-            source,
-            old,
-            s2,
-            "chain count {} vs {}",
-            old.len(),
-            s2.len()
-        );
-    }
-    for (chain_index, (old_chain, s2_chain)) in old.iter().zip(s2).enumerate() {
-        if old_chain.branches.len() != s2_chain.branches.len() {
-            diverged!(name, source, old, s2, "chain {chain_index} branch count");
-        }
-        counters.if_ops += 1;
-        for (old_branch, s2_branch) in old_chain.branches.iter().zip(&s2_chain.branches) {
-            counters.branches += 1;
-            match (&old_branch.condition, &s2_branch.condition) {
-                (None, None) => {}
-                (Some(None), Some(_)) => counters.conditions_compound += 1,
-                (Some(Some(old_text)), Some(s2_text)) if old_text == s2_text => {}
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "chain {chain_index} condition {:?} vs {:?}",
-                    old_branch.condition,
-                    s2_branch.condition
-                ),
-            }
-            if old_branch.template_if {
-                if !matches!(old_branch.key, OldKey::None) {
-                    counters.keys_template_if += 1;
-                }
-                continue;
-            }
-            match (&old_branch.key, &s2_branch.key, s2_branch.root) {
-                (OldKey::None, None, _) => {}
-                (OldKey::Dynamic, None, _) => counters.keys_dynamic += 1,
-                (OldKey::Static(_), None, RootKind::SlotOutlet) => counters.keys_slot_root += 1,
-                (OldKey::Static(old_value), Some(s2_value), _) if old_value == s2_value => {
-                    counters.keys_static += 1;
-                }
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "chain {chain_index} key {:?} vs {:?} (root {:?})",
-                    old_branch.key,
-                    s2_branch.key,
-                    s2_branch.root
-                ),
-            }
-        }
-    }
-}
-
-/// The series-2 half: every for's binding surface, in document order.
-fn check_fors(name: &str, source: &str, old: &[OldFor], s2: &[S2For], counters: &mut Counters) {
-    if old.len() != s2.len() {
-        diverged!(
-            name,
-            source,
-            old,
-            s2,
-            "for count {} vs {}",
-            old.len(),
-            s2.len()
-        );
-    }
-    for (for_index, (old_for, s2_for)) in old.iter().zip(s2).enumerate() {
-        counters.for_ops += 1;
-        match &old_for.source {
-            None => counters.for_compound += 1,
-            Some(old_text) if *old_text == s2_for.source => {}
-            Some(_) => diverged!(
-                name,
-                source,
-                old,
-                s2,
-                "for {for_index} source {:?} vs {:?}",
-                old_for.source,
-                s2_for.source
-            ),
-        }
-        /// What one alias position's comparison found.
-        enum Alias {
-            BothAbsent,
-            Compound,
-            Compared,
-        }
-        let alias = |position: &str,
-                     old_alias: &Option<old_lane::OldText>,
-                     s2_alias: &Option<vize_carton::String>| {
-            match (old_alias, s2_alias) {
-                (None, None) => Alias::BothAbsent,
-                (Some(None), Some(_)) => Alias::Compound,
-                (Some(Some(old_text)), Some(s2_text)) if old_text == s2_text => Alias::Compared,
-                _ => diverged!(
-                    name,
-                    source,
-                    old,
-                    s2,
-                    "for {for_index} {position} {:?} vs {:?}",
-                    old_alias,
-                    s2_alias
-                ),
-            }
-        };
-        match alias("value", &old_for.value, &s2_for.value) {
-            Alias::BothAbsent => counters.for_values_absent += 1,
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_values += 1,
-        }
-        match alias("key", &old_for.key, &s2_for.key) {
-            Alias::BothAbsent => {}
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_keys += 1,
-        }
-        match alias("index", &old_for.index, &s2_for.index) {
-            Alias::BothAbsent => {}
-            Alias::Compound => counters.for_compound += 1,
-            Alias::Compared => counters.for_indexes += 1,
-        }
-    }
 }

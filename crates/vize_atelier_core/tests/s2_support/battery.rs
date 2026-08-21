@@ -1,7 +1,8 @@
 //! The committed battery the P2-9 comparator runs — the same sources in
 //! the plain witness and the corpus entry, so a feature-wiring
 //! regression fails loudly in both lanes. Series 1 contributed the
-//! v-if templates; series 2 appends the v-for half.
+//! v-if templates; series 2 the v-for half; series 3 the v-slot half;
+//! series 4 the text half.
 
 /// (name, template source). Each names the projection class it pins.
 pub const BATTERY: &[(&str, &str)] = &[
@@ -110,5 +111,132 @@ pub const BATTERY: &[(&str, &str)] = &[
     (
         "if-for-precedence",
         r#"<li v-if="ready" v-for="i in xs">{{ i }}</li><li v-else>empty</li>"#,
+    ),
+    // -- the v-slot half (series 3) ----------------------------------
+    (
+        "named-slots",
+        r#"<Card><template #head="{ icon }"><b>t</b></template><template v-slot:body="row"><p>{{ row }}</p></template></Card>"#,
+    ),
+    (
+        "self-slot-default",
+        r#"<Panel v-slot="props"><em>{{ props.x }}</em></Panel>"#,
+    ),
+    (
+        "authored-default-name",
+        r#"<Panel v-slot:default="p">{{ p }}</Panel>"#,
+    ),
+    (
+        "dynamic-slot-name",
+        r#"<List><template #[cell]="value">{{ value }}</template></List>"#,
+    ),
+    (
+        "slot-name-modifiers",
+        r#"<Box><template #head.raw>x</template></Box>"#,
+    ),
+    (
+        "implicit-default-beside-named",
+        r#"<Card><template #a>x</template><p>body</p></Card>"#,
+    ),
+    (
+        "duplicate-slot-names",
+        r#"<Grid><template #cell="c">a</template><template #cell>b</template></Grid>"#,
+    ),
+    (
+        "mixed-usage",
+        r#"<Modal v-slot="own"><template #late>y</template></Modal>"#,
+    ),
+    (
+        "extraneous-children",
+        r#"<Grid><template #default>c</template><hr></Grid>"#,
+    ),
+    (
+        "outlet-names",
+        r#"<slot></slot><slot name="s"><b>f</b></slot><slot :name="n"></slot>"#,
+    ),
+    ("bare-name-outlet", r#"<slot name></slot>"#),
+    (
+        "comment-filler-default",
+        r#"<List><template #row>r</template><!-- note --></List>"#,
+    ),
+    (
+        "conditional-carrier",
+        r#"<Tabs><template #fixed>f</template><template v-if="ok" #maybe>m</template></Tabs>"#,
+    ),
+    (
+        "whitespace-only-default",
+        "<Card>\n  <template #a>x</template>\n</Card>",
+    ),
+    // -- the text half (series 4) -----------------------------------
+    ("plain-merge", r#"<p>Hello {{ name }}!</p>"#),
+    ("interpolation-only", r#"<p>{{ msg }}</p>"#),
+    ("static-only", r#"<p>just text</p>"#),
+    ("interior-condense", "<p>a   b {{ x }}\n   c</p>"),
+    ("comment-run-boundary", r#"<p>a<!--c-->b {{ x }}</p>"#),
+    ("comment-remove", "<p>a<!--c-->\n<!--d-->b</p>"),
+    ("kept-space", r#"<i>one</i> <i>two</i>"#),
+    ("dropped-newline", "<i>one</i>\n<i>two</i>"),
+    ("pre-content", r#"<pre>  a  {{ x }}  b  </pre>"#),
+    (
+        "rawtext-excluded",
+        r#"<textarea> a   b </textarea><p>t {{ y }}</p>"#,
+    ),
+    ("entity-class", r#"<p>Tom &amp; Jerry {{ x }}</p>"#),
+    (
+        "vpre-class",
+        r#"<div v-pre>{{ raw }}</div><p>after {{ x }}</p>"#,
+    ),
+    (
+        "units-in-branches",
+        r#"<div v-if="a">x {{ b }}</div><div v-else>y</div>"#,
+    ),
+    ("units-in-loop", r#"<li v-for="i in xs">#{{ i }} </li>"#),
+    // -- the binding-surface half (series 5) --------------------------
+    (
+        "bind-forms",
+        r#"<a :href="url" :[attr]="val" v-bind="rest">x</a>"#,
+    ),
+    (
+        "bind-shorthands",
+        r#"<i :model-value .innerHTML="h" :data-x="1">t</i>"#,
+    ),
+    (
+        "on-forms",
+        r#"<button @click.stop.prevent="go()" @[evt]="run" v-on="handlers" @press>x</button>"#,
+    ),
+    ("model-native", r#"<input v-model.lazy.trim="draft.note">"#),
+    ("model-component", r#"<Field v-model="doc.title"></Field>"#),
+    (
+        "model-component-arg-mods",
+        r#"<Field v-model:title.trim="doc.title"></Field>"#,
+    ),
+    (
+        "model-invalid-scope",
+        r#"<li v-for="item in xs"><input v-model="item"></li>"#,
+    ),
+    ("model-invalid-arg", r#"<input v-model:value="name">"#),
+    ("model-dynamic-arg", r#"<Comp v-model:[k]="x"></Comp>"#),
+    (
+        "model-pattern-scope",
+        r#"<Card v-slot="{ row }"><input v-model="row"></Card>"#,
+    ),
+    (
+        "classifier-ambiguous-model",
+        r#"<foobar v-model="x">y</foobar>"#,
+    ),
+    ("custom-directive", r#"<p v-pin:top.lazy="offset">x</p>"#),
+    (
+        "outlet-props",
+        r#"<slot name="cell" tone="brisk" :item="row" @pick="choose(row)"></slot>"#,
+    ),
+    ("deferred-builtins", r#"<p v-show="open" v-once>x</p>"#),
+    // A duplicate attribute is a hard legacy parse error
+    // (`DuplicateAttribute` — the vue2-elm corpus skip), so the #958
+    // dedupe question stays outside both lanes' shared domain; plain
+    // statics pin the attr surface instead.
+    ("static-attrs", r#"<a id="top" data-x="1" title="hi">x</a>"#),
+    ("entity-attr", r#"<a title="Tom &amp; Jerry" :x="1">x</a>"#),
+    (
+        "wrapper-dynamic-key",
+        r#"<template v-if="a" :key="wk"><p>1</p></template><p v-else>2</p>"#,
     ),
 ];

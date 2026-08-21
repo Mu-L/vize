@@ -32,6 +32,7 @@
 
 use vize_carton::{Box, Vec};
 
+pub mod bind;
 pub mod control;
 pub mod element;
 pub mod model;
@@ -39,10 +40,11 @@ pub mod slot;
 pub mod text;
 pub mod vue;
 
+pub use bind::{BindOp, OnOp};
 pub use control::{ForBinding, ForOp, IfBranch, IfOp};
 pub use element::{Attribute, ComponentOp, ElementOp, Namespace};
 pub use model::{BindingContract, ModelOp};
-pub use slot::{DynamicName, SlotOp};
+pub use slot::{DynamicName, SlotContentOp, SlotOp};
 pub use text::{InterpolationOp, TextOp};
 pub use vue::VueDirectiveOp;
 
@@ -98,13 +100,21 @@ impl Op<'_> {
 /// which is why it is a separate enum rather than more [`Op`] variants: the
 /// type system rules out a floating `ui.model` instead of a verifier rule.
 ///
-/// The normalized one-way bindings (`ui.bind`, `ui.on`) are **not** here
-/// yet by design: an op lands with the transform that needs it (P2-9), and
-/// the exhaustive-match canary makes their arrival loud.
+/// The normalized one-way bindings (`ui.bind`, `ui.on`) landed with the
+/// P2-9 element/binding-family installment - the transform that needs
+/// them - exactly as `ui.slot-content` landed with slot normalization;
+/// the exhaustive-match canary made both arrivals loud.
 #[derive(Debug)]
 pub enum BindingOp<'a> {
+    /// `ui.bind` - one one-way binding (`v-bind` / `:` / `.`).
+    Bind(Box<'a, BindOp<'a>>),
+    /// `ui.on` - one event handler binding (`v-on` / `@`).
+    On(Box<'a, OnOp<'a>>),
     /// `ui.model` - the two-way binding contract (never its realization).
     Model(Box<'a, ModelOp<'a>>),
+    /// `ui.slot-content` - one authored `v-slot` spelling on its carrier
+    /// (the syntactic surface; grouping is the slot pass's fact).
+    SlotContent(Box<'a, SlotContentOp<'a>>),
     /// `vue.directive` - a Vue custom directive carried through as a
     /// dialect op.
     VueDirective(Box<'a, VueDirectiveOp<'a>>),
@@ -116,7 +126,10 @@ impl BindingOp<'_> {
     #[must_use]
     pub const fn mnemonic(&self) -> &'static str {
         match self {
+            Self::Bind(_) => "ui.bind",
+            Self::On(_) => "ui.on",
             Self::Model(_) => "ui.model",
+            Self::SlotContent(_) => "ui.slot-content",
             Self::VueDirective(_) => "vue.directive",
         }
     }

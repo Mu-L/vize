@@ -12,9 +12,9 @@ use vize_carton::{Span, String, cstr};
 use vize_davinci::folio::FolioError;
 
 use super::super::owned::{
-    FolioAttribute, FolioBranch, FolioComponent, FolioContract, FolioElement, FolioFor,
-    FolioForBinding, FolioIf, FolioInterpolation, FolioModel, FolioName, FolioOp, FolioSlot,
-    FolioText, FolioVueDirective,
+    FolioAttribute, FolioBind, FolioBranch, FolioComponent, FolioElement, FolioFor,
+    FolioForBinding, FolioIf, FolioInterpolation, FolioModel, FolioName, FolioOn, FolioOp,
+    FolioSlot, FolioSlotContent, FolioText, FolioVueDirective,
 };
 use super::expr_token::take_expr;
 use crate::op::Namespace;
@@ -22,7 +22,10 @@ use crate::op::Namespace;
 /// One classified ops-section line.
 pub(in super::super) enum Item {
     Attr(FolioAttribute),
+    Bind(FolioBind),
+    On(FolioOn),
     Model(FolioModel),
+    SlotContent(FolioSlotContent),
     Directive(FolioVueDirective),
     Branch(FolioBranch),
     Op(FolioOp),
@@ -78,7 +81,7 @@ pub(super) fn final_span(rest: &str, line_no: usize) -> Result<Span, FolioError>
 }
 
 /// Parse the ` @start:end` tail after a completed component.
-fn tail_span(rest: &str, line_no: usize) -> Result<Span, FolioError> {
+pub(super) fn tail_span(rest: &str, line_no: usize) -> Result<Span, FolioError> {
     match rest.strip_prefix(' ') {
         Some(tail) => final_span(tail, line_no),
         None if rest.is_empty() => Err(err(line_no, cstr!("missing span"))),
@@ -102,8 +105,11 @@ pub(in super::super) fn parse_item(content: &str, line_no: usize) -> Result<Item
         }))),
         "ui.for" => for_op(rest, line_no),
         "ui.slot" => slot(rest, line_no),
-        "ui.model" => model(rest, line_no),
-        "vue.directive" => directive(rest, line_no),
+        "ui.bind" => super::binding_line::bind(rest, line_no),
+        "ui.on" => super::binding_line::on(rest, line_no),
+        "ui.slot-content" => super::binding_line::slot_content(rest, line_no),
+        "ui.model" => super::binding_line::model(rest, line_no),
+        "vue.directive" => super::binding_line::directive(rest, line_no),
         other => Err(err(line_no, cstr!("unknown op `{other}`"))),
     }
 }
@@ -231,7 +237,7 @@ fn for_op(rest: &str, line_no: usize) -> Result<Item, FolioError> {
 }
 
 /// Parse a `name=` value: a quoted static name or an expression payload.
-fn name_value(rest: &str, line_no: usize) -> Result<(FolioName, &str), FolioError> {
+pub(super) fn name_value(rest: &str, line_no: usize) -> Result<(FolioName, &str), FolioError> {
     if rest.starts_with('"') {
         let (name, tail) = take_quoted(rest, line_no)?;
         return Ok((FolioName::Static(name), tail));
@@ -256,57 +262,9 @@ fn slot(rest: &str, line_no: usize) -> Result<Item, FolioError> {
     let (name, tail) = name_value(rest, line_no)?;
     Ok(Item::Op(FolioOp::Slot(FolioSlot {
         name,
+        attributes: alloc::vec::Vec::new(),
+        bindings: alloc::vec::Vec::new(),
         fallback: alloc::vec::Vec::new(),
         span: tail_span(tail, line_no)?,
     })))
-}
-
-fn model(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let Some(rest) = rest.strip_prefix("read=") else {
-        return Err(err(line_no, cstr!("expected `read=`")));
-    };
-    let (read, rest) = take_expr(rest, line_no)?;
-    let Some(rest) = rest.strip_prefix(" write=") else {
-        return Err(err(line_no, cstr!("expected `write=`")));
-    };
-    let (write, tail) = take_expr(rest, line_no)?;
-    Ok(Item::Model(FolioModel {
-        contract: FolioContract { read, write },
-        attributes: alloc::vec::Vec::new(),
-        span: tail_span(tail, line_no)?,
-    }))
-}
-
-fn directive(rest: &str, line_no: usize) -> Result<Item, FolioError> {
-    let (name, mut rest) = take_quoted(rest, line_no)?;
-    let mut argument = None;
-    if let Some(after) = rest.strip_prefix(" arg=") {
-        let (value, tail) = name_value(after, line_no)?;
-        argument = Some(value);
-        rest = tail;
-    }
-    let mut modifiers = alloc::vec::Vec::new();
-    if let Some(after) = rest.strip_prefix(" mods=") {
-        let (joined, tail) = take_quoted(after, line_no)?;
-        for part in joined.as_str().split(',') {
-            if part.is_empty() {
-                return Err(err(line_no, cstr!("invalid modifier list")));
-            }
-            modifiers.push(String::from(part));
-        }
-        rest = tail;
-    }
-    let mut value = None;
-    if let Some(tail) = rest.strip_prefix(" value=") {
-        let (expr, tail) = take_expr(tail, line_no)?;
-        value = Some(expr);
-        rest = tail;
-    }
-    Ok(Item::Directive(FolioVueDirective {
-        name,
-        argument,
-        modifiers,
-        value,
-        span: tail_span(rest, line_no)?,
-    }))
 }

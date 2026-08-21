@@ -112,11 +112,15 @@ fn visit_op(op: &FolioOp, owner: Owner, rigor: Rigor, out: &mut Vec<Violation>) 
                 visit_op(child, Some((kw, span)), rigor, out);
             }
         }
-        FolioOp::Slot(slot) => {
-            for child in &slot.fallback {
-                visit_op(child, Some((kw, span)), rigor, out);
-            }
-        }
+        FolioOp::Slot(slot) => body(
+            kw,
+            span,
+            &slot.attributes,
+            &slot.bindings,
+            &slot.fallback,
+            rigor,
+            out,
+        ),
     }
 }
 
@@ -138,11 +142,20 @@ fn body(
     }
     for binding in bindings {
         match binding {
+            FolioBinding::Bind(bind) => {
+                line_checks("ui.bind", bind.span, owner, out);
+            }
+            FolioBinding::On(on) => {
+                line_checks("ui.on", on.span, owner, out);
+            }
             FolioBinding::Model(model) => {
                 line_checks("ui.model", model.span, owner, out);
                 for attribute in &model.attributes {
                     line_checks("attr", attribute.span, Some(("ui.model", model.span)), out);
                 }
+            }
+            FolioBinding::SlotContent(content) => {
+                line_checks("ui.slot-content", content.span, owner, out);
             }
             FolioBinding::VueDirective(directive) => {
                 line_checks("vue.directive", directive.span, owner, out);

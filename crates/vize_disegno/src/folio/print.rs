@@ -12,11 +12,13 @@ use core::fmt::{Result, Write};
 use vize_carton::Span;
 
 use super::DisegnoFolio;
-use super::owned::{
-    FolioAttribute, FolioBinding, FolioExpr, FolioName, FolioOp, FolioVueDirective,
-};
+use super::owned::{FolioAttribute, FolioBinding, FolioExpr, FolioName, FolioOp};
 use crate::op::Namespace;
 use vize_davinci::folio::FolioMode;
+
+mod binding;
+
+use binding::{print_attribute, print_binding};
 
 pub(super) fn print<W: Write>(folio: &DisegnoFolio, w: &mut W, mode: FolioMode) -> Result {
     writeln!(w, "[disegno]")?;
@@ -33,7 +35,7 @@ pub(super) fn print<W: Write>(folio: &DisegnoFolio, w: &mut W, mode: FolioMode) 
     writeln!(w)
 }
 
-fn indent<W: Write>(w: &mut W, depth: usize) -> Result {
+pub(super) fn indent<W: Write>(w: &mut W, depth: usize) -> Result {
     for _ in 0..depth {
         w.write_str("  ")?;
     }
@@ -42,7 +44,7 @@ fn indent<W: Write>(w: &mut W, depth: usize) -> Result {
 
 /// Write the span tail in `Full` mode, nothing in `Display`, then the
 /// newline either way.
-fn end_line<W: Write>(w: &mut W, span: Span, mode: FolioMode) -> Result {
+pub(super) fn end_line<W: Write>(w: &mut W, span: Span, mode: FolioMode) -> Result {
     if mode == FolioMode::Full {
         write!(w, " @{}:{}", span.start, span.end)?;
     }
@@ -50,7 +52,7 @@ fn end_line<W: Write>(w: &mut W, span: Span, mode: FolioMode) -> Result {
 }
 
 /// Write one quoted string with the format's escapes.
-fn quoted<W: Write>(w: &mut W, text: &str) -> Result {
+pub(super) fn quoted<W: Write>(w: &mut W, text: &str) -> Result {
     w.write_char('"')?;
     for c in text.chars() {
         match c {
@@ -68,7 +70,7 @@ fn quoted<W: Write>(w: &mut W, text: &str) -> Result {
 /// Write one expression payload: `js("…" @s:e)` / `opaque(reason "…" @s:e)`
 /// / `foreign(dialect "…" @s:e)`; `Display` elides the inner span tail
 /// exactly as it elides line tails.
-fn print_expr<W: Write>(w: &mut W, expr: &FolioExpr, mode: FolioMode) -> Result {
+pub(super) fn print_expr<W: Write>(w: &mut W, expr: &FolioExpr, mode: FolioMode) -> Result {
     let (head, source, span) = match expr {
         FolioExpr::Js { source, span } => {
             w.write_str("js(")?;
@@ -102,79 +104,11 @@ fn print_expr<W: Write>(w: &mut W, expr: &FolioExpr, mode: FolioMode) -> Result 
     w.write_char(')')
 }
 
-fn print_name<W: Write>(w: &mut W, name: &FolioName, mode: FolioMode) -> Result {
+pub(super) fn print_name<W: Write>(w: &mut W, name: &FolioName, mode: FolioMode) -> Result {
     match name {
         FolioName::Static(text) => quoted(w, text.as_str()),
         FolioName::Dynamic(expr) => print_expr(w, expr, mode),
     }
-}
-
-fn print_attribute<W: Write>(
-    w: &mut W,
-    attribute: &FolioAttribute,
-    depth: usize,
-    mode: FolioMode,
-) -> Result {
-    indent(w, depth)?;
-    write!(w, "attr {}", attribute.name)?;
-    if let Some(value) = &attribute.value {
-        w.write_char('=')?;
-        quoted(w, value.as_str())?;
-    }
-    end_line(w, attribute.span, mode)
-}
-
-fn print_binding<W: Write>(
-    w: &mut W,
-    binding: &FolioBinding,
-    depth: usize,
-    mode: FolioMode,
-) -> Result {
-    match binding {
-        FolioBinding::Model(model) => {
-            indent(w, depth)?;
-            w.write_str("ui.model read=")?;
-            print_expr(w, &model.contract.read, mode)?;
-            w.write_str(" write=")?;
-            print_expr(w, &model.contract.write, mode)?;
-            end_line(w, model.span, mode)?;
-            for attribute in &model.attributes {
-                print_attribute(w, attribute, depth + 1, mode)?;
-            }
-            Ok(())
-        }
-        FolioBinding::VueDirective(directive) => print_directive(w, directive, depth, mode),
-    }
-}
-
-fn print_directive<W: Write>(
-    w: &mut W,
-    directive: &FolioVueDirective,
-    depth: usize,
-    mode: FolioMode,
-) -> Result {
-    indent(w, depth)?;
-    w.write_str("vue.directive ")?;
-    quoted(w, directive.name.as_str())?;
-    if let Some(argument) = &directive.argument {
-        w.write_str(" arg=")?;
-        print_name(w, argument, mode)?;
-    }
-    if !directive.modifiers.is_empty() {
-        w.write_str(" mods=\"")?;
-        for (i, modifier) in directive.modifiers.iter().enumerate() {
-            if i > 0 {
-                w.write_char(',')?;
-            }
-            w.write_str(modifier.as_str())?;
-        }
-        w.write_char('"')?;
-    }
-    if let Some(value) = &directive.value {
-        w.write_str(" value=")?;
-        print_expr(w, value, mode)?;
-    }
-    end_line(w, directive.span, mode)
 }
 
 fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) -> Result {
@@ -265,10 +199,14 @@ fn print_op<W: Write>(w: &mut W, op: &FolioOp, depth: usize, mode: FolioMode) ->
             w.write_str("ui.slot name=")?;
             print_name(w, &slot.name, mode)?;
             end_line(w, slot.span, mode)?;
-            for child in &slot.fallback {
-                print_op(w, child, depth + 1, mode)?;
-            }
-            Ok(())
+            print_owner_body(
+                w,
+                &slot.attributes,
+                &slot.bindings,
+                &slot.fallback,
+                depth + 1,
+                mode,
+            )
         }
     }
 }

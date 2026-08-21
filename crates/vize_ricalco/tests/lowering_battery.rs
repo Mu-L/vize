@@ -68,9 +68,17 @@ fn the_battery_aggregates_are_pinned() {
             scopes += lowered.scopes.len();
         });
     }
+    // Re-pinned at the element/binding-family installment (P2-9 series
+    // 5): every battery `v-bind`/`v-on` now lowers to a `ui.bind`/`ui.on`
+    // op instead of its `defer.v-bind`/`defer.v-on` Info (78 -> 83 ops,
+    // 33 -> 28 diagnostics — five retired deferrals across the battery).
+    // Records and scopes are unchanged on purpose: each retired
+    // `defer.*` record is replaced by exactly one `lower.bind`/`lower.on`
+    // record. (Series-4 history: condense/merge re-pinned 89 -> 78 ops,
+    // 107 -> 101 records.)
     assert_eq!(
         (ops, diagnostics, provenance, scopes),
-        (88, 34, 107, 1),
+        (83, 28, 101, 1),
         "battery census moved: re-pin deliberately"
     );
 }

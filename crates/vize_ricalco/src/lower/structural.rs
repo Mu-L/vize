@@ -25,17 +25,32 @@ use super::element::{Analyzed, BranchKind, analyze, attr_value_text, element_cor
 use super::expr::expr_at;
 use super::forop::lower_for;
 use super::leaf::lower_leaf;
+use super::text;
+
+#[path = "structural/wrapper.rs"]
+mod wrapper;
+
+use wrapper::capture_wrapper_key;
+pub(crate) use wrapper::record_template_drops;
+pub use wrapper::{WrapperKey, WrapperKeys};
 
 /// One scanned branch of a chain: its element, analysis, branch-attr
 /// index, and the gap children it consumes.
 type Branch<'a, 't> = (&'t Element<'a>, Analyzed<'a>, usize, StdVec<usize>);
 
 /// Lower one children level into a region's ops, in document order.
+///
+/// The P2-9 text plan runs first (`lower::text::plan_whitespace` — the
+/// condense decisions, computed while comments still stand in the
+/// list), then the walk lowers text/interpolation children through the
+/// run lane (`lower::text::lower_text_run` — merging), everything else
+/// as before.
 pub(crate) fn lower_children<'a>(
     cx: &mut Cx<'a>,
     children: &[SurfaceChild<'a>],
     ns: Namespace,
 ) -> Vec<'a, Op<'a>> {
+    let plan = text::plan_whitespace(cx, children);
     let mut out: Vec<'a, Op<'a>> = Vec::new_in(&cx.allocator);
     let mut i = 0usize;
     while i < children.len() {
@@ -64,6 +79,10 @@ pub(crate) fn lower_children<'a>(
                     }
                     None => out.push(lower_with_for(cx, element, &analyzed, ns)),
                 }
+            }
+            SurfaceChild::Text(_) | SurfaceChild::Interpolation(_) => {
+                i = text::lower_text_run(cx, children, &plan, i, &mut out);
+                continue;
             }
             other => lower_leaf(cx, other, &mut out),
         }
@@ -138,6 +157,7 @@ fn lower_if_group<'a>(
     );
 
     let mut lowered: Vec<'a, IfBranch<'a>> = Vec::new_in(&cx.allocator);
+    let mut wrapper_keys: StdVec<Option<WrapperKey>> = StdVec::new();
     for (element, analyzed, attr_idx, gaps) in branches {
         for gap in gaps {
             if let SurfaceChild::Text(token) | SurfaceChild::Comment(token) = &children[gap] {
@@ -176,14 +196,38 @@ fn lower_if_group<'a>(
                 Some(expr_at(cx, slice))
             }
         };
-        let region = Region {
-            ops: branch_body(cx, element, &analyzed, ns),
-        };
+        let (ops, wrapper_key) = branch_body(cx, element, &analyzed, ns);
+        if let Some(key) = &wrapper_key {
+            let (key_span, spelling) = match key {
+                WrapperKey::Static { span, .. } | WrapperKey::Dynamic { span, .. } => (
+                    *span,
+                    cx.source
+                        .get(span.start as usize..span.end as usize)
+                        .unwrap_or("key"),
+                ),
+            };
+            cx.record(
+                "lower.branch-wrapper-key",
+                node,
+                spelling,
+                cstr!("wrapper key branch={}", lowered.len()),
+                key_span,
+            );
+        }
+        wrapper_keys.push(wrapper_key);
         lowered.push(IfBranch {
             condition,
-            region,
+            region: Region { ops },
             span: element_span(cx, element),
         });
+    }
+    if wrapper_keys.iter().any(Option::is_some) {
+        cx.attach_wrappers(
+            node,
+            WrapperKeys {
+                branches: wrapper_keys,
+            },
+        );
     }
     out.push(Op::If(Box::new_in(
         IfOp {
@@ -195,59 +239,37 @@ fn lower_if_group<'a>(
     consumed_until
 }
 
-/// The ops a branch's element contributes: its `v-for` wrap when it has
-/// one, its children directly when it is an unwrapped `<template>`, the
-/// element op otherwise.
+/// The ops a branch's element contributes (plus its captured wrapper
+/// key): its `v-for` wrap when it has one, its children directly when it
+/// is an unwrapped `<template>`, the element op otherwise.
 fn branch_body<'a>(
     cx: &mut Cx<'a>,
     element: &Element<'a>,
     analyzed: &Analyzed<'a>,
     ns: Namespace,
-) -> Vec<'a, Op<'a>> {
+) -> (Vec<'a, Op<'a>>, Option<WrapperKey>) {
     if analyzed.vfor.is_some() {
+        // Vue 3 precedence: the key belongs to `v-for`, so no wrapper
+        // capture — exactly the legacy `has_v_for` guard.
         let op = lower_for(cx, element, analyzed, ns);
         let mut ops: Vec<'a, Op<'a>> = Vec::new_in(&cx.allocator);
         ops.push(op);
-        return ops;
+        return (ops, None);
     }
     if element.tag() == "template" {
         cx.report_missing_close(element);
-        record_template_drops(cx, element, analyzed);
-        return lower_children(cx, &element.children, ns);
+        let captured = capture_wrapper_key(cx, element, analyzed);
+        let (skip, key) = match captured {
+            Some((index, key)) => (Some(index), Some(key)),
+            None => (None, None),
+        };
+        record_template_drops(cx, element, analyzed, skip);
+        return (lower_children(cx, &element.children, ns), key);
     }
     let op = element_core(cx, element, analyzed, ns);
     let mut ops: Vec<'a, Op<'a>> = Vec::new_in(&cx.allocator);
     ops.push(op);
-    ops
-}
-
-/// A `<template>` wrapper the lowering unwraps has no op to carry its
-/// remaining attributes; each is dropped under an `Info` diagnostic and
-/// a record — dropping is never silent.
-pub(crate) fn record_template_drops<'a>(
-    cx: &mut Cx<'a>,
-    element: &Element<'a>,
-    analyzed: &Analyzed<'a>,
-) {
-    for (index, attr) in element.open.attrs.iter().enumerate() {
-        if Some(index) == analyzed.branch.map(|(idx, _)| idx) || Some(index) == analyzed.vfor {
-            continue;
-        }
-        cx.info(
-            attr_span(cx, attr),
-            cstr!(
-                "`{}` on an unwrapped `<template>` wrapper has no S2 home at P2-8; it is dropped under provenance",
-                attr.name.text
-            ),
-        );
-        cx.record(
-            "drop.template-attribute",
-            None,
-            attr_slice(cx, attr),
-            String::default(),
-            attr_span(cx, attr),
-        );
-    }
+    (ops, None)
 }
 
 /// Lower an element, wrapping it in its `ui.for` when it carries one.

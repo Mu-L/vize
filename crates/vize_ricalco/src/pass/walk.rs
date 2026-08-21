@@ -8,6 +8,13 @@
 //! per-pass count assertion ([`assert_accounting`]) is what catches a
 //! divergence between this walk and the lowering's minted accounting on
 //! every run.
+//!
+//! [`visit_ops`] is the flat pre-order visitation the local passes
+//! (`vif`, `vfor`) share. The `vslot` pass needs owner context — a
+//! component's grouping reads its children's carriers and every
+//! binding's own id — so it drives its own shaped recursion instead,
+//! over the same [`PageWalk`]: the mint/skip arithmetic still lives only
+//! here, and both shapes end at the same accounting assertion.
 
 use vize_davinci::id::NodeId;
 use vize_disegno::op::Op;
@@ -29,7 +36,7 @@ impl PageWalk {
 
     /// The current op's page-order id; `None` once the id space is
     /// exhausted (mirroring `Cx::mint_op`'s saturation).
-    fn mint(&mut self) -> Option<NodeId> {
+    pub(crate) fn mint(&mut self) -> Option<NodeId> {
         if self.exhausted {
             return None;
         }
@@ -89,7 +96,10 @@ pub(crate) fn visit_ops<'a>(
                 }
             }
             Op::For(for_op) => visit_ops(walk, &mut for_op.region.ops, visit),
-            Op::Slot(slot) => visit_ops(walk, &mut slot.fallback.ops, visit),
+            Op::Slot(slot) => {
+                walk.skip(slot.bindings.len());
+                visit_ops(walk, &mut slot.fallback.ops, visit);
+            }
         }
     }
 }

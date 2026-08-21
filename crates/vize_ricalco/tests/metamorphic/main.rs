@@ -139,6 +139,10 @@ fn a_zero_mutation_run_fails() {
 
 #[test]
 fn the_normalization_does_not_collapse_real_differences() {
+    // Since the P2-9 ratchet the only declared rule is attribute
+    // sorting; the text-merge and condense checks below hold with **no
+    // normalization at all** — they now pin that the lowering's own
+    // canonical operations (`lower::text`) keep real differences apart.
     use normalize::{Normalization, normalized_display};
     let folio = |source: &str| {
         let allocator = vize_carton::Allocator::new();
@@ -157,23 +161,23 @@ fn the_normalization_does_not_collapse_real_differences() {
             Normalization::REORDER
         ),
     );
-    // …text merging must not erase an element boundary…
+    // …the lowering's text merge must not erase an element boundary…
     assert_ne!(
-        normalized_display(&folio("<template>ab</template>"), Normalization::TEXT),
+        normalized_display(&folio("<template>ab</template>"), Normalization::NONE),
         normalized_display(
             &folio("<template>a<i></i>b</template>"),
-            Normalization::TEXT
+            Normalization::NONE
         ),
     );
-    // …and the condense mirror must not erase a text difference.
+    // …and the lowering's condense must not erase a text difference.
     assert_ne!(
         normalized_display(
             &folio("<template><i>a b</i></template>"),
-            Normalization::WHITESPACE
+            Normalization::NONE
         ),
         normalized_display(
             &folio("<template><i>a c</i></template>"),
-            Normalization::WHITESPACE
+            Normalization::NONE
         ),
     );
 }

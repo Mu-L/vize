@@ -1,41 +1,41 @@
-//! Attached bindings: `v-model` into the `ui.model` contract, custom
-//! directives into `vue.directive`, and the deferral of every built-in
-//! the P2-8 op family cannot carry yet.
+//! Attached bindings: `v-bind`/`v-on` into the normalized one-way ops
+//! ([`super::bindop`], P2-9 series 5), `v-model` into the `ui.model`
+//! contract, `v-slot` into `ui.slot-content`, custom directives into
+//! `vue.directive`, and the deferral of what remains.
 //!
 //! # Unmappable means diagnostic, never a new op
 //!
-//! `ui.bind` / `ui.on` land with the transform that needs them (P2-9);
-//! until then `v-bind`, `v-on`, `v-html`, `v-text`, `v-show`, `v-cloak`,
-//! `v-once`, `v-memo` and `v-pre` have **no S2 op**, and forcing them
-//! into `vue.directive` would break its documented contract ("built-in
+//! `v-html`, `v-text`, `v-show`, `v-cloak`, `v-once`, `v-memo` and
+//! `v-pre` still have **no S2 op**, and forcing them into
+//! `vue.directive` would break its documented contract ("built-in
 //! directives never appear here"). Each is deferred: an `Info`
 //! diagnostic — the input is not wrong, the stage is younger than the
 //! construct — plus a provenance record naming the rule, with the owner
-//! op kept as the fragment. `v-slot` grouping likewise waits for slot
-//! normalization (P2-9), but its **scope facts are recorded today**: the
-//! slot-props scope is a binding-introduction site whether or not the op
-//! family can express the grouping yet.
+//! op kept as the fragment. The owner of the remaining set is **DOM
+//! realization (P2-11)**, a measured statement: the element-family port
+//! found every one of their old transform files dead in the shipped
+//! lane — the living reads are all codegen-time (`has_v_once`,
+//! `get_memo_exp`, `has_vshow_directive`, ... in `codegen/element/`) —
+//! so there is no transform-time behaviour left for an S2 pass to
+//! carry, and their ops land with the stage that reads them.
 
 use alloc::vec::Vec as StdVec;
 
 use vize_carton::{Box, Span, String, Vec, cstr};
-use vize_davinci::id::NodeId;
 use vize_sinopia::Element;
 
 use vize_disegno::op::{
-    Attribute, BindingContract, BindingOp, DynamicName, ModelOp, VueDirectiveOp,
+    Attribute, BindingContract, BindingOp, DynamicName, ModelOp, SlotContentOp, VueDirectiveOp,
 };
 use vize_disegno::scope::{ScopeBinding, ScopeFacts, ScopeOrigin};
 
 use super::cx::{Cx, attr_slice, attr_span};
 use super::directive::{Arg, Directive, Head};
 use super::element::attr_value_text;
-use super::expr::{expr_at, simple_identifier};
+use super::expr::{desc, expr_at, simple_identifier};
 
 /// The op an attribute attaches to.
 pub(crate) struct Owner<'a> {
-    /// The owner's page-order id.
-    pub node: Option<NodeId>,
     /// The owner's authored tag or component name.
     pub tag: &'a str,
     /// Whether the owner is a `ui.component`.
@@ -54,45 +54,26 @@ pub(crate) fn lower_attr<'a>(
 ) {
     let attr = &element.open.attrs[index];
     match directive.head {
+        Head::Bind => bindings.push(super::bindop::lower_bind(cx, element, index, directive)),
+        Head::On => bindings.push(super::bindop::lower_on(cx, element, index, directive)),
         Head::Model => {
             if let Some(op) = lower_model(cx, element, index, directive, owner) {
                 bindings.push(op);
             }
         }
         Head::Custom => bindings.push(lower_custom(cx, element, index, directive)),
-        Head::Slot => {
-            defer(
-                cx,
-                "defer.v-slot",
-                attr_span(cx, attr),
-                attr_slice(cx, attr),
-                cstr!(
-                    "`{}` content grouping has no S2 representation at P2-8; it lands with slot normalization (P2-9)",
-                    attr.name.text
-                ),
-            );
-            record_slot_scope(cx, element, index, owner.node);
-        }
+        Head::Slot => bindings.push(lower_slot_content(cx, element, index, directive)),
         Head::Pre => defer(
             cx,
             "defer.v-pre",
             attr_span(cx, attr),
             attr_slice(cx, attr),
             String::from(
-                "`v-pre` has no S2 representation at P2-8; its subtree lowers as ordinary content",
+                "`v-pre` has no S2 representation; its subtree lowers as ordinary content",
             ),
         ),
-        Head::Bind
-        | Head::On
-        | Head::Html
-        | Head::Text
-        | Head::Show
-        | Head::Cloak
-        | Head::Once
-        | Head::Memo => {
+        Head::Html | Head::Text | Head::Show | Head::Cloak | Head::Once | Head::Memo => {
             let rule = match directive.head {
-                Head::Bind => "defer.v-bind",
-                Head::On => "defer.v-on",
                 Head::Html => "defer.v-html",
                 Head::Text => "defer.v-text",
                 Head::Show => "defer.v-show",
@@ -106,7 +87,7 @@ pub(crate) fn lower_attr<'a>(
                 attr_span(cx, attr),
                 attr_slice(cx, attr),
                 cstr!(
-                    "`{}` has no S2 op at P2-8; the normalized binding ops land with the transform that needs them (P2-9)",
+                    "`{}` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
                     attr.name.text
                 ),
             );
@@ -270,30 +251,74 @@ fn lower_custom<'a>(
     ))
 }
 
-/// The slot-props scope facts of a `v-slot`: a binding-introduction site
-/// tagged today even though the grouping op waits for P2-9. The props
-/// name is recorded when it is a simple identifier; patterns wait for
-/// the one identifier-enumeration seam (#4365).
-pub(crate) fn record_slot_scope<'a>(
+/// One `v-slot` spelling into the attached `ui.slot-content` op, exactly
+/// as authored: name position (`None` when the spelling leaves it
+/// implicit — the default-name synthesis is the slot pass's, where the
+/// authored-vs-synthesized origin is recorded), modifiers verbatim, and
+/// the params position when non-blank.
+///
+/// The slot-props scope facts (recorded since P2-8) key the binding op
+/// itself: each spelling is its own binding-introduction site, so two
+/// `v-slot`s on one carrier never share an entry. The props name is
+/// recorded when it is a simple identifier; patterns wait for the one
+/// identifier-enumeration seam (#4365).
+pub(crate) fn lower_slot_content<'a>(
     cx: &mut Cx<'a>,
     element: &Element<'a>,
     index: usize,
-    node: Option<NodeId>,
-) {
-    let Some(text) = attr_value_text(element, index) else {
-        return;
+    directive: &Directive<'a>,
+) -> BindingOp<'a> {
+    let attr = &element.open.attrs[index];
+    let span = attr_span(cx, attr);
+    let node = cx.mint_op();
+    let name = directive.arg.map(|arg| match arg {
+        Arg::Static(text) => DynamicName::Static(text),
+        Arg::Dynamic(inner) => DynamicName::Dynamic(expr_at(cx, inner)),
+    });
+    let mut modifiers: Vec<'a, &'a str> = Vec::new_in(&cx.allocator);
+    for modifier in &directive.modifiers {
+        modifiers.push(modifier);
+    }
+    let params = attr_value_text(element, index)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(|text| expr_at(cx, text));
+    if let Some(expr) = &params {
+        let tag = cx.mint_scope();
+        let mut scope_bindings = StdVec::new();
+        if let Some(bound) = simple_identifier(expr) {
+            scope_bindings.push(ScopeBinding {
+                name: String::from(bound),
+                origin: ScopeOrigin::Authored { span: expr.span() },
+            });
+        }
+        cx.attach_scope(
+            node,
+            ScopeFacts {
+                tag,
+                bindings: scope_bindings,
+            },
+        );
+    }
+    let after = match &name {
+        None => String::from("ui.slot-content"),
+        Some(DynamicName::Static(text)) => cstr!("ui.slot-content \"{text}\""),
+        Some(DynamicName::Dynamic(expr)) => cstr!("ui.slot-content {}", desc(expr)),
     };
-    if text.trim().is_empty() {
-        return;
-    }
-    let tag = cx.mint_scope();
-    let expr = expr_at(cx, text);
-    let mut bindings = StdVec::new();
-    if let Some(name) = simple_identifier(&expr) {
-        bindings.push(ScopeBinding {
-            name: String::from(name),
-            origin: ScopeOrigin::Authored { span: expr.span() },
-        });
-    }
-    cx.attach_scope(node, ScopeFacts { tag, bindings });
+    cx.record(
+        "lower.slot-content",
+        node,
+        attr_slice(cx, attr),
+        after,
+        span,
+    );
+    BindingOp::SlotContent(Box::new_in(
+        SlotContentOp {
+            name,
+            modifiers,
+            params,
+            span,
+        },
+        &cx.allocator,
+    ))
 }

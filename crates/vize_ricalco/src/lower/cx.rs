@@ -33,9 +33,14 @@ pub(crate) struct Cx<'a> {
     next_op: u32,
     exhausted: bool,
     next_scope: u32,
+    /// How many `<pre>`/rawtext ancestors the walk is inside; condensing
+    /// is suppressed for their whole subtrees (`lower::text`).
+    condense_depth: u32,
     pub diagnostics: Vec<Diagnostic>,
     pub provenance: Vec<ProvenanceRecord>,
     pub scopes: SideTable<ScopeFacts>,
+    pub texts: SideTable<super::text::TextParts>,
+    pub wrappers: SideTable<super::structural::WrapperKeys>,
 }
 
 impl<'a> Cx<'a> {
@@ -46,9 +51,47 @@ impl<'a> Cx<'a> {
             next_op: 0,
             exhausted: false,
             next_scope: 0,
+            condense_depth: 0,
             diagnostics: Vec::new(),
             provenance: Vec::new(),
             scopes: SideTable::new(),
+            texts: SideTable::new(),
+            wrappers: SideTable::new(),
+        }
+    }
+
+    /// Whether the walk is inside a condense-suppressing subtree.
+    pub(crate) fn condense_suppressed(&self) -> bool {
+        self.condense_depth > 0
+    }
+
+    /// Enter/leave a condense-suppressing element (`<pre>` and the
+    /// rawtext set) around its children.
+    pub(crate) fn push_condense_suppression(&mut self) {
+        self.condense_depth = self.condense_depth.saturating_add(1);
+    }
+
+    pub(crate) fn pop_condense_suppression(&mut self) {
+        self.condense_depth = self.condense_depth.saturating_sub(1);
+    }
+
+    /// Attach a merged run's recorded parts to its compound op, when the
+    /// op has an id (the `attach_scope` exhaustion rule).
+    pub(crate) fn attach_texts(&mut self, node: Option<NodeId>, parts: super::text::TextParts) {
+        if let Some(id) = node {
+            self.texts.insert(id, parts);
+        }
+    }
+
+    /// Attach captured wrapper keys to their `ui.if` op, when the op has
+    /// an id (the `attach_scope` exhaustion rule).
+    pub(crate) fn attach_wrappers(
+        &mut self,
+        node: Option<NodeId>,
+        keys: super::structural::WrapperKeys,
+    ) {
+        if let Some(id) = node {
+            self.wrappers.insert(id, keys);
         }
     }
 

@@ -35,9 +35,9 @@ mod parse;
 mod print;
 
 pub use owned::{
-    FolioAttribute, FolioBinding, FolioBranch, FolioComponent, FolioContract, FolioElement,
-    FolioExpr, FolioFor, FolioForBinding, FolioIf, FolioInterpolation, FolioModel, FolioName,
-    FolioOp, FolioSlot, FolioText, FolioVueDirective,
+    FolioAttribute, FolioBind, FolioBinding, FolioBranch, FolioComponent, FolioContract,
+    FolioElement, FolioExpr, FolioFor, FolioForBinding, FolioIf, FolioInterpolation, FolioModel,
+    FolioName, FolioOn, FolioOp, FolioSlot, FolioSlotContent, FolioText, FolioVueDirective,
 };
 
 /// Document model of an S2 op-tree dump.

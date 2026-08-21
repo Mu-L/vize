@@ -16,9 +16,9 @@ use vize_carton::{Span, String};
 use vize_davinci::folio::{Folio, FolioMode};
 use vize_disegno::expr::OpaqueReason;
 use vize_disegno::folio::{
-    DisegnoFolio, FolioAttribute, FolioBinding, FolioBranch, FolioComponent, FolioContract,
-    FolioElement, FolioExpr, FolioFor, FolioForBinding, FolioIf, FolioInterpolation, FolioModel,
-    FolioName, FolioOp, FolioSlot, FolioText, FolioVueDirective,
+    DisegnoFolio, FolioAttribute, FolioBind, FolioBinding, FolioBranch, FolioComponent,
+    FolioContract, FolioElement, FolioExpr, FolioFor, FolioForBinding, FolioIf, FolioInterpolation,
+    FolioModel, FolioName, FolioOn, FolioOp, FolioSlot, FolioText, FolioVueDirective,
 };
 use vize_disegno::op::Namespace;
 
@@ -28,7 +28,7 @@ const CANONICAL: &str = include_str!("fixtures/reference.folio");
 /// `Display` output for the same tree: every span elided, nothing else.
 const DISPLAY: &str = "\
 [disegno]
-ops=10
+ops=12
 
 [disegno.ops]
 ui.element form
@@ -43,6 +43,9 @@ ui.element form
       ui.interpolation opaque(nesting-refused \"((((x))))\")
 ui.for source=opaque(for-value \"a in b in c\") value=js(\"a\") key=js(\"i\")
   ui.slot name=js(\"kind\")
+    attr tone=\"brisk\"
+    ui.bind name=\"chip\" mods=\"camel\" value=js(\"chipVal\")
+    ui.on name=\"press\" mods=\"stop\"
     ui.interpolation foreign(moonbit \"count + 1\")
 ui.component Chrome
 
@@ -138,6 +141,25 @@ fn hand_built() -> DisegnoFolio {
                 },
                 ops: vec![FolioOp::Slot(FolioSlot {
                     name: FolioName::Dynamic(js("kind", 136, 140)),
+                    attributes: vec![FolioAttribute {
+                        name: String::from("tone"),
+                        value: Some(String::from("brisk")),
+                        span: Span::new(141, 147),
+                    }],
+                    bindings: vec![
+                        FolioBinding::Bind(FolioBind {
+                            name: Some(FolioName::Static(String::from("chip"))),
+                            modifiers: vec![String::from("camel")],
+                            value: Some(js("chipVal", 149, 156)),
+                            span: Span::new(148, 157),
+                        }),
+                        FolioBinding::On(FolioOn {
+                            name: Some(FolioName::Static(String::from("press"))),
+                            modifiers: vec![String::from("stop")],
+                            handler: None,
+                            span: Span::new(158, 160),
+                        }),
+                    ],
                     fallback: vec![FolioOp::Interpolation(FolioInterpolation {
                         expression: FolioExpr::Foreign {
                             dialect: String::from("moonbit"),

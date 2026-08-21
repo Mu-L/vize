@@ -126,7 +126,7 @@ pub(crate) fn lower_for<'a>(
     let region = Region {
         ops: if element.tag() == "template" {
             cx.report_missing_close(element);
-            record_template_drops(cx, element, analyzed);
+            record_template_drops(cx, element, analyzed, None);
             lower_children(cx, &element.children, ns)
         } else {
             let op = element_core(cx, element, analyzed, ns);

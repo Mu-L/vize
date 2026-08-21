@@ -57,20 +57,23 @@
 //! **Claim:** replacing one S1 text node by two adjacent text nodes
 //! covering the same bytes (and the inverse) preserves Vue semantics.
 //! **Argument:** adjacent template text renders as one DOM text run; the
-//! shipped pipeline merges adjacent text nodes into a single call
-//! (`crates/vize_atelier_core/src/transforms/transform_text.rs`, the
-//! `TextPart` merge `build_text_call` consumes), so node granularity of
+//! shipped pipeline merges consecutive text/interpolation children into
+//! a single call at codegen
+//! (`crates/vize_atelier_core/src/codegen/children.rs`), and since P2-9
+//! installment 4 the S2 lowering fuses them at conversion
+//! (`crates/vize_ricalco/src/lower/text.rs`), so node granularity of
 //! text is representation, not meaning. These two mutate the **S1 tree**
 //! rather than the source — no source spelling can split a maximal text
 //! run — with both halves kept as genuine source subslices, so spans stay
 //! authored. **Exclusions** (`sites.rs`): rawtext/`v-pre` content, text
 //! with no interior char boundary; merge additionally requires contiguous
 //! slices with no gap bytes (recovered junk would become visible text).
-//! **Declared normalization:** adjacent `ui.text` lines merge before
-//! comparison — P2-8 lowers text verbatim per node
-//! (`crates/vize_ricalco/src/lower/leaf.rs:50-70`), so the mutant
-//! honestly differs by exactly that merge until P2-9 lands
-//! `transform_text` as a pass. Split additionally proves the exact
+//! **Declared normalization:** none beyond span elision — the P2-15
+//! `merge_text` quotient was **ratcheted out** when P2-9 installment 4
+//! absorbed the merge into the lowering itself
+//! (`crates/vize_ricalco/src/lower/text.rs`): adjacent text now fuses
+//! before ids mint, so the mutant lowers to the original's artifact
+//! with no declared rule at all. Split additionally proves the exact
 //! inverse: re-merging the split tree must reproduce the original
 //! `Full`-mode folio byte-for-byte.
 //!
@@ -91,11 +94,12 @@
 //! replacement runs drawn from it cannot decode into or out of entity
 //! text. **Exclusions** (`sites.rs`): `<pre>` content (the strategy
 //! skips pre subtrees, `:155-161`), rawtext content (another language's
-//! whitespace), `v-pre` subtrees. **Declared normalization:** the folio
-//! comparison applies the mirrored condense algorithm to both sides —
-//! P2-8 lowers text verbatim (`leaf.rs:50-52`, a recorded v1 non-goal),
-//! so until P2-9 moves the condense in, the quotient *is* the cited
-//! rule set.
+//! whitespace), `v-pre` subtrees. **Declared normalization:** none
+//! beyond span elision — the P2-15 condense mirror was **ratcheted
+//! out** when P2-9 installment 4 absorbed the condense into the
+//! lowering (`crates/vize_ricalco/src/lower/text.rs`, rule-for-rule
+//! the cited armature algorithm): both sides now lower pre-condensed,
+//! so the quotient the justification licenses is already the artifact.
 
 use vize_carton::{Allocator, Box, String, StringBuilder, Vec as ArenaVec};
 use vize_sinopia::{

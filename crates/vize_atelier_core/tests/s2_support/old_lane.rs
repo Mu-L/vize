@@ -13,9 +13,16 @@ pub enum OldKey {
     /// A static `key` attribute; the payload is its authored value
     /// (`None` for a bare attribute, which never collides).
     Static(Option<String>),
-    /// A `:key` binding. The S2 lane defers these until `ui.bind` lands,
-    /// so the comparator counts rather than compares them.
-    Dynamic,
+    /// A `:key` binding: the trimmed expression text (`None` = a
+    /// compound rebuild), plus whether the legacy arg-content match
+    /// admitted a dynamic-argument spelling (`:[key]` — the recorded
+    /// quirk the S2 lane counts rather than imitates).
+    Dynamic {
+        /// The trimmed expression text.
+        text: Option<String>,
+        /// The spelling's argument is dynamic.
+        dynamic_arg: bool,
+    },
 }
 
 /// One branch's projected facts.
@@ -126,7 +133,17 @@ fn project_branch(branch: &IfBranchNode<'_>) -> OldBranch {
                 .as_ref()
                 .map(|value| String::from(value.content)),
         ),
-        Some(PropNode::Directive(_)) => OldKey::Dynamic,
+        Some(PropNode::Directive(dir)) => OldKey::Dynamic {
+            text: dir.exp.as_ref().and_then(|exp| match exp {
+                ExpressionNode::Simple(simple) => Some(String::from(simple.content.trim())),
+                ExpressionNode::Compound(_) => None,
+            }),
+            dynamic_arg: match dir.arg.as_ref() {
+                Some(ExpressionNode::Simple(arg)) => !arg.is_static,
+                Some(ExpressionNode::Compound(_)) => true,
+                None => false,
+            },
+        },
     };
     OldBranch {
         condition,

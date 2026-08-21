@@ -12,7 +12,7 @@ use vize_davinci::diagnostic::{Severity, Stage};
 use vize_davinci::id::NodeId;
 use vize_davinci::pass::PassEvent;
 use vize_disegno::verify::{Rigor, VerifyObserver};
-use vize_ricalco::pass::{BranchKey, TRANSFORM, vif};
+use vize_ricalco::pass::{BranchKey, BranchKeyKind, TRANSFORM, vif};
 
 use support::{assert_transformed_sound, with_transformed};
 use vize_disegno::folio::{DisegnoFolio, FolioAttribute, FolioElement, FolioOp};
@@ -68,11 +68,11 @@ fn extraction_moves_the_key_from_the_attribute_surface_to_a_fact() {
                 &vif::IfFacts {
                     branches: vec![
                         Some(BranchKey {
-                            value: Some("x".into()),
+                            kind: BranchKeyKind::Static(Some("x".into())),
                             span: span_of(source, r#"key="x""#, 0),
                         }),
                         Some(BranchKey {
-                            value: Some("y".into()),
+                            kind: BranchKeyKind::Static(Some("y".into())),
                             span: span_of(source, r#"key="y""#, 0),
                         }),
                     ],
@@ -110,7 +110,12 @@ fn a_bare_key_is_a_fact_that_never_collides() {
         assert_eq!(branches.len(), 2);
         for branch in branches {
             let key = branch.as_ref().expect("both bare keys extract");
-            assert_eq!(key.value, None, "a bare key has no authored value");
+            assert_eq!(
+                key.kind,
+                BranchKeyKind::Static(None),
+                "a bare key has no authored value"
+            );
+            assert_eq!(key.collision_text(), None);
         }
     });
 }
@@ -159,24 +164,6 @@ fn a_for_wrapped_branch_keeps_its_key_with_the_iteration() {
 }
 
 #[test]
-fn a_template_wrapper_key_is_the_recorded_series_gap() {
-    // The lowering dropped the wrapper's `key` (`drop.template-attribute`
-    // + Info) before this pass could see it; the pass extracts nothing.
-    // The P2-9 record carries this as a gap for a later installment.
-    let source = r#"<template v-if="a" key="k"><p>x</p><p>y</p></template>"#;
-    with_transformed(source, |lowered, _, facts, _| {
-        assert!(facts.if_facts.is_empty());
-        assert!(
-            lowered
-                .provenance
-                .iter()
-                .any(|record| record.rule.as_str() == "drop.template-attribute"),
-            "the drop is the lowering's, recorded there"
-        );
-    });
-}
-
-#[test]
 fn an_unwrapped_single_child_keeps_its_own_key() {
     // The lowering unwraps the template wrapper, leaving the inner div
     // as the region's only root - but that div is not the branch
@@ -202,8 +189,9 @@ fn an_unwrapped_single_child_keeps_its_own_key() {
 
 #[test]
 fn the_pipeline_reports_one_walk_per_barrier_pass() {
-    // Two mandatory barriers since installment 2 (v-if, v-for): two
-    // walks, serialized — the const-pinned fusion plan as measured cost.
+    // Five mandatory barriers since series 5 (v-if, v-for, v-slot,
+    // text, v-model): five walks, serialized — the const-pinned fusion
+    // plan as measured cost.
     with_transformed(r#"<div v-if="a">x</div>"#, |_, _, _, budget| {
         assert_eq!(
             vize_davinci::folio::Folio::print_to_string(
@@ -211,7 +199,7 @@ fn the_pipeline_reports_one_walk_per_barrier_pass() {
                 vize_davinci::folio::FolioMode::Full
             )
             .as_str(),
-            "[budget-observer]\nwalks=2\npasses=2\nanalyses=0\npipelines=1\nfailures=0\n\n"
+            "[budget-observer]\nwalks=5\npasses=5\nanalyses=0\npipelines=1\nfailures=0\n\n"
         );
     });
 }

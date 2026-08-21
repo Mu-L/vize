@@ -11,8 +11,8 @@ use vize_davinci::folio::{Folio, FolioMode};
 use vize_disegno::expr::{ExprRef, ForeignExpr, JsExpr, OpaqueExpr, OpaqueReason};
 use vize_disegno::folio::DisegnoFolio;
 use vize_disegno::op::{
-    Attribute, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding, ForOp,
-    IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, Op, Region, SlotOp, TextOp,
+    Attribute, BindOp, BindingContract, BindingOp, ComponentOp, DynamicName, ElementOp, ForBinding,
+    ForOp, IfBranch, IfOp, InterpolationOp, ModelOp, Namespace, OnOp, Op, Region, SlotOp, TextOp,
     VueDirectiveOp,
 };
 
@@ -178,6 +178,43 @@ fn arena_built<'a>(allocator: &'a Allocator) -> ArenaVec<'a, Op<'a>> {
                     [Op::Slot(Box::new_in(
                         SlotOp {
                             name: DynamicName::Dynamic(js(allocator, "kind", 136, 140)),
+                            // The outlet's props surface (P2-9 series 5):
+                            // one static slot prop, one `ui.bind` with a
+                            // modifier, one bare `ui.on` listener.
+                            attributes: ArenaVec::from_iter_in(
+                                [Attribute {
+                                    name: "tone",
+                                    value: Some("brisk"),
+                                    span: Span::new(141, 147),
+                                }],
+                                &allocator,
+                            ),
+                            bindings: ArenaVec::from_iter_in(
+                                [
+                                    BindingOp::Bind(Box::new_in(
+                                        BindOp {
+                                            name: Some(DynamicName::Static("chip")),
+                                            modifiers: ArenaVec::from_iter_in(
+                                                ["camel"],
+                                                &allocator,
+                                            ),
+                                            value: Some(js(allocator, "chipVal", 149, 156)),
+                                            span: Span::new(148, 157),
+                                        },
+                                        &allocator,
+                                    )),
+                                    BindingOp::On(Box::new_in(
+                                        OnOp {
+                                            name: Some(DynamicName::Static("press")),
+                                            modifiers: ArenaVec::from_iter_in(["stop"], &allocator),
+                                            handler: None,
+                                            span: Span::new(158, 160),
+                                        },
+                                        &allocator,
+                                    )),
+                                ],
+                                &allocator,
+                            ),
                             fallback: Region {
                                 ops: ArenaVec::from_iter_in([foreign], &allocator),
                             },
@@ -212,7 +249,7 @@ fn an_arena_tree_mirrors_into_the_same_folio() {
     let allocator = Allocator::default();
     let ops = arena_built(&allocator);
     let mirrored = DisegnoFolio::of(&ops);
-    assert_eq!(mirrored.op_count(), 10);
+    assert_eq!(mirrored.op_count(), 12);
     assert_eq!(
         mirrored.print_to_string(FolioMode::Full).as_str(),
         CANONICAL

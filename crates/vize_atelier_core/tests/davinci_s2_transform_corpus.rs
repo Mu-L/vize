@@ -20,7 +20,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use davinci_harness::fixtures::template_block;
-use s2_support::{BATTERY, Counters, compare};
+use s2_support::{BATTERY, Counters, SlotCounters, SurfaceCounters, TextCounters, compare};
 
 fn collect_vue_files(root: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(root) else {
@@ -54,24 +54,68 @@ fn the_s2_transform_lane_holds_over_the_corpus() {
     assert_eq!(
         counters,
         Counters {
-            templates_seen: 30,
-            compared: 30,
+            templates_seen: 75,
+            compared: 75,
             skipped_legacy_flag: 0,
             skipped_old_parse_errors: 0,
             skipped_s2_errors: 0,
-            if_ops: 20,
-            branches: 38,
-            keys_static: 13,
+            if_ops: 23,
+            branches: 43,
+            keys_static: 14,
             keys_dynamic: 2,
-            keys_template_if: 1,
-            keys_slot_root: 1,
+            keys_wrapper: 2,
+            keys_dynamic_arg: 0,
+            keys_compound: 0,
             conditions_compound: 0,
-            for_ops: 15,
-            for_values: 14,
+            for_ops: 17,
+            for_values: 16,
             for_keys: 4,
             for_indexes: 1,
             for_values_absent: 1,
             for_compound: 0,
+            slots: SlotCounters {
+                units: 13,
+                groups: 17,
+                group_params: 8,
+                groups_invented: 5,
+                groups_dynamic: 1,
+                units_conditional: 1,
+                units_forwarded: 0,
+                units_filler_default: 1,
+                outlets: 7,
+                outlets_dynamic: 1,
+            },
+            text: TextCounters {
+                units: 93,
+                parts_static: 80,
+                parts_dynamic: 23,
+                compound_units: 7,
+                vpre_templates: 1,
+                entity_templates: 1,
+                rawtext_excluded: 1,
+                parts_compound: 0,
+            },
+            surfaces: SurfaceCounters {
+                owners: 126,
+                attrs: 7,
+                binds: 5,
+                binds_dynamic: 1,
+                binds_spread: 1,
+                ons: 3,
+                ons_dynamic: 1,
+                ons_spread: 1,
+                directives: 1,
+                models: 3,
+                models_invalid: 2,
+                models_dynamic_arg: 1,
+                models_pattern_scope: 2,
+                keys_excluded: 2,
+                builtins_excluded: 2,
+                wrapper_attrs: 1,
+                entity_templates: 1,
+                table_templates: 0,
+                values_compound: 0,
+            },
         },
         "battery accounting moved: re-pin in BOTH lanes deliberately"
     );

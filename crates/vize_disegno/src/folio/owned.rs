@@ -13,12 +13,17 @@ use alloc::vec::Vec;
 use vize_carton::{Span, String};
 
 use super::DisegnoFolio;
-use crate::op::{Attribute, BindingOp, DynamicName, Namespace, Op, Region};
+use crate::op::{Attribute, DynamicName, Namespace, Op, Region};
 
+mod binding;
 mod expr;
 
+pub use binding::{
+    FolioBind, FolioBinding, FolioModel, FolioOn, FolioSlotContent, FolioVueDirective,
+};
 pub use expr::{FolioContract, FolioExpr, FolioForBinding};
 
+use binding::own_binding;
 use expr::own_expr;
 
 /// Mirror of [`Op`]: one region op.
@@ -38,15 +43,6 @@ pub enum FolioOp {
     For(FolioFor),
     /// `ui.slot`.
     Slot(FolioSlot),
-}
-
-/// Mirror of [`BindingOp`]: one attached op.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FolioBinding {
-    /// `ui.model`.
-    Model(FolioModel),
-    /// `vue.directive`.
-    VueDirective(FolioVueDirective),
 }
 
 /// Mirror of [`DynamicName`].
@@ -155,34 +151,12 @@ pub struct FolioFor {
 pub struct FolioSlot {
     /// The outlet name.
     pub name: FolioName,
+    /// Static slot props, in order.
+    pub attributes: Vec<FolioAttribute>,
+    /// Attached bindings, in order.
+    pub bindings: Vec<FolioBinding>,
     /// The fallback region.
     pub fallback: Vec<FolioOp>,
-    /// Source range.
-    pub span: Span,
-}
-
-/// Mirror of [`crate::op::ModelOp`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FolioModel {
-    /// The binding contract.
-    pub contract: FolioContract,
-    /// Element kind and dialect modifiers, in order.
-    pub attributes: Vec<FolioAttribute>,
-    /// Source range.
-    pub span: Span,
-}
-
-/// Mirror of [`crate::op::VueDirectiveOp`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FolioVueDirective {
-    /// Directive name without the `v-` prefix.
-    pub name: String,
-    /// The authored argument, when present.
-    pub argument: Option<FolioName>,
-    /// Modifier names, in order.
-    pub modifiers: Vec<String>,
-    /// The value expression, when authored.
-    pub value: Option<FolioExpr>,
     /// Source range.
     pub span: Span,
 }
@@ -257,44 +231,22 @@ fn own_op(op: &Op<'_>) -> FolioOp {
         }),
         Op::Slot(slot) => FolioOp::Slot(FolioSlot {
             name: own_name(&slot.name),
+            attributes: slot.attributes.iter().map(own_attribute).collect(),
+            bindings: slot.bindings.iter().map(own_binding).collect(),
             fallback: own_region(&slot.fallback),
             span: slot.span,
         }),
     }
 }
 
-fn own_binding(binding: &BindingOp<'_>) -> FolioBinding {
-    match binding {
-        BindingOp::Model(model) => FolioBinding::Model(FolioModel {
-            contract: FolioContract {
-                read: own_expr(&model.contract.read),
-                write: own_expr(&model.contract.write),
-            },
-            attributes: model.attributes.iter().map(own_attribute).collect(),
-            span: model.span,
-        }),
-        BindingOp::VueDirective(directive) => FolioBinding::VueDirective(FolioVueDirective {
-            name: String::from(directive.name),
-            argument: directive.argument.as_ref().map(own_name),
-            modifiers: directive
-                .modifiers
-                .iter()
-                .map(|modifier| String::from(*modifier))
-                .collect(),
-            value: directive.value.as_ref().map(own_expr),
-            span: directive.span,
-        }),
-    }
-}
-
-fn own_name(name: &DynamicName<'_>) -> FolioName {
+pub(super) fn own_name(name: &DynamicName<'_>) -> FolioName {
     match name {
         DynamicName::Static(text) => FolioName::Static(String::from(*text)),
         DynamicName::Dynamic(expr) => FolioName::Dynamic(own_expr(expr)),
     }
 }
 
-fn own_attribute(attribute: &Attribute<'_>) -> FolioAttribute {
+pub(super) fn own_attribute(attribute: &Attribute<'_>) -> FolioAttribute {
     FolioAttribute {
         name: String::from(attribute.name),
         value: attribute.value.map(String::from),
@@ -321,6 +273,8 @@ fn count_op(op: &FolioOp) -> u64 {
                 .sum::<u64>()
         }
         FolioOp::For(for_op) => 1 + for_op.ops.iter().map(count_op).sum::<u64>(),
-        FolioOp::Slot(slot) => 1 + slot.fallback.iter().map(count_op).sum::<u64>(),
+        FolioOp::Slot(slot) => {
+            1 + slot.bindings.len() as u64 + slot.fallback.iter().map(count_op).sum::<u64>()
+        }
     }
 }
