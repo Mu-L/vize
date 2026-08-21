@@ -42,6 +42,10 @@ mod slot;
 mod structural;
 mod vfor;
 
+// The one-scanner rule (#4365): the S2 passes re-derive binding names
+// with exactly the enumeration the lowering used, never a second one.
+pub(crate) use expr::simple_identifier;
+
 /// The S2 artifact one lowering produces: the op tree plus the three
 /// fact channels, all live even when diagnostics are present (the
 /// Lean-InfoTree survival property — kept fragments, not rollback).

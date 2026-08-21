@@ -38,10 +38,11 @@ fn the_chain_fixture_snapshots_the_post_pass_folio() {
         assert_folio_snapshot!(*folio);
 
         // Supplements: the plan's walk accounting through the budget
-        // observer's own derived page.
+        // observer's own derived page (two barrier passes since
+        // installment 2).
         assert_eq!(
             budget.print_to_string(FolioMode::Full).as_str(),
-            "[budget-observer]\nwalks=1\npasses=1\nanalyses=0\npipelines=1\nfailures=0\n\n"
+            "[budget-observer]\nwalks=2\npasses=2\nanalyses=0\npipelines=1\nfailures=0\n\n"
         );
         // One fact entry (the chain's `ui.if`), keys on branches 0 and 2.
         let entries = facts.if_facts.sorted_entries();

@@ -201,7 +201,9 @@ fn an_unwrapped_single_child_keeps_its_own_key() {
 }
 
 #[test]
-fn the_pipeline_reports_one_walk_for_the_one_barrier_pass() {
+fn the_pipeline_reports_one_walk_per_barrier_pass() {
+    // Two mandatory barriers since installment 2 (v-if, v-for): two
+    // walks, serialized — the const-pinned fusion plan as measured cost.
     with_transformed(r#"<div v-if="a">x</div>"#, |_, _, _, budget| {
         assert_eq!(
             vize_davinci::folio::Folio::print_to_string(
@@ -209,7 +211,7 @@ fn the_pipeline_reports_one_walk_for_the_one_barrier_pass() {
                 vize_davinci::folio::FolioMode::Full
             )
             .as_str(),
-            "[budget-observer]\nwalks=1\npasses=1\nanalyses=0\npipelines=1\nfailures=0\n\n"
+            "[budget-observer]\nwalks=2\npasses=2\nanalyses=0\npipelines=1\nfailures=0\n\n"
         );
     });
 }

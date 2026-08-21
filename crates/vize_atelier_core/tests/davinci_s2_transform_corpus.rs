@@ -1,4 +1,4 @@
-//! P2-9 series 1, the corpus-runnable differential entry — the
+//! P2-9, the corpus-runnable differential entry — the
 //! P1-6/P1-7 lane shape. Compiled only with the `davinci-differential`
 //! feature (`[[test]] required-features`). Runs the committed battery
 //! with the same exact-pinned counters as the plain witness, then, with
@@ -45,7 +45,7 @@ fn collect_vue_files(root: &Path, out: &mut Vec<PathBuf>) {
 }
 
 #[test]
-fn the_s2_vif_lane_holds_over_the_corpus() {
+fn the_s2_transform_lane_holds_over_the_corpus() {
     // -- committed battery, the same exact pins as the plain witness --
     let mut counters = Counters::default();
     for (name, source) in BATTERY {
@@ -54,18 +54,24 @@ fn the_s2_vif_lane_holds_over_the_corpus() {
     assert_eq!(
         counters,
         Counters {
-            templates_seen: 18,
-            compared: 18,
+            templates_seen: 30,
+            compared: 30,
             skipped_legacy_flag: 0,
             skipped_old_parse_errors: 0,
             skipped_s2_errors: 0,
-            if_ops: 19,
-            branches: 36,
+            if_ops: 20,
+            branches: 38,
             keys_static: 13,
             keys_dynamic: 2,
             keys_template_if: 1,
             keys_slot_root: 1,
             conditions_compound: 0,
+            for_ops: 15,
+            for_values: 14,
+            for_keys: 4,
+            for_indexes: 1,
+            for_values_absent: 1,
+            for_compound: 0,
         },
         "battery accounting moved: re-pin in BOTH lanes deliberately"
     );
@@ -113,7 +119,7 @@ fn the_s2_vif_lane_holds_over_the_corpus() {
         compare(context.as_ref(), template, &mut corpus);
     }
     eprintln!(
-        "davinci s2 v-if corpus sweep: files={} unreadable={unreadable} \
+        "davinci s2 transform corpus sweep: files={} unreadable={unreadable} \
          without_template={without_template} {corpus:?}",
         files.len(),
     );

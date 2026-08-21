@@ -1,7 +1,8 @@
-//! P2-9 series 1, the plain-suite coverage witness: the committed v-if
-//! battery dual-runs legacy-vs-S2 with **exact-pinned** counters, so a
-//! cfg or flag regression that disarms the differential lane fails
-//! loudly here (the P1-6/P1-7 witness law). The corpus-widened entry is
+//! P2-9, the plain-suite coverage witness: the committed battery (the
+//! v-if half from series 1, the v-for half from series 2) dual-runs
+//! legacy-vs-S2 with **exact-pinned** counters, so a cfg or flag
+//! regression that disarms the differential lane fails loudly here (the
+//! P1-6/P1-7 witness law). The corpus-widened entry is
 //! `davinci_s2_transform_corpus.rs` (feature `davinci-differential`).
 
 mod s2_support;
@@ -12,18 +13,24 @@ use s2_support::{BATTERY, Counters, compare};
 /// numbers; both move together, deliberately, when the battery does.
 fn expected() -> Counters {
     Counters {
-        templates_seen: 18,
-        compared: 18,
+        templates_seen: 30,
+        compared: 30,
         skipped_legacy_flag: 0,
         skipped_old_parse_errors: 0,
         skipped_s2_errors: 0,
-        if_ops: 19,
-        branches: 36,
+        if_ops: 20,
+        branches: 38,
         keys_static: 13,
         keys_dynamic: 2,
         keys_template_if: 1,
         keys_slot_root: 1,
         conditions_compound: 0,
+        for_ops: 15,
+        for_values: 14,
+        for_keys: 4,
+        for_indexes: 1,
+        for_values_absent: 1,
+        for_compound: 0,
     }
 }
 
