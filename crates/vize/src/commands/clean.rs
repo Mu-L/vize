@@ -110,7 +110,7 @@ fn managed_vize_artifact_paths(root: &Path, scope: CleanScope) -> Vec<PathBuf> {
 fn force_vize_artifact_paths(root: &Path, scope: CleanScope) -> io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     if matches!(scope, CleanScope::All | CleanScope::Project) {
-        paths.push(project_vize_dir(root));
+        paths.extend(force_project_vize_artifact_paths(root)?);
     }
     if matches!(scope, CleanScope::All | CleanScope::NodeModules) {
         let node_modules_vize = node_modules_vize_dir(root);
@@ -132,8 +132,30 @@ fn force_vize_artifact_paths(root: &Path, scope: CleanScope) -> io::Result<Vec<P
             Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => return Err(error),
         }
-        paths.extend(current_canon_artifact_paths(root));
     }
+    Ok(paths)
+}
+
+fn force_project_vize_artifact_paths(root: &Path) -> io::Result<Vec<PathBuf>> {
+    let project_vize = project_vize_dir(root);
+    let mut paths = Vec::new();
+    match fs::read_dir(&project_vize) {
+        Ok(entries) => {
+            for entry in entries {
+                let entry = entry?;
+                // Canon storage is project-keyed and can contain entries owned by
+                // another checkout that shares the artifact root. Force removes
+                // every non-Canon project artifact, then appends only this
+                // project's current Canon namespace and locks below.
+                if entry.file_name() != "canon" {
+                    paths.push(entry.path());
+                }
+            }
+        }
+        Err(error) if error.kind() == ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    paths.extend(current_canon_artifact_paths(root));
     Ok(paths)
 }
 
@@ -147,31 +169,30 @@ fn node_modules_vize_dir(root: &Path) -> PathBuf {
 
 fn project_vize_artifact_paths(root: &Path) -> Vec<PathBuf> {
     let project_vize_dir = project_vize_dir(root);
-    ["patina", "reports", "snapshots", "tokens"]
+    let mut paths: Vec<PathBuf> = ["patina", "reports", "snapshots", "tokens"]
         .into_iter()
         .map(|name| project_vize_dir.join(name))
-        .collect()
+        .collect();
+    paths.extend(current_canon_artifact_paths(root));
+    paths
 }
 
 fn node_modules_vize_artifact_paths(root: &Path) -> Vec<PathBuf> {
     let node_modules_vize_dir = node_modules_vize_dir(root);
-    let mut paths = current_canon_artifact_paths(root);
-    paths.extend(
-        [
-            "check-profile",
-            "corsa",
-            "corsa-overlay",
-            "lsp.log",
-            "oxc-dumps",
-            "oxlint-plugin-vize",
-            "patina",
-            "vize.config.schema.json",
-            "vize.sock",
-        ]
-        .into_iter()
-        .map(|name| node_modules_vize_dir.join(name)),
-    );
-    paths
+    [
+        "check-profile",
+        "corsa",
+        "corsa-overlay",
+        "lsp.log",
+        "oxc-dumps",
+        "oxlint-plugin-vize",
+        "patina",
+        "vize.config.schema.json",
+        "vize.sock",
+    ]
+    .into_iter()
+    .map(|name| node_modules_vize_dir.join(name))
+    .collect()
 }
 
 fn current_canon_artifact_paths(root: &Path) -> Vec<PathBuf> {
@@ -198,9 +219,6 @@ fn remove_path(path: &Path) -> Result<bool, std::io::Error> {
 
 fn remove_empty_artifact_roots(root: &Path, scope: CleanScope) {
     if matches!(scope, CleanScope::All | CleanScope::Project) {
-        let _ = fs::remove_dir(project_vize_dir(root));
-    }
-    if matches!(scope, CleanScope::All | CleanScope::NodeModules) {
         let virtual_root = vize_canon::project_virtual_root(root);
         if let Some(projects_dir) = virtual_root.parent() {
             let _ = fs::remove_dir(projects_dir);
@@ -208,6 +226,9 @@ fn remove_empty_artifact_roots(root: &Path, scope: CleanScope) {
                 let _ = fs::remove_dir(canon_dir);
             }
         }
+        let _ = fs::remove_dir(project_vize_dir(root));
+    }
+    if matches!(scope, CleanScope::All | CleanScope::NodeModules) {
         let _ = fs::remove_dir(node_modules_vize_dir(root));
     }
 }
