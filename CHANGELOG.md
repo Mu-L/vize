@@ -10,6 +10,12 @@ deprecation contract that backs the entries below.
 
 ## [Unreleased]
 
+## [0.362.0] - 2026-08-22
+
+### Added
+
+- Expose `vize check --format json` compiler options evidence for checked programs (#4576)
+
 ## [0.361.0] - 2026-08-22
 
 ### Added
