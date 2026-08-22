@@ -10,6 +10,12 @@ deprecation contract that backs the entries below.
 
 ## [Unreleased]
 
+## [0.361.0] - 2026-08-22
+
+### Added
+
+- Expose `vize check --format json` project graph evidence for checked programs (#4575)
+
 ## [0.212.0] - 2026-06-13
 
 ### Added
