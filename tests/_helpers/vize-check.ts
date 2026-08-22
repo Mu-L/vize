@@ -17,8 +17,14 @@ export type VizeCheckJson = {
   errorCount: number;
   fileCount: number;
   files: VizeCheckFileJson[];
+  programs: Array<{ files: string[]; root: string; tsconfig?: string }>;
   warningCount: number;
 };
+
+export function stringifyDiagnosticSnapshot(parsed: VizeCheckJson, cwd: string): string {
+  const { programs: _programs, ...diagnosticReport } = parsed;
+  return JSON.stringify(diagnosticReport, null, 2).replaceAll(cwd, "<cwd>") + "\n";
+}
 
 type RunVizeCheckJsonOptions = {
   allowExitCodes?: readonly number[];

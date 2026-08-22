@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { repoRoot } from "../../_helpers/realworld-patch.ts";
 import {
   type CommandResult,
+  omitProgramEvidence,
   resolveTsgoBinary,
   resolveVueTscBinary,
   runVizeCheck,
@@ -188,7 +189,7 @@ test("vue-benchmarks correctness plants fail closed on current main", async (t) 
         const vueTsc = runVueTsc(workspaceDir, vueTscPath);
         assert.equal(brokenFirst.status, 1, brokenFirst.stderr || brokenFirst.stdout);
         assert.deepEqual(
-          brokenFirst.report,
+          omitProgramEvidence(brokenFirst.report),
           expectedReport(plant.files, plant.diagnostics),
           JSON.stringify(brokenFirst.report),
         );
@@ -260,7 +261,11 @@ function assertClean(
   files: Record<string, string>,
 ): void {
   assert.equal(vize.status, 0, vize.stderr || vize.stdout);
-  assert.deepEqual(vize.report, expectedReport(files, {}), JSON.stringify(vize.report));
+  assert.deepEqual(
+    omitProgramEvidence(vize.report),
+    expectedReport(files, {}),
+    JSON.stringify(vize.report),
+  );
   assert.equal(vueTsc.status, 0, vueTsc.stderr || vueTsc.stdout);
   assert.equal(vueTsc.stdout, "");
 }

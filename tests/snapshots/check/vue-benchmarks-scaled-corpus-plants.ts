@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { repoRoot } from "../../_helpers/realworld-patch.ts";
 import {
   type CommandResult,
+  omitProgramEvidence,
   resolveTsgoBinary,
   resolveVueTscBinary,
   runVizeCheck,
@@ -224,7 +225,7 @@ test("vue-benchmarks plants stay caught across the scaled unique corpus", async 
 
       assert.equal(brokenFirst.status, 1, brokenFirst.stderr || brokenFirst.stdout);
       assert.deepEqual(
-        brokenFirst.report,
+        omitProgramEvidence(brokenFirst.report),
         expectedReport(corpusFiles, plants),
         JSON.stringify(brokenFirst.report),
       );
@@ -302,7 +303,11 @@ function expectedReport(corpusFiles: string[], activePlants: ScaledPlant[]): unk
 
 function assertClean(vize: VizeCheckResult, vueTsc: CommandResult, corpusFiles: string[]): void {
   assert.equal(vize.status, 0, vize.stderr || vize.stdout);
-  assert.deepEqual(vize.report, expectedReport(corpusFiles, []), JSON.stringify(vize.report));
+  assert.deepEqual(
+    omitProgramEvidence(vize.report),
+    expectedReport(corpusFiles, []),
+    JSON.stringify(vize.report),
+  );
   assert.equal(vueTsc.status, 0, vueTsc.stderr || vueTsc.stdout);
   assert.equal(vueTsc.stdout, "");
 }

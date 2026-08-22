@@ -2,8 +2,9 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
 
-const outputKeys = ["errorCount", "fileCount", "files", "warningCount"];
+const outputKeys = ["errorCount", "fileCount", "files", "programs", "warningCount"];
 const fileKeys = ["diagnostics", "file"];
+const programKeys = ["files", "root", "tsconfig"];
 const typecheckSourcePattern = /\.(?:vue|ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
 
 export function validateTypecheckerOutput(
@@ -14,7 +15,10 @@ export function validateTypecheckerOutput(
   authoredFiles = expectedFiles,
 ) {
   requireRecord(output, "envelope");
-  requireExactKeys(output, outputKeys, "envelope");
+  const expectedOutputKeys = Array.isArray(output.programs)
+    ? outputKeys
+    : outputKeys.filter((key) => key !== "programs");
+  requireExactKeys(output, expectedOutputKeys, "envelope");
   for (const field of ["errorCount", "warningCount", "fileCount"]) {
     if (!Number.isSafeInteger(output[field]) || output[field] < 0) {
       invalid(`${field} must be a non-negative safe integer`);
@@ -59,6 +63,24 @@ export function validateTypecheckerOutput(
       if (diagnostic.startsWith("error:")) errorCount += 1;
       else if (diagnostic.startsWith("warning:")) warningCount += 1;
       else invalid(`diagnostic has no error or warning prefix: ${file.file}`);
+    }
+  }
+  for (const [index, program] of (output.programs ?? []).entries()) {
+    requireRecord(program, `programs[${index}]`);
+    const expectedKeys =
+      typeof program.tsconfig === "string"
+        ? programKeys
+        : programKeys.filter((key) => key !== "tsconfig");
+    requireExactKeys(program, expectedKeys, `programs[${index}]`);
+    if (typeof program.root !== "string" || program.root.length === 0) {
+      invalid(`programs[${index}].root must be a non-empty string`);
+    }
+    if ("tsconfig" in program && program.tsconfig.length === 0) {
+      invalid(`programs[${index}].tsconfig must be a non-empty string`);
+    }
+    if (!Array.isArray(program.files)) invalid(`programs[${index}].files must be an array`);
+    for (const [fileIndex, file] of program.files.entries()) {
+      requireRelativePath(file, `programs[${index}].files[${fileIndex}]`);
     }
   }
 

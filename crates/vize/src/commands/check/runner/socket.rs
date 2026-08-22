@@ -9,17 +9,16 @@ use std::{
 
 use vize_carton::{String, cstr, profile, profiler::global_profiler};
 
+use super::{
+    collect::collect_vue_files, display_path, output::save_virtual_ts_targets_or_exit,
+    text_style::TextStyle,
+};
 use crate::{
     commands::check::{
         CheckArgs, JsonRpcResponse, ServerCheckResult,
         reporting::{JsonFileResult, JsonOutput},
     },
     profile_support,
-};
-
-use super::{
-    collect::collect_vue_files, display_path, output::save_virtual_ts_targets_or_exit,
-    text_style::TextStyle,
 };
 use vize_curator::profile::{ProfilePhase, ProfilePhaseKind, ProfileReport, print_profile_report};
 
@@ -188,7 +187,6 @@ pub(crate) fn run_with_socket(args: &CheckArgs, socket_path: &str) {
             args.quiet,
         );
     }
-
     let render_start = Instant::now();
     if args.format == "json" {
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
@@ -207,6 +205,7 @@ pub(crate) fn run_with_socket(args: &CheckArgs, socket_path: &str) {
 
         let json_output = JsonOutput {
             files: files_json,
+            programs: Vec::new(),
             error_count: total_errors,
             warning_count: total_warnings,
             file_count: results.len(),
