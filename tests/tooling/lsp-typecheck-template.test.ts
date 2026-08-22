@@ -274,10 +274,11 @@ import Child from './Child.vue'
 
 function resolveTsgoBinary(): string | undefined {
   const candidates = [
+    process.env.CORSA_BIN,
     path.join(root, "../corsa-bind/.cache/tsgo"),
     path.join(root, "node_modules/.bin/tsgo"),
     path.join(root, "tests/node_modules/.bin/tsgo"),
-  ];
+  ].filter((candidate): candidate is string => candidate != null && candidate.length > 0);
   return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
