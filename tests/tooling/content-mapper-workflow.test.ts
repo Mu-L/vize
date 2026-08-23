@@ -19,6 +19,8 @@ interface WorkflowStep {
   env?: Record<string, string>;
   name?: string;
   run?: string;
+  uses?: string;
+  with?: Record<string, unknown>;
   "working-directory"?: string;
 }
 
@@ -79,6 +81,18 @@ test("Content Mapper conformance pins and runs the exact upstream project path",
   assert.match(workflow, new RegExp(`CONTENT_MAPPER_TYPESCRIPT_SHA: "${UPSTREAM_SHA}"`));
   assert.match(job, /repository: microsoft\/TypeScript/);
   assert.match(job, /ref: \$\{\{ env\.CONTENT_MAPPER_TYPESCRIPT_SHA \}\}/);
+  const upstreamCheckoutStep = steps.find(
+    (step) => step.name === "Checkout exact TypeScript Content Mapper revision",
+  );
+  assert.ok(upstreamCheckoutStep, "missing exact TypeScript Content Mapper checkout step");
+  assert.equal(
+    upstreamCheckoutStep.uses,
+    "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+  );
+  assert.equal(upstreamCheckoutStep.with?.repository, "microsoft/TypeScript");
+  assert.equal(upstreamCheckoutStep.with?.ref, "${{ env.CONTENT_MAPPER_TYPESCRIPT_SHA }}");
+  assert.equal(upstreamCheckoutStep.with?.path, "typescript-content-mapper");
+  assert.equal(upstreamCheckoutStep.with?.["persist-credentials"], false);
   assert.match(job, /uses: actions\/setup-go@[0-9a-f]{40}\s+# v6\.1\.0/);
   assert.match(
     job,
