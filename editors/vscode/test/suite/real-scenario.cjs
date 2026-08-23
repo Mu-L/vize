@@ -155,6 +155,7 @@ async function stepComponentContractHoverSurfaces() {
     async () => ({
       importBinding: await hoverAt(uri, 1, 8),
       scriptUsage: await hoverAt(uri, 3, 1),
+      templateTag: await hoverAt(uri, 7, 5),
     }),
     (next) => deepEqual(next, expected.componentContractHovers),
     "component contract hovers",
@@ -166,6 +167,19 @@ async function stepComponentContractHoverSurfaces() {
   )) {
     assert.doesNotMatch(value, /__vizeComponentMarker|__vizeRawProps|__VizeComponentConstructor/);
   }
+
+  const definitions = await vscode.commands.executeCommand(
+    "vscode.executeDefinitionProvider",
+    uri,
+    new vscode.Position(7, 5),
+  );
+  const childUri = vscode.Uri.file(
+    path.join(getWorkspaceFolderPath(), "src", "ContractChild.vue"),
+  ).toString();
+  assert.deepEqual(
+    definitions.map(describeDefinition),
+    expected.componentContractTemplateDefinitions(childUri),
+  );
 }
 
 /** Step 2: the quick fix the server offers on the lint warning's own span. */
@@ -270,6 +284,15 @@ function describeHover(hover) {
       return String(content);
     }),
     range: hover.range === undefined ? undefined : describeRange(hover.range),
+  };
+}
+
+function describeDefinition(definition) {
+  const uri = definition.uri ?? definition.targetUri;
+  const range = definition.range ?? definition.targetSelectionRange ?? definition.targetRange;
+  return {
+    range: describeRange(range),
+    uri: uri.toString(),
   };
 }
 
