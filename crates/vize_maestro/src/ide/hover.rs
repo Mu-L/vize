@@ -3,8 +3,6 @@
 //! Provides contextual hover information for:
 //! - Template expressions and bindings
 //! - Vue directives
-//! - Script bindings and imports
-//! - CSS properties and Vue-specific selectors
 #![allow(
     clippy::disallowed_types,
     clippy::disallowed_methods,
@@ -13,6 +11,8 @@
 
 mod backend;
 mod builder;
+#[cfg(feature = "native")]
+mod component_import;
 mod component_prop;
 mod component_tag;
 #[cfg(feature = "native")]

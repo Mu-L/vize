@@ -1,7 +1,6 @@
 //! Script hover provider.
 //!
-//! Provides hover information for Vue Composition API, compiler macros,
-//! and script bindings with type analysis.
+//! and script bindings.
 #![allow(
     clippy::disallowed_types,
     clippy::disallowed_methods,
@@ -96,6 +95,7 @@ impl HoverService {
             {
                 return Some(fallback);
             }
+            super::component_import::rewrite_vue_component_import_hover(ctx, &word, &mut converted);
             return Some(converted);
         }
 
