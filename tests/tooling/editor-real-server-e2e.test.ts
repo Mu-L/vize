@@ -295,10 +295,12 @@ test("the Neovim real-server scenario drains post-save diagnostics before rename
   assert.ok(waitAt >= 0 && semanticTokensAt > waitAt && renameAt > semanticTokensAt);
 });
 
-test("the VS Code real-server suite drives all five scorecard steps", () => {
+test("the VS Code real-server suite drives the packaged type-aware scorecard", () => {
   const scenario = readRepoFile("editors", "vscode", "test", "suite", "real-scenario.cjs");
+  const expected = readRepoFile("editors", "vscode", "test", "suite", "real-scenario-expected.cjs");
 
   assert.match(scenario, /vscode\.executeCodeActionProvider/);
+  assert.match(scenario, /vscode\.executeDefinitionProvider/);
   assert.match(scenario, /vscode\.executeFormatDocumentProvider/);
   assert.match(scenario, /vscode\.provideDocumentSemanticTokens/);
   assert.match(scenario, /vscode\.executeDocumentRenameProvider/);
@@ -319,4 +321,9 @@ test("the VS Code real-server suite drives all five scorecard steps", () => {
 
   // Rule for this suite: complete-response assertions only.
   assert.doesNotMatch(scenario, /\.includes\(|\.contains\(/);
+
+  assert.match(expected, /templateTag: \[/);
+  assert.match(expected, /componentContractTemplateDefinitions/);
+  assert.match(expected, /_Component usage_/);
+  assert.match(expected, /range: \[7, 3, 7, 16\]/);
 });

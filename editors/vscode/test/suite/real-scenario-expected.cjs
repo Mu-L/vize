@@ -136,7 +136,33 @@ const componentContractHovers = {
       range: [3, 0, 3, 13],
     },
   ],
+  templateTag: [
+    {
+      contents: [
+        [
+          "**ContractChild**",
+          "",
+          "_Component usage_",
+          "",
+          "**Passed props**",
+          '- `label="ready"`',
+          "",
+          "[Vue Component Props](https://vuejs.org/guide/components/props.html)",
+        ].join("\n"),
+      ],
+      range: [7, 3, 7, 16],
+    },
+  ],
 };
+
+function componentContractTemplateDefinitions(childUri) {
+  return [
+    {
+      range: [0, 0, 0, 0],
+      uri: childUri,
+    },
+  ];
+}
 
 // The authored `<Child  :count="total" />` carries two independent authored
 // bugs on one line: two spaces after the tag name (a fixable lint warning) and
@@ -243,6 +269,7 @@ module.exports = {
   componentContractChildSource,
   componentContractHostSource,
   componentContractHovers,
+  componentContractTemplateDefinitions,
   diagnostics,
   formattedSource,
   formattingEdits,
