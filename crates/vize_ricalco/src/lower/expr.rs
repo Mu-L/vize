@@ -4,13 +4,17 @@
 //! The lowering **never re-derives the admission rule**: text goes
 //! through [`ExprRef::parse_js_in`] — the one shared home of the P1-5
 //! guard → parse → whole-coverage rule — and comes back `Js` when
-//! admitted or `Opaque` with the text-classified reason when not. The
-//! position-classified reasons (`ForValue` here; `MultiStatement` and
+//! admitted or `Opaque` with the text-classified reason when not. Vue 2
+//! pipe filters are an exception that is still total: interpolations
+//! and `v-bind` values run [`VueFilterExpr::parse_in`] first so `|` is
+//! not bitwise-OR. Other positions (`v-on`, dynamic arguments, …) stay
+//! on the JS rule — Vue 2 never treated those as filter sites.
+//! The position-classified reasons (`ForValue` here; `MultiStatement` and
 //! `Compound` have no P2-8 producer, see the record) are assigned by
 //! [`opaque_at`], the only constructor that names a reason directly.
 
 use vize_carton::{Span, String, cstr};
-use vize_disegno::expr::{ExprRef, OpaqueExpr, OpaqueReason};
+use vize_disegno::expr::{ExprRef, OpaqueExpr, OpaqueReason, VueFilterExpr};
 
 use super::cx::Cx;
 
@@ -22,9 +26,22 @@ pub(crate) fn trimmed<'a>(cx: &Cx<'a>, text: &'a str) -> (&'a str, Span) {
 }
 
 /// Lower one expression position: trim, then admit through the shared
-/// rule. Total — refused text comes back as the classified escape.
+/// JS rule. Total — refused text comes back as the classified escape.
 pub(crate) fn expr_at<'a>(cx: &Cx<'a>, text: &'a str) -> ExprRef<'a> {
     let (slice, span) = trimmed(cx, text);
+    ExprRef::parse_js_in(cx.allocator, slice, span)
+}
+
+/// Interpolation / `v-bind` value admission: Vue 2 pipe filters first
+/// when the dialect asks, so `|` is not bitwise-OR. Other directive
+/// expressions stay on [`expr_at`].
+pub(crate) fn filter_expr_at<'a>(cx: &Cx<'a>, text: &'a str) -> ExprRef<'a> {
+    let (slice, span) = trimmed(cx, text);
+    if cx.caps.supports_filters
+        && let Some(filter) = VueFilterExpr::parse_in(cx.allocator, slice, span)
+    {
+        return ExprRef::Filter(filter);
+    }
     ExprRef::parse_js_in(cx.allocator, slice, span)
 }
 
@@ -49,6 +66,7 @@ pub(crate) fn opaque_at<'a>(
 pub(crate) fn desc(expr: &ExprRef<'_>) -> String {
     match expr {
         ExprRef::Js(_) | ExprRef::Foreign(_) => String::from(expr.mnemonic()),
+        ExprRef::Filter(_) => String::from("vue.filter"),
         ExprRef::Opaque(opaque) => cstr!("opaque({})", opaque.reason.mnemonic()),
     }
 }
@@ -63,6 +81,6 @@ pub(crate) fn simple_identifier<'a>(expr: &ExprRef<'a>) -> Option<&'a str> {
             oxc_ast::ast::Expression::Identifier(_) => Some(js.source),
             _ => None,
         },
-        ExprRef::Foreign(_) | ExprRef::Opaque(_) => None,
+        ExprRef::Foreign(_) | ExprRef::Filter(_) | ExprRef::Opaque(_) => None,
     }
 }

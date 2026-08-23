@@ -21,6 +21,7 @@
 //! [`SurfaceError`]: vize_sinopia::SurfaceError
 
 use alloc::vec::Vec as StdVec;
+use core::fmt;
 
 use vize_carton::{Allocator, Span, String};
 use vize_davinci::diagnostic::{Diagnostic, Severity, Stage};
@@ -33,6 +34,7 @@ use vize_disegno::scope::ScopeFacts;
 
 mod binding;
 mod bindop;
+mod caps;
 mod css;
 mod cx;
 mod directive;
@@ -42,8 +44,11 @@ mod forop;
 mod leaf;
 mod slot;
 mod structural;
+mod sugar;
 mod text;
 mod vfor;
+
+pub use caps::LegacyCaps;
 
 // The one-scanner rule (#4365): the S2 passes re-derive binding names
 // with exactly the enumeration the lowering used, never a second one.
@@ -59,8 +64,10 @@ pub use text::{TextPart, TextParts, rebuild_source};
 /// The S2 artifact one lowering produces: the op tree plus the three
 /// fact channels, all live even when diagnostics are present (the
 /// Lean-InfoTree survival property — kept fragments, not rollback).
-#[derive(Debug)]
 pub struct Lowered<'a> {
+    /// The compile arena this artifact was lowered into. The legalizing
+    /// pass allocates rewritten expressions and inserted listeners here.
+    pub allocator: &'a Allocator,
     /// The root region's ops, in document order.
     pub root: Region<'a>,
     /// How many ops were numbered (page order: every region op and
@@ -85,6 +92,9 @@ pub struct Lowered<'a> {
     /// op's page-order id (P2-9 series 5, [`WrapperKeys`]); folded into
     /// branch-key facts by `pass::vif`.
     pub wrappers: SideTable<WrapperKeys>,
+    /// Vue dialect sugar the lowering (and the legalizing pass) consult.
+    /// [`LegacyCaps::VUE3`] unless the caller used [`lower_with_caps`].
+    pub caps: LegacyCaps,
 }
 
 /// Lower a parsed S1 tree (and the tokenizer errors its parse reported)
@@ -101,7 +111,20 @@ pub fn lower<'a>(
     tree: &SurfaceTree<'a>,
     errors: &[SurfaceError],
 ) -> Lowered<'a> {
-    let mut cx = cx::Cx::new(allocator, tree.source);
+    lower_with_caps(allocator, tree, errors, LegacyCaps::VUE3)
+}
+
+/// Lower with an explicit Vue dialect. Vue 3 is [`LegacyCaps::VUE3`]
+/// (identical to [`lower`]); Vue 2 admits `.sync` / `slot-scope` /
+/// pipe-filter payloads so the legalizing pass can rewrite them.
+#[must_use]
+pub fn lower_with_caps<'a>(
+    allocator: &'a Allocator,
+    tree: &SurfaceTree<'a>,
+    errors: &[SurfaceError],
+    caps: LegacyCaps,
+) -> Lowered<'a> {
+    let mut cx = cx::Cx::with_caps(allocator, tree.source, caps);
     for error in errors {
         cx.diagnostics.push(Diagnostic::new(
             Severity::Error,
@@ -112,6 +135,7 @@ pub fn lower<'a>(
     }
     let ops = structural::lower_children(&mut cx, &tree.children, Namespace::Html);
     Lowered {
+        allocator,
         root: Region { ops },
         op_count: cx.op_count(),
         diagnostics: cx.diagnostics,
@@ -119,5 +143,21 @@ pub fn lower<'a>(
         scopes: cx.scopes,
         texts: cx.texts,
         wrappers: cx.wrappers,
+        caps,
+    }
+}
+
+impl fmt::Debug for Lowered<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Lowered")
+            .field("root", &self.root)
+            .field("op_count", &self.op_count)
+            .field("diagnostics", &self.diagnostics)
+            .field("provenance", &self.provenance)
+            .field("scopes", &self.scopes)
+            .field("texts", &self.texts)
+            .field("wrappers", &self.wrappers)
+            .field("caps", &self.caps)
+            .finish_non_exhaustive()
     }
 }
