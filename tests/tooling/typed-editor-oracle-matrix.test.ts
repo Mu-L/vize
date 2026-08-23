@@ -21,6 +21,7 @@ const rowsRequiringExecutedEvidence = new Set([
   "lsp-imported-component-contract-hover",
   "lsp-component-event-contract-navigation",
   "lsp-component-v-model-navigation",
+  "lsp-static-template-ref-navigation",
   "non-vscode-host-reactive-hover-surface",
 ]);
 
@@ -197,6 +198,24 @@ const matrix: MatrixRow[] = [
     evidence: [
       {
         kind: "file",
+        path: "tests/tooling/lsp-reactive-hover-type-backed.test.ts",
+        requiredText: [
+          "static template ref value",
+          'ref="button"',
+          "useTemplateRef<HTMLButtonElement>",
+          "definition must jump to the authored useTemplateRef binding",
+        ],
+      },
+      toolingTestCiEvidence,
+    ],
+    followUp: "#4592",
+    id: "lsp-static-template-ref-navigation",
+    status: "covered",
+  },
+  {
+    evidence: [
+      {
+        kind: "file",
         path: "editors/nvim/test/ref_surface_hover.lua",
         requiredText: [
           "degraded to an unknown reactive type",
@@ -241,6 +260,7 @@ test("typed editor oracle matrix covers or explicitly tracks every P0 slice", ()
       "lsp-imported-component-contract-hover",
       "lsp-component-event-contract-navigation",
       "lsp-component-v-model-navigation",
+      "lsp-static-template-ref-navigation",
       "non-vscode-host-reactive-hover-surface",
     ],
   );
