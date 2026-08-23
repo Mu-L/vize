@@ -173,9 +173,9 @@ test("release workflow builds native targets on MoonBit-supported runners", () =
   for (const [host, target] of [
     [hostedOrBlacksmith("macos-15"), "x86_64-apple-darwin"],
     [hostedOrBlacksmith("macos-15"), "aarch64-apple-darwin"],
-    [hostedOrBlacksmith("ubuntu-24.04"), "x86_64-unknown-linux-gnu"],
+    [hostedOrBlacksmith("ubuntu-22.04"), "x86_64-unknown-linux-gnu"],
     [hostedOrBlacksmith("ubuntu-24.04"), "x86_64-unknown-linux-musl"],
-    [hostedOrBlacksmith("ubuntu-24.04-arm"), "aarch64-unknown-linux-gnu"],
+    [hostedOrBlacksmith("ubuntu-22.04-arm"), "aarch64-unknown-linux-gnu"],
     [hostedOrBlacksmith("ubuntu-24.04"), "aarch64-unknown-linux-musl"],
     [hostedOrBlacksmith("windows-2025"), "x86_64-pc-windows-msvc"],
     ["windows-11-arm", "aarch64-pc-windows-msvc"],
