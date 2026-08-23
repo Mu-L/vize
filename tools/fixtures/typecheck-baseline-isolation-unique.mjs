@@ -229,6 +229,7 @@ export function isolateUniqueUiLibraryPackages(fixtureRoot) {
     "primevue",
     "quasar",
     "reka-ui",
+    "swiper",
     "vant",
     "vue-select",
     "vue-virtual-scroller",
