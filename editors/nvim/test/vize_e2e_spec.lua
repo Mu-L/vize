@@ -19,6 +19,7 @@ local plugin_root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:
 vim.opt.runtimepath:prepend(plugin_root)
 
 local expected = dofile(plugin_root .. "/test/vize_e2e_expected.lua")
+local ref_surface_hover = dofile(plugin_root .. "/test/ref_surface_hover.lua")
 local config = require("vize.config")
 
 local server_path = os.getenv("VIZE_E2E_SERVER")
@@ -284,6 +285,16 @@ local function main()
   step_diagnostics(uri, published)
   step_completion(client, bufnr, uri)
   step_hover(client, bufnr, uri)
+  ref_surface_hover.run({
+    assert_eq = assert_eq,
+    client = client,
+    expected = expected,
+    fail = fail,
+    published = published,
+    request = request,
+    scenario_bufnr = bufnr,
+    workspace_path = workspace_path,
+  })
   step_quick_fix(client, bufnr, uri, offset_encoding)
   step_format_on_save(client, bufnr, uri, scenario_path, published_version_counts)
   step_semantic_tokens(client, bufnr, uri)
