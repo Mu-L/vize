@@ -226,3 +226,7 @@ export function isolateUniqueUiLibraryPackages(fixtureRoot) {
     "vant",
   ]);
 }
+
+export function isolateUniqueVueFormPackages(fixtureRoot) {
+  return isolateUniqueNamedLocalTypePackages(fixtureRoot, ["@formkit/vue", "vee-validate"]);
+}
