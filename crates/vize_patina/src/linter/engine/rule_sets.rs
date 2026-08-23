@@ -34,3 +34,37 @@ pub(super) const SHARED_SFC_DESCRIPTOR_RULES: &[&str] = &[
     "ecosystem/void-link-require-href",
     "ecosystem/void-link-valid-method",
 ];
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use super::{SEMANTIC_TEMPLATE_RULES, SHARED_SFC_DESCRIPTOR_RULES};
+    use crate::rule::RuleRegistry;
+
+    #[test]
+    fn engine_rule_name_sets_only_name_dispatchable_rules() {
+        let mut available: BTreeSet<_> = RuleRegistry::with_all()
+            .rule_names()
+            .iter()
+            .copied()
+            .collect();
+        available.extend(
+            RuleRegistry::with_opt_in_rules()
+                .rule_names()
+                .iter()
+                .copied(),
+        );
+        let missing: Vec<&str> = SEMANTIC_TEMPLATE_RULES
+            .iter()
+            .chain(SHARED_SFC_DESCRIPTOR_RULES)
+            .copied()
+            .filter(|name| !available.contains(name))
+            .collect();
+        assert_eq!(
+            missing,
+            Vec::<&str>::new(),
+            "engine rule-name sets must only name rules a registry can instantiate"
+        );
+    }
+}
