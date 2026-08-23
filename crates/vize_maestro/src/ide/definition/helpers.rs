@@ -125,7 +125,11 @@ pub(crate) fn get_attribute_and_component_at_offset(
         }
 
         let mut attr_name = raw_attr_name;
-        if let Some(stripped) = attr_name.strip_prefix(':') {
+        if let Some(model_prop_name) =
+            super::component_model::prop_name_from_v_model_attribute(raw_attr_name)
+        {
+            return Some((model_prop_name, tag_name.to_string()));
+        } else if let Some(stripped) = attr_name.strip_prefix(':') {
             attr_name = stripped;
         } else if let Some(stripped) = attr_name.strip_prefix("v-bind:") {
             attr_name = stripped;

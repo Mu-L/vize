@@ -5,8 +5,6 @@
 //! - Vue directives
 //! - Script bindings and imports
 //! - CSS properties and Vue-specific selectors
-//! - TypeScript type information from croquis analysis
-//! - Real type information from Corsa (when available)
 #![allow(
     clippy::disallowed_types,
     clippy::disallowed_methods,
@@ -27,6 +25,8 @@ mod html;
 mod petite_vue;
 mod script;
 mod template;
+#[cfg(feature = "native")]
+mod v_model;
 
 pub use builder::HoverBuilder;
 #[cfg(feature = "native")]

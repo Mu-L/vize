@@ -2,7 +2,7 @@ use std::fs;
 
 use tower_lsp::lsp_types::Url;
 
-use super::super::{BindingKind, bindings, helpers, script};
+use super::super::{BindingKind, bindings, component_model, helpers, script};
 use crate::{ide::IdeContext, server::ServerState};
 
 #[test]
@@ -124,6 +124,42 @@ fn test_get_attribute_and_component_at_offset_only_matches_attribute_name() {
 }
 
 #[test]
+fn test_get_attribute_and_component_at_offset_maps_v_model_props() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("Parent.vue");
+    let content = r#"<template><Child v-model="model" v-model:title.trim="title" v-model:[dynamic]="value" /></template>"#;
+    fs::write(&file_path, content).unwrap();
+
+    let uri = Url::from_file_path(&file_path).unwrap();
+    let state = ServerState::new();
+    state
+        .documents
+        .open(uri.clone(), content.to_string(), 1, "vue".to_string());
+    state.update_virtual_docs(&uri, content);
+
+    let default_offset = content.find("v-model=").unwrap() + "v-model".len();
+    let default_ctx = IdeContext::new(&state, &uri, default_offset).unwrap();
+    assert_eq!(
+        helpers::get_attribute_and_component_at_offset(&default_ctx),
+        Some(("modelValue".to_string(), "Child".to_string()))
+    );
+
+    let title_offset = content.find("v-model:title").unwrap() + "v-model:title".len();
+    let title_ctx = IdeContext::new(&state, &uri, title_offset).unwrap();
+    assert_eq!(
+        helpers::get_attribute_and_component_at_offset(&title_ctx),
+        Some(("title".to_string(), "Child".to_string()))
+    );
+
+    let dynamic_offset = content.find("v-model:[dynamic]").unwrap() + "v-model".len();
+    let dynamic_ctx = IdeContext::new(&state, &uri, dynamic_offset).unwrap();
+    assert_eq!(
+        helpers::get_attribute_and_component_at_offset(&dynamic_ctx),
+        None
+    );
+}
+
+#[test]
 fn test_is_valid_identifier() {
     assert!(bindings::is_valid_identifier("foo"));
     assert!(bindings::is_valid_identifier("_foo"));
@@ -193,6 +229,22 @@ fn test_find_prop_in_define_props() {
 
     let pos = helpers::find_prop_in_define_props(content, "nonExistent");
     assert!(pos.is_none());
+}
+
+#[test]
+fn test_find_prop_in_define_model() {
+    let content = r#"
+const value = defineModel<string>({ required: true })
+const title = defineModel<number>('title')
+"#;
+
+    let default = component_model::find_prop_in_define_model(content, "modelValue").unwrap();
+    assert_eq!(&content[default.0..default.0 + default.1], "defineModel");
+
+    let title = component_model::find_prop_in_define_model(content, "title").unwrap();
+    assert_eq!(&content[title.0..title.0 + title.1], "title");
+
+    assert!(component_model::find_prop_in_define_model(content, "missing").is_none());
 }
 
 #[test]
