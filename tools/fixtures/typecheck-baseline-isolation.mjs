@@ -59,17 +59,19 @@ export function isolateFixtureTypePackages(fixtureRoot, sourceConfigPath) {
 
 function readDeclaredPackagePaths(sourceConfigPath) {
   const declared = new Map();
-  let config;
-  try {
-    config = JSON.parse(readFileSync(sourceConfigPath, "utf8"));
-  } catch {
-    // A config this cannot parse — JSONC, or missing — simply declares nothing.
-    // The ambient gate still fails the run if that leaves the program split.
-    return declared;
+  // Child `compilerOptions.paths` replace the parent's object, matching tsc.
+  // Relative `extends` is followed so reka-ui's `tsconfig.check.json` still
+  // sees the paths one hop away in `tsconfig.app.json` (#4461).
+  let paths;
+  let configDir;
+  for (const { config, dir } of [...loadExtendsChain(sourceConfigPath)].reverse()) {
+    const candidate = config?.compilerOptions?.paths;
+    if (candidate != null && typeof candidate === "object") {
+      paths = candidate;
+      configDir = dir;
+    }
   }
-  const paths = config?.compilerOptions?.paths;
-  if (paths == null || typeof paths !== "object") return declared;
-  const configDir = dirname(resolve(sourceConfigPath));
+  if (paths == null) return declared;
   for (const [name, targets] of Object.entries(paths)) {
     if (!packageNamePattern.test(name) || !Array.isArray(targets)) continue;
     const first = targets.find((entry) => typeof entry === "string" && !entry.includes("*"));
@@ -77,6 +79,49 @@ function readDeclaredPackagePaths(sourceConfigPath) {
     declared.set(name, resolve(configDir, first));
   }
   return declared;
+}
+
+function loadExtendsChain(sourceConfigPath) {
+  const chain = [];
+  const seen = new Set();
+  let current = resolve(sourceConfigPath);
+  while (!seen.has(current)) {
+    seen.add(current);
+    const config = parseTsconfig(current);
+    if (config == null) break;
+    chain.push({ config, dir: dirname(current) });
+    const specifiers = extendsSpecifiers(config.extends);
+    let next = null;
+    for (const specifier of specifiers) {
+      next = resolveExtends(current, specifier);
+      if (next != null) break;
+    }
+    if (next == null) break;
+    current = next;
+  }
+  return chain;
+}
+
+function parseTsconfig(configPath) {
+  try {
+    return JSON.parse(stripJsonc(readFileSync(configPath, "utf8")));
+  } catch {
+    return null;
+  }
+}
+
+function extendsSpecifiers(value) {
+  if (typeof value === "string") return [value];
+  return Array.isArray(value) ? value.filter((entry) => typeof entry === "string") : [];
+}
+
+function resolveExtends(fromConfig, specifier) {
+  if (typeof specifier !== "string") return null;
+  if (!(specifier.startsWith("./") || specifier.startsWith("../"))) return null;
+  const resolved = resolve(dirname(fromConfig), specifier);
+  if (existsSync(resolved)) return resolved;
+  if (!resolved.endsWith(".json") && existsSync(`${resolved}.json`)) return `${resolved}.json`;
+  return null;
 }
 
 /**
@@ -138,4 +183,44 @@ function isDanglingLink(link) {
 
 function compare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * Strip JSONC comments and trailing commas, string-aware. A regex pass would
+ * treat `"src/**\/*"` as a block comment and rewrite the config.
+ */
+function stripJsonc(text) {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        out += text[i + 1] ?? "";
+        i += 1;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "/") {
+      while (i < text.length && text[i] !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "*") {
+      i += 2;
+      while (i + 1 < text.length && !(text[i] === "*" && text[i + 1] === "/")) i += 1;
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
 }

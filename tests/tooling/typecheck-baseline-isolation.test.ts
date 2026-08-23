@@ -275,14 +275,35 @@ test(
   },
 );
 
+test("a JSONC config that extends another still isolates the parent's packages", () => {
+  const { outer, fixtureRoot } = scaffold();
+  try {
+    writeConfig(fixtureRoot, declaredPaths);
+    const configPath = path.join(fixtureRoot, ".nuxt", "tsconfig.check.json");
+    // reka-ui's check config is JSONC with `extends` and no `paths` of its own.
+    fs.writeFileSync(configPath, `// check-only\n{ "extends": "./tsconfig.app.json", }\n`);
+    assert.deepEqual(isolateFixtureTypePackages(fixtureRoot, configPath), [
+      {
+        name: "@vue/runtime-core",
+        target: "node_modules/.pnpm/@vue+runtime-core@3.5.30/node_modules/@vue/runtime-core",
+      },
+      { name: "vue-router", target: "node_modules/.pnpm/vue-router@5.1.0/node_modules/vue-router" },
+    ]);
+  } finally {
+    fs.rmSync(outer, { recursive: true, force: true });
+  }
+});
+
 test("a config that declares nothing, or cannot be read, links nothing", () => {
   const { outer, fixtureRoot } = scaffold();
   try {
     const missing = path.join(fixtureRoot, "tsconfig.json");
     assert.deepEqual(isolateFixtureTypePackages(fixtureRoot, missing), []);
-    fs.writeFileSync(missing, "{ /* JSONC the harness does not parse */ }\n");
+    fs.writeFileSync(missing, "{ /* JSONC with no paths still declares nothing */ }\n");
     assert.deepEqual(isolateFixtureTypePackages(fixtureRoot, missing), []);
     fs.writeFileSync(missing, '{"compilerOptions":{}}\n');
+    assert.deepEqual(isolateFixtureTypePackages(fixtureRoot, missing), []);
+    fs.writeFileSync(missing, "{ this is not json\n");
     assert.deepEqual(isolateFixtureTypePackages(fixtureRoot, missing), []);
     assert.equal(fs.existsSync(path.join(fixtureRoot, "node_modules", "vue-router")), false);
   } finally {
