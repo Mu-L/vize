@@ -12,11 +12,11 @@
 //! (arena reset), parse the surviving text, assert structural equality,
 //! then re-parse the retained payload into a second pooled arena.
 
-use vize_carton::{Allocator, Box, Span, Vec as ArenaVec, pool};
 use vize_davinci::folio::{Folio, FolioMode};
 use vize_disegno::expr::{ExprRef, JsExpr, OpaqueExpr, OpaqueReason};
 use vize_disegno::folio::{DisegnoFolio, FolioExpr, FolioInterpolation, FolioOp};
 use vize_disegno::op::{InterpolationOp, Op};
+use vize_s0::{Allocator, Box, Span, Vec as ArenaVec, pool};
 
 /// Build the replay tree in `allocator`: one admitted `js` payload and
 /// one escape payload, each under an interpolation.
@@ -154,7 +154,7 @@ fn the_load_path_falls_back_to_the_escape_variant() {
     assert_eq!(invalid.reason, OpaqueReason::ParseRejected);
 
     // 40 levels of nesting: refused by the shared guard before oxc ever
-    // sees the text (`vize_carton::expression_guard`, depth cap 31).
+    // sees the text (`vize_s0::expression_guard`, depth cap 31).
     let deep = "((((((((((((((((((((((((((((((((((((((((x))))))))))))))))))))))))))))))))))))))))";
     let refused = ExprRef::parse_js_in(allocator, deep, Span::new(0, 81));
     let ExprRef::Opaque(refused) = refused else {

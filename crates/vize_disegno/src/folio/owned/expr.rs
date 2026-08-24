@@ -11,7 +11,7 @@
 //! the folio carries, which is explicit text, not expression semantics;
 //! the pessimal no-equality law lives on the arena types.
 
-use vize_carton::{Span, String};
+use vize_s0::{Span, String};
 
 use crate::expr::{ExprRef, OpaqueReason};
 

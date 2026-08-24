@@ -1,5 +1,5 @@
-//! Disegno - the Davinci S2 semantic IR: the pivot stage and the primary
-//! consumer surface.
+//! S2 - the Davinci semantic IR (codename Disegno): the pivot stage and the
+//! primary consumer surface.
 //!
 //! Named after Leonardo's *disegno*: the drawing that carries the idea,
 //! independent of the material it is later executed in.
@@ -8,14 +8,14 @@
 //! (`davinci-road/architecture.md`, "S2 — Disegno"). Vue templates, JSX and
 //! pug all lower into the same [`op`] family; whatever is genuinely
 //! Vue-specific stays a `vue.*` dialect op instead of shaping the core.
-//! The Vue template lowering into this family is `vize_ricalco` (P2-8);
-//! this crate holds the type family, its folio page, the invariants that
-//! are enforceable by construction, and the verifier for the ones that are
-//! not:
+//! The Vue template lowering into this family is `vize_s1_to_s2` (current
+//! package `vize_ricalco`; P2-8); this crate holds the type family, its folio
+//! page, the invariants that are enforceable by construction, and the verifier
+//! for the ones that are not:
 //!
 //! - [`op`] — the op enums ([`op::Op`], [`op::BindingOp`]) and their payload
 //!   types, arena-resident and **`Drop`-free by construction** through
-//!   `vize_carton::{Box, Vec}` (whose const assertion rejects `Drop`
+//!   `vize_s0::{Box, Vec}` (whose const assertion rejects `Drop`
 //!   payloads; P1-10 measured it catching two real violations).
 //! - [`expr`] — [`expr::ExprRef`], the expression reference: retained JS
 //!   AST, foreign dialect (type-only until phase 6), or the classified
