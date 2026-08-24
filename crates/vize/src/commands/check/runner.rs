@@ -12,6 +12,7 @@ use std::{
 use super::{
     CheckArgs,
     imports::ImportFileOptions,
+    imports_package_routes::sort_package_route_bindings,
     path_cache::CanonicalPathCache,
     patterns::CheckFileOptions,
     reporting::{JsonFileResult, JsonOutput, JsonProgramResult},
@@ -258,14 +259,7 @@ fn prepare_and_execute(
         return Ok(None);
     }
 
-    package_routes.sort_by(|left, right| {
-        (&left.importer_path, &left.specifier, left.occurrence_mode).cmp(&(
-            &right.importer_path,
-            &right.specifier,
-            right.occurrence_mode,
-        ))
-    });
-    package_routes.dedup_by(|left, right| left == right);
+    sort_package_route_bindings(&mut package_routes);
     let mut execution = execute_program(
         ProgramExecutionInput {
             files: &candidate.files,
