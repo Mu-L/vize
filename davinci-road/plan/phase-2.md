@@ -36,6 +36,14 @@ Phase 1 exited with named blockers. Each is stated here with the phase-2 tasks i
 
 **Registry maintenance this phase owes** [`test-suites.md`](./test-suites.md), since a gate naming an unregistered suite is a plan bug: TS-22's _From_ column still reads `P2-12` and becomes `P2-12b`; TS-25's instance list (`P1-6/7 identifiers, P1-8 scanner, P4 projection`) gains the phase-2 instances P2-9, P2-11 and P2-16; and **the feed P2-18 produces has no registered suite at all** — P2-18 must add the entry in its own PR rather than cite an invented id.
 
+**Current resolution (2026-08-25): registry maintenance is resolved.**
+[`test-suites.md`](./test-suites.md) names P2-12b as TS-22's owner, lists P2-9 /
+P2-11 / P2-16 as TS-25 migration instances, and registers P2-18's feed
+contract as TS-52. TS-52 was authored with P2-18 but reached `main` through the
+stacked integration [#4543](https://github.com/ubugeeei-prod/vize/pull/4543),
+not a standalone P2-18 PR; that is a recorded deviation from the re-cut's
+own-PR condition, not a rewrite of the original requirement above.
+
 **Corpus operations note** (applies to every TS-11 run in this phase): corpus sweeps re-materialize `node_modules` inside fixture projects and stale ones corrupt hashes, so a run starts from clean fixtures (`git submodule status` all-clean, no `node_modules`) — see `corpus-baseline-notes.md` "Re-record 2". The phase-1 exit gate's recorded recipe is `node tools/davinci/corpus-diff.mjs --shards 2 --timeout-ms 600000`; the default 4-shard parallelism brushes the per-run timeout on the typechecker lane (soybean-admin), which is why the shard count is halved and the timeout raised.
 
 ## TODO index
@@ -64,6 +72,34 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [x] [P2-18](./phase-2-tasks-later.md#p2-18--spolvero-feed-v1) Spolvero feed v1 — landed 2026-08-21; the feed is a serialization of P2-13's `FolioDump` (never a second page collector): `davinci-opt --folio-dir` writes `spolvero.json` beside the pages, the inspector payload and the wasm `analyzeSfc` result embed the same schema-versioned shape (S1 pages through `vize_sinopia`, byte-faithful; S2 joins when P2-8 gives it a producer), the croquis alias pinned byte-identical for the first time, TS-52 registered and established ([record](./phase-2-records/p2-18.md))
 - [x] [P2-19](./phase-2-tasks-later.md#p2-19--devtool-protocol-spike) DevTool protocol spike — landed 2026-08-21; decided **document over JSON-RPC**: the P2-18 feed document stays the unit on every surface — C-7's local server speaks content-mapper-style JSON-RPC whose `initialize` negotiates the feed `schema_version` before any payload is serialized (the only candidate that negotiates rather than refusing after the producer wrote everything), served files stay the at-rest form, the wasm playground keeps the P2-18 embedding, JSON-lines rejected (every named consumer reassembles the document anyway); spike deleted deliberately, measurements and reproduction recipe in the record ([record](./phase-2-records/p2-19.md))
 - [ ] [P2-20](./phase-2-tasks-later.md#p2-20--phase-exit) Phase exit
+
+## Current execution ledger (2026-08-25)
+
+This is the current snapshot. The phase re-cut above and the per-installment
+records are historical evidence and are not silently rewritten when current
+counts or fixture availability changes.
+
+- **Complete: 16 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
+  P2-7, P2-8, P2-10, P2-12a, P2-13, P2-14, P2-15, P2-18 and P2-19.**
+  Each completion is joined to its merged PR and current evidence in the
+  [evidence index](./phase-2-records.md#current-completion-evidence-2026-08-25);
+  review-only evidence is labeled there rather than presented as executable.
+- **Active and blocked: 2 of 22 — P2-9 and P2-11.** P2-9 still needs a
+  hydrated full-corpus residual remeasurement; P2-11 has 20 landed
+  installments through
+  [#4811](https://github.com/ubugeeei-prod/vize/pull/4811), but the published
+  dependency decision, full-corpus exact comparison count, patch-flag
+  equivalence and DOM allocation budget remain open. The old DOM lane is still
+  the shipped compiler path.
+- **Untouched and dependency-blocked: 4 of 22 — P2-12b, P2-16, P2-17 and
+  P2-20.** P2-12b depends on P2-12a, P2-11 and P2-3; P2-16 depends on P2-11;
+  P2-17 depends on P2-11, P2-12b and P2-13; P2-20 depends on all of P2-1
+  through P2-19.
+- **Executable corpus inventory:** 146 gitlinks, including 142 ecosystem
+  projects, as asserted by
+  [`fixture-compatibility-ledger.test.ts`](../../tests/tooling/fixture-compatibility-ledger.test.ts).
+  A worktree's initialized or uninitialized submodule count is transient and
+  must not replace this inventory.
 
 ## Davinci describes the shipped pipeline — and cannot yet consume it (2026-08-19)
 
