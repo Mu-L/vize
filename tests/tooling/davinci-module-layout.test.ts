@@ -5,7 +5,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const davinciRoots = [
+const ordinaryModuleRoots = [
+  "crates/vize_atelier_core",
   "crates/vize_carton",
   "crates/vize_davinci",
   "crates/vize_disegno",
@@ -90,14 +91,26 @@ function charLiteralEnd(source: string, quote: number): number | undefined {
   return source[closing] === "'" ? closing + 1 : undefined;
 }
 
-function pathAttributeAt(source: string, hash: number): boolean {
-  let cursor = skipTrivia(source, hash + 1);
-  if (source[cursor] === "!") cursor = skipTrivia(source, cursor + 1);
-  if (source[cursor] !== "[") return false;
+function identifierEndAt(source: string, cursor: number, identifier: string): number | undefined {
+  if (/[_\p{ID_Continue}]/u.test(source[cursor - 1] ?? "")) return undefined;
+  const identifierStart = source.startsWith("r#", cursor) ? cursor + 2 : cursor;
+  if (!source.startsWith(identifier, identifierStart)) return undefined;
+  const identifierEnd = identifierStart + identifier.length;
+  return /[_\p{ID_Continue}]/u.test(source[identifierEnd] ?? "") ? undefined : identifierEnd;
+}
 
-  let bracketDepth = 1;
+function cfgAttrContainsPath(source: string, start: number): boolean {
+  const cfgAttrEnd = identifierEndAt(source, start, "cfg_attr");
+  if (cfgAttrEnd === undefined) return false;
+  let cursor = skipTrivia(source, cfgAttrEnd);
+  if (source[cursor] !== "(") return false;
+
+  let parenDepth = 1;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let nestedMetaStart = false;
   cursor += 1;
-  while (cursor < source.length && bracketDepth > 0) {
+  while (cursor < source.length && parenDepth > 0) {
     const triviaEnd = skipTrivia(source, cursor);
     if (triviaEnd !== cursor) {
       cursor = triviaEnd;
@@ -121,21 +134,50 @@ function pathAttributeAt(source: string, hash: number): boolean {
         continue;
       }
     }
-    if (source[cursor] === "[") {
+    if (nestedMetaStart) {
+      nestedMetaStart = false;
+      const pathEnd = identifierEndAt(source, cursor, "path");
+      if (pathEnd !== undefined && source[skipTrivia(source, pathEnd)] === "=") {
+        return true;
+      }
+      if (cfgAttrContainsPath(source, cursor)) return true;
+    }
+    if (source[cursor] === "(") {
+      parenDepth += 1;
+    } else if (source[cursor] === ")") {
+      parenDepth -= 1;
+    } else if (source[cursor] === "[") {
       bracketDepth += 1;
-    } else if (source[cursor] === "]") {
+    } else if (source[cursor] === "]" && bracketDepth > 0) {
       bracketDepth -= 1;
+    } else if (source[cursor] === "{") {
+      braceDepth += 1;
+    } else if (source[cursor] === "}" && braceDepth > 0) {
+      braceDepth -= 1;
     } else if (
-      source.startsWith("path", cursor) &&
-      !/[_\p{ID_Continue}]/u.test(source[cursor - 1] ?? "") &&
-      !/[_\p{ID_Continue}]/u.test(source[cursor + "path".length] ?? "") &&
-      source[skipTrivia(source, cursor + "path".length)] === "="
+      source[cursor] === "," &&
+      parenDepth === 1 &&
+      bracketDepth === 0 &&
+      braceDepth === 0
     ) {
-      return true;
+      nestedMetaStart = true;
     }
     cursor += 1;
   }
   return false;
+}
+
+function pathAttributeAt(source: string, hash: number): boolean {
+  let cursor = skipTrivia(source, hash + 1);
+  if (source[cursor] === "!") cursor = skipTrivia(source, cursor + 1);
+  if (source[cursor] !== "[") return false;
+
+  cursor = skipTrivia(source, cursor + 1);
+  const pathEnd = identifierEndAt(source, cursor, "path");
+  if (pathEnd !== undefined) {
+    return source[skipTrivia(source, pathEnd)] === "=";
+  }
+  return cfgAttrContainsPath(source, cursor);
 }
 
 function hasPathAttribute(source: string): boolean {
@@ -183,8 +225,8 @@ function rustFiles(root: string): string[] {
   return files;
 }
 
-test("Davinci-owned Rust modules use ordinary module discovery", () => {
-  const violations = davinciRoots.flatMap((root) =>
+test("gated Rust modules use ordinary module discovery", () => {
+  const violations = ordinaryModuleRoots.flatMap((root) =>
     rustFiles(path.join(repoRoot, root))
       .filter((file) => hasPathAttribute(fs.readFileSync(file, "utf8")))
       .map((file) => path.relative(repoRoot, file)),
@@ -196,8 +238,9 @@ test("Davinci-owned Rust modules use ordinary module discovery", () => {
   );
 });
 
-test("the Davinci module-layout gate recognizes a path attribute", () => {
+test("the module-layout gate recognizes only path attributes", () => {
   assert.equal(hasPathAttribute('  #[path = "nested/file.rs"]\nmod file;'), true);
+  assert.equal(hasPathAttribute('  #[r#path = "nested/raw-file.rs"]\nmod file;'), true);
   assert.equal(
     hasPathAttribute('  #[path /* ordinary discovery only */ = "nested/file.rs"]\nmod file;'),
     true,
@@ -208,7 +251,25 @@ test("the Davinci module-layout gate recognizes a path attribute", () => {
     ),
     true,
   );
+  assert.equal(
+    hasPathAttribute(
+      '  #[cfg_attr(feature = "generated", cfg_attr(unix, path = "nested/file.rs"))]\nmod file;',
+    ),
+    true,
+  );
+  assert.equal(
+    hasPathAttribute(
+      '  #[r#cfg_attr(feature = "generated", r#path = "nested/raw-file.rs")]\nmod file;',
+    ),
+    true,
+  );
   assert.equal(hasPathAttribute('#[cfg_attr(feature = "path = \\"not-code.rs\\"")]'), false);
+  assert.equal(hasPathAttribute('#[some_macro(path = "metadata.json")]'), false);
+  assert.equal(hasPathAttribute('#[r#some_macro(r#path = "metadata.json")]'), false);
+  assert.equal(
+    hasPathAttribute('#[cfg_attr(feature = "generated", some_macro(path = "metadata.json"))]'),
+    false,
+  );
   assert.equal(hasPathAttribute('// #[path = "comment.rs"]\nmod file;'), false);
   assert.equal(hasPathAttribute('const EXAMPLE: &str = "#[path = \\"string.rs\\"]";'), false);
   assert.equal(hasPathAttribute('const RAW: &str = r#"#[path = \\"raw.rs\\"]"#;'), false);
