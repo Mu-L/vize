@@ -67,7 +67,18 @@ import OptionalProp from './OptionalProp.vue'
     let Some(snapshot) = snapshot else {
         return;
     };
+    let snapshot: Vec<_> = snapshot
+        .into_iter()
+        .map(|(file, code, message)| {
+            (
+                file,
+                code,
+                String::from(super::normalize_component_check_props_tail(&message)),
+            )
+        })
+        .collect();
 
+    let param_type = "__VizeComponentCheckProps<Props, __VizeFallthroughAttrs>";
     assert_eq!(
         snapshot,
         vec![
@@ -75,28 +86,28 @@ import OptionalProp from './OptionalProp.vue'
                 String::from("src/Parent.vue"),
                 Some(2345),
                 cstr!(
-                    "10:4:error Argument of type '{{ other: string; }}' is not assignable to parameter of type '{{ readonly someValue: number; readonly other: string; }} & __VizePublicComponentAttrs & {{ [x: string]: unknown; }} & {{ [x: `aria${{string}}`]: unknown; }} & {{ [x: `data${{string}}`]: unknown; }} & Partial<...>'.\nProperty 'someValue' is missing in type '{{ other: string; }}' but required in type '{{ readonly someValue: number; readonly other: string; }}'."
+                    "10:4:error Argument of type '{{ other: string; }}' is not assignable to parameter of type '{param_type}'.\nProperty 'someValue' is missing in type '{{ other: string; }}' but required in type '{{ readonly someValue: number; readonly other: string; }}'."
                 ),
             ),
             (
                 String::from("src/Parent.vue"),
                 Some(2345),
                 cstr!(
-                    "7:4:error Argument of type '{{}}' is not assignable to parameter of type '{{ readonly someValue: number; }} & __VizePublicComponentAttrs & {{ [x: string]: unknown; }} & {{ [x: `aria${{string}}`]: unknown; }} & {{ [x: `data${{string}}`]: unknown; }} & Partial<{{}}>'.\nProperty 'someValue' is missing in type '{{}}' but required in type '{{ readonly someValue: number; }}'."
+                    "7:4:error Argument of type '{{}}' is not assignable to parameter of type '{param_type}'.\nProperty 'someValue' is missing in type '{{}}' but required in type '{{ readonly someValue: number; }}'."
                 ),
             ),
             (
                 String::from("src/Parent.vue"),
                 Some(2345),
                 cstr!(
-                    "8:4:error Argument of type '{{}}' is not assignable to parameter of type '{{ readonly someValue: number; readonly other: string; }} & __VizePublicComponentAttrs & {{ [x: string]: unknown; }} & {{ [x: `aria${{string}}`]: unknown; }} & {{ [x: `data${{string}}`]: unknown; }} & Partial<...>'.\nType '{{}}' is missing the following properties from type '{{ readonly someValue: number; readonly other: string; }}': someValue, other"
+                    "8:4:error Argument of type '{{}}' is not assignable to parameter of type '{param_type}'.\nType '{{}}' is missing the following properties from type '{{ readonly someValue: number; readonly other: string; }}': someValue, other"
                 ),
             ),
             (
                 String::from("src/Parent.vue"),
                 Some(2345),
                 cstr!(
-                    "9:4:error Argument of type '{{ someValue: number; }}' is not assignable to parameter of type '{{ readonly someValue: number; readonly other: string; }} & __VizePublicComponentAttrs & {{ [x: string]: unknown; }} & {{ [x: `aria${{string}}`]: unknown; }} & {{ [x: `data${{string}}`]: unknown; }} & Partial<...>'.\nProperty 'other' is missing in type '{{ someValue: number; }}' but required in type '{{ readonly someValue: number; readonly other: string; }}'."
+                    "9:4:error Argument of type '{{ someValue: number; }}' is not assignable to parameter of type '{param_type}'.\nProperty 'other' is missing in type '{{ someValue: number; }}' but required in type '{{ readonly someValue: number; readonly other: string; }}'."
                 ),
             ),
         ],

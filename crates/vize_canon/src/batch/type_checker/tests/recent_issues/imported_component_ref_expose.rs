@@ -37,7 +37,7 @@ fn check(case: &str, files: &[(&str, &str)]) -> Vec<ReportedDiagnostic> {
             (
                 relative_path(&project_root, &diagnostic.file).into(),
                 diagnostic.code,
-                diagnostic.message.into(),
+                super::normalize_component_check_props_tail(&diagnostic.message),
                 diagnostic.line + 1,
                 diagnostic.column + 1,
             )
@@ -89,7 +89,7 @@ fn imported_component_refs_match_the_vue_tsc_public_surface() {
             (
                 "src/NegativeControls.vue".into(),
                 Some(2345),
-                "Argument of type '{}' is not assignable to parameter of type '{ readonly label: string; readonly count?: number | undefined; } & __VizePublicComponentAttrs & { [x: string]: unknown; } & { [x: `aria${string}`]: unknown; } & { [x: `data${string}`]: unknown; } & Partial<...>'.\nProperty 'label' is missing in type '{}' but required in type '{ readonly label: string; readonly count?: number | undefined; }'.".into(),
+                "Argument of type '{}' is not assignable to parameter of type '__VizeComponentCheckProps<Props, __VizeFallthroughAttrs>'.\nProperty 'label' is missing in type '{}' but required in type '{ readonly label: string; readonly count?: number | undefined; }'.".into(),
                 7,
                 4,
             ),
