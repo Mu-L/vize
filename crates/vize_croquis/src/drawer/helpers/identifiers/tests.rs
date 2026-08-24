@@ -1,14 +1,13 @@
 use super::{
-    IdentifierRef, extract_identifier_refs_fast, extract_identifier_refs_oxc,
-    extract_identifiers_oxc, strip_js_comments,
+    IdentifierRef, extract_identifier_refs_oxc, extract_identifiers_oxc, strip_js_comments,
 };
 use vize_carton::CompactString;
 
 #[test]
-fn test_extract_identifier_refs_fast_treats_spread_as_read() {
+fn test_extract_identifier_refs_treats_spread_as_read() {
     let expr = "[...menu, item.id]";
     assert_eq!(
-        extract_identifier_refs_fast(expr),
+        extract_identifier_refs_oxc(expr),
         vec![
             IdentifierRef {
                 name: "menu".into(),
@@ -56,7 +55,25 @@ fn test_extract_identifiers_ignores_comment_words() {
     let ids = to_strings(extract_identifiers_oxc(
         "/** comment words should disappear */ disabled ? true : undefined",
     ));
-    assert_eq!(ids, vec!["disabled", "true", "undefined"]);
+    assert_eq!(ids, vec!["disabled", "undefined"]);
+}
+
+#[test]
+fn test_extract_identifiers_ignores_keyword_literals() {
+    fn to_strings(ids: Vec<CompactString>) -> Vec<CompactString> {
+        ids
+    }
+
+    let ids = to_strings(extract_identifiers_oxc("false || true || null || this"));
+    assert!(ids.is_empty());
+
+    let ids = to_strings(extract_identifiers_oxc(
+        "typeof count === 'number' ? new Formatter(count) : void fallback",
+    ));
+    assert_eq!(ids, vec!["count", "Formatter", "count", "fallback"]);
+
+    let ids = to_strings(extract_identifiers_oxc("key in map ? value : undefined"));
+    assert_eq!(ids, vec!["key", "map", "value", "undefined"]);
 }
 
 #[test]

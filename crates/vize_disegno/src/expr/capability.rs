@@ -28,13 +28,12 @@
 //!
 //! # The P1-8 note (issue #4365)
 //!
-//! [`ExprDialect::enumerate_bindings`] is **where the single
-//! identifier-extraction implementation would live**: the byte scanner
-//! (`identifiers/fast.rs`) and the AST walk (`identifiers/slow.rs`)
-//! disagree on 3.85% of corpus extractions, the waiver decision is the
-//! maintainer's (`davinci-road/plan/scanner-parity-report.md`), and this
-//! trait deliberately encodes **neither** resolution - it names the
-//! duty's future home and nothing else. Phase 2 does not unblock P1-8.
+//! [`ExprDialect::enumerate_bindings`] remains the capability seam for
+//! consumers that need referenced bindings from S2 expressions. The P1-8
+//! follow-up deleted croquis's byte scanner in favor of the single AST walk
+//! (`identifiers/ast.rs`), so this trait must not grow a second best-effort
+//! scanner. It names the duty's home for future dialect implementations and
+//! keeps opaque text on the pessimal path.
 
 use vize_carton::Span;
 

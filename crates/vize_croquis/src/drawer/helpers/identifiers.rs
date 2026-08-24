@@ -1,16 +1,12 @@
 //! Identifier extraction from Vue template expressions.
 //!
-//! Provides hybrid extraction strategies:
-//! - **Fast path**: String-based scanning for simple expressions
-//! - **Slow path**: OXC AST-based extraction for complex expressions
-//!   (object literals, type assertions, arrow functions)
+//! Parses template expressions with OXC and walks the AST for references.
 //!
 //! Only "root" identifiers are extracted -- property accesses like
 //! `item.name` yield only `"item"`, not `"name"`.
 
+mod ast;
 mod comments;
-mod fast;
-mod slow;
 
 #[cfg(test)]
 mod tests;
@@ -20,10 +16,8 @@ pub use comments::strip_js_comments;
 use vize_carton::{CompactString, profile};
 use vize_relief::JsExpression;
 
-use fast::{extract_identifier_refs_fast, extract_identifiers_fast};
-use slow::{
-    extract_identifier_refs_oxc_slow, extract_identifiers_oxc_slow,
-    extract_identifiers_retained_slow,
+use ast::{
+    extract_identifier_refs_oxc_ast, extract_identifiers_oxc_ast, extract_identifiers_retained_ast,
 };
 
 /// Root identifier reference extracted from a template expression.
@@ -44,25 +38,7 @@ impl IdentifierRef {
     }
 }
 
-/// Dispatch heuristic shared by every hybrid entry point: constructs a string
-/// scanner cannot handle move to the OXC AST path.
-///
-/// - Object literals: `{ }`
-/// - Type assertions: `as Type`
-/// - Arrow functions: `() =>`
-/// - Regex literals and division: `/`
-/// - Statement bodies: `;`
-#[inline]
-fn needs_ast_extraction(expr: &str) -> bool {
-    !expr.is_ascii()
-        || expr.contains('{')
-        || expr.contains(" as ")
-        || expr.contains("=>")
-        || expr.contains('/')
-        || expr.contains(';')
-}
-
-/// Hybrid identifier extraction - fast path for simple expressions, OXC for complex ones.
+/// Identifier extraction through the OXC AST.
 /// Only extracts "root" identifiers - identifiers that are references, not:
 /// - Property accesses (item.name -> only "item" extracted)
 /// - Object literal keys ({ active: value } -> only "value" extracted)
@@ -72,40 +48,31 @@ pub fn extract_identifiers_oxc(expr: &str) -> Vec<CompactString> {
     let stripped = strip_js_comments(expr);
     let expr = stripped.as_ref();
 
-    if needs_ast_extraction(expr) {
-        return profile!(
-            "croquis.helpers.identifiers.slow",
-            extract_identifiers_oxc_slow(expr)
-        );
-    }
-
     profile!(
-        "croquis.helpers.identifiers.fast",
-        extract_identifiers_fast(expr)
+        "croquis.helpers.identifiers.ast",
+        extract_identifiers_oxc_ast(expr)
     )
 }
 
 /// Node-aware hybrid identifier extraction over the parse-once retained AST
 /// (Davinci P1-6).
 ///
-/// Identical dispatch and results to [`extract_identifiers_oxc`], but when
-/// the expression's node carries the retained AST (P1-5,
-/// `SimpleExpressionNode::js_ast`) **and** [`strip_js_comments`] left the
-/// text unchanged, the slow branch walks it instead of re-parsing the text
+/// Identical results to [`extract_identifiers_oxc`], but when the expression's
+/// node carries the retained AST (P1-5, `SimpleExpressionNode::js_ast`) **and**
+/// [`strip_js_comments`] left the text unchanged, this walks it instead of
+/// re-parsing the text
 /// into a throwaway arena. `retained` must be the node's own `js_ast` for
 /// `expr` — by the P1-5 contract `js.raw` string-equals the node content, so
 /// on the comment-free path the legacy parse and the retained AST describe
 /// the **exact same bytes** and equality is a parser-determinism fact, not a
 /// comment-semantics argument.
 ///
-/// Fallback classes keep the legacy re-parse unchanged until P1-8 deletes
-/// the split: nodes without a retained AST (v-for sub-expressions, v-on
-/// statement bodies, guard-refused or invalid text, compound expressions)
-/// and text `strip_js_comments` rewrites. The latter is deliberate:
-/// the stripper is not regex-aware, so text like `/[/*]/.test(x)` is
-/// mangled before the legacy parse, and reading the retained AST there
-/// would *fix* that scanner bug — a behavior change P1-8's waiver-reviewed
-/// differential owns, not this migration.
+/// Fallback classes keep the legacy re-parse unchanged: nodes without a
+/// retained AST (v-for sub-expressions, v-on statement bodies, guard-refused or
+/// invalid text, compound expressions) and text `strip_js_comments` rewrites.
+/// The latter is deliberate: the stripper is not regex-aware, so text like
+/// `/[/*]/.test(x)` is mangled before the parse, and reading the retained AST
+/// there would change that behavior outside the scanner-split deletion.
 ///
 /// Under `cfg(any(test, feature = "davinci-differential"))` every retained
 /// walk is dual-run against the legacy re-parse and divergence panics — the
@@ -119,34 +86,27 @@ pub fn extract_identifiers_retained(
     let comment_free = matches!(stripped, std::borrow::Cow::Borrowed(_));
     let stripped = stripped.as_ref();
 
-    if needs_ast_extraction(stripped) {
-        let result = match retained {
-            Some(js) if comment_free => {
-                debug_assert_eq!(
-                    js.raw, expr,
-                    "js_ast must be the node's own retained parse of `expr` (P1-5 contract)"
-                );
-                profile!(
-                    "croquis.helpers.identifiers.retained",
-                    extract_identifiers_retained_slow(js.ast)
-                )
-            }
-            _ => profile!(
-                "croquis.helpers.identifiers.slow",
-                extract_identifiers_oxc_slow(stripped)
-            ),
-        };
-        #[cfg(any(test, feature = "davinci-differential"))]
-        if retained.is_some() && comment_free {
-            assert_retained_identifiers_agree(expr, &result);
+    let result = match retained {
+        Some(js) if comment_free => {
+            debug_assert_eq!(
+                js.raw, expr,
+                "js_ast must be the node's own retained parse of `expr` (P1-5 contract)"
+            );
+            profile!(
+                "croquis.helpers.identifiers.retained",
+                extract_identifiers_retained_ast(js.ast)
+            )
         }
-        return result;
+        _ => profile!(
+            "croquis.helpers.identifiers.ast",
+            extract_identifiers_oxc_ast(stripped)
+        ),
+    };
+    #[cfg(any(test, feature = "davinci-differential"))]
+    if retained.is_some() && comment_free {
+        assert_retained_identifiers_agree(expr, &result);
     }
-
-    profile!(
-        "croquis.helpers.identifiers.fast",
-        extract_identifiers_fast(stripped)
-    )
+    result
 }
 
 /// Davinci P1-6 differential lane: the retained-AST walk must reproduce the
@@ -155,7 +115,7 @@ pub fn extract_identifiers_retained(
 /// this point, so both sides consume identical bytes.
 #[cfg(any(test, feature = "davinci-differential"))]
 fn assert_retained_identifiers_agree(expr: &str, retained_result: &[CompactString]) {
-    let legacy = extract_identifiers_oxc_slow(expr);
+    let legacy = extract_identifiers_oxc_ast(expr);
     assert_eq!(
         retained_result,
         legacy.as_slice(),
@@ -167,18 +127,8 @@ fn assert_retained_identifiers_agree(expr: &str, retained_result: &[CompactStrin
 /// Hybrid root identifier extraction with byte offsets in the original expression.
 #[inline]
 pub fn extract_identifier_refs_oxc(expr: &str) -> Vec<IdentifierRef> {
-    // Use OXC for constructs where a string scanner cannot cheaply preserve
-    // semantic identifier spans. Comments contain `/`, so this keeps offsets in
-    // the original expression instead of using `strip_js_comments`.
-    if needs_ast_extraction(expr) {
-        return profile!(
-            "croquis.helpers.identifier_refs.slow",
-            extract_identifier_refs_oxc_slow(expr)
-        );
-    }
-
     profile!(
-        "croquis.helpers.identifier_refs.fast",
-        extract_identifier_refs_fast(expr)
+        "croquis.helpers.identifier_refs.ast",
+        extract_identifier_refs_oxc_ast(expr)
     )
 }

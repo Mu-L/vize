@@ -10,8 +10,8 @@ use super::IdentifierRef;
 
 /// OXC-based identifier extraction for expressions with object literals.
 #[inline]
-pub(super) fn extract_identifiers_oxc_slow(expr: &str) -> Vec<CompactString> {
-    extract_identifier_refs_oxc_slow(expr)
+pub(super) fn extract_identifiers_oxc_ast(expr: &str) -> Vec<CompactString> {
+    extract_identifier_refs_oxc_ast(expr)
         .into_iter()
         .map(|identifier| identifier.name)
         .collect()
@@ -25,9 +25,9 @@ pub(super) fn extract_identifiers_oxc_slow(expr: &str) -> Vec<CompactString> {
 /// shapes without a retained AST (v-for sub-expressions, v-on statement
 /// bodies, guard-refused or invalid text, compound expressions) and
 /// comment-carrying text (see `extract_identifiers_retained`) — stay on
-/// [`extract_identifiers_oxc_slow`] until P1-8 deletes the split.
+/// [`extract_identifiers_oxc_ast`].
 #[inline]
-pub(super) fn extract_identifiers_retained_slow(
+pub(super) fn extract_identifiers_retained_ast(
     ast: &oxc_ast::ast::Expression<'_>,
 ) -> Vec<CompactString> {
     let mut identifiers = Vec::with_capacity(4);
@@ -42,7 +42,7 @@ pub(super) fn extract_identifiers_retained_slow(
 }
 
 #[inline]
-pub(super) fn extract_identifier_refs_oxc_slow(expr: &str) -> Vec<IdentifierRef> {
+pub(super) fn extract_identifier_refs_oxc_ast(expr: &str) -> Vec<IdentifierRef> {
     let allocator = Allocator::default();
     let source_type = SourceType::from_path("expr.ts").unwrap_or_default();
 
