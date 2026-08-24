@@ -13,6 +13,7 @@ use vize_carton::cstr;
 use vize_carton::{FxHashSet, String};
 
 use super::imports_aliases::PathAliasResolver;
+use super::imports_package_routes::sort_package_route_bindings;
 use super::path_cache::CanonicalPathCache;
 
 #[path = "imports_cache.rs"]
@@ -312,14 +313,7 @@ pub(super) fn collect_transitive_local_imports_with_resolver(
         }
     }
 
-    package_routes.sort_by(|left, right| {
-        (&left.importer_path, &left.specifier, left.occurrence_mode).cmp(&(
-            &right.importer_path,
-            &right.specifier,
-            right.occurrence_mode,
-        ))
-    });
-    package_routes.dedup_by(|left, right| left == right);
+    sort_package_route_bindings(&mut package_routes);
     TransitiveLocalImports {
         registrations,
         authored,

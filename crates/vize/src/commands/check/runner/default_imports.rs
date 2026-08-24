@@ -12,6 +12,7 @@ use crate::commands::check::{
         ImportFileOptions, TransitiveLocalImports, collect_transitive_local_imports_with_resolver,
     },
     imports_aliases::PathAliasResolver,
+    imports_package_routes::sort_package_route_bindings,
     path_cache::CanonicalPathCache,
     tsconfig_inputs::{
         TsconfigInputCache, collect_ambient_declaration_files, collect_default_check_files,
@@ -118,14 +119,7 @@ pub(super) fn collect_default_run_files(
         resolver,
     );
     package_routes.extend(hidden_discovered.package_routes);
-    package_routes.sort_by(|left, right| {
-        (&left.importer_path, &left.specifier, left.occurrence_mode).cmp(&(
-            &right.importer_path,
-            &right.specifier,
-            right.occurrence_mode,
-        ))
-    });
-    package_routes.dedup_by(|left, right| left == right);
+    sort_package_route_bindings(&mut package_routes);
 
     CollectedRoots {
         files,

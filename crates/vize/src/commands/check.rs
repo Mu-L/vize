@@ -11,6 +11,7 @@ mod dts_import_aliases;
 mod dts_rewrite;
 mod imports;
 mod imports_aliases;
+mod imports_package_routes;
 mod nuxt;
 mod path_cache;
 mod patterns;
