@@ -4,6 +4,7 @@ import path from "node:path";
 import { parse } from "@vue/compiler-sfc";
 
 import { VIZE_UI_SFC_AUTHORING_RULES, type SfcAuthoringRuleId } from "./authoring-contract.ts";
+import { splitTopLevelTypeMembers, typeLiteralCallBodies } from "./type-member-parser.ts";
 
 /** Rule identifiers enforced by the component authoring gate. */
 export type AuthoringRule = SfcAuthoringRuleId;
@@ -24,8 +25,11 @@ const SOURCE_REGEX_ASSERTION = /\.(?:match|doesNotMatch)\(\s*source\b/;
 const SFC_SOURCE_READ = /readFile\([^)]*\.vue/;
 const SOURCE_CONTRACT_PRAGMA = "source-contract:";
 const DEFINE_PROPS_TYPE = /defineProps\s*<\s*\{([\s\S]*?)\}\s*>\s*\(/g;
+const DEFINE_EMITS = "defineEmits";
 const PROP_DECLARATION =
   /(?:(\/\*\*[\s\S]*?\*\/)\s*)?readonly\s+(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w$]*))\??\s*:/g;
+const EVENT_MEMBER_DECLARATION =
+  /^(?:(\/\*\*[\s\S]*?\*\/)\s*)?(?:readonly\s+)?(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w$]*))\??\s*:\s*(?:readonly\s*)?\[/;
 const AUTHORING_RULE_IDS = new Set<AuthoringRule>(
   VIZE_UI_SFC_AUTHORING_RULES.map((rule) => rule.id),
 );
@@ -74,6 +78,7 @@ export async function auditComponentAuthoring(
     for (const message of propDefaultDocProblems(source, sfc)) {
       report(sfc, "prop-default-doc", message);
     }
+    for (const message of eventDocProblems(source, sfc)) report(sfc, "event-doc", message);
 
     if (!behaviorSources.some((table) => table.includes(basename))) {
       report(
@@ -168,6 +173,35 @@ function propDefaultDocProblems(source: string, filename: string): string[] {
     }
   }
   return problems;
+}
+
+function eventDocProblems(source: string, filename: string): string[] {
+  const { descriptor, errors } = parse(source, { filename });
+  if (errors.length > 0 || descriptor.scriptSetup === null) return [];
+
+  const problems: string[] = [];
+  for (const body of typeLiteralCallBodies(descriptor.scriptSetup.content, DEFINE_EMITS)) {
+    for (const event of topLevelEventMembers(body)) {
+      if (event.jsdoc.trim().length > 0) continue;
+      problems.push(
+        `Event ${event.name} is missing documentation; document dispatch timing and payload intent`,
+      );
+    }
+  }
+  return problems;
+}
+
+function topLevelEventMembers(body: string): { readonly name: string; readonly jsdoc: string }[] {
+  return splitTopLevelTypeMembers(body).flatMap((member) => {
+    const event = EVENT_MEMBER_DECLARATION.exec(member.trim());
+    if (event === null) return [];
+    return [
+      {
+        jsdoc: event[1] ?? "",
+        name: event[2] ?? event[3] ?? event[4] ?? "<unknown>",
+      },
+    ];
+  });
 }
 
 function hasSourceContractPragma(lines: readonly string[], lineIndex: number): boolean {

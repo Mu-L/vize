@@ -106,7 +106,8 @@ void test("emits only rule ids published by the machine-readable contract", asyn
   await withFixture(
     {
       "TheWidget.vue":
-        "<script setup>defineProps<{ readonly label?: string }>(); const value = 1;</script>\n",
+        "<script setup>defineProps<{ readonly label?: string }>(); " +
+        "defineEmits<{ change: [value: boolean] }>(); const value = 1;</script>\n",
       "widget.test.ts": [
         'import { readFile } from "node:fs/promises";',
         'const source = await readFile(new URL("./TheWidget.vue", import.meta.url), "utf8");',
