@@ -15,6 +15,8 @@ import {
   comparePugTemplateEquivalence,
   isPugSfc,
 } from "./support/pug-template-equivalence.ts";
+import { diagnosticSignatures, sha256 } from "./support/pug/oracle-runtime.ts";
+import type { CapturedDiagnostic } from "./support/pug/oracle-runtime.ts";
 
 const pugMutationBaseline = `<template lang="pug">
 main
@@ -29,6 +31,46 @@ main
     a  b
 </template>
 `;
+
+function nestingWarning(element: "pre" | "ul"): CapturedDiagnostic {
+  return {
+    severity: "warning",
+    value: {
+      name: "SyntaxError",
+      message:
+        `<${element}> cannot be child of <p>, according to HTML specifications. ` +
+        "This can cause hydration errors or potentially disrupt future functionality.",
+    },
+  };
+}
+
+const waveUiStableWarningRegressions = [
+  {
+    path: "src/documentation/views/customization.vue",
+    source: `<template lang="pug">
+main
+  p
+    | For instance if you set the scope to:
+    pre.ssh-pre(data-type="css")
+      strong.pink $css-scope
+    | , the selector changes.
+</template>
+`,
+    warning: nestingWarning("pre"),
+  },
+  {
+    path: "src/documentation/views/ui-components/button/examples.vue",
+    source: `<template lang="pug">
+div
+  p
+    strong.mr1 Note:
+    ul
+      li Status colors have white text.
+</template>
+`,
+    warning: nestingWarning("ul"),
+  },
+] as const;
 
 function temporaryPugContext() {
   const basedir = fs.mkdtempSync(path.join(os.tmpdir(), "vize-pug-oracle-"));
@@ -142,6 +184,88 @@ test("Pug oracle pins provenance and accepts only an opaque outer-indent rebase"
       displayFilename: "different-logical-name/App.vue",
     });
     assert.notEqual(result.evidence.contextSha256, otherContext.evidence.contextSha256);
+  } finally {
+    fs.rmSync(basedir, { recursive: true, force: true });
+  }
+});
+
+test("Pug oracle accepts the two Wave UI files with stable compiler warnings", () => {
+  const { basedir, context } = temporaryPugContext();
+  try {
+    for (const regression of waveUiStableWarningRegressions) {
+      const result = comparePugTemplateEquivalence(regression.source, regression.source, {
+        ...context,
+        filename: path.join(basedir, regression.path),
+        displayFilename: `wave-ui/${regression.path}`,
+      });
+      assert.equal(result.baselineUsable, true, regression.path);
+      assert.deepEqual(result.differences, [], regression.path);
+      const expectedWarningHash = sha256(
+        JSON.stringify(diagnosticSignatures([regression.warning])),
+      );
+      assert.equal(
+        result.evidence.pristine.diagnosticsSha256,
+        expectedWarningHash,
+        `${regression.path} must emit exactly its pinned warning`,
+      );
+      assert.equal(
+        result.evidence.formatted.diagnosticsSha256,
+        expectedWarningHash,
+        `${regression.path} must preserve exactly its pinned warning`,
+      );
+    }
+  } finally {
+    fs.rmSync(basedir, { recursive: true, force: true });
+  }
+});
+
+test("Pug warning signatures ignore order but preserve duplicate multiplicity", () => {
+  const [preWarning, ulWarning] = waveUiStableWarningRegressions.map(
+    (regression) => regression.warning,
+  );
+  const ordered = diagnosticSignatures([preWarning, ulWarning]);
+  const reordered = diagnosticSignatures([ulWarning, preWarning]);
+  assert.deepEqual(reordered, ordered);
+
+  const withDuplicate = diagnosticSignatures([preWarning, ulWarning, preWarning]);
+  assert.notDeepEqual(withDuplicate, ordered, "adding a duplicate warning must change output");
+  assert.notEqual(JSON.stringify(withDuplicate), JSON.stringify(ordered));
+  const afterDuplicateRemoval = diagnosticSignatures([ulWarning, preWarning]);
+  assert.notDeepEqual(
+    withDuplicate,
+    afterDuplicateRemoval,
+    "removing a duplicate warning must change output",
+  );
+  assert.equal(withDuplicate.length, ordered.length + 1);
+});
+
+test("Pug oracle rejects warning additions, removals, and content changes", () => {
+  const { basedir, context } = temporaryPugContext();
+  const clean = '<template lang="pug">\nmain\n  p text\n</template>\n';
+  const preWarning = waveUiStableWarningRegressions[0].source;
+  const ulWarning = waveUiStableWarningRegressions[1].source;
+  try {
+    for (const [label, before, after] of [
+      ["addition", clean, preWarning],
+      ["removal", preWarning, clean],
+      ["content change", preWarning, ulWarning],
+    ] as const) {
+      const result = comparePugTemplateEquivalence(before, after, context);
+      assert.equal(result.baselineUsable, true, label);
+      assert.match(result.differences.join("\n"), /Vue compiler warnings changed:/u, label);
+    }
+  } finally {
+    fs.rmSync(basedir, { recursive: true, force: true });
+  }
+});
+
+test("Pug oracle keeps fatal Vue compiler diagnostics unusable", () => {
+  const { basedir, context } = temporaryPugContext();
+  const source = '<template lang="pug">\nmain(v-for="")\n</template>\n';
+  try {
+    const result = comparePugTemplateEquivalence(source, source, context);
+    assert.equal(result.baselineUsable, false);
+    assert.match(result.differences.join("\n"), /pristine Vue baseline failed:/u);
   } finally {
     fs.rmSync(basedir, { recursive: true, force: true });
   }
