@@ -1,7 +1,7 @@
 use super::super::super::IdentifierRef;
 use super::walk_expr;
 
-pub(in crate::drawer::helpers::identifiers::slow) fn walk_program(
+pub(in crate::drawer::helpers::identifiers::ast) fn walk_program(
     program: &oxc_ast::ast::Program<'_>,
     identifiers: &mut Vec<IdentifierRef>,
 ) {

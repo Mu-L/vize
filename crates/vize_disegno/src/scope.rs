@@ -37,11 +37,11 @@
 //! The Vue lowering records a binding entry only for a position whose
 //! expression is a **simple identifier**. Names bound inside destructuring
 //! patterns (`(({ a, b })) in xs`) are deliberately not enumerated here:
-//! identifier extraction has exactly one future home, the
-//! `ExprDialect::enumerate_bindings` seam ([#4365], P1-8's waiver), and a
-//! second ad-hoc scanner in this module would recreate the scanner split
-//! that waiver exists to end. A position without an entry still has its
-//! scope tag - the *scope* is a fact even where the *names* wait.
+//! identifier extraction has exactly one home, the
+//! `ExprDialect::enumerate_bindings` seam ([#4365]), and a second ad-hoc
+//! scanner in this module would recreate the split P1-8 deleted. A position
+//! without an entry still has its scope tag - the *scope* is a fact even where
+//! the *names* wait.
 //!
 //! [#4365]: https://github.com/ubugeeei-prod/vize/issues/4365
 

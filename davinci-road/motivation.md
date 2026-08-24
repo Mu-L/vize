@@ -34,7 +34,7 @@ transforms (`v_if`, `v_for`, `v_on`, `v_bind`, `v_model`, slots, text) duplicate
 the real content is `raw: String`. Every pass that needs JS structure re-parses
 the string with oxc into a **fresh throwaway `oxc_allocator::Allocator`** — over
 twenty call sites across `vize_croquis` and `vize_atelier_core` (e.g.
-`crates/vize_croquis/src/drawer/helpers/identifiers/slow.rs`,
+`crates/vize_croquis/src/drawer/helpers/identifiers/ast.rs`,
 `crates/vize_atelier_core/src/codegen/patch_flag.rs`) — and copies results back
 out as `CompactString`s because nothing can outlive the local arena. Identifier
 prefixing (`_ctx.`, `$setup.`) is string rewriting

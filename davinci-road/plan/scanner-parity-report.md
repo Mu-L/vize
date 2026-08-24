@@ -19,6 +19,20 @@
 > with the follow-up the waiver decision selects; this report is committed
 > alone per the decision gate.
 
+## Resolution (2026-08-24)
+
+P1-8 took option 2 below. The walk first learned assignment targets and
+statement/program bodies, and the shipping scanner path separately fixed the
+spread-argument and numeric-literal false positives. The deletion follow-up
+then removed `identifiers/fast.rs`, removed the dispatch heuristic, and renamed
+the remaining implementation to `identifiers/ast.rs`.
+
+The admitted differences are the waiver-reviewed raw-surface classes that do
+not change emitted corpus bytes by the consumer audit: keyword/literal noise no
+longer appears in raw identifier extraction, and order/multiplicity/offset
+artifacts follow the AST walk. `undefined` remains a reference because OXC
+parses it as an identifier expression, not a literal node.
+
 ## Verdict (2026-08-15)
 
 **Divergent — the deletion is blocked by the decision gate.** Over the
@@ -201,5 +215,5 @@ this harness:
    that ships today, so they carry their own corpus diffs and cannot ride
    the deletion as byte-neutral refactors.
 
-Either way the P1-8 bench condition (walk closes the scanner's `stress-*`
-gap) is unmeasured until a deletion variant exists to measure.
+The 2026-08-24 deletion follow-up selects option 2 and creates the deletion
+variant the bench condition can measure. #4365 is no longer a phase blocker.
