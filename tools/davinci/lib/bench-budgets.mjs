@@ -12,6 +12,7 @@ import { parseTomlLite, TomlLiteError } from "../toml-lite.mjs";
 import { BENCH_ID, fail } from "./bench-config.mjs";
 
 export const BUDGET_FIELDS = ["wall_p50_ns", "allocs", "rss_peak_bytes", "wall_tolerance"];
+export const ALLOCATION_PEAK_PLATFORMS = ["linux", "macos"];
 
 export function loadBudgets(budgetsPath) {
   let text;
@@ -59,6 +60,30 @@ export function loadBudgets(budgetsPath) {
       fail(`${budgetsPath}: [bench.${id}] wall_tolerance must be a whole number of basis points`);
     }
     budgets.set(id, { ...entry, toleranceBp });
+  }
+  const allocationPeak = root.allocation_peak ?? {};
+  if (typeof allocationPeak !== "object" || Array.isArray(allocationPeak)) {
+    fail(`${budgetsPath}: [allocation_peak] must be a table`);
+  }
+  for (const [id, value] of Object.entries(allocationPeak)) {
+    const budget = budgets.get(id);
+    if (budget == null) fail(`${budgetsPath}: [allocation_peak] has unknown bench ${id}`);
+    if (value == null || typeof value !== "object" || Array.isArray(value)) {
+      fail(`${budgetsPath}: [allocation_peak.${id}] must be a platform table`);
+    }
+    const platforms = Object.keys(value).sort();
+    if (platforms.join(",") !== [...ALLOCATION_PEAK_PLATFORMS].sort().join(",")) {
+      fail(
+        `${budgetsPath}: [allocation_peak.${id}] must have exactly the platforms ` +
+          `${ALLOCATION_PEAK_PLATFORMS.join(", ")} (found: ${platforms.join(", ")})`,
+      );
+    }
+    for (const [platform, peak] of Object.entries(value)) {
+      if (!Number.isSafeInteger(peak) || peak < 0) {
+        fail(`${budgetsPath}: [allocation_peak.${id}.${platform}] must be a non-negative integer`);
+      }
+    }
+    budget.allocBytesPeakByPlatform = { ...value };
   }
   return budgets;
 }

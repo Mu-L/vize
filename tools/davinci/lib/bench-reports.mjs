@@ -12,6 +12,8 @@ import path from "node:path";
 
 import { BENCH_ID, fail } from "./bench-config.mjs";
 
+const PLATFORM = /^[a-z0-9_]+$/u;
+
 function integerOrNull(value) {
   return value === null || (Number.isSafeInteger(value) && value >= 0);
 }
@@ -43,6 +45,9 @@ export function loadReports(dir, label) {
       );
     }
     if (!BENCH_ID.test(stem)) fail(`${label} report ${file} has an invalid bench id`);
+    if (typeof report.platform !== "string" || !PLATFORM.test(report.platform)) {
+      fail(`${label} report ${file} has no valid platform`);
+    }
     const wall = report.wall_ns;
     if (
       wall == null ||
@@ -56,6 +61,9 @@ export function loadReports(dir, label) {
     }
     if (!integerOrNull(report.allocs)) {
       fail(`${label} report ${file} has a non-integer, non-null allocs`);
+    }
+    if (!integerOrNull(report.alloc_bytes_peak)) {
+      fail(`${label} report ${file} has a non-integer, non-null alloc_bytes_peak`);
     }
     if (!integerOrNull(report.rss_peak_bytes)) {
       fail(`${label} report ${file} has a non-integer, non-null rss_peak_bytes`);
