@@ -19,6 +19,7 @@ pub(super) fn emit_if(
     if if_op.branches.is_empty() {
         return Err(EmitError::Unsupported);
     }
+    cx.buf.use_open_block();
     cx.buf.use_create_comment();
     let facts = id.and_then(|id| cx.facts.if_facts.get(id));
     for (i, branch) in if_op.branches.iter().enumerate() {
@@ -47,7 +48,15 @@ pub(super) fn emit_if(
         let key = branch_key_js(facts, i, allocated)?;
         let saved = cx.if_branch_key;
         cx.if_branch_key = 0;
-        emit_branch(cx, branch, key.as_str())?;
+        let from_template = id
+            .and_then(|id| cx.wrappers.get(id))
+            .and_then(|keys| keys.from_template.get(i).copied())
+            .unwrap_or(false);
+        if from_template {
+            super::tpl::emit_if_template_branch(cx, branch, key.as_str())?;
+        } else {
+            emit_branch(cx, branch, key.as_str())?;
+        }
         cx.if_branch_key = saved;
         if branch.condition.is_some() && i > 0 {
             cx.buf.deindent();
@@ -100,7 +109,10 @@ fn branch_key_js(
             out.push('"');
             Ok(out)
         }
-        Some(BranchKeyKind::Dynamic { .. }) => Err(EmitError::Unsupported),
+        Some(BranchKeyKind::Dynamic { source, .. }) if source.is_empty() => {
+            Ok(allocated.to_compact_string())
+        }
+        Some(BranchKeyKind::Dynamic { source, .. }) => Ok(source.clone()),
     }
 }
 
@@ -114,7 +126,12 @@ fn emit_branch(cx: &mut EmitCx<'_>, branch: &IfBranch<'_>, key: &str) -> Result<
         [Op::Component(component)] => {
             let _id = cx.walk.mint();
             cx.walk.skip(component.bindings.len());
-            super::component::emit_if_branch(cx, component, key)
+            super::component::emit_if_branch(cx, component, key, _id)
+        }
+        [Op::Slot(slot)] => {
+            let _id = cx.walk.mint();
+            cx.walk.skip(slot.bindings.len());
+            super::outlet::emit_outlet(cx, slot, Some(key), true)
         }
         _ => Err(EmitError::Unsupported),
     }

@@ -10,7 +10,7 @@
 mod support;
 
 use support::with_transformed;
-use vize_ricalco::{EmitError, emit_dom};
+use vize_ricalco::emit_dom;
 
 fn assembled(source: &str) -> String {
     with_transformed(source, |lowered, _folio, facts, _budget| {
@@ -24,12 +24,6 @@ fn assembled(source: &str) -> String {
 /// Vue's extra `newline()` after `genAssets` leaves indent on the blank line.
 fn pin(visual: &str) -> String {
     visual.replace(")\n\n  return", ")\n  \n  return")
-}
-
-fn refused(source: &str) -> EmitError {
-    with_transformed(source, |lowered, _, facts, _| {
-        emit_dom(lowered, facts).expect_err("expected Unsupported")
-    })
 }
 
 #[test]
@@ -147,18 +141,142 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
 }
 
 #[test]
-fn slot_children_are_unsupported_this_installment() {
-    assert_eq!(refused("<Foo>hello</Foo>"), EmitError::Unsupported);
+fn a_v_for_item_component_omits_empty_props() {
+    assert_eq!(
+        assembled(r#"<Foo v-for="i in n" />"#),
+        pin("\
+const { resolveComponent: _resolveComponent, openBlock: _openBlock, createBlock: _createBlock, createElementBlock: _createElementBlock, Fragment: _Fragment, renderList: _renderList } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_Foo = _resolveComponent(\"Foo\")
+
+  return (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(n, (i) => {
+    return (_openBlock(), _createBlock(_component_Foo))
+  }), 256 /* UNKEYED_FRAGMENT */))
+}")
+    );
 }
 
 #[test]
-fn a_builtin_transition_is_unsupported_this_installment() {
-    assert_eq!(refused("<Transition />"), EmitError::Unsupported);
+fn static_attrs_on_a_slotted_component_use_their_hoist() {
+    assert_eq!(
+        assembled(r#"<Foo id="x">hello</Foo>"#),
+        pin("\
+const { resolveComponent: _resolveComponent, openBlock: _openBlock, createBlock: _createBlock, createTextVNode: _createTextVNode, withCtx: _withCtx } = Vue
+
+const _hoisted_1 = { id: \"x\" }
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_Foo = _resolveComponent(\"Foo\")
+
+  return (_openBlock(), _createBlock(_component_Foo, _hoisted_1, {
+    default: _withCtx(() => [
+      _createTextVNode(\"hello\")
+    ]),
+    _: 1 /* STABLE */
+  }))
+}")
+    );
 }
 
 #[test]
-fn a_dynamic_is_is_unsupported_this_installment() {
-    assert_eq!(refused(r#"<component :is="x" />"#), EmitError::Unsupported);
+fn static_props_hoists_keep_their_queued_aliases() {
+    assert_eq!(
+        assembled(r#"<div id="root"><Foo id="x">hello</Foo></div>"#),
+        pin("\
+const { resolveComponent: _resolveComponent, createVNode: _createVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, createTextVNode: _createTextVNode, withCtx: _withCtx } = Vue
+
+const _hoisted_1 = { id: \"root\" }
+const _hoisted_2 = { id: \"x\" }
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_Foo = _resolveComponent(\"Foo\")
+
+  return (_openBlock(), _createElementBlock(\"div\", _hoisted_1, [
+    _createVNode(_component_Foo, _hoisted_2, {
+      default: _withCtx(() => [
+        _createTextVNode(\"hello\")
+      ]),
+      _: 1 /* STABLE */
+    })
+  ]))
+}")
+    );
+}
+
+#[test]
+fn a_nested_text_slot_inside_v_for_is_dynamic() {
+    assert_eq!(
+        assembled(r#"<div v-for="i in n"><Foo>hello</Foo></div>"#),
+        pin("\
+const { resolveComponent: _resolveComponent, createVNode: _createVNode, openBlock: _openBlock, createElementBlock: _createElementBlock, Fragment: _Fragment, createTextVNode: _createTextVNode, renderList: _renderList, withCtx: _withCtx } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  const _component_Foo = _resolveComponent(\"Foo\")
+
+  return (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(n, (i) => {
+    return (_openBlock(), _createElementBlock(\"div\", null, [
+      _createVNode(_component_Foo, null, {
+        default: _withCtx(() => [
+          _createTextVNode(\"hello\")
+        ]),
+        _: 2 /* DYNAMIC */
+      }, 1024 /* DYNAMIC_SLOTS */)
+    ]))
+  }), 256 /* UNKEYED_FRAGMENT */))
+}")
+    );
+}
+
+#[test]
+fn whitespace_only_children_emit_no_slot() {
+    assert_eq!(assembled("<Foo>  </Foo>"), assembled("<Foo />"));
+}
+
+#[test]
+fn a_root_transition_uses_the_builtin_helper() {
+    assert_eq!(
+        assembled("<Transition />"),
+        pin("\
+const { openBlock: _openBlock, createBlock: _createBlock, Transition: _Transition } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (_openBlock(), _createBlock(_Transition))
+}")
+    );
+}
+
+#[test]
+fn a_dynamic_is_uses_resolve_dynamic_component() {
+    assert_eq!(
+        assembled(r#"<component :is="x" />"#),
+        pin("\
+const { resolveDynamicComponent: _resolveDynamicComponent, openBlock: _openBlock, createBlock: _createBlock } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (_openBlock(), _createBlock(_resolveDynamicComponent(x)))
+}")
+    );
+}
+
+#[test]
+fn a_static_is_slot_hoists_props_without_is() {
+    assert_eq!(
+        assembled(r#"<component is="Foo" id="a">hello</component>"#),
+        pin("\
+const { resolveDynamicComponent: _resolveDynamicComponent, openBlock: _openBlock, createBlock: _createBlock, createTextVNode: _createTextVNode, withCtx: _withCtx } = Vue
+
+const _hoisted_1 = { id: \"a\" }
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (_openBlock(), _createBlock(_resolveDynamicComponent(\"Foo\"), _hoisted_1, {
+    default: _withCtx(() => [
+      _createTextVNode(\"hello\")
+    ]),
+    _: 1 /* STABLE */
+  }))
+}")
+    );
 }
 
 #[test]

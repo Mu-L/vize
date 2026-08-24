@@ -27,7 +27,8 @@ use super::super::{
 use super::helpers::{get_element_key, has_other_props, should_skip_prop};
 use super::item_props::{
     EventPropAction, event_prop_action, event_prop_sets, generate_event_prop_action,
-    is_for_item_segment_skip_prop, strip_need_patch_for_v_for_item,
+    is_for_item_segment_skip_prop, push_null_props_if_missing, strip_need_patch_for_v_for_item,
+    unwrap_template_single_element,
 };
 use super::slot_outlet::generate_for_slot_outlet;
 use vize_carton::ToCompactString;
@@ -106,11 +107,12 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
 
                 // Props with key and all other props
                 let props_el = unwrapped_child.unwrap_or(el);
-                generate_for_item_props(ctx, props_el, key_exp, is_dynamic);
+                let emitted_props = generate_for_item_props(ctx, props_el, key_exp, is_dynamic);
 
                 // Children
                 let children_el = unwrapped_child.unwrap_or(el);
                 if !children_el.children.is_empty() {
+                    push_null_props_if_missing(ctx, emitted_props);
                     ctx.push(", ");
                     if gen_is_template {
                         ctx.push("[");
@@ -144,6 +146,7 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                     if children_el.children.is_empty()
                         && (patch_flag.is_some() || dynamic_props.is_some())
                     {
+                        push_null_props_if_missing(ctx, emitted_props);
                         ctx.push(", null");
                     }
                     if let Some(flag) = patch_flag {
@@ -252,7 +255,7 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                 // Props with key and all other props
                 // For unwrapped template child, use child's props with template's key
                 let props_el = unwrapped_child.unwrap_or(el);
-                generate_for_item_props(ctx, props_el, key_exp, is_dynamic);
+                let emitted_props = generate_for_item_props(ctx, props_el, key_exp, is_dynamic);
 
                 // Children
                 let children_el = unwrapped_child.unwrap_or(el);
@@ -261,6 +264,7 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                 // own account rather than off the child list (#3467).
                 let component_slots = is_component && has_slot_children(children_el);
                 if !children_el.children.is_empty() || component_slots {
+                    push_null_props_if_missing(ctx, emitted_props);
                     ctx.push(", ");
                     if component_slots {
                         // Component children must be compiled as slot functions,
@@ -340,6 +344,7 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                         && !component_slots
                         && (patch_flag.is_some() || dynamic_props.is_some())
                     {
+                        push_null_props_if_missing(ctx, emitted_props);
                         ctx.push(", null");
                     }
                     if let Some(flag) = patch_flag {
@@ -375,6 +380,7 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
                     if flag_el.children.is_empty()
                         && (patch_flag.is_some() || dynamic_props.is_some())
                     {
+                        push_null_props_if_missing(ctx, emitted_props);
                         ctx.push(", null");
                     }
                     if let Some(flag) = patch_flag {
@@ -428,29 +434,13 @@ pub fn generate_for_item(ctx: &mut CodegenContext, node: &TemplateChildNode<'_>,
     }
 }
 
-fn unwrap_template_single_element<'a>(el: &'a ElementNode<'a>) -> Option<&'a ElementNode<'a>> {
-    if el.tag_type != ElementType::Template || el.children.len() != 1 {
-        return None;
-    }
-
-    let TemplateChildNode::Element(child_el) = &el.children[0] else {
-        return None;
-    };
-
-    if child_el.tag_type == ElementType::Element {
-        Some(child_el)
-    } else {
-        None
-    }
-}
-
 /// Generate props for v-for item, including key and all other props
 pub(crate) fn generate_for_item_props(
     ctx: &mut CodegenContext,
     el: &ElementNode<'_>,
     key_exp: Option<&ExpressionNode<'_>>,
     skip_is_prop: bool,
-) {
+) -> bool {
     let has_other = if skip_is_prop {
         el.props
             .iter()
@@ -466,8 +456,7 @@ pub(crate) fn generate_for_item_props(
     };
 
     if key_exp.is_none() && !has_other && scope_id.is_none() {
-        ctx.push(", null");
-        return;
+        return false;
     }
 
     ctx.push(", ");
@@ -489,7 +478,7 @@ pub(crate) fn generate_for_item_props(
             ctx.push(sid.as_str());
             ctx.push("\": \"\" }");
         }
-        return;
+        return true;
     }
 
     // Check for v-bind/v-on object spreads (v-bind="obj", v-on="handlers")
@@ -506,7 +495,7 @@ pub(crate) fn generate_for_item_props(
             has_von_spread,
             skip_is_prop,
         );
-        return;
+        return true;
     }
 
     // Detect static class/style that need to be merged with dynamic :class/:style
@@ -657,6 +646,7 @@ pub(crate) fn generate_for_item_props(
 
         ctx.push(" }");
     }
+    true
 }
 
 /// Generate props using _mergeProps when v-bind/v-on object spreads are present.

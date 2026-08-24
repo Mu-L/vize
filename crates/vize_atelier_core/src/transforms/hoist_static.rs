@@ -57,7 +57,7 @@ fn hoist_static_inner<'a>(
                 // Only hoist their props instead
                 if is_root
                     && let TemplateChildNode::Element(el) = &mut children[i]
-                    && has_static_props(el)
+                    && should_hoist_props(ctx, el)
                 {
                     hoist_element_props(ctx, el, allocator);
                 } else if hoist_static_vnodes
@@ -81,7 +81,7 @@ fn hoist_static_inner<'a>(
                 // static props while preserving block tracking.
                 if is_root
                     && let TemplateChildNode::Element(el) = &mut children[i]
-                    && has_static_props(el)
+                    && should_hoist_props(ctx, el)
                 {
                     hoist_element_props(ctx, el, allocator);
                 }
@@ -90,7 +90,7 @@ fn hoist_static_inner<'a>(
                 // Cannot hoist, but check children recursively (not as root)
                 match &mut children[i] {
                     TemplateChildNode::Element(el) => {
-                        if has_static_props(el)
+                        if should_hoist_props(ctx, el)
                             && ((is_root
                                 && ctx.options.inline
                                 && has_only_native_element_descendants(el))
@@ -127,15 +127,41 @@ fn hoist_static_inner<'a>(
                         }
                     }
                     TemplateChildNode::For(for_node) => {
-                        ensure_sufficient_stack(|| {
-                            hoist_static_inner(ctx, &mut for_node.children, false, true);
-                        });
+                        hoist_for_children(ctx, &mut for_node.children, allocator);
                     }
                     _ => {}
                 }
             }
         }
         i += 1;
+    }
+}
+
+fn hoist_for_children<'a>(
+    ctx: &mut TransformContext<'a>,
+    children: &mut Vec<'a, TemplateChildNode<'a>>,
+    allocator: &'a Allocator,
+) {
+    match children.as_mut_slice() {
+        [TemplateChildNode::Element(el)] if el.tag_type == ElementType::Template => {
+            hoist_for_children(ctx, &mut el.children, allocator);
+        }
+        [TemplateChildNode::Element(el)] => {
+            // A single v-for child is the loop item's block root, so the VNode
+            // itself must stay inline. Static props and nested static children
+            // can still be hoisted/cached independently.
+            if should_hoist_props(ctx, el) {
+                hoist_element_props(ctx, el, allocator);
+            }
+            ensure_sufficient_stack(|| {
+                hoist_static_inner(ctx, &mut el.children, false, true);
+            });
+        }
+        _ => {
+            ensure_sufficient_stack(|| {
+                hoist_static_inner(ctx, children, false, true);
+            });
+        }
     }
 }
 
@@ -151,7 +177,7 @@ fn create_vnode_call_from_element<'a>(
     scope_id: Option<&'a str>,
 ) -> JsChildNode<'a> {
     let tag = VNodeTag::String(el.tag);
-    let props = create_props_expression(allocator, &el.props, scope_id);
+    let props = create_props_expression(allocator, &el.props, scope_id, false);
     let children = create_children_expression(allocator, &mut el.children, scope_id);
 
     let vnode_call = VNodeCall {
@@ -269,6 +295,11 @@ fn has_directives(el: &ElementNode<'_>) -> bool {
     el.props
         .iter()
         .any(|prop| matches!(prop, PropNode::Directive(_)))
+}
+
+fn should_hoist_props(ctx: &TransformContext<'_>, el: &ElementNode<'_>) -> bool {
+    has_static_props(el)
+        && !(ctx.hoisted_scope_id.is_some() && el.tag_type == ElementType::Component)
 }
 
 /// Check if children should use a block

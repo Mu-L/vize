@@ -1,6 +1,8 @@
 //! Indenting JS buffer. Helper names live in [`super::helper`].
 
-use vize_carton::String;
+use alloc::vec::Vec as StdVec;
+
+use vize_carton::{String, ToCompactString};
 
 use super::helper::Helper;
 
@@ -8,9 +10,16 @@ use super::helper::Helper;
 pub(super) struct Buf {
     pub code: String,
     indent: u32,
-    used: u32,
-    /// Compact static-props object hoisted as `_hoisted_1` (root only).
-    hoisted_props: Option<String>,
+    used: u64,
+    /// Transform-analogue registration order (`root.helpers`).
+    preferred: StdVec<Helper>,
+    /// First `use_*` order (`used_helpers`). Same-rank leftovers follow
+    /// this, not `Helper::ALL`, so a builtin tag used before `withCtx`
+    /// stays before it (`Transition` then `withCtx`; nested `KeepAlive`
+    /// after the parent's `withCtx`).
+    used_order: StdVec<Helper>,
+    /// Compact static-props / vnode RHS values, `_hoisted_1` first.
+    hoists: StdVec<String>,
 }
 
 impl Buf {
@@ -19,7 +28,9 @@ impl Buf {
             code: String::default(),
             indent: 0,
             used: 0,
-            hoisted_props: None,
+            preferred: StdVec::new(),
+            used_order: StdVec::new(),
+            hoists: StdVec::new(),
         }
     }
 
@@ -45,7 +56,22 @@ impl Buf {
     }
 
     fn mark(&mut self, helper: Helper) {
+        if self.used & helper.bit() != 0 {
+            return;
+        }
         self.used |= helper.bit();
+        self.used_order.push(helper);
+    }
+
+    pub(super) fn use_helper(&mut self, helper: Helper) {
+        self.mark(helper);
+    }
+
+    pub(super) fn prefer(&mut self, helper: Helper) {
+        if self.preferred.iter().any(|seen| seen.bit() == helper.bit()) {
+            return;
+        }
+        self.preferred.push(helper);
     }
 
     pub(super) fn use_to_display_string(&mut self) {
@@ -87,6 +113,9 @@ impl Buf {
     pub(super) fn use_to_handlers(&mut self) {
         self.mark(Helper::ToHandlers);
     }
+    pub(super) fn use_with_directives(&mut self) {
+        self.mark(Helper::WithDirectives);
+    }
     pub(super) fn use_create_comment(&mut self) {
         self.mark(Helper::CreateComment);
     }
@@ -99,11 +128,23 @@ impl Buf {
     pub(super) fn use_resolve_component(&mut self) {
         self.mark(Helper::ResolveComponent);
     }
+    pub(super) fn use_resolve_directive(&mut self) {
+        self.mark(Helper::ResolveDirective);
+    }
     pub(super) fn use_create_vnode(&mut self) {
         self.mark(Helper::CreateVNode);
     }
+    pub(super) fn use_render_slot(&mut self) {
+        self.mark(Helper::RenderSlot);
+    }
     pub(super) fn use_create_block(&mut self) {
         self.mark(Helper::CreateBlock);
+    }
+    pub(super) fn use_with_ctx(&mut self) {
+        self.mark(Helper::WithCtx);
+    }
+    pub(super) fn use_create_slots(&mut self) {
+        self.mark(Helper::CreateSlots);
     }
 
     pub(super) fn to_display_string_alias() -> &'static str {
@@ -158,6 +199,10 @@ impl Buf {
         Helper::ToHandlers.alias()
     }
 
+    pub(super) fn with_directives_alias() -> &'static str {
+        Helper::WithDirectives.alias()
+    }
+
     pub(super) fn create_comment_alias() -> &'static str {
         Helper::CreateComment.alias()
     }
@@ -174,58 +219,92 @@ impl Buf {
         Helper::ResolveComponent.alias()
     }
 
+    pub(super) fn resolve_directive_alias() -> &'static str {
+        Helper::ResolveDirective.alias()
+    }
+
     pub(super) fn create_vnode_alias() -> &'static str {
         Helper::CreateVNode.alias()
+    }
+
+    pub(super) fn render_slot_alias() -> &'static str {
+        Helper::RenderSlot.alias()
     }
 
     pub(super) fn create_block_alias() -> &'static str {
         Helper::CreateBlock.alias()
     }
 
-    pub(super) fn hoist_root_props(&mut self, object: String) {
-        self.hoisted_props = Some(object);
+    pub(super) fn with_ctx_alias() -> &'static str {
+        Helper::WithCtx.alias()
     }
 
-    pub(super) fn hoisted_props_alias() -> &'static str {
-        "_hoisted_1"
+    pub(super) fn create_slots_alias() -> &'static str {
+        Helper::CreateSlots.alias()
+    }
+
+    pub(super) fn push_hoist(&mut self, rhs: String) -> String {
+        let alias_index = self.hoists.len() + 1;
+        self.hoists.push(rhs);
+        let mut alias = String::from("_hoisted_");
+        alias.push_str(alias_index.to_compact_string().as_str());
+        alias
+    }
+
+    pub(super) fn hoist_root_props(&mut self, object: String) -> String {
+        self.push_hoist(object)
+    }
+
+    fn ordered_helpers(&self) -> StdVec<Helper> {
+        let mut listed = StdVec::new();
+        let mut bits = 0u64;
+        let mut push = |helper: Helper| {
+            if self.used & helper.bit() == 0 || bits & helper.bit() != 0 {
+                return;
+            }
+            bits |= helper.bit();
+            listed.push(helper);
+        };
+        for helper in self.preferred.iter().copied() {
+            push(helper);
+        }
+        for helper in self.used_order.iter().copied() {
+            push(helper);
+        }
+        for helper in Helper::ALL {
+            push(helper);
+        }
+        listed.sort_by_key(|helper| helper.rank());
+        listed
     }
 
     /// Function-mode preamble, helpers in import-rank order, then any
     /// root static-props hoist (the shipped codegen appends hoists to
     /// the helper preamble).
     pub(super) fn preamble(&self) -> String {
-        let listed: [Helper; 19] = Helper::ALL;
-        let mut n = 0;
-        for helper in listed {
-            if self.used & helper.bit() != 0 {
-                n += 1;
-            }
-        }
-        if n == 0 {
+        let listed = self.ordered_helpers();
+        if listed.is_empty() {
             return String::default();
         }
         let mut preamble = String::from("const { ");
-        let mut first = true;
-        for helper in listed {
-            if self.used & helper.bit() == 0 {
-                continue;
-            }
-            if !first {
+        for (i, helper) in listed.iter().enumerate() {
+            if i > 0 {
                 preamble.push_str(", ");
             }
-            first = false;
             preamble.push_str(helper.name());
             preamble.push_str(": ");
             preamble.push_str(helper.alias());
         }
         preamble.push_str(" } = Vue\n");
-        if let Some(object) = &self.hoisted_props {
+        if !self.hoists.is_empty() {
             preamble.push('\n');
-            preamble.push_str("const ");
-            preamble.push_str(Self::hoisted_props_alias());
-            preamble.push_str(" = ");
-            preamble.push_str(object.as_str());
-            preamble.push('\n');
+            for (i, rhs) in self.hoists.iter().enumerate() {
+                preamble.push_str("const _hoisted_");
+                preamble.push_str((i + 1).to_compact_string().as_str());
+                preamble.push_str(" = ");
+                preamble.push_str(rhs.as_str());
+                preamble.push('\n');
+            }
         }
         preamble
     }

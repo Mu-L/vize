@@ -14,8 +14,7 @@ use vize_disegno::op::{Attribute, BindOp, BindingOp, OnOp};
 use super::EmitCx;
 use super::EmitError;
 use super::buf::Buf;
-use super::on::event_key_for;
-use super::on::needs_hydration;
+use super::on::{event_key_for, needs_hydration};
 use super::props::{Patch, Piece, emit_props_object, js_value, pieces, static_bind_name};
 
 pub(super) fn has_object_spread(bindings: &[BindingOp<'_>]) -> bool {
@@ -63,7 +62,7 @@ pub(super) fn object_patch(bindings: &[BindingOp<'_>], is_component: bool) -> Pa
                 }
             }
             BindingOp::On(on) => {
-                let Ok(key) = event_key_for(on) else {
+                let Ok(key) = event_key_for(on, !is_component) else {
                     continue;
                 };
                 if !dynamic_props.contains(&key) {
@@ -72,6 +71,9 @@ pub(super) fn object_patch(bindings: &[BindingOp<'_>], is_component: bool) -> Pa
                 if !is_component && needs_hydration(key.as_str(), on) {
                     flag |= 32;
                 }
+            }
+            BindingOp::Model(model) => {
+                super::model::patch_keys(model, is_component, &mut dynamic_props);
             }
             _ => {}
         }
@@ -87,8 +89,11 @@ pub(super) fn emit_spread_props(
     attributes: &[Attribute<'_>],
     bindings: &[BindingOp<'_>],
     if_key: Option<&str>,
+    skip_is: bool,
+    empty_key_multiline: bool,
+    is_plain_element: bool,
 ) -> Result<(), EmitError> {
-    let args = merge_args(attributes, bindings, if_key)?;
+    let args = merge_args(attributes, bindings, if_key, skip_is)?;
     if let Some(lone) = lone_kind_spread(&args) {
         return match lone {
             Arg::BindSpread(bind) => emit_normalize_guard(cx, bind),
@@ -107,7 +112,14 @@ pub(super) fn emit_spread_props(
             Arg::BindSpread(bind) => cx.buf.push(js_value(bind)?.source),
             Arg::OnSpread(on) => emit_to_handlers(cx, on)?,
             Arg::Object { if_key, pieces } => {
-                emit_props_object(cx, pieces, *if_key, true)?;
+                emit_props_object(
+                    cx,
+                    pieces,
+                    *if_key,
+                    true,
+                    empty_key_multiline,
+                    is_plain_element,
+                )?;
             }
         }
     }
@@ -143,10 +155,11 @@ fn merge_args<'a>(
     attributes: &'a [Attribute<'a>],
     bindings: &'a [BindingOp<'a>],
     if_key: Option<&'a str>,
+    skip_is: bool,
 ) -> Result<StdVec<Arg<'a>>, EmitError> {
     let mut args = StdVec::new();
     let mut current = StdVec::new();
-    for piece in pieces(attributes, bindings)? {
+    for piece in pieces(attributes, bindings, skip_is)? {
         match piece {
             Piece::Bind(bind) if bind.name.is_none() => {
                 flush_object(&mut args, &mut current);

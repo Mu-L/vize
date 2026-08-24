@@ -1,6 +1,6 @@
 //! Slots object generation for component children.
 
-use crate::steps::v_slot::{collect_slots, get_slot_name, has_v_slot};
+use crate::steps::v_slot::{collect_slots, get_slot_name, has_v_slot, is_dynamic_slot};
 use crate::{ElementNode, ExpressionNode, PropNode, RuntimeHelper, TemplateChildNode};
 use vize_carton::String;
 
@@ -13,6 +13,7 @@ use super::detect::{
     has_conditional_or_loop_slots, has_forwarded_slot_outlet, slots_are_only_forwarded,
     slots_spread,
 };
+use super::name::{component_root_slot, emit_slot_property_name};
 use super::params::{extract_slot_params, get_slot_props, prefix_slot_defaults};
 
 /// Generate slots object for component
@@ -53,21 +54,17 @@ pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
         return;
     }
 
-    // Check for v-slot on component root (shorthand for default slot)
-    let root_slot = el.props.iter().find_map(|p| {
-        if let PropNode::Directive(dir) = p
-            && dir.name == "slot"
-        {
-            return Some(dir.as_ref());
-        }
-        None
-    });
+    // Check for v-slot on component root. Bare `v-slot` is the default slot;
+    // named / dynamic root spellings preserve their authored key.
+    let root_slot = component_root_slot(el);
 
     let collected_slots = collect_slots(el, &ctx.source);
     let has_forwarded_slots = has_forwarded_slot_outlet(el);
     let forwarded_slots_are_dynamic = has_forwarded_slots && ctx.has_slot_params();
-    let has_dynamic_slots =
-        ctx.in_v_for || collected_slots.iter().any(|s| s.is_dynamic) || forwarded_slots_are_dynamic;
+    let has_dynamic_slots = ctx.in_v_for
+        || root_slot.is_some_and(is_dynamic_slot)
+        || collected_slots.iter().any(|s| s.is_dynamic)
+        || forwarded_slots_are_dynamic;
     let has_conditional_slots = has_conditional_or_loop_slots(el);
 
     // If there are conditional (v-if) or looped (v-for) slots, use createSlots
@@ -80,9 +77,12 @@ pub fn generate_slots(ctx: &mut CodegenContext, el: &ElementNode<'_>) {
     ctx.indent();
 
     if let Some(slot_dir) = root_slot {
-        // v-slot on component root - all children go to default slot
+        // v-slot on component root - all children go to the authored slot key.
         ctx.newline();
-        ctx.push("default: ");
+        let slot_name = get_slot_name(slot_dir, &ctx.source);
+        let is_dynamic = is_dynamic_slot(slot_dir);
+        emit_slot_property_name(ctx, slot_dir, &slot_name, is_dynamic);
+        ctx.push(": ");
         ctx.use_helper(RuntimeHelper::WithCtx);
         ctx.push(ctx.helper(RuntimeHelper::WithCtx));
         ctx.push("(");
