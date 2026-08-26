@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 
 import { defineComponent, h, type VNode } from "vue";
 
-import ActionButton from "./ActionButton.vue";
-import CheckboxControl from "./CheckboxControl.vue";
-import IdProvider from "./DeterministicIdProvider.vue";
+import ActionButton from "./action-button.vue";
+import CheckboxControl from "./checkbox-control.vue";
+import IdProvider from "./deterministic-id-provider.vue";
 import { useDeterministicId } from "./deterministic-id.ts";
-import PrimitiveElement from "./PrimitiveElement.vue";
-import VisuallyHidden from "./VisuallyHidden.vue";
+import PrimitiveElement from "./primitive-element.vue";
+import VisuallyHidden from "./visually-hidden.vue";
 
 export interface RuntimeFixture {
   /** Stable name included in assertion diagnostics. */
@@ -33,7 +33,7 @@ const DeterministicIdProbe = defineComponent({
 export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   {
     name: "button",
-    sourceFile: "ActionButton.vue",
+    sourceFile: "action-button.vue",
     render: () =>
       h(
         ActionButton,
@@ -58,7 +58,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   },
   {
     name: "checkbox",
-    sourceFile: "CheckboxControl.vue",
+    sourceFile: "checkbox-control.vue",
     render: () =>
       h(CheckboxControl, {
         ariaLabel: "Accept terms",
@@ -79,7 +79,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   },
   {
     name: "deterministic-id-provider",
-    sourceFile: "DeterministicIdProvider.vue",
+    sourceFile: "deterministic-id-provider.vue",
     render: () =>
       h(
         IdProvider,
@@ -101,7 +101,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   },
   {
     name: "primitive",
-    sourceFile: "PrimitiveElement.vue",
+    sourceFile: "primitive-element.vue",
     render: () =>
       h(
         PrimitiveElement,
@@ -123,7 +123,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   },
   {
     name: "visually-hidden",
-    sourceFile: "VisuallyHidden.vue",
+    sourceFile: "visually-hidden.vue",
     render: () =>
       h(VisuallyHidden, null, {
         default: () => h("button", { type: "button" }, "Dismiss notification"),
