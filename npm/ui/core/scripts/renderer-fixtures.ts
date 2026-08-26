@@ -1,5 +1,7 @@
-/** Headless component fixtures compiled by every supported renderer lane. */
+import { overlayRendererFixtures } from "./renderer-fixtures-overlays.ts";
+
 export const rendererFixtures = [
+  ...overlayRendererFixtures,
   {
     filename: "DragAndDropConsumer.vue",
     source: String.raw`<script setup lang="ts">
