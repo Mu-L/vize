@@ -23,6 +23,13 @@ test("discovers every SFC with the opinionated Vize contract", async () => {
       "src/DeterministicIdProvider.vue",
       "src/PrimitiveElement.vue",
       "src/VisuallyHidden.vue",
+      "src/live-region.vue",
+      "src/locale-provider.vue",
+      "src/portal.vue",
+      "src/positioner-arrow.vue",
+      "src/positioner.vue",
+      "src/presence.vue",
+      "src/transition.vue",
     ],
   );
   assert.deepEqual(
@@ -33,6 +40,13 @@ test("discovers every SFC with the opinionated Vize contract", async () => {
       "DeterministicIdProvider.vue",
       "PrimitiveElement.vue",
       "VisuallyHidden.vue",
+      "live-region.vue",
+      "locale-provider.vue",
+      "portal.vue",
+      "positioner-arrow.vue",
+      "positioner.vue",
+      "presence.vue",
+      "transition.vue",
     ].map((basename) => ({
       filename: path.resolve("src", basename),
       preset: "opinionated" as const,
