@@ -8,6 +8,19 @@ import {
   readCompatibilityLedger,
   validateCompatibilityLedger,
 } from "../../tools/fixtures/fixture-compatibility-ledger.mjs";
+import {
+  p2_11CurrentRecordEvidence,
+  recordsTaskRow,
+  requiredLine,
+  requiredSection,
+} from "./support/davinci-phase2-ledger.ts";
+
+function p2_11Installment(number: number): URL {
+  return new URL(
+    `../../davinci-road/plan/phase-2-records/p2-11/installment-${number}.md`,
+    import.meta.url,
+  );
+}
 
 const docs = {
   roadmap: new URL("../../davinci-road/roadmap.md", import.meta.url),
@@ -17,38 +30,16 @@ const docs = {
   tasksLater: new URL("../../davinci-road/plan/phase-2-tasks-later.md", import.meta.url),
   records: new URL("../../davinci-road/plan/phase-2-records.md", import.meta.url),
   p2_11: new URL("../../davinci-road/plan/phase-2-records/p2-11.md", import.meta.url),
-  installment20: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-20.md",
-    import.meta.url,
-  ),
-  installment21: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-21.md",
-    import.meta.url,
-  ),
-  installment22: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-22.md",
-    import.meta.url,
-  ),
-  installment23: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-23.md",
-    import.meta.url,
-  ),
-  installment24: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-24.md",
-    import.meta.url,
-  ),
-  installment25: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-25.md",
-    import.meta.url,
-  ),
-  installment26: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-26.md",
-    import.meta.url,
-  ),
-  installment27: new URL(
-    "../../davinci-road/plan/phase-2-records/p2-11/installment-27.md",
-    import.meta.url,
-  ),
+  installment20: p2_11Installment(20),
+  installment21: p2_11Installment(21),
+  installment22: p2_11Installment(22),
+  installment23: p2_11Installment(23),
+  installment24: p2_11Installment(24),
+  installment25: p2_11Installment(25),
+  installment26: p2_11Installment(26),
+  installment27: p2_11Installment(27),
+  installment28: p2_11Installment(28),
+  installment29: p2_11Installment(29),
   suites: new URL("../../davinci-road/plan/test-suites.md", import.meta.url),
   devtool: new URL("../../davinci-road/devtool.md", import.meta.url),
   questions: new URL("../../davinci-road/open-questions.md", import.meta.url),
@@ -91,13 +82,7 @@ function taskIndex(source: string): Map<string, boolean> {
   return new Map(entries);
 }
 
-type CurrentGroup = {
-  declaredCount: number;
-  ids: string[];
-  total: number;
-};
-
-function currentGroup(source: string, label: string): CurrentGroup {
+function currentGroup(source: string, label: string) {
   const match = new RegExp(
     `^- \\*\\*${label}: (?<count>\\d+) of (?<total>\\d+) — (?<ids>P2-[\\s\\S]*?)\\.\\*\\*`,
     "mu",
@@ -239,17 +224,41 @@ test("every completion joins a merged PR to honest current evidence", () => {
   assert.doesNotMatch(p2_19, /davinci-phase2-ledger/);
 });
 
-test("P2-11 records installment 27 without presenting stale remainders", () => {
-  for (const source of [text.roadmap, text.readme, text.tasks, text.records, text.p2_11]) {
-    assert.match(source, /#4933/);
-    assert.match(source, /27 (?:landed\s+)?installments|installment 27|\| 27\s+\|/i);
+test("P2-11 records current installments without presenting stale remainders", () => {
+  const currentEvidence = {
+    roadmap: requiredSection(
+      text.roadmap,
+      /^\*\*Current execution ledger/mu,
+      /^\*\*Exit gate:/mu,
+      "roadmap current execution ledger",
+    ),
+    readme: requiredLine(text.readme, /^\| \[phase-2\.md\][^\n]+$/mu, "plan README phase 2 row"),
+    tasks: requiredSection(
+      text.tasks,
+      /^\*\*Current series evidence/mu,
+      /^\*\*Steps:\*\*/mu,
+      "P2-11 current series evidence",
+    ),
+    records: recordsTaskRow(text.records, "P2-11"),
+    p2_11: p2_11CurrentRecordEvidence(text.p2_11),
+  };
+  for (const [label, source] of Object.entries(currentEvidence)) {
+    assert.match(source, /#5009/, `${label} must cite the current installment-28 PR`);
+    assert.match(
+      source,
+      /28 (?:landed\s+)?installments|installment 28|\| 28\s+\|/i,
+      `${label} must cite current installment 28 evidence`,
+    );
+    assert.match(source, /pending installment 29|\| 29\s+\| pending/i);
   }
+  assert.match(text.p2_11, /#4933/);
+  assert.match(text.p2_11, /#5011/);
   assert.match(text.p2_11, /#4919/);
   assert.match(text.p2_11, /#4921/);
   assert.match(text.p2_11, /#4924/);
   assert.match(text.p2_11, /#4927/);
   assert.match(text.p2_11, /#4929/);
-  assert.match(text.p2_11, /Current named remainder \(after #4933\)/);
+  assert.match(text.p2_11, /Current named remainder \(after #5009, with installment 29 pending\)/);
   assert.doesNotMatch(text.p2_11, /dynamic-argument bind names \/ modifiers/);
   assert.match(text.installment20, /14-fixture S2-vs-shipped byte-for-byte battery/);
   assert.match(text.installment20, /does not tick P2-11/);
@@ -267,6 +276,11 @@ test("P2-11 records installment 27 without presenting stale remainders", () => {
   assert.match(text.installment26, /does not tick P2-11/);
   assert.match(text.installment27, /Dynamic component model arguments/);
   assert.match(text.installment27, /does not tick P2-11/);
+  assert.match(text.installment28, /SFC style carriers are DOM-inert/);
+  assert.match(text.installment28, /e8a5d457d6bb241257c3d50e17bc14f834de344c/);
+  assert.match(text.installment29, /Bare Template Default Slots/);
+  assert.match(text.installment29, /#5011/);
+  assert.match(text.installment29, /does not tick P2-11/);
 });
 
 test("suite registry debt and the TS-52 transport decision stay resolved", () => {
