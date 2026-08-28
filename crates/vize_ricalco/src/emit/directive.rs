@@ -221,12 +221,12 @@ fn runtime_directives<'a>(bindings: &'a [BindingOp<'a>]) -> StdVec<RuntimeDirect
     let mut directives = StdVec::new();
     directives.extend(bindings.iter().filter_map(|binding| match binding {
         BindingOp::VueDirective(directive) if !slots::is_slots_spread(binding) => {
-            Some(RuntimeDirective::Custom(&**directive))
+            Some(RuntimeDirective::Custom(directive))
         }
         _ => None,
     }));
     directives.extend(bindings.iter().filter_map(|binding| match binding {
-        BindingOp::VueShow(show) => Some(RuntimeDirective::Show(&**show)),
+        BindingOp::VueShow(show) => Some(RuntimeDirective::Show(show)),
         _ => None,
     }));
     directives
