@@ -25,6 +25,7 @@ const SOURCE: &[Reason] = &[
     Reason::ObjectOnHasModifiers,
     Reason::OnHandlerNotJs,
     Reason::OnNameNotJs,
+    Reason::ShowExpressionNotJs,
     Reason::SlotDefaultShape,
     Reason::SlotNameUnderscore,
     Reason::SlotOutletNameNotJs,

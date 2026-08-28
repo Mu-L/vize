@@ -184,8 +184,11 @@ pub(super) fn emit_call(
     }
     let omit_text_only = hoist && block && flag == 1;
     let emit_flag = flag != 0 && !omit_text_only;
-    let empty_custom_for =
-        for_item && has_custom && !has_binds && element.attributes.is_empty() && if_key.is_none();
+    let empty_runtime_for = for_item
+        && directive::has_runtime(&element.bindings)
+        && !has_binds
+        && element.attributes.is_empty()
+        && if_key.is_none();
     if hoist {
         let props_alias = cx
             .buf
@@ -206,7 +209,7 @@ pub(super) fn emit_call(
     } else if !element.attributes.is_empty() {
         cx.buf.push(", ");
         super::props_static::emit_inline(cx, element.attributes.iter());
-    } else if empty_custom_for {
+    } else if empty_runtime_for {
         cx.buf.push(", { }");
     } else if has_children || emit_flag {
         cx.buf.push(", null");

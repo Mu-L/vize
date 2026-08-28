@@ -11,8 +11,8 @@ use vize_s0::{String, cstr};
 
 use super::super::owned::{
     FolioBind, FolioContract, FolioExpr, FolioModel, FolioName, FolioOn, FolioSlotContent,
-    FolioVueCssBind, FolioVueDirective, FolioVueMemo, FolioVueOnce, FolioVueSlotScope,
-    FolioVueSync,
+    FolioVueCssBind, FolioVueDirective, FolioVueMemo, FolioVueOnce, FolioVueShow,
+    FolioVueSlotScope, FolioVueSync,
 };
 use super::expr_token::take_expr;
 use super::line::{Item, err, final_span, name_value, tail_span, take_quoted};
@@ -273,6 +273,17 @@ pub(super) fn memo(rest: &str, line_no: usize) -> Result<Item, FolioError> {
     };
     let (value, rest) = take_expr(rest, line_no)?;
     Ok(Item::Memo(FolioVueMemo {
+        value,
+        span: tail_span(rest, line_no)?,
+    }))
+}
+
+pub(super) fn show(rest: &str, line_no: usize) -> Result<Item, FolioError> {
+    let Some(rest) = rest.strip_prefix("value=") else {
+        return Err(err(line_no, cstr!("expected `value=`")));
+    };
+    let (value, rest) = take_expr(rest, line_no)?;
+    Ok(Item::Show(FolioVueShow {
         value,
         span: tail_span(rest, line_no)?,
     }))

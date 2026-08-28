@@ -78,6 +78,7 @@ fn admit_bindings_inner(
             BindingOp::SlotContent(_) => {}
             BindingOp::VueDirective(_) if super::slots::is_slots_spread(binding) => {}
             BindingOp::VueDirective(directive) => super::directive::admit(directive)?,
+            BindingOp::VueShow(show) => super::directive::admit_show(show)?,
             BindingOp::VueOnce(_) if allow_once => {}
             BindingOp::VueMemo(memo) => super::memo::admit(memo)?,
             _ => {
@@ -169,7 +170,7 @@ pub(super) fn bind_patch(
             _ => {}
         }
     }
-    if super::directive::has_custom(bindings) && flag & (2 | 4 | 8 | 16) == 0 {
+    if super::directive::has_runtime(bindings) && flag & (2 | 4 | 8 | 16) == 0 {
         flag |= 512;
     }
     if flag & 16 != 0 {

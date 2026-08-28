@@ -8,9 +8,9 @@
 //! `v-bind()` (P2-10) has no JSX twin: CSS `v-bind(color)` is SFC-only.
 //! The Vue 2 template-sugar surfaces (P2-9 installment 7) are the same
 //! kind of exception: `.sync`, `slot-scope`/`scope`, and pipe filters
-//! have no JSX twin. `v-once` / `v-memo` (P2-11) are the same kind:
-//! one-shot / dependency-memoized rendering is Vue's, not a fair `ui.*`
-//! core op.
+//! have no JSX twin. `v-once` / `v-memo` / `v-show` (P2-11) are the same
+//! kind: one-shot / dependency-memoized / display-toggle rendering is
+//! Vue's, not a fair `ui.*` core op.
 
 use vize_s0::{Span, Vec};
 
@@ -117,6 +117,20 @@ pub struct VueMemoOp<'a> {
     pub span: Span,
 }
 
+/// `vue.show` - Vue's `v-show` runtime display toggle.
+///
+/// It stays a Vue dialect binding rather than a custom `vue.directive`:
+/// the runtime helper is `vShow`, not a resolved user directive, and the
+/// builtin remains visible to consumers that want to reason about
+/// display toggles before DOM realization.
+#[derive(Debug)]
+pub struct VueShowOp<'a> {
+    /// The display predicate expression, as authored.
+    pub value: ExprRef<'a>,
+    /// The whole directive's source range.
+    pub span: Span,
+}
+
 /// See [`crate::op`] for the guard rationale.
 #[cfg(target_pointer_width = "64")]
 const _: () = {
@@ -126,4 +140,5 @@ const _: () = {
     assert!(core::mem::size_of::<VueSlotScopeOp<'_>>() == 40);
     assert!(core::mem::size_of::<VueOnceOp>() == 8);
     assert!(core::mem::size_of::<VueMemoOp<'_>>() == 24);
+    assert!(core::mem::size_of::<VueShowOp<'_>>() == 24);
 };

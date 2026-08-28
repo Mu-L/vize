@@ -14,6 +14,7 @@ pub(super) enum Helper {
     VModelCheckbox,
     VModelRadio,
     VModelSelect,
+    VShow,
     WithDirectives,
     WithKeys,
     WithModifiers,
@@ -50,7 +51,7 @@ pub(super) enum Helper {
 }
 
 impl Helper {
-    pub(super) const ALL: [Self; 41] = [
+    pub(super) const ALL: [Self; 42] = [
         Self::ResolveComponent,
         Self::ResolveDynamicComponent,
         Self::ResolveDirective,
@@ -59,6 +60,7 @@ impl Helper {
         Self::VModelCheckbox,
         Self::VModelRadio,
         Self::VModelSelect,
+        Self::VShow,
         Self::WithDirectives,
         Self::WithKeys,
         Self::WithModifiers,
@@ -119,6 +121,7 @@ impl Helper {
             Self::RenderList
             | Self::CreateSlots
             | Self::SetBlockTracking
+            | Self::VShow
             | Self::WithMemo
             | Self::IsMemoSame
             | Self::WithCtx
@@ -167,6 +170,7 @@ impl Helper {
             Self::VModelCheckbox => 2147483648,
             Self::VModelRadio => 4294967296,
             Self::VModelSelect => 8589934592,
+            Self::VShow => 2199023255552,
             Self::WithDirectives => 17179869184,
             Self::ResolveDirective => 34359738368,
             Self::ResolveFilter => 68719476736,
@@ -187,6 +191,7 @@ impl Helper {
             Self::VModelCheckbox => "vModelCheckbox",
             Self::VModelRadio => "vModelRadio",
             Self::VModelSelect => "vModelSelect",
+            Self::VShow => "vShow",
             Self::WithDirectives => "withDirectives",
             Self::WithKeys => "withKeys",
             Self::WithModifiers => "withModifiers",
@@ -233,6 +238,7 @@ impl Helper {
             Self::VModelCheckbox => "_vModelCheckbox",
             Self::VModelRadio => "_vModelRadio",
             Self::VModelSelect => "_vModelSelect",
+            Self::VShow => "_vShow",
             Self::WithDirectives => "_withDirectives",
             Self::WithKeys => "_withKeys",
             Self::WithModifiers => "_withModifiers",

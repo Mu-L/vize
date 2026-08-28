@@ -284,7 +284,8 @@ fn owner_bindings<'a>(
             | BindingOp::VueSync(_)
             | BindingOp::VueSlotScope(_)
             | BindingOp::VueOnce(_)
-            | BindingOp::VueMemo(_) => {}
+            | BindingOp::VueMemo(_)
+            | BindingOp::VueShow(_) => {}
         }
     }
     slot_name.flatten()

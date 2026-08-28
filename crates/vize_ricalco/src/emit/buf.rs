@@ -122,6 +122,9 @@ impl Buf {
     pub(super) fn use_with_directives(&mut self) {
         self.mark(Helper::WithDirectives);
     }
+    pub(super) fn use_v_show(&mut self) {
+        self.mark(Helper::VShow);
+    }
     pub(super) fn use_create_comment(&mut self) {
         self.mark(Helper::CreateComment);
     }
@@ -221,6 +224,10 @@ impl Buf {
 
     pub(super) fn with_directives_alias() -> &'static str {
         Helper::WithDirectives.alias()
+    }
+
+    pub(super) fn v_show_alias() -> &'static str {
+        Helper::VShow.alias()
     }
 
     pub(super) fn create_comment_alias() -> &'static str {
