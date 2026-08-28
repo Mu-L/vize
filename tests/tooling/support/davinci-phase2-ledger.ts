@@ -48,7 +48,7 @@ export function p2_11CurrentRecordEvidence(source: string): string {
     ),
     requiredLine(
       source,
-      /^\| 32\s+\|[^\n]+#5198[^\n]+d32a058ca[^\n]+$/mu,
+      /^\| 32\s+\|[^\n]+#5198[^\n]+f7c31b121[^\n]+$/mu,
       "P2-11 installment 32 row",
     ),
     requiredSection(
