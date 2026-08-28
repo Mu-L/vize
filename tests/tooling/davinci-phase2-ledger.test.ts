@@ -273,7 +273,7 @@ test("P2-11 records current installments without presenting stale remainders", (
   assert.match(p2_11Installments.get(31)!, /Inline Slot-Template Carriers/);
   assert.match(p2_11Installments.get(31)!, /f5aa60553/);
   assert.match(p2_11Installments.get(32)!, /V-show Runtime Directives/);
-  assert.match(p2_11Installments.get(32)!, /f7c31b121/);
+  assert.match(p2_11Installments.get(32)!, /2be66b0f0/);
 });
 
 test("suite registry debt and the TS-52 transport decision stay resolved", () => {

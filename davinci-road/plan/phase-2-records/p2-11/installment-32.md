@@ -2,7 +2,7 @@
 
 > Part of the [P2-11 series record](../p2-11.md), split per installment.
 > PR: [#5198](https://github.com/ubugeeei-prod/vize/pull/5198), merged
-> 2026-08-28 at `f7c31b121`.
+> 2026-08-28 at `2be66b0f0`.
 > Issue: [#5197](https://github.com/ubugeeei-prod/vize/issues/5197).
 
 This installment gives well-formed `v-show` a typed S2 representation and
