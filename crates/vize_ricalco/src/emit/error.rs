@@ -44,6 +44,7 @@ pub enum UnsupportedReason {
     OnHandlerNotJs,
     OnNameNotJs,
     OnNameNotStatic,
+    ShowExpressionNotJs,
     SlotDefaultShape,
     SlotFactsMissingGroup,
     SlotNameUnderscore,
@@ -92,6 +93,7 @@ impl UnsupportedReason {
         Self::OnHandlerNotJs,
         Self::OnNameNotJs,
         Self::OnNameNotStatic,
+        Self::ShowExpressionNotJs,
         Self::SlotDefaultShape,
         Self::SlotFactsMissingGroup,
         Self::SlotNameUnderscore,
@@ -141,6 +143,7 @@ impl UnsupportedReason {
             Self::OnHandlerNotJs => "on_handler_not_js",
             Self::OnNameNotJs => "on_name_not_js",
             Self::OnNameNotStatic => "on_name_not_static",
+            Self::ShowExpressionNotJs => "show_expression_not_js",
             Self::SlotDefaultShape => "slot_default_shape",
             Self::SlotFactsMissingGroup => "slot_facts_missing_group",
             Self::SlotNameUnderscore => "slot_name_underscore",
@@ -257,6 +260,7 @@ fn binding_span(binding: &BindingOp<'_>) -> Span {
         BindingOp::VueSlotScope(op) => op.span,
         BindingOp::VueOnce(op) => op.span,
         BindingOp::VueMemo(op) => op.span,
+        BindingOp::VueShow(op) => op.span,
     }
 }
 

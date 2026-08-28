@@ -175,6 +175,9 @@ fn body(
             FolioBinding::VueMemo(memo) => {
                 line_checks("vue.memo", memo.span, owner, out);
             }
+            FolioBinding::VueShow(show) => {
+                line_checks("vue.show", show.span, owner, out);
+            }
         }
     }
     for child in children {

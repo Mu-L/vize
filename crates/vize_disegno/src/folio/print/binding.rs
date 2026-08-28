@@ -8,7 +8,7 @@ use core::fmt::{Result, Write};
 
 use super::super::owned::{
     FolioAttribute, FolioBind, FolioBinding, FolioOn, FolioSlotContent, FolioVueCssBind,
-    FolioVueDirective, FolioVueMemo, FolioVueOnce, FolioVueSlotScope, FolioVueSync,
+    FolioVueDirective, FolioVueMemo, FolioVueOnce, FolioVueShow, FolioVueSlotScope, FolioVueSync,
 };
 use super::{end_line, indent, print_expr, print_name, quoted};
 use vize_davinci::folio::FolioMode;
@@ -62,6 +62,7 @@ pub(super) fn print_binding<W: Write>(
         FolioBinding::VueSlotScope(scope) => print_slot_scope(w, scope, depth, mode),
         FolioBinding::VueOnce(once) => print_once(w, once, depth, mode),
         FolioBinding::VueMemo(memo) => print_memo(w, memo, depth, mode),
+        FolioBinding::VueShow(show) => print_show(w, show, depth, mode),
     }
 }
 
@@ -215,4 +216,11 @@ fn print_memo<W: Write>(w: &mut W, memo: &FolioVueMemo, depth: usize, mode: Foli
     w.write_str("vue.memo value=")?;
     print_expr(w, &memo.value, mode)?;
     end_line(w, memo.span, mode)
+}
+
+fn print_show<W: Write>(w: &mut W, show: &FolioVueShow, depth: usize, mode: FolioMode) -> Result {
+    indent(w, depth)?;
+    w.write_str("vue.show value=")?;
+    print_expr(w, &show.value, mode)?;
+    end_line(w, show.span, mode)
 }

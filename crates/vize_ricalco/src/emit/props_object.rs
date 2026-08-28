@@ -170,6 +170,7 @@ pub(super) fn pieces<'a>(
             BindingOp::VueDirective(_) => {}
             BindingOp::VueOnce(_) => {}
             BindingOp::VueMemo(_) => {}
+            BindingOp::VueShow(_) => {}
             _ => {
                 return Err(EmitError::unsupported_binding(
                     Reason::UnsupportedBindingKind,

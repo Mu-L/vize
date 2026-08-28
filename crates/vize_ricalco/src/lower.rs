@@ -43,6 +43,7 @@ mod expr;
 mod forop;
 mod leaf;
 mod once_memo;
+mod show;
 mod slot;
 mod structural;
 mod sugar;

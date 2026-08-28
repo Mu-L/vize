@@ -94,6 +94,7 @@ fn binding_contains_filter(binding: &BindingOp<'_>) -> bool {
         BindingOp::VueSlotScope(scope) => scope.params.as_ref().is_some_and(expr_contains_filter),
         BindingOp::VueOnce(_) => false,
         BindingOp::VueMemo(memo) => expr_contains_filter(&memo.value),
+        BindingOp::VueShow(show) => expr_contains_filter(&show.value),
     }
 }
 
@@ -157,6 +158,7 @@ fn rewrite_bindings<'a>(
             }
             BindingOp::VueOnce(_) => {}
             BindingOp::VueMemo(memo) => rewrite_expr(allocator, &mut memo.value, filters),
+            BindingOp::VueShow(show) => rewrite_expr(allocator, &mut show.value, filters),
         }
     }
 }

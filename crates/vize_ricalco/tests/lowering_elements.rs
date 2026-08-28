@@ -223,6 +223,23 @@ fn v_memo_may_carry_an_opaque_expression() {
 }
 
 #[test]
+fn v_show_lowers_to_the_dialect_op() {
+    let art = artifact(r#"<p v-show="open">x</p>"#);
+    assert_eq!(
+        art.folio,
+        "[disegno]\n\
+         ops=3\n\
+         \n\
+         [disegno.ops]\n\
+         ui.element p @0:22\n\
+         \x20 vue.show value=js(\"open\" @11:15) @3:16\n\
+         \x20 ui.text \"x\" @17:18\n\
+         \n"
+    );
+    assert_eq!(art.diagnostics, vec![]);
+}
+
+#[test]
 fn ill_formed_v_once_spellings_still_defer() {
     for (src, element_end, text_start, attr_end) in [
         (r#"<div v-once="x">y</div>"#, 23, 16, 15),
@@ -257,19 +274,18 @@ fn ill_formed_v_once_spellings_still_defer() {
 
 #[test]
 fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
-    // `v-show` still has no S2 op — its behaviour is DOM realization
-    // (display patching), owned by P2-11: the element is kept, the
-    // deferral is an exact Info diagnostic — the input is not wrong, the
-    // stage is younger than the construct.
-    let art = artifact("<p v-show=\"open\">x</p>");
+    // `v-html` still has no S2 op: the element is kept, the deferral is
+    // an exact Info diagnostic — the input is not wrong, the stage is
+    // younger than the construct.
+    let art = artifact("<p v-html=\"raw\">x</p>");
     assert_eq!(
         art.folio,
         "[disegno]\n\
          ops=2\n\
          \n\
          [disegno.ops]\n\
-         ui.element p @0:22\n\
-         \x20 ui.text \"x\" @17:18\n\
+         ui.element p @0:21\n\
+         \x20 ui.text \"x\" @16:17\n\
          \n"
     );
     assert_eq!(
@@ -277,8 +293,8 @@ fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
         vec![Diagnostic::new(
             Severity::Info,
             Stage::Semantic,
-            Span::new(3, 16),
-            "`v-show` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
+            Span::new(3, 15),
+            "`v-html` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
         )]
     );
 }

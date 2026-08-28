@@ -163,6 +163,10 @@ fn assert_bindings(source: &str, root: SourceRoot<'_>, bindings: &[BindingOp<'_>
                 assert_span(source, root, memo.span, "memo");
                 assert_expr(source, root, memo.value);
             }
+            BindingOp::VueShow(show) => {
+                assert_span(source, root, show.span, "show");
+                assert_expr(source, root, show.value);
+            }
         }
     }
 }

@@ -6,14 +6,16 @@
 //!
 //! # Unmappable means diagnostic, never a new op
 //!
-//! `v-html`, `v-text`, `v-show`, `v-cloak` and `v-pre` still have **no
-//! S2 op**, and forcing them into `vue.directive` would break its
-//! documented contract ("built-in directives never appear here"). Each
-//! is deferred: an `Info` diagnostic — the input is not wrong, the
-//! stage is younger than the construct — plus a provenance record
-//! naming the rule, with the owner op kept as the fragment. `v-once`
-//! and `v-memo` now have dialect ops; only ill-formed spellings still
-//! defer. The remaining set is still DOM realization (P2-11).
+//! `v-show` is a P2-11 dialect op (`vue.show`) because the DOM
+//! realization reads it directly. `v-html`, `v-text`, `v-cloak` and
+//! `v-pre` still have **no S2 op**, and forcing them into
+//! `vue.directive` would break its documented contract ("built-in
+//! directives never appear here"). Each is deferred: an `Info`
+//! diagnostic — the input is not wrong, the stage is younger than the
+//! construct — plus a provenance record naming the rule, with the owner
+//! op kept as the fragment. `v-once` and `v-memo` now have dialect ops;
+//! only ill-formed spellings still defer. The remaining set is still DOM
+//! realization (P2-11).
 
 use alloc::vec::Vec as StdVec;
 
@@ -78,11 +80,15 @@ pub(crate) fn lower_attr<'a>(
                 "`v-pre` has no S2 representation; its subtree lowers as ordinary content",
             ),
         ),
-        Head::Html | Head::Text | Head::Show | Head::Cloak => {
+        Head::Show => {
+            if let Some(op) = super::show::lower_show(cx, element, index, directive) {
+                bindings.push(op);
+            }
+        }
+        Head::Html | Head::Text | Head::Cloak => {
             let rule = match directive.head {
                 Head::Html => "defer.v-html",
                 Head::Text => "defer.v-text",
-                Head::Show => "defer.v-show",
                 _ => "defer.v-cloak",
             };
             defer(

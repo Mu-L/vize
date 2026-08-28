@@ -7,7 +7,7 @@ use alloc::vec::Vec as StdVec;
 
 use vize_s2::expr::ExprRef;
 use vize_s2::op::{
-    BindingOp, ComponentOp, DynamicName, ElementOp, ModelOp, Op, Region, VueDirectiveOp,
+    BindingOp, ComponentOp, DynamicName, ElementOp, ModelOp, Op, Region, VueDirectiveOp, VueShowOp,
 };
 
 use super::EmitCx;
@@ -26,10 +26,26 @@ pub(super) fn has_custom(bindings: &[BindingOp<'_>]) -> bool {
     bindings.iter().any(is_custom)
 }
 
+pub(super) fn is_runtime(binding: &BindingOp<'_>) -> bool {
+    is_custom(binding) || matches!(binding, BindingOp::VueShow(_))
+}
+
+pub(super) fn has_runtime(bindings: &[BindingOp<'_>]) -> bool {
+    bindings.iter().any(is_runtime)
+}
+
 pub(super) fn prefer_helpers(buf: &mut Buf, bindings: &[BindingOp<'_>]) {
-    if has_custom(bindings) {
+    if has_runtime(bindings) {
         buf.prefer(Helper::WithDirectives);
+    }
+    if has_custom(bindings) {
         buf.prefer(Helper::ResolveDirective);
+    }
+    if bindings
+        .iter()
+        .any(|binding| matches!(binding, BindingOp::VueShow(_)))
+    {
+        buf.prefer(Helper::VShow);
     }
 }
 
@@ -58,12 +74,12 @@ pub(super) fn wrap_element(
     element: &ElementOp<'_>,
     emit: impl FnOnce(&mut EmitCx<'_>) -> Result<(), EmitError>,
 ) -> Result<(), EmitError> {
-    let custom = customs(&element.bindings);
+    let runtime = runtime_directives(&element.bindings);
     let model = super::model::first_runtime_model(element);
-    if custom.is_empty() && model.is_none() {
+    if runtime.is_empty() && model.is_none() {
         return emit(cx);
     }
-    wrap(cx, model.map(|model| (element, model)), &custom, emit)
+    wrap(cx, model.map(|model| (element, model)), &runtime, emit)
 }
 
 pub(super) fn wrap_component(
@@ -71,11 +87,11 @@ pub(super) fn wrap_component(
     component: &ComponentOp<'_>,
     emit: impl FnOnce(&mut EmitCx<'_>) -> Result<(), EmitError>,
 ) -> Result<(), EmitError> {
-    let custom = customs(&component.bindings);
-    if custom.is_empty() {
+    let runtime = runtime_directives(&component.bindings);
+    if runtime.is_empty() {
         return emit(cx);
     }
-    wrap(cx, None, &custom, emit)
+    wrap(cx, None, &runtime, emit)
 }
 
 pub(super) fn admit(directive: &VueDirectiveOp<'_>) -> Result<(), EmitError> {
@@ -88,10 +104,19 @@ pub(super) fn admit(directive: &VueDirectiveOp<'_>) -> Result<(), EmitError> {
     Ok(())
 }
 
+pub(super) fn admit_show(show: &VueShowOp<'_>) -> Result<(), EmitError> {
+    show_value(show).map(|_| ())
+}
+
+enum RuntimeDirective<'a> {
+    Custom(&'a VueDirectiveOp<'a>),
+    Show(&'a VueShowOp<'a>),
+}
+
 fn wrap(
     cx: &mut EmitCx<'_>,
     native: Option<(&ElementOp<'_>, &ModelOp<'_>)>,
-    custom: &[&VueDirectiveOp<'_>],
+    runtime: &[RuntimeDirective<'_>],
     emit: impl FnOnce(&mut EmitCx<'_>) -> Result<(), EmitError>,
 ) -> Result<(), EmitError> {
     cx.buf.use_with_directives();
@@ -105,17 +130,27 @@ fn wrap(
         super::model::emit_native_entry(cx, element, model)?;
         first = false;
     }
-    for directive in custom.iter() {
+    for directive in runtime.iter() {
         if !first {
             cx.buf.push(",");
             cx.buf.newline();
         }
-        emit_entry(cx, directive)?;
+        emit_runtime_entry(cx, directive)?;
         first = false;
     }
     cx.buf.newline();
     cx.buf.push("])");
     Ok(())
+}
+
+fn emit_runtime_entry(
+    cx: &mut EmitCx<'_>,
+    directive: &RuntimeDirective<'_>,
+) -> Result<(), EmitError> {
+    match directive {
+        RuntimeDirective::Custom(directive) => emit_entry(cx, directive),
+        RuntimeDirective::Show(show) => emit_show_entry(cx, show),
+    }
 }
 
 fn emit_entry(cx: &mut EmitCx<'_>, directive: &VueDirectiveOp<'_>) -> Result<(), EmitError> {
@@ -157,6 +192,16 @@ fn emit_entry(cx: &mut EmitCx<'_>, directive: &VueDirectiveOp<'_>) -> Result<(),
     Ok(())
 }
 
+fn emit_show_entry(cx: &mut EmitCx<'_>, show: &VueShowOp<'_>) -> Result<(), EmitError> {
+    cx.buf.use_v_show();
+    cx.buf.push("  [");
+    cx.buf.push(Buf::v_show_alias());
+    cx.buf.push(", ");
+    cx.buf.push(show_value(show)?);
+    cx.buf.push("]");
+    Ok(())
+}
+
 fn emit_argument(cx: &mut EmitCx<'_>, argument: DynamicName<'_>) -> Result<(), EmitError> {
     match argument {
         DynamicName::Static(name) => {
@@ -172,16 +217,19 @@ fn emit_argument(cx: &mut EmitCx<'_>, argument: DynamicName<'_>) -> Result<(), E
     }
 }
 
-fn customs<'a>(bindings: &'a [BindingOp<'a>]) -> StdVec<&'a VueDirectiveOp<'a>> {
-    bindings
-        .iter()
-        .filter_map(|binding| match binding {
-            BindingOp::VueDirective(directive) if !slots::is_slots_spread(binding) => {
-                Some(&**directive)
-            }
-            _ => None,
-        })
-        .collect()
+fn runtime_directives<'a>(bindings: &'a [BindingOp<'a>]) -> StdVec<RuntimeDirective<'a>> {
+    let mut directives = StdVec::new();
+    directives.extend(bindings.iter().filter_map(|binding| match binding {
+        BindingOp::VueDirective(directive) if !slots::is_slots_spread(binding) => {
+            Some(RuntimeDirective::Custom(directive))
+        }
+        _ => None,
+    }));
+    directives.extend(bindings.iter().filter_map(|binding| match binding {
+        BindingOp::VueShow(show) => Some(RuntimeDirective::Show(show)),
+        _ => None,
+    }));
+    directives
 }
 
 fn collect_from<'a>(region: &'a Region<'a>, names: &mut StdVec<&'a str>) {
@@ -235,6 +283,16 @@ fn js_expr(expr: ExprRef<'_>) -> Result<&str, EmitError> {
         ExprRef::Js(js) => Ok(js.source),
         _ => Err(EmitError::unsupported_at(
             Reason::CustomDirectiveExprNotJs,
+            expr.span(),
+        )),
+    }
+}
+
+fn show_value<'a>(show: &'a VueShowOp<'a>) -> Result<&'a str, EmitError> {
+    match show.value {
+        ExprRef::Js(js) => Ok(js.source),
+        expr => Err(EmitError::unsupported_at(
+            Reason::ShowExpressionNotJs,
             expr.span(),
         )),
     }

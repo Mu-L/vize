@@ -195,7 +195,7 @@ fn emit_call(
     let has_binds = component.bindings.iter().any(|binding| {
         !(matches!(binding, BindingOp::SlotContent(_))
             || slots::is_slots_spread(binding)
-            || directive::is_custom(binding)
+            || directive::is_runtime(binding)
             || super::memo::is_memo(binding)
             || (skip_is && builtin::is_is_bind(binding)))
     });

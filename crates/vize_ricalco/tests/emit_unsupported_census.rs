@@ -127,6 +127,12 @@ const SOURCE_CASES: &[Case] = &[
         Reason::OnNameNotJs,
     ),
     case(
+        "bad_show_expression",
+        r#"<div v-show="%"></div>"#,
+        VUE3,
+        Reason::ShowExpressionNotJs,
+    ),
+    case(
         "slot_template_extra_binding",
         r#"<Foo><template #header v-pin>x</template></Foo>"#,
         VUE3,
@@ -212,6 +218,7 @@ fn committed_fixture_refusal_census_is_pinned() {
             ("object_on_has_modifiers", 1),
             ("on_handler_not_js", 1),
             ("on_name_not_js", 1),
+            ("show_expression_not_js", 1),
             ("slot_default_shape", 1),
             ("slot_name_underscore", 1),
             ("slot_outlet_name_not_js", 1),
