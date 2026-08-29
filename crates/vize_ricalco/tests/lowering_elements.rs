@@ -274,10 +274,10 @@ fn ill_formed_v_once_spellings_still_defer() {
 
 #[test]
 fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
-    // `v-html` still has no S2 op: the element is kept, the deferral is
+    // `v-text` still has no S2 op: the element is kept, the deferral is
     // an exact Info diagnostic — the input is not wrong, the stage is
     // younger than the construct.
-    let art = artifact("<p v-html=\"raw\">x</p>");
+    let art = artifact("<p v-text=\"raw\">x</p>");
     assert_eq!(
         art.folio,
         "[disegno]\n\
@@ -294,7 +294,7 @@ fn an_unmappable_binding_defers_with_info_and_keeps_the_fragment() {
             Severity::Info,
             Stage::Semantic,
             Span::new(3, 15),
-            "`v-html` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
+            "`v-text` has no S2 op; its behaviour is DOM realization and its op lands with the stage that reads it (P2-11)",
         )]
     );
 }

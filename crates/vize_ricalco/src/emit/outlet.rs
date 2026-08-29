@@ -1,9 +1,7 @@
 //! `<slot>` outlets: `_renderSlot(_ctx.$slots, name, props?, fallback?)`.
 //!
 //! Matches `vize_atelier_core::codegen/slots/outlet.rs` plus the if/for
-//! branch shapes. Static prop keys are camelized. A component that
-//! forwards an outlet uses `_: 3 /* FORWARDED */` unless it sits inside
-//! a scoped `withCtx` (then `_: 2` + `DYNAMIC_SLOTS`).
+//! branch shapes. Static prop keys are camelized.
 
 use vize_s0::camelize;
 use vize_s2::expr::{ExprRef, OpaqueReason};
@@ -168,6 +166,9 @@ fn emit_props(cx: &mut EmitCx<'_>, slot: &SlotOp<'_>, key: Option<&str>) -> Resu
                     cx.buf.push(js.source);
                 }
             }
+            Piece::VueHtml(html) => {
+                super::html::emit_pair(cx, html)?;
+            }
             Piece::On(_)
             | Piece::ModelValue { .. }
             | Piece::ModelUpdate { .. }
@@ -309,6 +310,7 @@ fn piece_span(piece: &Piece<'_>) -> vize_s0::Span {
         Piece::Attr(attr) => attr.span,
         Piece::Bind(bind) => bind.span,
         Piece::On(on) => on.span,
+        Piece::VueHtml(html) => html.span,
         Piece::ModelValue { span, .. }
         | Piece::ModelUpdate { span, .. }
         | Piece::ModelModifiers { span, .. } => *span,
