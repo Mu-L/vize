@@ -3,7 +3,6 @@
 //! Matches `vize_atelier_core::codegen/slots/outlet.rs` plus the if/for
 //! branch shapes. Static prop keys are camelized.
 
-use vize_s0::camelize;
 use vize_s2::expr::{ExprRef, OpaqueReason};
 use vize_s2::op::{BindingOp, DynamicName, InterpolationOp, Op, Region, SlotOp};
 
@@ -15,9 +14,8 @@ use super::children::{
     emit_create_text_vnode, emit_interpolation, emit_plain_text_vnode, emit_to_display_string,
 };
 use super::hoist::{emit_hoisted_element, is_hoistable};
-use super::js::{escape_js_string, is_valid_js_identifier};
-use super::merge;
-use super::props::{Piece, emit_dynamic_bind_pair, js_value, pieces};
+use super::js::escape_js_string;
+use super::outlet_props::emit_props;
 use super::slots::is_whitespace_text;
 use super::vnode::emit_array_child;
 
@@ -117,92 +115,6 @@ fn has_props(slot: &SlotOp<'_>) -> bool {
 
 fn meaningful_fallback(region: &Region<'_>) -> bool {
     region.ops.iter().any(|op| !is_whitespace_text(op))
-}
-
-fn emit_props(cx: &mut EmitCx<'_>, slot: &SlotOp<'_>, key: Option<&str>) -> Result<(), EmitError> {
-    if merge::has_object_spread(&slot.bindings) {
-        return merge::emit_spread_props(
-            cx,
-            &slot.attributes,
-            &slot.bindings,
-            key,
-            false,
-            false,
-            false,
-        );
-    }
-    let list = pieces(&slot.attributes, &slot.bindings, false)?;
-    cx.buf.push("{");
-    let mut first = true;
-    if let Some(key) = key {
-        cx.buf.push(" key: ");
-        cx.buf.push(key);
-        first = false;
-    }
-    for piece in list.iter() {
-        if !first {
-            cx.buf.push(",");
-        }
-        cx.buf.push(" ");
-        first = false;
-        match piece {
-            Piece::Attr(attr) => {
-                push_camel_key(cx, attr.name);
-                cx.buf.push(": \"");
-                if let Some(value) = attr.value {
-                    cx.buf.push(escape_js_string(value).as_str());
-                }
-                cx.buf.push("\"");
-            }
-            Piece::Bind(bind) => {
-                if !emit_dynamic_bind_pair(cx, bind)? {
-                    let key = super::props::static_bind_key(
-                        bind,
-                        super::props::StaticBindKeyCasing::Camelize,
-                    )?;
-                    let js = js_value(bind)?;
-                    push_key(cx, key.as_str());
-                    cx.buf.push(": ");
-                    cx.buf.push(js.source);
-                }
-            }
-            Piece::VueHtml(html) => {
-                super::html::emit_pair(cx, html)?;
-            }
-            Piece::VueText(text) => {
-                super::vtext::emit_pair(cx, text)?;
-            }
-            Piece::On(_)
-            | Piece::ModelValue { .. }
-            | Piece::ModelUpdate { .. }
-            | Piece::ModelModifiers { .. } => {
-                return Err(EmitError::unsupported_at(
-                    Reason::SlotOutletPropKind,
-                    piece.span(),
-                ));
-            }
-        }
-    }
-    if !first {
-        cx.buf.push(" ");
-    }
-    cx.buf.push("}");
-    Ok(())
-}
-
-fn push_camel_key(cx: &mut EmitCx<'_>, name: &str) {
-    let key = camelize(name);
-    push_key(cx, key.as_str());
-}
-
-fn push_key(cx: &mut EmitCx<'_>, key: &str) {
-    if is_valid_js_identifier(key) {
-        cx.buf.push(key);
-    } else {
-        cx.buf.push("\"");
-        cx.buf.push(escape_js_string(key).as_str());
-        cx.buf.push("\"");
-    }
 }
 
 pub(super) fn emit_fallback(
