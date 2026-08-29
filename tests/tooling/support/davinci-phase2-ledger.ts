@@ -22,6 +22,16 @@ export function requiredLine(source: string, pattern: RegExp, label: string): st
   return match[0];
 }
 
+export function assertCurrentP2_11Installment(source: string, label: string): void {
+  const marker = /38 (?:landed\s+)?installments|installment 38|\| 38\s+\|/i;
+  const match = new RegExp(
+    `(?:${marker.source})[\\s\\S]{0,160}#5210|#5210[\\s\\S]{0,160}(?:${marker.source})`,
+    "iu",
+  ).exec(source);
+  assert.ok(match, `${label} must cite current installment 38 and #5210 together`);
+  assert.doesNotMatch(match[0], /\bpending\b/i, `${label} current installment must not be pending`);
+}
+
 export function p2_11CurrentRecordEvidence(source: string): string {
   return [
     requiredSection(
@@ -70,6 +80,16 @@ export function p2_11CurrentRecordEvidence(source: string): string {
       source,
       /^\| 36\s+\|[^\n]+#5207[^\n]+cf7fc9a22[^\n]+$/mu,
       "P2-11 installment 36 row",
+    ),
+    requiredLine(
+      source,
+      /^\| 37\s+\|[^\n]+#5208[^\n]+4e577b62a[^\n]+$/mu,
+      "P2-11 installment 37 row",
+    ),
+    requiredLine(
+      source,
+      /^\| 38\s+\|[^\n]+#5210[^\n]+f3959e7e3[^\n]+$/mu,
+      "P2-11 installment 38 row",
     ),
     requiredSection(
       source,
