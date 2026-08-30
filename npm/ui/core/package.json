@@ -64,6 +64,11 @@
       "import": "./dist/block-ui.mjs",
       "default": "./dist/block-ui.mjs"
     },
+    "./callout": {
+      "types": "./dist/callout.d.mts",
+      "import": "./dist/callout.mjs",
+      "default": "./dist/callout.mjs"
+    },
     "./blockquote": {
       "types": "./dist/blockquote.d.mts",
       "import": "./dist/blockquote.mjs",
@@ -188,6 +193,11 @@
       "types": "./dist/stack.d.mts",
       "import": "./dist/stack.mjs",
       "default": "./dist/stack.mjs"
+    },
+    "./surface": {
+      "types": "./dist/surface.d.mts",
+      "import": "./dist/surface.mjs",
+      "default": "./dist/surface.mjs"
     },
     "./skeleton": {
       "types": "./dist/skeleton.d.mts",
