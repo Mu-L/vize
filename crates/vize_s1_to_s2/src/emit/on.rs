@@ -1,17 +1,13 @@
-//! Static-name `ui.on` (`@click` / `v-on:click`), dynamic-name `ui.on`
-//! (`@[event]`), including event / key / option modifiers
-//! (`withModifiers` / `withKeys`, `onClickOnce`, …).
+//! Static/dynamic `ui.on` emission (`@click`, `@[event]`) with event,
+//! key, and option modifiers (`withModifiers`, `withKeys`, `onClickOnce`, …).
 //! Object `v-on` lives in [`super::merge`].
 
 use oxc_ast::ast::{ChainElement, Expression};
 use vize_s0::{SmallVec, String, camelize, capitalize};
-use vize_s2::expr::{ExprRef, JsExpr};
+use vize_s2::expr::{ExprRef, JsExpr, OpaqueReason};
 use vize_s2::op::{DynamicName, OnOp};
 
-use super::EmitCx;
-use super::EmitError;
-use super::UnsupportedReason as Reason;
-use super::buf::Buf;
+use super::{EmitCx, EmitError, UnsupportedReason as Reason, buf::Buf};
 
 // The checked modifier inventory in `tests/tooling/davinci-v-on-storage.test.ts`
 // selects two inline entries per classifier bucket. Authored directives remain
@@ -42,6 +38,7 @@ pub(super) fn admit_on(on: &OnOp<'_>) -> Result<(), EmitError> {
     classify(on)?;
     match on.handler {
         None | Some(ExprRef::Js(_)) => Ok(()),
+        Some(ExprRef::Opaque(opaque)) if opaque.reason == OpaqueReason::MultiStatement => Ok(()),
         Some(expr) => Err(EmitError::unsupported_at(
             Reason::OnHandlerNotJs,
             expr.span(),
@@ -167,6 +164,11 @@ pub(super) fn emit_wrapped_handler(
     }
     match on.handler {
         Some(ExprRef::Js(js)) => emit_handler(cx, js),
+        Some(ExprRef::Opaque(opaque)) if opaque.reason == OpaqueReason::MultiStatement => {
+            cx.buf.push("$event => {");
+            cx.buf.push(opaque.source);
+            cx.buf.push("}");
+        }
         None => cx.buf.push("() => {}"),
         Some(expr) => {
             return Err(EmitError::unsupported_at(
@@ -249,9 +251,7 @@ fn classify_modifier_buckets<'a>(
     let mut keys = KeyModifiers::new();
     for modifier in modifiers {
         match modifier {
-            // Vue 2's `.native` event sugar is stripped by the shipped
-            // lane before handler wrapping, and does not affect the event
-            // key. Keep the authored modifier accepted but inert here.
+            // Vue 2's `.native` sugar is stripped before handler wrapping.
             "native" => {}
             "capture" | "once" | "passive" if keep_options => options.push(modifier),
             "capture" | "once" | "passive" => {}
@@ -305,8 +305,6 @@ fn is_function(expr: &Expression<'_>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(target_pointer_width = "64")]
-    use super::Classified;
     use super::classify_modifiers;
 
     #[test]
@@ -344,7 +342,7 @@ mod tests {
     #[cfg(target_pointer_width = "64")]
     #[test]
     fn inline_storage_stack_tradeoff_is_pinned() {
-        assert_eq!(core::mem::size_of::<Classified<'_>>(), 120);
+        assert_eq!(core::mem::size_of::<super::Classified<'_>>(), 120);
         assert_eq!(core::mem::size_of::<alloc::vec::Vec<&str>>() * 3, 72);
     }
 }
