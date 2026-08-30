@@ -34,32 +34,11 @@ test("real-project workflow gates every measured surface on one verdict", () => 
     VIZE_TYPECHECK_DIVERGENCE_OUTCOME: "${{ steps.typecheck_divergence.outcome }}",
   });
   for (const pattern of [
-    /real-project-surface-verdict\.rs/,
-    /surface-verdict\.json/,
-    /core_tools_verdict="\$VIZE_CORE_TOOLS_OUTCOME"/,
-    /\[\[ "\$CORE_TOOLS_MODE" == "record-only"/,
-    /--surface "core-tools=\$core_tools_verdict"/,
-    /typecheck_dependencies_verdict="\$VIZE_TYPECHECK_DEPENDENCIES_OUTCOME"/,
-    /\[\[ "\$TYPECHECK_DEPENDENCIES_MODE" == "record-only"/,
-    /--surface "typecheck-dependencies=\$typecheck_dependencies_verdict"/,
-    /lint_divergence_verdict="\$VIZE_LINT_DIVERGENCE_OUTCOME"/,
-    /\[\[ "\$LINT_DIVERGENCE_MODE" == "record-only"/,
-    /--surface "lint-divergence=\$lint_divergence_verdict"/,
-    /lsp_verdict="\$VIZE_LSP_OUTCOME"/,
-    /\[\[ "\$LSP_MODE" == "record-only"/,
-    /--surface "lsp=\$lsp_verdict"/,
-    /typecheck_divergence_verdict="\$VIZE_TYPECHECK_DIVERGENCE_OUTCOME"/,
-    /\[\[ "\$TYPECHECK_DIVERGENCE_MODE" == "record-only"/,
-    /--surface "typecheck-divergence=\$typecheck_divergence_verdict"/,
+    /real-project-surface-verdict\.mjs/,
+    /--from-workflow-env/,
+    /--output "\$FIXTURE_REPORT_DIR\/surface-verdict\.json"/,
   ]) {
     assert.match(verdict.run ?? "", pattern);
-  }
-  for (const [surface, variable] of [
-    ["waiver-audit", "VIZE_WAIVER_AUDIT_OUTCOME"],
-    ["syntax-highlighter", "VIZE_SYNTAX_HIGHLIGHTER_OUTCOME"],
-    ["glyph", "VIZE_GLYPH_OUTCOME"],
-  ]) {
-    assert.match(verdict.run ?? "", new RegExp(`--surface "${surface}=\\$${variable}"`));
   }
 });
 

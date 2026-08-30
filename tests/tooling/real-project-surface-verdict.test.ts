@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  createRealProjectSurfaceResultsFromWorkflow,
   createRealProjectSurfaceVerdict,
   realProjectSurfaceNames,
 } from "../../tools/fixtures/real-project-surface-verdict.mjs";
@@ -58,4 +59,33 @@ test("the real-project surface verdict rejects missing, duplicate, unknown, and 
       ),
     /invalid outcome for glyph/,
   );
+});
+
+test("workflow surface inputs preserve enforce modes and soften only record-only failures", () => {
+  const results = createRealProjectSurfaceResultsFromWorkflow({
+    VIZE_WAIVER_AUDIT_OUTCOME: "success",
+    TYPECHECK_DEPENDENCIES_MODE: "record-only",
+    VIZE_TYPECHECK_DEPENDENCIES_OUTCOME: "failure",
+    CORE_TOOLS_MODE: "enforce",
+    VIZE_CORE_TOOLS_OUTCOME: "success",
+    LSP_MODE: "record-only",
+    VIZE_LSP_OUTCOME: "cancelled",
+    LINT_DIVERGENCE_MODE: "record-only",
+    VIZE_LINT_DIVERGENCE_OUTCOME: "failure",
+    VIZE_SYNTAX_HIGHLIGHTER_OUTCOME: "success",
+    VIZE_GLYPH_OUTCOME: "success",
+    TYPECHECK_DIVERGENCE_MODE: "record-only",
+    VIZE_TYPECHECK_DIVERGENCE_OUTCOME: "failure",
+  });
+
+  assert.deepEqual(results, [
+    { name: "waiver-audit", outcome: "success" },
+    { name: "typecheck-dependencies", outcome: "success" },
+    { name: "core-tools", outcome: "success" },
+    { name: "lsp", outcome: "cancelled" },
+    { name: "lint-divergence", outcome: "success" },
+    { name: "syntax-highlighter", outcome: "success" },
+    { name: "glyph", outcome: "success" },
+    { name: "typecheck-divergence", outcome: "success" },
+  ]);
 });
