@@ -4,13 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { extractSfcBlocks, formatBlockLabel, getDiagnosticBlock } from "./sfc-blocks.ts";
 import { resetFixtureDir } from "./test-support/fixture-dir.ts";
 
 const packageDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(packageDir, "../../..");
-const pluginEntry = path.join(workspaceRoot, "npm/oxint/dist/index.mjs");
-const cliEntry = path.join(workspaceRoot, "npm/oxint/dist/cli.mjs");
+const pluginEntry = path.join(workspaceRoot, "npm/oxlint/dist/index.mjs");
+const cliEntry = path.join(workspaceRoot, "npm/oxlint/dist/cli.mjs");
 const fixtureDir = path.join(workspaceRoot, "target", "vize-tests", "oxlint-plugin-vize-test");
 const configPath = path.join(fixtureDir, ".oxlintrc.json");
 const noHelpConfigPath = path.join(fixtureDir, ".oxlintrc.no-help.json");
@@ -796,6 +795,11 @@ assert.equal(
   1,
   "dual-script SFCs should not duplicate the same rule diagnostic across <script> and <script setup>",
 );
+assert.doesNotMatch(
+  dualScriptRun.output,
+  /\(at <script/u,
+  "dual-script SFCs should map script diagnostics instead of falling back to block labels",
+);
 assert.equal(dualScriptRun.output, readSnapshot("stylish-dual-script-no-options-api-output.txt"));
 
 const scriptlessRun = runOxlintVize([
@@ -848,32 +852,5 @@ assert.doesNotMatch(
 );
 assert.equal(standaloneHtmlRun.output, readSnapshot("stylish-standalone-html-output.txt"));
 
-const sampleBlocks = extractSfcBlocks(
-  `<script setup lang="ts">\nconst count = 1\n</script>\n<template>\n  <div>{{ count }}</div>\n</template>\n<style scoped>\n.foo {}\n</style>\n<i18n>\n{}\n</i18n>\n`,
-);
-assert.deepEqual(
-  sampleBlocks.map((block) => formatBlockLabel(block)),
-  ["<script setup>", "<template>", "<style>", "<i18n>"],
-  "SFC block extraction should classify common Vue block types",
-);
-assert.equal(
-  formatBlockLabel(
-    getDiagnosticBlock(
-      {
-        rule: "vize/vue/mock",
-        severity: "error",
-        message: "Mock error. Detail: extra context",
-        location: {
-          start: { line: 5, column: 3, offset: 0 },
-          end: { line: 5, column: 8, offset: 0 },
-        },
-        help: null,
-      },
-      sampleBlocks,
-    ),
-  ),
-  "<template>",
-  "Diagnostics should map back to their containing SFC block",
-);
 await import("./test-support/suites.ts");
 console.log("✅ oxlint-plugin-vize integration tests passed!");
