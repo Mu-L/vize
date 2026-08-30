@@ -28,6 +28,7 @@ test("real-project workflow schedules every balanced fixture shard", () => {
     "lint_divergence_mode",
     "lsp_mode",
     "typecheck_divergence_mode",
+    "davinci_dom_corpus_mode",
   ]);
   assert.deepEqual(dispatch.inputs?.core_tools_mode, {
     description: "Core tool surface handling",
@@ -65,6 +66,13 @@ test("real-project workflow schedules every balanced fixture shard", () => {
   });
   assert.deepEqual(dispatch.inputs?.typecheck_divergence_mode, {
     description: "Typechecker baseline divergence gate handling",
+    required: false,
+    default: "enforce",
+    type: "choice",
+    options: ["enforce", "record-only"],
+  });
+  assert.deepEqual(dispatch.inputs?.davinci_dom_corpus_mode, {
+    description: "Davinci S2 DOM corpus gate handling",
     required: false,
     default: "enforce",
     type: "choice",
@@ -262,37 +270,22 @@ test("real-project workflow hydrates only its shard and runs every core tool", (
   assert.equal(divergence.env?.BUDGET_MODE, "${{ inputs.typecheck_divergence_mode || 'enforce' }}");
 
   const surfaceVerdict = findStep(steps, "Enforce all real-project surface verdicts");
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /lint_divergence_verdict="\$VIZE_LINT_DIVERGENCE_OUTCOME"/,
+  assert.match(surfaceVerdict.run ?? "", /real-project-surface-verdict\.mjs/);
+  assert.match(surfaceVerdict.run ?? "", /--from-workflow-env/);
+  assert.equal(
+    surfaceVerdict.env?.TYPECHECK_DEPENDENCIES_MODE,
+    "${{ inputs.typecheck_dependencies_mode || 'enforce' }}",
   );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /\$LINT_DIVERGENCE_MODE" == "record-only"[\s\S]*?lint_divergence_verdict=success/,
+  assert.equal(
+    surfaceVerdict.env?.LINT_DIVERGENCE_MODE,
+    "${{ inputs.lint_divergence_mode || 'enforce' }}",
   );
-  assert.match(surfaceVerdict.run ?? "", /--surface "lint-divergence=\$lint_divergence_verdict"/);
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /typecheck_dependencies_verdict="\$VIZE_TYPECHECK_DEPENDENCIES_OUTCOME"/,
+  assert.equal(
+    surfaceVerdict.env?.TYPECHECK_DIVERGENCE_MODE,
+    "${{ inputs.typecheck_divergence_mode || 'enforce' }}",
   );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /\$TYPECHECK_DEPENDENCIES_MODE" == "record-only"[\s\S]*?typecheck_dependencies_verdict=success/,
-  );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /--surface "typecheck-dependencies=\$typecheck_dependencies_verdict"/,
-  );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /typecheck_divergence_verdict="\$VIZE_TYPECHECK_DIVERGENCE_OUTCOME"/,
-  );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /\$TYPECHECK_DIVERGENCE_MODE" == "record-only"[\s\S]*?typecheck_divergence_verdict=success/,
-  );
-  assert.match(
-    surfaceVerdict.run ?? "",
-    /--surface "typecheck-divergence=\$typecheck_divergence_verdict"/,
+  assert.equal(
+    surfaceVerdict.env?.VIZE_LINT_DIVERGENCE_OUTCOME,
+    "${{ steps.lint_divergence.outcome }}",
   );
 });

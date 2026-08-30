@@ -15,6 +15,47 @@ export const realProjectSurfaceNames = [
 
 const validOutcomes = new Set(["success", "failure", "cancelled", "skipped"]);
 
+function recordOnlyVerdict(outcome, mode) {
+  return mode === "record-only" && outcome === "failure" ? "success" : outcome;
+}
+
+export function createRealProjectSurfaceResultsFromWorkflow(environment = process.env) {
+  return [
+    { name: "waiver-audit", outcome: environment.VIZE_WAIVER_AUDIT_OUTCOME },
+    {
+      name: "typecheck-dependencies",
+      outcome: recordOnlyVerdict(
+        environment.VIZE_TYPECHECK_DEPENDENCIES_OUTCOME,
+        environment.TYPECHECK_DEPENDENCIES_MODE,
+      ),
+    },
+    {
+      name: "core-tools",
+      outcome: recordOnlyVerdict(environment.VIZE_CORE_TOOLS_OUTCOME, environment.CORE_TOOLS_MODE),
+    },
+    {
+      name: "lsp",
+      outcome: recordOnlyVerdict(environment.VIZE_LSP_OUTCOME, environment.LSP_MODE),
+    },
+    {
+      name: "lint-divergence",
+      outcome: recordOnlyVerdict(
+        environment.VIZE_LINT_DIVERGENCE_OUTCOME,
+        environment.LINT_DIVERGENCE_MODE,
+      ),
+    },
+    { name: "syntax-highlighter", outcome: environment.VIZE_SYNTAX_HIGHLIGHTER_OUTCOME },
+    { name: "glyph", outcome: environment.VIZE_GLYPH_OUTCOME },
+    {
+      name: "typecheck-divergence",
+      outcome: recordOnlyVerdict(
+        environment.VIZE_TYPECHECK_DIVERGENCE_OUTCOME,
+        environment.TYPECHECK_DIVERGENCE_MODE,
+      ),
+    },
+  ];
+}
+
 export function createRealProjectSurfaceVerdict(results, environment = process.env) {
   const expected = new Set(realProjectSurfaceNames);
   const seen = new Set();
@@ -53,10 +94,15 @@ export function createRealProjectSurfaceVerdict(results, environment = process.e
 
 function parseArguments(argv) {
   let output = null;
+  let fromWorkflowEnv = false;
   const results = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const value = argv[index + 1];
+    if (argument === "--from-workflow-env") {
+      fromWorkflowEnv = true;
+      continue;
+    }
     if (argument === "--output" && output == null && value && !value.startsWith("--")) {
       output = resolve(value);
       index += 1;
@@ -72,12 +118,16 @@ function parseArguments(argv) {
     throw new Error(`unknown or incomplete argument: ${argument}`);
   }
   if (output == null) throw new Error("--output is required");
-  return { output, results };
+  if (fromWorkflowEnv && results.length > 0) {
+    throw new Error("--from-workflow-env cannot be combined with --surface");
+  }
+  return { output, fromWorkflowEnv, results };
 }
 
 function main() {
-  const { output, results } = parseArguments(process.argv.slice(2));
-  const artifact = createRealProjectSurfaceVerdict(results);
+  const { output, fromWorkflowEnv, results } = parseArguments(process.argv.slice(2));
+  const surfaces = fromWorkflowEnv ? createRealProjectSurfaceResultsFromWorkflow() : results;
+  const artifact = createRealProjectSurfaceVerdict(surfaces);
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`);
   if (artifact.status !== "success") {
