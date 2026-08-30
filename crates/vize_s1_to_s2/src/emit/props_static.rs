@@ -1,18 +1,148 @@
 //! Inline static props for native element calls.
 
 use vize_s0::String;
-use vize_s2::op::{Attribute, ElementOp};
+use vize_s2::op::{Attribute, BindingOp, DynamicName};
 
 use super::EmitCx;
+use super::EmitError;
 use super::hoist::{push_attr_pair, unique_attrs};
+use super::js::{escape_js_string, is_valid_js_identifier};
+use super::props::{Piece, bind_value_is_static_patchless, pieces, static_bind_key};
+use super::props_bind::{StaticBindKey, StaticBindKeyCasing};
+use super::props_value::bind_value;
 
-pub(super) fn root_should_hoist(element: &ElementOp<'_>) -> bool {
-    element.bindings.is_empty()
-        && !element.attributes.is_empty()
-        && element
-            .attributes
-            .iter()
-            .all(|attribute| attribute.name != "ref")
+pub(super) fn root_hoist_props(
+    attributes: &[Attribute<'_>],
+    bindings: &[BindingOp<'_>],
+) -> Result<Option<String>, EmitError> {
+    if !can_root_hoist_props(attributes, bindings) {
+        return Ok(None);
+    }
+
+    let mut out = String::from("{ ");
+    let mut emitted = 0usize;
+    let pieces = pieces(attributes, bindings, false)?;
+    for (index, piece) in pieces.iter().enumerate() {
+        let mut prop = String::default();
+        let Some(key) = static_hoist_prop(&mut prop, piece)? else {
+            return Ok(None);
+        };
+        if has_prior_hoist_key(&pieces[..index], key.as_str())? {
+            continue;
+        }
+        if emitted > 0 {
+            out.push_str(", ");
+        }
+        out.push_str(prop.as_str());
+        emitted += 1;
+    }
+    if emitted == 0 {
+        return Ok(None);
+    }
+    out.push_str(" }");
+    Ok(Some(out))
+}
+
+fn can_root_hoist_props(attributes: &[Attribute<'_>], bindings: &[BindingOp<'_>]) -> bool {
+    if attributes.is_empty() && bindings.is_empty() {
+        return false;
+    }
+
+    if attributes.iter().any(|attr| attr.name == "ref") {
+        return false;
+    }
+
+    bindings.iter().all(root_binding_can_hoist)
+}
+
+fn root_binding_can_hoist(binding: &BindingOp<'_>) -> bool {
+    let BindingOp::Bind(bind) = binding else {
+        return false;
+    };
+
+    if !matches!(bind.name, Some(DynamicName::Static(_))) {
+        return false;
+    }
+
+    if !bind_value_is_static_patchless(bind) {
+        return false;
+    }
+
+    let Ok(key) = static_bind_key(bind, StaticBindKeyCasing::Preserve) else {
+        return false;
+    };
+
+    !matches!(key.as_str(), "ref" | "class")
+}
+
+fn static_hoist_prop<'a>(
+    out: &mut String,
+    piece: &Piece<'a>,
+) -> Result<Option<HoistKey<'a>>, EmitError> {
+    let Some(key) = hoist_key(piece)? else {
+        return Ok(None);
+    };
+    match piece {
+        Piece::Attr(attr) => {
+            push_attr_pair(out, attr);
+        }
+        Piece::Bind(bind) => {
+            push_key(out, key.as_str());
+            out.push_str(": ");
+            if let Some(js) = bind_value(bind)?.js() {
+                out.push_str(js.source);
+            }
+        }
+        _ => return Ok(None),
+    }
+    Ok(Some(key))
+}
+
+fn has_prior_hoist_key(pieces: &[Piece<'_>], key: &str) -> Result<bool, EmitError> {
+    for piece in pieces {
+        if hoist_key(piece)?.is_some_and(|prior| prior.as_str() == key) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn hoist_key<'a>(piece: &Piece<'a>) -> Result<Option<HoistKey<'a>>, EmitError> {
+    match piece {
+        Piece::Attr(attr) if attr.name != "ref" => Ok(Some(HoistKey::Borrowed(attr.name))),
+        Piece::Bind(bind) if bind_value_is_static_patchless(bind) => {
+            let key = static_bind_key(bind, StaticBindKeyCasing::Preserve)?;
+            if matches!(key.as_str(), "ref" | "class") {
+                return Ok(None);
+            }
+            Ok(Some(HoistKey::StaticBind(key)))
+        }
+        _ => Ok(None),
+    }
+}
+
+enum HoistKey<'a> {
+    Borrowed(&'a str),
+    StaticBind(StaticBindKey<'a>),
+}
+
+impl HoistKey<'_> {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Borrowed(text) => text,
+            Self::StaticBind(key) => key.as_str(),
+        }
+    }
+}
+
+fn push_key(out: &mut String, key: &str) {
+    if !is_valid_js_identifier(key) {
+        out.push('"');
+        out.push_str(escape_js_string(key).as_str());
+        out.push('"');
+        return;
+    }
+    out.push_str(key);
 }
 
 pub(super) fn emit_inline<'a>(
