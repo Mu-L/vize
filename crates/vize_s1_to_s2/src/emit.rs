@@ -90,10 +90,10 @@ mod tpl;
 mod vfor;
 mod vif;
 mod vnode;
+mod vnode_children;
 mod vtext;
 
 use alloc::vec::Vec as StdVec;
-
 use vize_davinci::diagnostic::Severity;
 use vize_davinci::id::NodeId;
 use vize_davinci::pass::BudgetObserver;
