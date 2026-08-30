@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 const distributionDirectory = new URL("../dist/", import.meta.url);
 const staticImportPattern = /\b(?:import|export)\s+(?:[^"']*?\s+from\s+)?["'](\.\.?\/[^"']+)["']/g;
 const budgets = new Map([
-  ["index.mjs", 181_350],
+  ["index.mjs", 185_000],
   ["alert.mjs", 1_050],
   ["announcer.mjs", 4_100],
   ["aspect-ratio.mjs", 1_500],
@@ -28,6 +28,7 @@ const budgets = new Map([
   ["button.mjs", 1_600],
   ["button-group.mjs", 3_700],
   ["link.mjs", 3_150],
+  ["skip-link.mjs", 3_400],
   ["toggle.mjs", 2_050],
   ["toggle-group.mjs", 5_100],
   ["popover.mjs", 28_700],
@@ -41,6 +42,7 @@ const budgets = new Map([
   ["separator.mjs", 900],
   ["spacer.mjs", 1_250],
   ["stack.mjs", 1_450],
+  ["scroll-area.mjs", 6_700],
   ["surface.mjs", 1_300],
   ["skeleton.mjs", 1_250],
   ["meter.mjs", 3_700],
@@ -55,7 +57,7 @@ const budgets = new Map([
   ["checkbox.mjs", 1_900],
   ["collection.mjs", 5_700],
   ["composite-navigation.mjs", 5_355],
-  ["catalog.mjs", 14_350],
+  ["catalog.mjs", 14_750],
   ["command.mjs", 2_200],
   ["context.mjs", 700],
   ["controllable-state.mjs", 600],
@@ -83,7 +85,7 @@ const budgets = new Map([
   ["measure.mjs", 2_400],
   // Styled entries statically import the shared dist/style.css, so their
   // budgets cover the packaged stylesheet alongside their JavaScript.
-  ["motion.mjs", 6_250],
+  ["motion.mjs", 6_600],
   ["move.mjs", 5_050],
   ["pointer-grace.mjs", 1_800],
   ["portal.mjs", 1_700],
@@ -97,13 +99,13 @@ const budgets = new Map([
   ["shortcut.mjs", 7_400],
   ["sortable.mjs", 17_000],
   ["spatial-navigation.mjs", 3_725],
-  ["theme.mjs", 5_900],
+  ["theme.mjs", 6_250],
   ["theme-scope.mjs", 2_600],
   ["transition.mjs", 3_000],
   ["typeahead.mjs", 2_000],
   ["virtualizer.mjs", 9_500],
   ["primitive.mjs", 800],
-  ["visually-hidden.mjs", 4_350],
+  ["visually-hidden.mjs", 4_700],
   ["media.mjs", 2_400],
   ["media-pdf.mjs", 2_048],
   ["media-source.mjs", 1_800],

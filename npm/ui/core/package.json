@@ -144,6 +144,11 @@
       "import": "./dist/link.mjs",
       "default": "./dist/link.mjs"
     },
+    "./skip-link": {
+      "types": "./dist/skip-link.d.mts",
+      "import": "./dist/skip-link.mjs",
+      "default": "./dist/skip-link.mjs"
+    },
     "./toggle": {
       "types": "./dist/toggle.d.mts",
       "import": "./dist/toggle.mjs",
@@ -203,6 +208,11 @@
       "types": "./dist/stack.d.mts",
       "import": "./dist/stack.mjs",
       "default": "./dist/stack.mjs"
+    },
+    "./scroll-area": {
+      "types": "./dist/scroll-area.d.mts",
+      "import": "./dist/scroll-area.mjs",
+      "default": "./dist/scroll-area.mjs"
     },
     "./surface": {
       "types": "./dist/surface.d.mts",
