@@ -45,6 +45,10 @@ use vize_davinci::pass::{
 };
 use vize_s0::{FxHashMap, String, cstr};
 
+mod budget;
+
+pub(crate) use budget::plan_budget;
+
 /// `artifact-stage` value for an embedded authored source.
 pub(crate) const ARTIFACT_STAGE_SOURCE: &str = "source";
 /// `[repro.config]` key naming the backend mode (`dom`/`ssr`/`vapor`).
