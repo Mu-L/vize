@@ -198,6 +198,7 @@ fn emit_call(
             source: compact_props_object(hoist_attrs.iter().copied()),
             dynamic_values: false,
             non_key: hoist_attrs.iter().any(|attr| attr.name != "key"),
+            valued_prop: hoist_attrs.iter().any(|attr| attr.value.is_some()),
         })
     } else {
         props_static::component_hoist_props(&component.attributes, &component.bindings)?
@@ -218,7 +219,7 @@ fn emit_call(
         && hoistable_static_props.is_some()
         && hoistable_static_props.as_ref().is_some_and(|props| {
             props_static::should_hoist(cx, id, props_static::PropHoistPosition::Nested)
-                || !props.dynamic_values
+                || (!props.dynamic_values && props.valued_prop)
                 || (props.dynamic_values
                     && cx.slot_param_depth == 0
                     && !cx.in_v_for
