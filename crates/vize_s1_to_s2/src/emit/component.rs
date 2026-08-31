@@ -216,10 +216,11 @@ fn emit_call(
         && !for_item
         && if_key.is_none()
         && hoistable_static_props.is_some()
-        && cx.slot_param_depth == 0
         && hoistable_static_props.as_ref().is_some_and(|props| {
             props_static::should_hoist(cx, id, props_static::PropHoistPosition::Nested)
+                || !props.dynamic_values
                 || (props.dynamic_values
+                    && cx.slot_param_depth == 0
                     && !cx.in_v_for
                     && (!cx.hoist_static_vnodes
                         || !has_slots
