@@ -69,14 +69,8 @@ const rustSourceCoverageCommand = [
   [
     "cargo llvm-cov --workspace --json --summary-only",
     `--output-path ${rustSourceCoverageJson}`,
-    "--fail-under-lines 70 --fail-under-functions 70 --fail-under-regions 70",
   ].join(" "),
-  moonScript(
-    "enforce_rust_source_coverage",
-    "--json",
-    rustSourceCoverageJson,
-    ...rustSourceCoverageMinimums,
-  ),
+  rustTool("ci/source-coverage", "--json", rustSourceCoverageJson, ...rustSourceCoverageMinimums),
 ].join(" && ");
 const rustBranchCoverageCommand = [
   "mkdir -p target/llvm-cov",
@@ -88,12 +82,7 @@ const rustBranchCoverageCommand = [
   ].join(" "),
   // Keep threshold enforcement in one place so failures still render the
   // complete metric table instead of stopping at cargo-llvm-cov's exit code.
-  moonScript(
-    "enforce_rust_source_coverage",
-    "--json",
-    rustBranchCoverageJson,
-    ...rustBranchCoverageMinimums,
-  ),
+  rustTool("ci/source-coverage", "--json", rustBranchCoverageJson, ...rustBranchCoverageMinimums),
 ].join(" && ");
 
 /**
