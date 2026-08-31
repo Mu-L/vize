@@ -213,13 +213,15 @@ fn emit_call(
     {
         cx.buf.push_hoist(props.source.clone());
     }
+    let static_props_hoist_context =
+        cx.hoist_static_vnodes || cx.slot_param_depth > 0 || cx.in_v_for;
     let can_hoist_static_props = !has_custom
         && !for_item
         && if_key.is_none()
         && hoistable_static_props.is_some()
         && hoistable_static_props.as_ref().is_some_and(|props| {
             props_static::should_hoist(cx, id, props_static::PropHoistPosition::Nested)
-                || (!props.dynamic_values && props.valued_prop)
+                || (!props.dynamic_values && props.valued_prop && static_props_hoist_context)
                 || (props.dynamic_values
                     && cx.slot_param_depth == 0
                     && !cx.in_v_for
