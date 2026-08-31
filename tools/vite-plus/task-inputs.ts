@@ -23,7 +23,7 @@ export const checkedPackages = [
   "./npm/mcp-musea",
   "./npm/fresco",
   "./npm/compose/core",
-  "./npm/ui/core",
+  "./npm/ui",
   "./npm/marquette",
   "./npm/builder/vite/example",
   "./npm/builder/rspack/example",
@@ -42,10 +42,17 @@ export const directCheckPackages = [
   "./playground",
 ] satisfies PackagePath[];
 
+export const nativeBuiltCheckPackages = ["./npm/ui"] satisfies PackagePath[];
+
 const directCheckPackageSet = new Set<PackagePath>(directCheckPackages);
+const nativeBuiltCheckPackageSet = new Set<PackagePath>(nativeBuiltCheckPackages);
 
 export const checkedPackagesViaVpRun = checkedPackages.filter(
   (pkg) => !directCheckPackageSet.has(pkg),
+);
+
+export const checkedPackagesBeforeNativeBuild = checkedPackagesViaVpRun.filter(
+  (pkg) => !nativeBuiltCheckPackageSet.has(pkg),
 );
 
 export const packedPackages = [
@@ -61,7 +68,7 @@ export const packedPackages = [
   "./npm/mcp-musea",
   "./npm/fresco",
   "./npm/compose/core",
-  "./npm/ui/core",
+  "./npm/ui",
   "./npm/marquette",
 ] satisfies PackagePath[];
 
@@ -77,7 +84,7 @@ export const testedPackages = [
   "./npm/mcp-musea",
   "./npm/fresco",
   "./npm/compose/core",
-  "./npm/ui/core",
+  "./npm/ui",
   "./npm/marquette",
 ] satisfies PackagePath[];
 
