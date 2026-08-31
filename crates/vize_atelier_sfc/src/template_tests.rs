@@ -229,9 +229,7 @@ export default {
     let result = compile_sfc(&descriptor, SfcCompileOptions::default()).unwrap();
 
     assert!(
-        result
-            .code
-            .contains("[$data.prefix+$data.suffix || \"\"]"),
+        result.code.contains("[$data.prefix+$data.suffix || \"\"]"),
         "bind key was not prefixed:\n{}",
         result.code
     );
