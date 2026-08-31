@@ -52,6 +52,36 @@ const CASES: &[Case] = &[
         sites: &["4 /* STYLE */"],
     },
     Case {
+        name: "computed_key_style",
+        src: r#"<div :style="{ [prop]: 'red' }"></div>"#,
+        sites: &["4 /* STYLE */"],
+    },
+    Case {
+        name: "computed_key_class",
+        src: r#"<div :class="{ [prop]: true }"></div>"#,
+        sites: &["2 /* CLASS */"],
+    },
+    Case {
+        name: "id_and_computed_key_style",
+        src: r#"<div :id="id" :style="{ [prop]: 'red' }"></div>"#,
+        sites: &["12 /* STYLE, PROPS */, [\"id\"]"],
+    },
+    Case {
+        name: "component_computed_key_style",
+        src: r#"<Foo :style="{ [prop]: 'red' }" />"#,
+        sites: &["8 /* PROPS */, [\"style\"]"],
+    },
+    Case {
+        name: "computed_key_data",
+        src: r#"<div :data="{ [k]: 1 }"></div>"#,
+        sites: &["8 /* PROPS */, [\"data\"]"],
+    },
+    Case {
+        name: "static_object_style_stays_patchless",
+        src: r#"<div :style="{ color: 'red' }"></div>"#,
+        sites: &[],
+    },
+    Case {
         name: "prop",
         src: r#"<div :id="id"></div>"#,
         sites: &["8 /* PROPS */, [\"id\"]"],
