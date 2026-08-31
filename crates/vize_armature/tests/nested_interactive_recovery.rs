@@ -60,6 +60,37 @@ fn nested_anchor_and_button_are_split_without_hard_errors() {
 }
 
 #[test]
+fn direct_nested_interactive_end_tag_closes_live_inner_before_redundant_outer() {
+    let allocator = Allocator::new();
+    for (source, tag) in [
+        ("<a><a>x</a></a>", "a"),
+        ("<button><button>x</button></button>", "button"),
+    ] {
+        let (root, errors) = parse(&allocator, source);
+        assert!(
+            errors.iter().all(CompilerError::is_recoverable),
+            "{source}: direct nested interactive recovery must not leave hard parser errors: {errors:?}"
+        );
+        assert_eq!(
+            ignored_end_tag_count(&errors),
+            1,
+            "{source}: only the redundant outer end tag should be ignored"
+        );
+        assert_eq!(root.children.len(), 2);
+        let TemplateChildNode::Element(outer) = &root.children[0] else {
+            panic!("{source}: first child is the implicitly closed outer element");
+        };
+        let TemplateChildNode::Element(inner) = &root.children[1] else {
+            panic!("{source}: second child is the live inner element");
+        };
+        assert_eq!(outer.tag, tag);
+        assert!(outer.children.is_empty());
+        assert_eq!(inner.tag, tag);
+        assert!(matches!(&inner.children[0], TemplateChildNode::Text(text) if text.content == "x"));
+    }
+}
+
+#[test]
 fn nested_interactive_recovery_consumes_descendant_end_tags() {
     let allocator = Allocator::new();
     for source in [
@@ -70,6 +101,26 @@ fn nested_interactive_recovery_consumes_descendant_end_tags() {
         assert!(
             errors.iter().all(CompilerError::is_recoverable),
             "{source}: descendant end tags popped by the nested interactive-content recovery must not stay hard: {errors:?}"
+        );
+    }
+}
+
+#[test]
+fn nested_interactive_recovery_does_not_close_same_named_ancestors() {
+    let allocator = Allocator::new();
+    for source in [
+        r#"<div><a href="/"><div><a href="/foo">inner</a></div></a></div>"#,
+        "<div><button><div><button>bbb</button></div></button></div>",
+    ] {
+        let (root, errors) = parse(&allocator, source);
+        assert!(
+            errors.iter().all(CompilerError::is_recoverable),
+            "{source}: redundant descendant end tags from nested interactive-content recovery must not pop same-named ancestors: {errors:?}"
+        );
+        assert_eq!(
+            root.children.len(),
+            1,
+            "{source}: the outer ancestor should stay open until its authored end tag"
         );
     }
 }
@@ -108,5 +159,14 @@ fn invalid_end_tag_count(errors: &[CompilerError]) -> usize {
     errors
         .iter()
         .filter(|error| error.code == ErrorCode::InvalidEndTag)
+        .count()
+}
+
+fn ignored_end_tag_count(errors: &[CompilerError]) -> usize {
+    errors
+        .iter()
+        .filter(|error| {
+            error.code == ErrorCode::ExtendPoint && error.message == IGNORED_END_TAG_RECOVERY
+        })
         .count()
 }

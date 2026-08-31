@@ -8,8 +8,8 @@ import { test } from "node:test";
 import {
   parseReleasePreflightMode,
   readPackageManifests,
-} from "../../tools/github/release-preflight.mjs";
-import { workspaceVersionFromCargoToml } from "../../tools/github/release-preflight-core.mjs";
+} from "../../legacy-tools/github/release-preflight.mjs";
+import { workspaceVersionFromCargoToml } from "../../legacy-tools/github/release-preflight-core.mjs";
 import { repoRoot } from "./_helpers/moonbit.ts";
 import { writeFakeCommand } from "./support/fake-command.ts";
 
@@ -153,7 +153,7 @@ test("release metadata inventory discovers every non-private npm and editor pack
       "npm/mcp-musea/package.json",
       "npm/native/package.json",
       "npm/oxlint/package.json",
-      "npm/ui/core/package.json",
+      "npm/ui/package.json",
       "npm/wasm/package.json",
     ],
   );

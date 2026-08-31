@@ -28,6 +28,7 @@ test("GitHub workflows opt JavaScript actions into Node 24", () => {
     "release.yml",
     "title-policy.yml",
     "tool-benchmark.yml",
+    "zizmor.yml",
   ]) {
     const workflow = readRepoFile(".github", "workflows", workflowName);
     assert.match(workflow, /FORCE_JAVASCRIPT_ACTIONS_TO_NODE24:\s*true/);
@@ -114,7 +115,13 @@ test("GitHub workflows declare the expected cross-platform runner matrix", () =>
 
   const checkWorkflow = readRepoFile(".github", "workflows", "check.yml");
   const nativeWorkflow = readRepoFile(".github", "workflows", "native-smoke.yml");
-  const releasePlatforms = readRepoFile("tools", "github", "release-platforms.mjs");
+  const releasePlatforms = readRepoFile(
+    "tools",
+    "commands",
+    "ci",
+    "github",
+    "release-platforms.rs",
+  );
 
   // check.yml runs every job on the same Linux runner — we accept either the
   // GitHub-hosted label or any Blacksmith Ubuntu SKU so changing vCPU size

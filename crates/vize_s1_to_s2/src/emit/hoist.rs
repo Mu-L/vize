@@ -5,13 +5,16 @@
 //! with later installments.
 
 mod cached_props;
+mod props;
+
 use alloc::vec::Vec as StdVec;
+pub(super) use props::{compact_props_object, push_attr_pair, unique_attrs};
 
 use vize_s0::{String, ToCompactString};
-use vize_s2::op::{Attribute, ElementOp, Op, Region};
+use vize_s2::op::{ElementOp, Op, Region};
 
 use super::buf::Buf;
-use super::js::{escape_js_string, is_valid_js_identifier};
+use super::js::escape_js_string;
 use super::{EmitCx, EmitError, UnsupportedReason as Reason};
 
 pub(super) fn emit_hoisted_element(
@@ -111,8 +114,7 @@ pub(super) fn is_hoistable(element: &ElementOp<'_>) -> bool {
 }
 
 pub(super) fn is_static_element_tree(element: &ElementOp<'_>) -> bool {
-    !element.attributes.iter().any(|attr| attr.name == "ref")
-        && element.bindings.is_empty()
+    super::props_static::static_vnode_surface_can_hoist(&element.attributes, &element.bindings)
         && element.children.ops.iter().all(is_static_tree_child)
 }
 
@@ -141,7 +143,7 @@ fn walk_hoisted(cx: &mut EmitCx<'_>, element: &ElementOp<'_>) {
 }
 
 fn hoist_needs_create_text(element: &ElementOp<'_>) -> bool {
-    let kids = meaningful(&element.children);
+    let kids = renderable_children(&element.children);
     let has_text = kids.iter().any(|op| matches!(op, Op::Text(_)));
     let has_other = kids.iter().any(|op| !matches!(op, Op::Text(_)));
     (has_text && has_other)
@@ -161,12 +163,12 @@ fn hoist_element_rhs(element: &ElementOp<'_>, pure: bool) -> String {
     out.push('"');
     out.push_str(element.tag);
     out.push('"');
-    let kids = meaningful(&element.children);
-    let has_attrs = !element.attributes.is_empty();
-    if has_attrs || !kids.is_empty() {
+    let kids = renderable_children(&element.children);
+    let props = static_vnode_props(element);
+    if props.is_some() || !kids.is_empty() {
         out.push_str(", ");
-        if has_attrs {
-            out.push_str(compact_props_object(element.attributes.iter()).as_str());
+        if let Some(props) = props {
+            out.push_str(props.as_str());
         } else {
             out.push_str("null");
         }
@@ -197,13 +199,15 @@ fn append_cached_element_rhs(
     out.push_str(element.tag);
     out.push('"');
     out.push_str(", ");
-    if element.attributes.is_empty() {
-        out.push_str("null");
-    } else {
+    if element.bindings.is_empty() && !element.attributes.is_empty() {
         cached_props::push_object(out, element.attributes.iter(), line_indent);
+    } else if let Some(props) = static_vnode_props(element) {
+        out.push_str(props.as_str());
+    } else {
+        out.push_str("null");
     }
     out.push_str(", ");
-    let kids = meaningful(&element.children);
+    let kids = renderable_children(&element.children);
     if kids.is_empty() {
         out.push_str("null");
     } else {
@@ -213,6 +217,12 @@ fn append_cached_element_rhs(
         out.push_str(", -1 /* CACHED */");
     }
     out.push(')');
+}
+
+fn static_vnode_props(element: &ElementOp<'_>) -> Option<String> {
+    super::props_static::root_hoist_props(&element.attributes, &element.bindings)
+        .ok()
+        .flatten()
 }
 
 fn append_hoist_kids(out: &mut String, kids: &[&Op<'_>]) {
@@ -269,12 +279,7 @@ fn append_cached_kids(out: &mut String, kids: &[&Op<'_>], line_indent: usize) {
         push_spaces(out, line_indent + 2);
         match op {
             Op::Text(text) => {
-                out.push_str(Buf::create_text_alias());
-                out.push('(');
-                out.push('"');
-                out.push_str(escape_js_string(text.content).as_str());
-                out.push('"');
-                out.push(')');
+                push_cached_create_text_call(out, text.content);
             }
             Op::Element(element) => {
                 append_cached_element_rhs(out, element, false, line_indent + 2);
@@ -287,64 +292,25 @@ fn append_cached_kids(out: &mut String, kids: &[&Op<'_>], line_indent: usize) {
     out.push(']');
 }
 
+fn push_cached_create_text_call(out: &mut String, content: &str) {
+    out.push_str(Buf::create_text_alias());
+    if content == " " {
+        out.push_str("()");
+        return;
+    }
+    out.push('(');
+    out.push('"');
+    out.push_str(escape_js_string(content).as_str());
+    out.push('"');
+    out.push(')');
+}
+
 fn push_spaces(out: &mut String, width: usize) {
     out.extend(core::iter::repeat_n(' ', width));
 }
 
-fn meaningful<'a>(children: &'a Region<'a>) -> StdVec<&'a Op<'a>> {
-    children
-        .ops
-        .iter()
-        .filter(|op| !is_whitespace_text(op))
-        .collect()
-}
-
-fn is_whitespace_text(op: &Op<'_>) -> bool {
-    matches!(op, Op::Text(text) if text.content.chars().all(char::is_whitespace))
-}
-
-/// First-occurrence static attrs as a single-line object, matching
-/// hoisted `JsChildNode::Object` emission.
-pub(super) fn compact_props_object<'a>(
-    attributes: impl Iterator<Item = &'a Attribute<'a>>,
-) -> String {
-    let unique = unique_attrs(attributes);
-    let mut out = String::from("{ ");
-    for (i, attr) in unique.iter().enumerate() {
-        if i > 0 {
-            out.push_str(", ");
-        }
-        push_attr_pair(&mut out, attr);
-    }
-    out.push_str(" }");
-    out
-}
-
-pub(super) fn unique_attrs<'a>(
-    attributes: impl Iterator<Item = &'a Attribute<'a>>,
-) -> StdVec<&'a Attribute<'a>> {
-    let mut unique: StdVec<&Attribute<'_>> = StdVec::new();
-    for attr in attributes {
-        if unique.iter().any(|seen| seen.name == attr.name) {
-            continue;
-        }
-        unique.push(attr);
-    }
-    unique
-}
-
-pub(super) fn push_attr_pair(out: &mut String, attr: &Attribute<'_>) {
-    let quoted = !is_valid_js_identifier(attr.name);
-    if quoted {
-        out.push('"');
-    }
-    out.push_str(attr.name);
-    if quoted {
-        out.push('"');
-    }
-    out.push_str(": \"");
-    if let Some(value) = attr.value {
-        out.push_str(escape_js_string(value).as_str());
-    }
-    out.push('"');
+fn renderable_children<'a>(children: &'a Region<'a>) -> StdVec<&'a Op<'a>> {
+    // S2 lowering has already applied legacy condense/drop decisions; every
+    // remaining text op is renderable, including a single-space separator.
+    children.ops.iter().collect()
 }

@@ -63,11 +63,11 @@ jobs:
           node-version-file: ".node-version"
           cache: true
           run-install: false
-      - uses: ./.github/actions/setup-moonbit
+      - uses: ./.github/actions/setup-js-check-runtime
       - name: Install JS dependencies
         run: vp install --frozen-lockfile --prefer-offline
       - name: Check JS/TS
-        run: vp run --workspace-root check:ci
+        run: vp run --filter './npm/native' build:debug && vp run --workspace-root check:ci
   semver-checks:
     name: cargo-semver-checks (${{ matrix.crate }})
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
@@ -300,8 +300,8 @@ jobs:
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
       - name: Install JS dependencies
         run: vp install --frozen-lockfile --prefer-offline
-      - name: Verify declarations, build native package, and lint UI SFC packages
-        run: vp run --filter './npm/fresco-native' check:generated && vp run --filter './npm/fresco-native' check:types && vp run --filter './npm/native' build:ci && vp run --filter './npm/ui/core' lint:sfc
+      - name: Verify declarations, build native package, and check UI package
+        run: vp run --filter './npm/fresco-native' check:generated && vp run --filter './npm/fresco-native' check:types && vp run --filter './npm/native' build:ci && vp run --filter './npm/ui' check
       - name: Build JS packages
         run: vp run --workspace-root build:packages
       - name: Stage shared JS build artifacts

@@ -1,8 +1,8 @@
 import type { UserConfig } from "vite-plus";
 import { defineConfig } from "vite-plus";
-import { floatingPromiseTestPatterns } from "./tools/vite-plus/task-inputs.ts";
-import { taskCatalog } from "./tools/vite-plus/task-groups.ts";
-import { rootBuildTaskPlugin } from "./tools/vite-plus/task-helpers.ts";
+import { floatingPromiseTestPatterns } from "./config/vite-plus/task-inputs.ts";
+import { taskCatalog } from "./config/vite-plus/task-groups.ts";
+import { rootBuildTaskPlugin } from "./config/vite-plus/task-helpers.ts";
 
 const localGeneratedIgnorePatterns = [
   ".cache/**",
@@ -37,19 +37,22 @@ const vscodeExtensionLintIgnorePatterns = [
 /**
  * Oxfmt 0.61 formats Markdown tables containing translated prose and literal
  * pipe characters as if every pipe were a column separator. Keep authored
- * documentation, parser fixtures, and generated Playwright output byte-stable.
+ * documentation, parser/benchmark fixtures, and generated Playwright output
+ * byte-stable.
  */
 const formatterSensitiveContentIgnorePatterns = [
+  "benchmarks/davinci_harness/fixtures/**",
   "crates/**/tests/fixtures/**",
   "docs/content/**/*.md",
   "examples/vite-musea/playwright-report/**",
+  "tools/benchmarks/crates/davinci_harness/fixtures/**",
 ];
 
 /**
  * Root Vite+ configuration.
  *
  * The root config intentionally stays small: task helpers, package inputs, and
- * the task catalog live under `tools/vite-plus/` where they can carry richer
+ * the task catalog live under `config/vite-plus/` where they can carry richer
  * documentation and tighter type boundaries. This file should remain the place
  * that wires Vite+, repository lint/format policy, and the assembled task map
  * together.

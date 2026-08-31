@@ -1,8 +1,9 @@
 //! Open and close tags: the element half of the builder.
 
-use vize_s0::{Vec, is_void_tag};
+use vize_relief::Namespace;
+use vize_s0::{Box, Vec, is_html_tag, is_math_ml_tag, is_svg_tag, is_void_tag};
 
-use super::{Builder, Frame};
+use super::{Builder, Frame, ImplicitlyClosedTag};
 use crate::event::{Event, EventKind};
 use crate::surface::{Attribute, CloseTag, Element, ElementClose, OpenTag, SurfaceChild, Token};
 
@@ -51,12 +52,17 @@ impl<'a> Builder<'a, '_> {
             }
         }
         let self_closing = slash.is_some();
+        let ns = self.enter_ns(tag);
         let open = OpenTag {
             lt_name,
             attrs,
             slash,
             gt,
         };
+        if !self_closing {
+            self.handle_nested_interactive_start_tag(tag, ns);
+        }
+
         if self_closing || is_void_tag(tag) {
             let element = Element {
                 open,
@@ -68,6 +74,7 @@ impl<'a> Builder<'a, '_> {
             self.stack.push(Frame {
                 open,
                 children: Vec::new_in(&self.allocator),
+                ns,
             });
         }
     }
@@ -103,11 +110,15 @@ impl<'a> Builder<'a, '_> {
             .stack
             .iter()
             .rposition(|frame| frame.tag().eq_ignore_ascii_case(name));
+        if self.should_consume_implicitly_closed_tag(name, matched) {
+            self.implicitly_closed_tags.pop();
+            self.unexpected_close_tag(lt_start, gt_pos);
+            return;
+        }
+
         let Some(depth) = matched else {
             // Stray end tag: a typed `Unexpected` hole, whole extent.
-            let end = gt_pos.map_or(self.src.len(), |g| g + 1);
-            let token = self.token_at(lt_start, end);
-            self.push_child(SurfaceChild::Unexpected(token));
+            self.unexpected_close_tag(lt_start, gt_pos);
             return;
         };
         // Elements left open above the match get node-level holes.
@@ -152,5 +163,94 @@ impl<'a> Builder<'a, '_> {
         } else {
             self.cursor
         }
+    }
+
+    fn unexpected_close_tag(&mut self, lt_start: usize, gt_pos: Option<usize>) {
+        let end = gt_pos.map_or(self.src.len(), |g| g + 1);
+        let token = self.token_at(lt_start, end);
+        self.push_child(SurfaceChild::Unexpected(token));
+    }
+
+    fn enter_ns(&self, tag: &str) -> Namespace {
+        if is_svg_tag(tag) {
+            Namespace::Svg
+        } else if is_math_ml_tag(tag) {
+            Namespace::MathMl
+        } else {
+            self.stack
+                .last()
+                .map_or(Namespace::Html, |frame| children_ns(frame.ns, frame.tag()))
+        }
+    }
+
+    fn handle_nested_interactive_start_tag(&mut self, tag: &'a str, ns: Namespace) {
+        if ns != Namespace::Html {
+            return;
+        }
+        if !is_interactive_html_tree_tag(tag) {
+            return;
+        }
+        let Some(depth) = self.stack.iter().rposition(|frame| {
+            frame.ns == Namespace::Html
+                && is_interactive_html_tree_tag(frame.tag())
+                && frame.tag().eq_ignore_ascii_case(tag)
+        }) else {
+            return;
+        };
+        self.note_implicitly_closed_stack_entries_from(depth);
+        self.implicitly_close_stack_element_at(depth);
+    }
+
+    fn note_implicitly_closed_stack_entries_from(&mut self, start_depth: usize) {
+        for (depth, frame) in self.stack.iter().enumerate().skip(start_depth) {
+            self.implicitly_closed_tags.push(ImplicitlyClosedTag {
+                tag: frame.tag(),
+                depth,
+            });
+        }
+    }
+
+    fn should_consume_implicitly_closed_tag(&self, tag: &str, live_depth: Option<usize>) -> bool {
+        let Some(closed) = self.implicitly_closed_tags.last() else {
+            return false;
+        };
+        if !closed.tag.eq_ignore_ascii_case(tag) {
+            return false;
+        }
+        match live_depth {
+            Some(depth) => depth < closed.depth,
+            None => true,
+        }
+    }
+
+    fn implicitly_close_stack_element_at(&mut self, depth: usize) {
+        let mut child = None;
+        while self.stack.len() > depth {
+            let frame = self.stack.pop().expect("stack holds depth frames");
+            let mut children = frame.children;
+            if let Some(element) = child.take() {
+                children.push(SurfaceChild::Element(Box::new_in(element, &self.allocator)));
+            }
+            child = Some(Element {
+                open: frame.open,
+                children,
+                close: ElementClose::Implicit,
+            });
+        }
+        if let Some(element) = child {
+            self.attach(element);
+        }
+    }
+}
+
+fn is_interactive_html_tree_tag(tag: &str) -> bool {
+    is_html_tag(tag) && (tag.eq_ignore_ascii_case("a") || tag.eq_ignore_ascii_case("button"))
+}
+
+fn children_ns(ns: Namespace, tag: &str) -> Namespace {
+    match ns {
+        Namespace::Svg if matches!(tag, "foreignObject" | "desc" | "title") => Namespace::Html,
+        Namespace::MathMl if matches!(tag, "mi" | "mo" | "mn" | "ms" | "mtext") => Namespace::Html,
+        other => other,
     }
 }

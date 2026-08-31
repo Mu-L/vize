@@ -9,16 +9,18 @@ import {
   corpusEvidenceLines,
   expectedDomOutputComparisons,
   expectedGitlinks,
+  expectedOldErrorReasons,
+  expectedOldErrorSkips,
   hydrateCorpus,
   parseCorpusEvidence,
   parseFixtureGitlinks,
   parseOldErrorReasons,
   validateCorpusEvidence,
   verdictFor,
-} from "../../tools/fixtures/davinci-dom-corpus-workflow.mjs";
+} from "../../legacy-tools/fixtures/davinci-dom-corpus-workflow.mjs";
 import { findStep, readRealProjectMatrixWorkflow } from "./support/real-project-matrix-workflow.ts";
 
-const helperSource = readFileSync("tools/fixtures/davinci-dom-corpus-workflow.mjs", "utf8");
+const helperSource = readFileSync("tools/commands/fixtures/davinci-dom-corpus-workflow.rs", "utf8");
 
 test("real-project workflow carries a full-canonical S2 DOM corpus job", () => {
   const workflow = readRealProjectMatrixWorkflow();
@@ -38,18 +40,22 @@ test("real-project workflow carries a full-canonical S2 DOM corpus job", () => {
   assert.match(checkout?.uses ?? "", /de0fac2e4500dabe0009e67214ff5f5447ce83dd/);
   assert.deepEqual(checkout?.with, { "persist-credentials": false });
   assert.ok(steps.some((step) => step.uses?.startsWith("dtolnay/rust-toolchain@")));
+  assert.ok(steps.some((step) => step.uses === "./.github/actions/setup-rust-script"));
   assert.ok(steps.some((step) => step.uses === "./.github/actions/setup-rust-sticky-cache"));
 
   const hydrate = findStep(steps, "Select and hydrate full fixture corpus");
-  assert.equal(hydrate.run, "node tools/fixtures/davinci-dom-corpus-workflow.mjs hydrate");
+  assert.equal(
+    hydrate.run,
+    "rust-script tools/commands/fixtures/davinci-dom-corpus-workflow.rs hydrate",
+  );
   for (const pattern of [
-    /git", \["ls-files", "--stage", "--", corpusRoot\]/,
-    /expectedGitlinks = 146/,
-    /artifactDir = "real-project-davinci-dom-corpus"/,
+    /run_git\(&\["ls-files", "--stage", "--", CORPUS_ROOT\]/,
+    /EXPECTED_GITLINKS: usize = 146/,
+    /ARTIFACT_DIR: &str = "real-project-davinci-dom-corpus"/,
     /selected-gitlinks\.txt/,
     /"submodule",\s+"update",\s+"--init",\s+"--checkout",\s+"--depth",\s+"1",\s+"--jobs",\s+"8"/,
     /"submodule",\s+"update",\s+"--init",\s+"--checkout",\s+"--force"/,
-    /"submodule", "status", "--", corpusRoot/,
+    /run_git\(&\["submodule", "status", "--", CORPUS_ROOT\]/,
   ]) {
     assert.match(helperSource, pattern);
   }
@@ -57,9 +63,12 @@ test("real-project workflow carries a full-canonical S2 DOM corpus job", () => {
   const corpus = findStep(steps, "Run S2 DOM differential corpus");
   assert.equal(corpus.id, "davinci_dom_corpus");
   assert.equal(corpus["continue-on-error"], true);
-  assert.equal(corpus.run, "node tools/fixtures/davinci-dom-corpus-workflow.mjs run");
-  assert.match(helperSource, /VIZE_DAVINCI_DIFFERENTIAL_CORPUS: corpusRoot/);
-  assert.match(helperSource, /"cargo",/);
+  assert.equal(
+    corpus.run,
+    "rust-script tools/commands/fixtures/davinci-dom-corpus-workflow.rs run",
+  );
+  assert.match(helperSource, /VIZE_DAVINCI_DIFFERENTIAL_CORPUS", CORPUS_ROOT/);
+  assert.match(helperSource, /Command::new\("cargo"\)/);
   assert.match(helperSource, /"test",\s+"-p",\s+"vize_s1_to_s2"/);
   assert.match(helperSource, /"davinci-differential"/);
   assert.match(helperSource, /"davinci_dom_corpus"/);
@@ -70,11 +79,19 @@ test("real-project workflow carries a full-canonical S2 DOM corpus job", () => {
   assert.deepEqual(finalize.env, {
     VIZE_DAVINCI_DOM_CORPUS_OUTCOME: "${{ steps.davinci_dom_corpus.outcome }}",
   });
-  assert.equal(finalize.run, "node tools/fixtures/davinci-dom-corpus-workflow.mjs finalize");
+  assert.equal(
+    finalize.run,
+    "rust-script tools/commands/fixtures/davinci-dom-corpus-workflow.rs finalize",
+  );
   assert.match(helperSource, /"record-only"/);
-  assert.match(helperSource, /expectedDomOutputComparisons = 144/);
+  assert.match(helperSource, /EXPECTED_DOM_OUTPUT_COMPARISONS: usize = 144/);
+  assert.match(helperSource, /EXPECTED_OLD_ERROR_SKIPS: usize = 16/);
+  assert.match(helperSource, /"ExtendPoint", 1/);
+  assert.match(helperSource, /"VSlotDuplicateSlotNames", 1/);
+  assert.match(helperSource, /corpus old-lane skip allowlist drift/);
   assert.match(helperSource, /summary\.json/);
-  assert.match(helperSource, /davinci-differential corpus scope\|davinci DOM corpus sweep/);
+  assert.match(helperSource, /line\.contains\("davinci-differential corpus scope"\)/);
+  assert.match(helperSource, /line\.contains\("davinci DOM corpus sweep"\)/);
   assert.match(helperSource, /davinci DOM corpus old-lane error reasons/);
   assert.match(helperSource, /Davinci S2 DOM corpus failed/);
 
@@ -108,6 +125,16 @@ test("S2 DOM corpus workflow helper extracts canonical evidence", () => {
   assert.equal(verdictFor("cancelled", "record-only"), "cancelled");
   assert.equal(expectedGitlinks, 146);
   assert.equal(expectedDomOutputComparisons, 144);
+  assert.equal(expectedOldErrorSkips, 16);
+  assert.deepEqual(expectedOldErrorReasons, {
+    ExtendPoint: 1,
+    InvalidEndTag: 20,
+    MissingEndTag: 10,
+    MissingWhitespaceBetweenAttributes: 4,
+    VElseNoAdjacentIf: 1,
+    VIfSameKey: 4,
+    VSlotDuplicateSlotNames: 1,
+  });
 });
 
 test("S2 DOM corpus workflow extracts old-lane skip reasons from corpus logs", () => {
@@ -240,7 +267,8 @@ test("S2 DOM corpus workflow validates closure evidence artifacts", () => {
       join(artifact, "dom-corpus.log"),
       [
         "\u001B[32mdavinci-differential corpus scope: root=tests/_fixtures/_git scope=canonical closure_evidence=true submodules=146\u001B[0m",
-        "davinci DOM corpus sweep: files=37448 unreadable=0 parsed=37448 templates=35000 compared=35000 old_error_skips=0 s2_refusals=0 divergences=0",
+        "davinci DOM corpus sweep: files=37448 unreadable=0 parsed=37448 templates=35000 compared=34984 old_error_skips=16 s2_refusals=0 divergences=0",
+        'davinci DOM corpus old-lane error reasons: {"ExtendPoint":1,"InvalidEndTag":20,"MissingEndTag":10,"MissingWhitespaceBetweenAttributes":4,"VElseNoAdjacentIf":1,"VIfSameKey":4,"VSlotDuplicateSlotNames":1}',
       ].join("\n"),
     );
 
@@ -257,9 +285,9 @@ test("S2 DOM corpus workflow validates closure evidence artifacts", () => {
       unreadable: 0,
       parsed: 37448,
       templates: 35000,
-      compared: 35000,
-      oldErrorSkips: 0,
-      oldErrorReasons: {},
+      compared: 34984,
+      oldErrorSkips: 16,
+      oldErrorReasons: expectedOldErrorReasons,
       s2Refusals: 0,
       divergences: 0,
     });
@@ -297,7 +325,8 @@ test("S2 DOM corpus workflow rejects stale or dirty evidence artifacts", () => {
       "corpus log is missing canonical closure evidence",
       "corpus log submodules 0 != 146",
       "corpus log proves no DOM-output comparisons",
-      "corpus log skipped inputs: unreadable=3 old_error_skips=2 reasons=InvalidEndTag=1,VIfSameKey=1",
+      "corpus log unreadable inputs: unreadable=3",
+      "corpus old-lane skip allowlist drift: old_error_skips=2/16 reasons=InvalidEndTag=1,VIfSameKey=1 expected_reasons=ExtendPoint=1,InvalidEndTag=20,MissingEndTag=10,MissingWhitespaceBetweenAttributes=4,VElseNoAdjacentIf=1,VIfSameKey=4,VSlotDuplicateSlotNames=1",
       "corpus log is not clean: s2_refusals=1 divergences=1",
     ]);
   } finally {
