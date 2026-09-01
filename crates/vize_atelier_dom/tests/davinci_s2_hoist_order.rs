@@ -69,6 +69,10 @@ const BATTERY: &[(&str, &str)] = &[
         "scoped_slot_component_child_hoists_keep_parent_props_inline",
         r#"<CursorMomentum v-slot="{ currentValue }"><Volumed :perspective="800" transform="rotateX(45deg) translateY(3px)"><TestDummyMarkerFlat :style="{ transform: `rotate(${currentValue}deg)` }" /></Volumed></CursorMomentum>"#,
     ),
+    (
+        "slot_if_branch_static_vnodes_keep_shipped_order",
+        r#"<a-auto-complete><template #option="item"><template v-if="item.options"><span>{{ item.value }}<a style="float: right" href="https://www.google.com/search?q=antd" target="_blank" rel="noopener noreferrer">more</a></span></template><template v-else-if="item.value === 'all'"><a href="https://www.google.com/search?q=ant-design-vue" target="_blank" rel="noopener noreferrer">View all results</a></template></template></a-auto-complete>"#,
+    ),
 ];
 
 #[test]
