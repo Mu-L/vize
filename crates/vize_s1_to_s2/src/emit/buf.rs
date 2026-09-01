@@ -6,6 +6,9 @@ use vize_s0::{String, ToCompactString};
 
 use super::helper::Helper;
 
+mod call_position;
+mod helper_order;
+
 /// Growing JS text plus the helpers the body mentioned.
 pub(super) struct Buf {
     pub code: String,
@@ -13,10 +16,8 @@ pub(super) struct Buf {
     used: u64,
     /// Transform-analogue registration order (`root.helpers`).
     preferred: StdVec<Helper>,
-    /// First `use_*` order (`used_helpers`). Same-rank leftovers follow
-    /// this, not `Helper::ALL`, so a builtin tag used before `withCtx`
-    /// stays before it (`Transition` then `withCtx`; nested `KeepAlive`
-    /// after the parent's `withCtx`).
+    /// First `use_*` order (`used_helpers`), with modifier and normalize
+    /// helpers reordered by final alias use to match shipped output.
     used_order: StdVec<Helper>,
     /// Compact static-props / vnode RHS values, `_hoisted_1` first.
     hoists: StdVec<String>,
@@ -294,29 +295,6 @@ impl Buf {
         self.push_hoist(object)
     }
 
-    fn ordered_helpers(&self) -> StdVec<Helper> {
-        let mut listed = StdVec::new();
-        let mut bits = 0u64;
-        let mut push = |helper: Helper| {
-            if self.used & helper.bit() == 0 || bits & helper.bit() != 0 {
-                return;
-            }
-            bits |= helper.bit();
-            listed.push(helper);
-        };
-        for helper in self.preferred.iter().copied() {
-            push(helper);
-        }
-        for helper in self.used_order.iter().copied() {
-            push(helper);
-        }
-        for helper in Helper::ALL {
-            push(helper);
-        }
-        listed.sort_by_key(|helper| helper.rank());
-        listed
-    }
-
     /// Function-mode preamble, helpers in import-rank order, then any
     /// root static-props hoist (the shipped codegen appends hoists to
     /// the helper preamble).
@@ -348,3 +326,6 @@ impl Buf {
         preamble
     }
 }
+
+#[cfg(test)]
+mod tests;
