@@ -340,29 +340,3 @@ fn emit_call(
     cx.buf.push(")");
     Ok(())
 }
-
-fn has_nested_component_key_props(region: &Region<'_>) -> bool {
-    region.ops.iter().any(|op| match op {
-        Op::Element(element) => has_nested_component_key_props(&element.children),
-        Op::Component(component) => {
-            has_component_key_prop(component) || has_nested_component_key_props(&component.children)
-        }
-        Op::If(if_op) => if_op
-            .branches
-            .iter()
-            .any(|branch| has_nested_component_key_props(&branch.region)),
-        Op::For(for_op) => has_nested_component_key_props(&for_op.region),
-        Op::Slot(slot) => has_nested_component_key_props(&slot.fallback),
-        Op::Text(_) | Op::Interpolation(_) => false,
-    })
-}
-
-fn has_component_key_prop(component: &ComponentOp<'_>) -> bool {
-    component.attributes.iter().any(|attr| attr.name == "key")
-        || component.bindings.iter().any(|binding| {
-            matches!(
-                binding,
-                BindingOp::Bind(bind) if matches!(bind.name, Some(DynamicName::Static("key")))
-            )
-        })
-}
