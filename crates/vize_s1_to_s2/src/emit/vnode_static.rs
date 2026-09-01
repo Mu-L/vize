@@ -1,7 +1,7 @@
 //! Static child vnode hoist gates for native element emission.
 
 use vize_davinci::id::NodeId;
-use vize_s2::op::ElementOp;
+use vize_s2::op::{ElementOp, Op};
 
 use super::EmitCx;
 use crate::pass::StaticLevel;
@@ -19,9 +19,20 @@ pub(super) fn should_hoist_static_children(
     if !requested {
         return false;
     }
+    if has_direct_interpolation_child(element) {
+        return false;
+    }
     if branch_root || for_item {
         return true;
     }
     id.and_then(|id| cx.facts.static_facts.get(id))
         .is_some_and(|fact| fact.level == StaticLevel::NotStatic)
+}
+
+fn has_direct_interpolation_child(element: &ElementOp<'_>) -> bool {
+    element
+        .children
+        .ops
+        .iter()
+        .any(|op| matches!(op, Op::Interpolation(_)))
 }
