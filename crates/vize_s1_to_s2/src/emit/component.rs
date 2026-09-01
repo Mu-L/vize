@@ -1,10 +1,4 @@
-//! Static-name component emission (`resolveComponent` / `createVNode` /
-//! `createBlock`) plus slot objects from [`SlotFacts`] (implicit
-//! default, named `<template>` groups, component-root `v-slot`) and
-//! `createSlots` for `v-if` / `v-for` slot templates, the `v-slots`
-//! spread, Vue builtins, and `<component :is>`
-//! (`resolveDynamicComponent`).
-
+//! Component emission, including slots, builtins, and dynamic components.
 mod checks;
 mod preamble;
 
@@ -199,6 +193,7 @@ fn emit_call(
             dynamic_values: false,
             non_key: hoist_attrs.iter().any(|attr| attr.name != "key"),
             valued_prop: hoist_attrs.iter().any(|attr| attr.value.is_some()),
+            all_static_binds: false,
         })
     } else {
         props_static::component_hoist_props(&component.attributes, &component.bindings)?
@@ -215,8 +210,14 @@ fn emit_call(
     }
     let hoist_static_props_in_static_vnode_context =
         cx.hoist_static_vnodes && slots::has_text_only_implicit_default(&component.children);
-    let static_props_hoist_context =
-        hoist_static_props_in_static_vnode_context || cx.slot_param_depth > 0 || cx.in_v_for;
+    let hoist_static_props_in_loop_context = cx.in_v_for
+        && (slots::has_text_only_implicit_default(&component.children)
+            || hoistable_static_props
+                .as_ref()
+                .is_some_and(|props| props.all_static_binds));
+    let static_props_hoist_context = hoist_static_props_in_static_vnode_context
+        || hoist_static_props_in_loop_context
+        || cx.slot_param_depth > 0;
     let can_hoist_static_props = !has_custom
         && !for_item
         && if_key.is_none()
