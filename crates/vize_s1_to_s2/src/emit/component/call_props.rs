@@ -2,7 +2,7 @@ use alloc::vec::Vec as StdVec;
 
 use vize_davinci::id::NodeId;
 use vize_s0::String;
-use vize_s2::op::{Attribute, BindingOp, ComponentOp};
+use vize_s2::op::{Attribute, BindingOp, ComponentOp, DynamicName, Op, Region};
 
 use super::super::EmitCx;
 use super::super::hoist::compact_props_object;
@@ -62,6 +62,7 @@ pub(super) fn can_hoist_static_props(
     id: Option<NodeId>,
     blocked_by_context: bool,
     has_slots: bool,
+    creates_slots: bool,
     props: Option<&ComponentHoistProps>,
 ) -> bool {
     let Some(props) = props else {
@@ -72,8 +73,12 @@ pub(super) fn can_hoist_static_props(
     }
     let text_only_default = slots::has_text_only_implicit_default(&component.children);
     let has_runtime_directive = directive::has_runtime(&component.bindings);
+    let nested_slot_key = cx.slot_param_depth > 0
+        && (has_slots || creates_slots)
+        && has_nested_component_key(&component.children);
     let loop_or_scoped_slot_hoist = (cx.in_v_for || cx.slot_param_depth > 0)
-        && (text_only_default || (props.all_static_binds && !has_runtime_directive));
+        && (text_only_default
+            || (props.all_static_binds && !has_runtime_directive && !nested_slot_key));
     let hoist_context = (cx.hoist_static_vnodes && text_only_default) || loop_or_scoped_slot_hoist;
     let is_template_for_root = id.is_some_and(|id| cx.template_for_item_root_id == Some(id));
     let dynamic_props_hoistable = !props.dynamic_values || !has_slots || text_only_default;
@@ -98,6 +103,32 @@ pub(super) fn can_hoist_static_props(
             && cx.slot_param_depth == 0
             && !cx.in_v_for
             && dynamic_props_hoistable)
+}
+
+fn has_nested_component_key(region: &Region<'_>) -> bool {
+    region.ops.iter().any(|op| match op {
+        Op::Element(element) => has_nested_component_key(&element.children),
+        Op::Component(component) => {
+            has_component_key(component) || has_nested_component_key(&component.children)
+        }
+        Op::If(if_op) => if_op
+            .branches
+            .iter()
+            .any(|branch| has_nested_component_key(&branch.region)),
+        Op::For(for_op) => has_nested_component_key(&for_op.region),
+        Op::Slot(slot) => has_nested_component_key(&slot.fallback),
+        Op::Text(_) | Op::Interpolation(_) => false,
+    })
+}
+
+fn has_component_key(component: &ComponentOp<'_>) -> bool {
+    component.attributes.iter().any(|attr| attr.name == "key")
+        || component.bindings.iter().any(|binding| {
+            matches!(
+                binding,
+                BindingOp::Bind(bind) if matches!(bind.name, Some(DynamicName::Static("key")))
+            )
+        })
 }
 
 pub(super) fn emit_dynamic_props(cx: &mut EmitCx<'_>, names: &[String]) {

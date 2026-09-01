@@ -201,6 +201,7 @@ fn emit_call(
         id,
         static_props_hoist_blocked,
         has_slots,
+        create,
         hoistable_static_props.as_ref(),
     );
     let foreign_static_props = id

@@ -77,6 +77,10 @@ const BATTERY: &[(&str, &str)] = &[
         "template_for_component_bind_props_keep_shipped_order_before_later_static_props",
         r#"<a-form><a-row :gutter="24"><template v-for="i in 10" :key="i"><a-col v-show="expand || i <= 6" :span="8"><a-form-item><a-input /></a-form-item></a-col></template></a-row><a-row><a-col :span="24" style="text-align: right"><a-button type="primary" html-type="submit">Search</a-button></a-col></a-row></a-form>"#,
     ),
+    (
+        "scoped_slot_component_static_bind_props_wait_for_keyed_children",
+        r#"<a-tree><template #title="{ key }"><a-dropdown :trigger="['contextmenu']"><template #overlay><a-menu><a-menu-item key="1">one</a-menu-item><a-menu-item key="2">two</a-menu-item></a-menu></template><span>{{ key }}</span></a-dropdown></template></a-tree>"#,
+    ),
 ];
 
 #[test]
