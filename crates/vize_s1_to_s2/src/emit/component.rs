@@ -179,6 +179,7 @@ fn emit_call(
         .iter()
         .any(|attr| !skip_is || attr.name != "is");
     let has_custom = directive::has_custom(&component.bindings);
+    let has_runtime = directive::has_runtime(&component.bindings);
     let hoist_attrs: StdVec<_> = component
         .attributes
         .iter()
@@ -200,6 +201,7 @@ fn emit_call(
     };
     if for_item
         && !has_custom
+        && !has_runtime
         && cx.slot_param_depth == 0
         && let Some(props) = hoistable_static_props.as_ref()
         && props.non_key
@@ -213,7 +215,7 @@ fn emit_call(
         && (text_only_default
             || hoistable_static_props
                 .as_ref()
-                .is_some_and(|props| props.all_static_binds));
+                .is_some_and(|props| props.all_static_binds && !has_runtime));
     let static_props_hoist_context =
         (cx.hoist_static_vnodes && text_only_default) || loop_or_scoped_slot_hoist;
     let can_hoist_static_props = !has_custom
@@ -260,7 +262,7 @@ fn emit_call(
         if patch.dynamic_props.is_empty() {
             patch.flag &= !8;
         }
-        if directive::has_runtime(&component.bindings) && patch.flag & (2 | 4 | 8 | 16) == 0 {
+        if has_runtime && patch.flag & (2 | 4 | 8 | 16) == 0 {
             patch.flag |= 512;
         }
     }
