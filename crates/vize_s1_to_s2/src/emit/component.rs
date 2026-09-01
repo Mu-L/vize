@@ -213,8 +213,10 @@ fn emit_call(
     {
         cx.buf.push_hoist(props.source.clone());
     }
+    let hoist_static_props_in_static_vnode_context =
+        cx.hoist_static_vnodes && slots::has_text_only_implicit_default(&component.children);
     let static_props_hoist_context =
-        cx.hoist_static_vnodes || cx.slot_param_depth > 0 || cx.in_v_for;
+        hoist_static_props_in_static_vnode_context || cx.slot_param_depth > 0 || cx.in_v_for;
     let can_hoist_static_props = !has_custom
         && !for_item
         && if_key.is_none()
