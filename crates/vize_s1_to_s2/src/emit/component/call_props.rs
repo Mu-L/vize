@@ -7,7 +7,7 @@ use vize_s2::op::{Attribute, BindingOp, ComponentOp, DynamicName, Op, Region};
 use super::super::EmitCx;
 use super::super::hoist::compact_props_object;
 use super::super::props_static::ComponentHoistProps;
-use super::super::{EmitError, builtin, directive, outlet, props_static, slots};
+use super::super::{EmitError, builtin, directive, props_static, slots};
 
 pub(super) fn has_rendered_binds(component: &ComponentOp<'_>, skip_is: bool) -> bool {
     component.bindings.iter().any(|binding| {
@@ -82,9 +82,7 @@ pub(super) fn can_hoist_static_props(
     let hoist_context = (cx.hoist_static_vnodes && text_only_default) || loop_or_scoped_slot_hoist;
     let is_template_for_root = id.is_some_and(|id| cx.template_for_item_root_id == Some(id));
     let dynamic_props_hoistable = !props.dynamic_values || !has_slots || text_only_default;
-    let transition_props_slot_hoist = matches!(component.name, "Transition" | "transition")
-        && has_slots
-        && outlet::has_forwarded_outlet(&component.children);
+    let transition_props_slot_hoist = transition_props_slot_hoist(component, has_slots);
     (!is_template_for_root
         && dynamic_props_hoistable
         && props_static::should_hoist(cx, id, props_static::PropHoistPosition::Nested))
@@ -129,6 +127,16 @@ fn has_component_key(component: &ComponentOp<'_>) -> bool {
                 BindingOp::Bind(bind) if matches!(bind.name, Some(DynamicName::Static("key")))
             )
         })
+}
+
+pub(super) fn transition_props_slot_hoist(component: &ComponentOp<'_>, has_slots: bool) -> bool {
+    matches!(component.name, "Transition" | "transition")
+        && has_slots
+        && has_direct_slot_outlet(&component.children)
+}
+
+fn has_direct_slot_outlet(region: &Region<'_>) -> bool {
+    region.ops.iter().any(|op| matches!(op, Op::Slot(_)))
 }
 
 pub(super) fn emit_dynamic_props(cx: &mut EmitCx<'_>, names: &[String]) {

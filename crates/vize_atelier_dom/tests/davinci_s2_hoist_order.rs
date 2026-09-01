@@ -81,6 +81,10 @@ const BATTERY: &[(&str, &str)] = &[
         "scoped_slot_component_static_bind_props_wait_for_keyed_children",
         r#"<a-tree><template #title="{ key }"><a-dropdown :trigger="['contextmenu']"><template #overlay><a-menu><a-menu-item key="1">one</a-menu-item><a-menu-item key="2">two</a-menu-item></a-menu></template><span>{{ key }}</span></a-dropdown></template></a-tree>"#,
     ),
+    (
+        "transition_forwarded_slot_static_props_wait_for_fallback_hoists",
+        r#"<div class="container"><svg><path d="M0 0z" /></svg><Transition name="fade"><div v-if="open" class="content"><slot /></div></Transition></div>"#,
+    ),
 ];
 
 #[test]

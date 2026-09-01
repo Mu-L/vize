@@ -152,8 +152,7 @@ fn emit_call(
         !array && !has_slots && slots::filler_default_needs_props_placeholder(&component.children);
     let dynamic_names = create || facts.is_some_and(slots::has_dynamic_names) || spread.is_some();
     let transition_slot_root = builtin::transition_slot_root(component.name);
-    let transition_props_slot_hoist =
-        matches!(component.name, "Transition" | "transition") && has_slots && forwards_slot;
+    let transition_props_slot_hoist = call_props::transition_props_slot_hoist(component, has_slots);
     let alias = if block {
         Buf::create_block_alias()
     } else {
