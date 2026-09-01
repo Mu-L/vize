@@ -61,6 +61,10 @@ const BATTERY: &[(&str, &str)] = &[
         "dialog_content_static_props_stay_inline_before_slot_child_hoists",
         r#"<slot v-bind="{ hasPermissions }" /><DialogRoot :open="showDialog"><DialogPortal><DialogOverlay class="fixed inset-0" /><DialogContent flex="~ col items-start gap-4" class="fixed left-1/2 top-1/2"><DialogTitle class="m-0 text-lg font-semibold">{{ title }}</DialogTitle><DialogDescription>{{ body }}<ol mt-4 list-decimal pl-5 text-sm><li>one</li></ol></DialogDescription></DialogContent></DialogPortal></DialogRoot>"#,
     ),
+    (
+        "for_component_child_hoists_keep_avatar_props_order",
+        r#"<div v-for="(author, index) of authors" :key="index"><AvatarRoot class="size-10 inline-flex select-none items-center justify-center overflow-hidden rounded-full bg-neutral-100 align-middle dark:bg-neutral-800"><AvatarImage class="h-full w-full rounded-[inherit] object-cover" :src="author.avatar || author.avatarFallback" :alt="`${author.displayName}'s avatar`" /><AvatarFallback class="h-full w-full flex items-center justify-center bg-white text-sm text-primary font-medium leading-1 dark:bg-neutral-800 dark:text-neutral-300" :delay-ms="600" as-child>{{ [author.displayName.charAt(0).toUpperCase(), author.displayName.charAt(1).toUpperCase()].join('') }}</AvatarFallback></AvatarRoot></div>"#,
+    ),
 ];
 
 #[test]
