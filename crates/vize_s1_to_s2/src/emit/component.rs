@@ -1,5 +1,4 @@
 //! Component emission, including slots, builtins, and dynamic components.
-
 mod checks;
 mod preamble;
 
