@@ -19,7 +19,7 @@ pub(super) fn should_hoist_static_children(
     if !requested {
         return false;
     }
-    if has_direct_interpolation_child(element) {
+    if branch_root && has_direct_interpolation_child(element) {
         return false;
     }
     if branch_root || for_item {
