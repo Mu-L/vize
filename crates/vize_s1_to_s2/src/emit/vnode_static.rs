@@ -14,12 +14,12 @@ pub(super) fn should_hoist_static_children(
     branch_root: bool,
     for_item: bool,
 ) -> bool {
+    if branch_root && cx.template_if_branch_root && has_direct_interpolation_child(element) {
+        return false;
+    }
     let requested =
         cx.hoist_static_vnodes || (allow_hoist && (branch_root || !element.bindings.is_empty()));
     if !requested {
-        return false;
-    }
-    if branch_root && has_direct_interpolation_child(element) {
         return false;
     }
     if branch_root || for_item {

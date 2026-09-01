@@ -5,9 +5,11 @@
 //! two spread kinds mix. The `, true` is Vue's `handlerOnly` flag — the
 //! shipped `generate_von_object_exp` always emits it.
 
+mod args;
+
 use alloc::vec::Vec as StdVec;
 
-use vize_s0::String;
+use vize_s0::{Span, String};
 use vize_s2::expr::ExprRef;
 use vize_s2::op::{Attribute, BindOp, BindingOp, OnOp};
 
@@ -17,10 +19,11 @@ use super::UnsupportedReason as Reason;
 use super::buf::Buf;
 use super::on::{event_key_for, needs_hydration};
 use super::props::{
-    BindName, Patch, Piece, StaticBindKeyCasing, bind_name, bind_value,
+    BindName, Patch, PropsObjectOptions, StaticBindKeyCasing, bind_name, bind_value,
     bind_value_is_static_patchless, emit_props_object, has_prop_modifier, is_emitted_key_bind,
-    pieces, static_bind_key,
+    static_bind_key,
 };
+use args::{Arg, force_multiline_object_arg, key_and_bind_spread, lone_kind_spread, merge_args};
 
 pub(super) fn has_object_spread(bindings: &[BindingOp<'_>]) -> bool {
     bindings.iter().any(|binding| match binding {
@@ -140,7 +143,13 @@ pub(super) fn emit_spread_props(
     for_item: bool,
     is_plain_element: bool,
 ) -> Result<(), EmitError> {
-    let args = merge_args(attributes, bindings, if_key, skip_is)?;
+    let args = merge_args(
+        attributes,
+        bindings,
+        if_key,
+        skip_is,
+        cx.suppress_template_for_child_key,
+    )?;
     if let Some(lone) = lone_kind_spread(&args) {
         return match lone {
             Arg::BindSpread(bind) => emit_normalize_guard(cx, bind),
@@ -148,7 +157,7 @@ pub(super) fn emit_spread_props(
             Arg::Object { .. } => Err(EmitError::unsupported(Reason::LoneObjectArgument)),
         };
     }
-    let normalize_keyed_bind_spread = key_and_bind_spread(&args);
+    let normalize_keyed_bind_spread = !for_item && key_and_bind_spread(&args);
     if normalize_keyed_bind_spread {
         cx.buf.use_normalize_props();
         cx.buf.use_guard_reactive_props();
@@ -163,17 +172,22 @@ pub(super) fn emit_spread_props(
             cx.buf.push(", ");
         }
         match arg {
-            Arg::BindSpread(bind) => bind_value(bind)?.emit(cx),
+            Arg::BindSpread(bind) => bind_value(bind)?.emit_authored(cx, bind),
             Arg::OnSpread(on) => emit_to_handlers(cx, on)?,
-            Arg::Object { if_key, pieces } => {
+            Arg::Object { if_key, pieces, .. } => {
+                let force_multiline = force_multiline_object_arg(&args, i, pieces, for_item);
                 emit_props_object(
                     cx,
                     pieces,
-                    *if_key,
-                    true,
-                    for_item,
-                    is_plain_element,
-                    for_item,
+                    PropsObjectOptions {
+                        if_key: *if_key,
+                        skip_normalize: true,
+                        empty_key_multiline: for_item,
+                        is_plain_element,
+                        for_item,
+                        suppress_once_cache_dynamic: false,
+                        force_multiline,
+                    },
                 )?;
             }
         }
@@ -185,90 +199,6 @@ pub(super) fn emit_spread_props(
     Ok(())
 }
 
-/// Every arg is the same spread kind (all binds, or all ons). Vue keeps
-/// only the first of that kind when nothing else is present.
-fn lone_kind_spread<'a>(args: &'a [Arg<'a>]) -> Option<&'a Arg<'a>> {
-    if args.is_empty() {
-        return None;
-    }
-    let all_bind = args.iter().all(|arg| matches!(arg, Arg::BindSpread(_)));
-    let all_on = args.iter().all(|arg| matches!(arg, Arg::OnSpread(_)));
-    if all_bind || all_on {
-        args.first()
-    } else {
-        None
-    }
-}
-
-fn key_and_bind_spread(args: &[Arg<'_>]) -> bool {
-    matches!(
-        args,
-        [
-            Arg::Object {
-                if_key: Some(_),
-                pieces,
-            },
-            Arg::BindSpread(_),
-        ] if pieces.is_empty()
-    )
-}
-
-enum Arg<'a> {
-    Object {
-        if_key: Option<&'a str>,
-        pieces: StdVec<Piece<'a>>,
-    },
-    BindSpread(&'a BindOp<'a>),
-    OnSpread(&'a OnOp<'a>),
-}
-
-fn merge_args<'a>(
-    attributes: &'a [Attribute<'a>],
-    bindings: &'a [BindingOp<'a>],
-    if_key: Option<&'a str>,
-    skip_is: bool,
-) -> Result<StdVec<Arg<'a>>, EmitError> {
-    let mut args = StdVec::new();
-    let mut current = StdVec::new();
-    for piece in pieces(attributes, bindings, skip_is)? {
-        match piece {
-            Piece::Bind(bind) if bind.name.is_none() => {
-                flush_object(&mut args, &mut current);
-                args.push(Arg::BindSpread(bind));
-            }
-            Piece::On(on) if on.name.is_none() => {
-                flush_object(&mut args, &mut current);
-                args.push(Arg::OnSpread(on));
-            }
-            other => current.push(other),
-        }
-    }
-    flush_object(&mut args, &mut current);
-    if if_key.is_some() {
-        match args.first_mut() {
-            Some(Arg::Object { if_key: slot, .. }) => *slot = if_key,
-            _ => args.insert(
-                0,
-                Arg::Object {
-                    if_key,
-                    pieces: StdVec::new(),
-                },
-            ),
-        }
-    }
-    Ok(args)
-}
-
-fn flush_object<'a>(args: &mut StdVec<Arg<'a>>, current: &mut StdVec<Piece<'a>>) {
-    if current.is_empty() {
-        return;
-    }
-    args.push(Arg::Object {
-        if_key: None,
-        pieces: core::mem::take(current),
-    });
-}
-
 fn emit_normalize_guard(cx: &mut EmitCx<'_>, bind: &BindOp<'_>) -> Result<(), EmitError> {
     let value = bind_value(bind)?;
     cx.buf.use_normalize_props();
@@ -277,7 +207,7 @@ fn emit_normalize_guard(cx: &mut EmitCx<'_>, bind: &BindOp<'_>) -> Result<(), Em
     cx.buf.push("(");
     cx.buf.push(Buf::guard_reactive_props_alias());
     cx.buf.push("(");
-    value.emit(cx);
+    value.emit_authored(cx, bind);
     cx.buf.push("))");
     Ok(())
 }
@@ -296,7 +226,58 @@ fn emit_to_handlers(cx: &mut EmitCx<'_>, on: &OnOp<'_>) -> Result<(), EmitError>
     cx.buf.use_to_handlers();
     cx.buf.push(Buf::to_handlers_alias());
     cx.buf.push("(");
-    cx.buf.push(source.as_str());
+    if let Some((leading, trailing)) = authored_object_on_padding(
+        cx.source,
+        on.span,
+        source.as_str(),
+        on.handler.map(|expr| expr.span()).unwrap_or(on.span),
+    ) {
+        cx.buf.push(leading);
+        cx.buf.push(source.as_str());
+        cx.buf.push(trailing);
+    } else {
+        cx.buf.push(source.as_str());
+    }
     cx.buf.push(", true)");
     Ok(())
+}
+
+fn authored_object_on_padding<'a>(
+    source: &'a str,
+    on_span: Span,
+    value: &str,
+    value_span: Span,
+) -> Option<(&'a str, &'a str)> {
+    let attr_start = usize::try_from(on_span.start).ok()?;
+    let attr_end = usize::try_from(on_span.end).ok()?;
+    let value_start = usize::try_from(value_span.start).ok()?;
+    let value_end = usize::try_from(value_span.end).ok()?;
+    if attr_start > value_start
+        || value_start > value_end
+        || value_end > attr_end
+        || attr_end > source.len()
+        || source.get(value_start..value_end)? != value
+    {
+        return None;
+    }
+    let before = source.get(attr_start..value_start)?;
+    let quote_pos = before
+        .as_bytes()
+        .iter()
+        .rposition(|byte| matches!(*byte, b'\'' | b'"'))?;
+    let quote = before.as_bytes()[quote_pos];
+    let leading = before.get(quote_pos + 1..)?;
+    let after = source.get(value_end..attr_end)?;
+    let trailing_end = after
+        .as_bytes()
+        .iter()
+        .position(|byte| *byte == quote)
+        .unwrap_or(after.len());
+    let trailing = after.get(..trailing_end)?;
+    if leading.is_empty() && trailing.is_empty() {
+        return None;
+    }
+    (leading.bytes().all(|byte| byte.is_ascii_whitespace())
+        && trailing.bytes().all(|byte| byte.is_ascii_whitespace()))
+    .then_some((leading, trailing))
 }

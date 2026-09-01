@@ -1,8 +1,12 @@
 //! Component emission, including slots, builtins, and dynamic components.
+
+mod call_props;
 mod checks;
 mod preamble;
 
-use alloc::vec::Vec as StdVec;
+use call_props::{
+    emit_dynamic_props, has_rendered_attrs, has_rendered_binds, rendered_hoist_attrs,
+};
 use checks::{admit, has_dynamic_key_binding};
 
 use vize_davinci::id::NodeId;
@@ -17,9 +21,11 @@ use super::children::children_need_text_flag;
 use super::create_slots;
 use super::directive;
 use super::flag::emit_patch_flag;
-use super::hoist::compact_props_object;
 use super::js::asset_ident;
-use super::props::{apply_static_ref_patch, bind_patch, emit_bind_props};
+use super::props::{
+    BindPropsOptions, apply_static_ref_patch, bind_patch, emit_bind_props,
+    prune_legacy_patchless_dynamic_props,
+};
 use super::props_static;
 use super::slots;
 
@@ -101,9 +107,6 @@ pub(super) fn emit_if_branch(
     key: &str,
     id: Option<NodeId>,
 ) -> Result<(), EmitError> {
-    if super::once::has(&component.bindings) {
-        return super::once::emit_component(cx, component, Some(key), false, id);
-    }
     emit_block(cx, component, Some(key), false, id)
 }
 
@@ -113,9 +116,6 @@ pub(super) fn emit_for_item(
     id: Option<NodeId>,
     key: Option<&str>,
 ) -> Result<(), EmitError> {
-    if super::once::has(&component.bindings) {
-        return super::once::emit_component(cx, component, key, true, id);
-    }
     if let Some(memo) = super::memo::first(&component.bindings)
         && !cx.skip_memo
     {
@@ -147,8 +147,13 @@ fn emit_call(
     }
     let has_array = array && slots::has_implicit_default(&component.children);
     let has_slots = !array && (facts.is_some() || create || spread.is_some());
+    let forwards_slot = super::outlet::has_forwarded_outlet(&component.children);
+    let filler_default_props_placeholder =
+        !array && !has_slots && slots::filler_default_needs_props_placeholder(&component.children);
     let dynamic_names = create || facts.is_some_and(slots::has_dynamic_names) || spread.is_some();
     let transition_slot_root = builtin::transition_slot_root(component.name);
+    let transition_props_slot_hoist =
+        matches!(component.name, "Transition" | "transition") && has_slots && forwards_slot;
     let alias = if block {
         Buf::create_block_alias()
     } else {
@@ -165,40 +170,19 @@ fn emit_call(
             .push(asset_ident("component", component.name).as_str());
     }
     let skip_is = builtin::is_dynamic_component(component);
-    let has_binds = component.bindings.iter().any(|binding| {
-        !(matches!(binding, BindingOp::SlotContent(_))
-            || slots::is_slots_spread(binding)
-            || directive::is_runtime(binding)
-            || super::memo::is_memo(binding)
-            || super::once::is_once(binding)
-            || matches!(binding, BindingOp::VueCloak(_))
-            || (skip_is && builtin::is_is_bind(binding)))
-    });
-    let has_attrs = component
-        .attributes
-        .iter()
-        .any(|attr| !skip_is || attr.name != "is");
+    let has_binds = has_rendered_binds(component, skip_is);
+    let has_attrs = has_rendered_attrs(component, skip_is);
     let has_custom = directive::has_custom(&component.bindings);
     let has_runtime = directive::has_runtime(&component.bindings);
-    let hoist_attrs: StdVec<_> = component
-        .attributes
+    let has_component_root_slot = component
+        .bindings
         .iter()
-        .filter(|attr| !skip_is || attr.name != "is")
-        .collect();
-    let has_hoist_attrs = !hoist_attrs.is_empty();
+        .any(|binding| matches!(binding, BindingOp::SlotContent(_)));
+    let hoist_attrs = rendered_hoist_attrs(component, skip_is);
     let static_nested = builtin::has_static_nested(&component.children);
     let builtin_helper = builtin::helper(component.name).is_some();
-    let hoistable_static_props = if skip_is {
-        has_hoist_attrs.then(|| props_static::ComponentHoistProps {
-            source: compact_props_object(hoist_attrs.iter().copied()),
-            dynamic_values: false,
-            non_key: hoist_attrs.iter().any(|attr| attr.name != "key"),
-            valued_prop: hoist_attrs.iter().any(|attr| attr.value.is_some()),
-            all_static_binds: false,
-        })
-    } else {
-        props_static::component_hoist_props(&component.attributes, &component.bindings)?
-    };
+    let hoistable_static_props =
+        call_props::hoistable_static_props(component, skip_is, &hoist_attrs)?;
     if for_item
         && !has_custom
         && !has_runtime
@@ -210,30 +194,22 @@ fn emit_call(
     {
         cx.buf.push_hoist(props.source.clone());
     }
-    let text_only_default = slots::has_text_only_implicit_default(&component.children);
-    let loop_or_scoped_slot_hoist = (cx.in_v_for || cx.slot_param_depth > 0)
-        && (text_only_default
-            || hoistable_static_props
-                .as_ref()
-                .is_some_and(|props| props.all_static_binds && !has_runtime));
-    let static_props_hoist_context =
-        (cx.hoist_static_vnodes && text_only_default) || loop_or_scoped_slot_hoist;
-    let can_hoist_static_props = !has_custom
-        && !for_item
-        && if_key.is_none()
-        && hoistable_static_props.is_some()
-        && hoistable_static_props.as_ref().is_some_and(|props| {
-            props_static::should_hoist(cx, id, props_static::PropHoistPosition::Nested)
-                || (!props.dynamic_values && props.valued_prop && static_props_hoist_context)
-                || (props.dynamic_values
-                    && cx.slot_param_depth == 0
-                    && !cx.in_v_for
-                    && (!cx.hoist_static_vnodes
-                        || !has_slots
-                        || slots::has_text_only_implicit_default(&component.children)))
-        });
+    let static_props_hoist_blocked = has_custom || for_item || if_key.is_some();
+    let can_hoist_static_props = call_props::can_hoist_static_props(
+        cx,
+        component,
+        id,
+        static_props_hoist_blocked,
+        has_slots,
+        hoistable_static_props.as_ref(),
+    );
+    let foreign_static_props = id
+        .and_then(|id| cx.facts.static_facts.get(id))
+        .is_some_and(|fact| fact.foreign && fact.props_hoistable);
     let hoisted_static_props = if can_hoist_static_props
-        && ((!array && (facts.is_some() || create) && (!builtin_helper || static_nested))
+        && ((!array
+            && (facts.is_some() || create || foreign_static_props)
+            && (!builtin_helper || static_nested || transition_props_slot_hoist))
             || (array && static_nested))
     {
         Some(
@@ -248,12 +224,21 @@ fn emit_call(
     } else {
         None
     };
-    let unused_hoist = hoisted_static_props.is_none() && can_hoist_static_props && static_nested;
+    let branch_unused_hoist = !has_custom
+        && !for_item
+        && if_key.is_some()
+        && cx.template_if_branch_root
+        && hoistable_static_props.is_some()
+        && static_nested;
+    let unused_hoist = hoisted_static_props.is_none()
+        && ((can_hoist_static_props && static_nested) || branch_unused_hoist);
     if unused_hoist {
         cx.buf.push_hoist(
             hoistable_static_props
+                .as_ref()
                 .expect("checked hoisted props")
-                .source,
+                .source
+                .clone(),
         );
     }
     let mut patch = bind_patch(&component.bindings, true, if_key, for_item);
@@ -266,6 +251,12 @@ fn emit_call(
             patch.flag |= 512;
         }
     }
+    if has_slots {
+        prune_legacy_patchless_dynamic_props(&component.bindings, &mut patch.dynamic_props);
+        if patch.dynamic_props.is_empty() {
+            patch.flag &= !8;
+        }
+    }
     let mut flag = patch.flag;
     if array && children_need_text_flag(&component.children) {
         flag |= 1;
@@ -273,7 +264,7 @@ fn emit_call(
     if (cx.in_v_for && has_slots)
         || dynamic_names
         || builtin::always_dynamic_slots(component.name)
-        || (cx.slot_param_depth > 0 && super::outlet::has_forwarded_outlet(&component.children))
+        || (cx.slot_param_depth > 0 && forwards_slot)
     {
         flag |= 1024;
     }
@@ -291,14 +282,19 @@ fn emit_call(
             cx,
             &component.attributes,
             &component.bindings,
-            if_key,
-            skip_is,
-            for_item,
-            false,
+            BindPropsOptions {
+                if_key,
+                skip_is,
+                for_item,
+                is_plain_element: false,
+                once_layout: false,
+                once_cache_initializer: false,
+                force_multiline: for_item && if_key.is_some() && has_component_root_slot,
+            },
         )?;
     } else if for_item && directive::has_custom(&component.bindings) {
         cx.buf.push(", { }");
-    } else if emit_flag || has_slots || has_array {
+    } else if emit_flag || has_slots || has_array || filler_default_props_placeholder {
         cx.buf.push(", null");
     }
     if array {
@@ -320,7 +316,13 @@ fn emit_call(
         cx.with_static_vnode_hoist(true, |cx| {
             let previous = cx.transition_slot_root;
             cx.transition_slot_root = previous || transition_slot_root;
-            let result = slots::emit_slots(cx, &component.children, facts, spread.as_ref());
+            let result = slots::emit_slots(
+                cx,
+                &component.children,
+                facts,
+                spread.as_ref(),
+                &component.bindings,
+            );
             cx.transition_slot_root = previous;
             result
         })?;
@@ -333,18 +335,7 @@ fn emit_call(
     if emit_flag {
         emit_patch_flag(cx, flag);
     }
-    if !patch.dynamic_props.is_empty() {
-        cx.buf.push(", [");
-        for (i, name) in patch.dynamic_props.iter().enumerate() {
-            if i > 0 {
-                cx.buf.push(", ");
-            }
-            cx.buf.push("\"");
-            cx.buf.push(name.as_str());
-            cx.buf.push("\"");
-        }
-        cx.buf.push("]");
-    }
+    emit_dynamic_props(cx, &patch.dynamic_props);
     cx.buf.push(")");
     Ok(())
 }

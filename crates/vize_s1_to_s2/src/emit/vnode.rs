@@ -1,20 +1,27 @@
 //! Static native HTML element / children emission.
 
 mod array_child;
+mod checks;
 
 pub(super) use array_child::emit_array_child;
 use vize_davinci::id::NodeId;
-use vize_s2::op::{BindingOp, ElementOp};
+use vize_s2::op::ElementOp;
 
 use super::buf::Buf;
 use super::children::children_need_text_flag;
 use super::directive;
 use super::flag::emit_patch_flag;
 use super::namespace;
-use super::props::{admit_element_bindings, apply_static_ref_patch, bind_patch, emit_bind_props};
+use super::props::{
+    BindPropsOptions, admit_element_bindings, apply_static_ref_patch, bind_patch, emit_bind_props,
+};
 use super::props_static::PropHoistPosition;
 use super::vnode_children::emit_children;
 use super::{EmitCx, EmitError};
+use checks::{
+    direct_static_children_hoisted, has_cloak, has_dynamic_key_binding, has_prop_bindings,
+    template_if_branch_root_has_direct_interpolation,
+};
 
 pub(super) fn emit_unique_element(
     cx: &mut EmitCx<'_>,
@@ -166,6 +173,7 @@ pub(super) fn emit_call(
 ) -> Result<(), EmitError> {
     admit_element_bindings(&element.attributes, &element.bindings)?;
     let (allow_hoist, id, prop_hoist) = hoist;
+    let once_layout = once || super::once::has(&element.bindings);
     let alias = if block {
         Buf::create_element_block_alias()
     } else {
@@ -195,7 +203,8 @@ pub(super) fn emit_call(
         && !force_array_children
         && !for_item
         && !cx.in_v_for
-        && cx.slot_param_depth == 0;
+        && cx.slot_param_depth == 0
+        && !template_if_branch_root_has_direct_interpolation(cx, element, if_key);
     let has_binds = has_prop_bindings(&element.bindings);
     let hoisted_props =
         if allow_hoist && if_key.is_none() && super::props_static::should_hoist(cx, id, prop_hoist)
@@ -223,6 +232,7 @@ pub(super) fn emit_call(
     }
     let omit_text_only = hoist && block && flag == 1;
     let emit_flag = flag != 0 && !omit_text_only;
+    let omit_empty_once_patch_child = once && !has_children && flag & !(2 | 4) == 0;
     let empty_runtime_for = for_item
         && (directive::has_runtime(&element.bindings) || has_cloak(&element.bindings))
         && !has_binds
@@ -240,14 +250,19 @@ pub(super) fn emit_call(
             cx,
             &element.attributes,
             &element.bindings,
-            if_key,
-            false,
-            for_item,
-            true,
+            BindPropsOptions {
+                if_key,
+                skip_is: false,
+                for_item,
+                is_plain_element: true,
+                once_layout,
+                once_cache_initializer: once,
+                force_multiline: false,
+            },
         )?;
     } else if !element.attributes.is_empty() {
         cx.buf.push(", ");
-        super::props_static::emit_inline(cx, element.attributes.iter());
+        super::props_static::emit_inline(cx, element.attributes.iter(), once_layout);
     } else if empty_runtime_for {
         cx.buf.push(", { }");
     } else if has_children || emit_flag {
@@ -255,16 +270,30 @@ pub(super) fn emit_call(
     }
     if has_children {
         cx.buf.push(", ");
-        namespace::with_child(cx, element, |cx| {
-            emit_children(
-                cx,
-                &element.children,
-                force_array_children,
-                hoist_static_children,
-                cache_static_children,
-            )
+        let template_if_branch_root = cx.template_if_branch_root;
+        cx.with_once_element(|cx| {
+            namespace::with_child(cx, element, |cx| {
+                let previous_template_if_branch_root = cx.template_if_branch_root;
+                let previous_suppress_template_for_child_key = cx.suppress_template_for_child_key;
+                if template_if_branch_root {
+                    cx.template_if_branch_root = false;
+                }
+                if previous_suppress_template_for_child_key {
+                    cx.suppress_template_for_child_key = false;
+                }
+                let result = emit_children(
+                    cx,
+                    &element.children,
+                    force_array_children,
+                    hoist_static_children,
+                    cache_static_children,
+                );
+                cx.template_if_branch_root = previous_template_if_branch_root;
+                cx.suppress_template_for_child_key = previous_suppress_template_for_child_key;
+                result
+            })
         })?;
-    } else if emit_flag {
+    } else if emit_flag && !omit_empty_once_patch_child {
         cx.buf.push(", null");
     }
     if emit_flag {
@@ -285,40 +314,4 @@ pub(super) fn emit_call(
     }
     cx.buf.push(")");
     Ok(())
-}
-
-fn has_prop_bindings(bindings: &[BindingOp<'_>]) -> bool {
-    bindings.iter().any(|binding| {
-        matches!(
-            binding,
-            BindingOp::Bind(_)
-                | BindingOp::On(_)
-                | BindingOp::Model(_)
-                | BindingOp::VueHtml(_)
-                | BindingOp::VueText(_)
-        )
-    })
-}
-
-fn has_cloak(bindings: &[BindingOp<'_>]) -> bool {
-    bindings
-        .iter()
-        .any(|binding| matches!(binding, BindingOp::VueCloak(_)))
-}
-
-fn has_dynamic_key_binding(element: &ElementOp<'_>) -> bool {
-    element.bindings.iter().any(|binding| {
-        matches!(
-            binding,
-            BindingOp::Bind(bind) if super::props_bind::is_key_bind_name(bind)
-        )
-    })
-}
-
-fn direct_static_children_hoisted(
-    cx: &EmitCx<'_>,
-    element: &ElementOp<'_>,
-    id: Option<NodeId>,
-) -> bool {
-    super::vnode_static::should_hoist_static_children(cx, element, id, true, false, false)
 }

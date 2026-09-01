@@ -1,8 +1,9 @@
 //! Static attrs plus static-name `ui.bind` / `ui.on` props / patch flags.
 
+mod static_expr;
+
 use alloc::vec::Vec as StdVec;
 
-use oxc_ast::ast::{Argument, ArrayExpressionElement, Expression, ObjectPropertyKind};
 use vize_s0::String;
 use vize_s2::op::{Attribute, BindingOp};
 
@@ -11,12 +12,16 @@ use super::EmitError;
 use super::UnsupportedReason as Reason;
 use super::buf::Buf;
 use super::on::{admit_on, event_key_for, needs_hydration};
+use static_expr::{
+    bind_value_uses_legacy_patchless_bounded_string_concat,
+    bind_value_uses_legacy_patchless_runtime_expr, is_static_bound_expr,
+};
 
 pub(super) use super::props_bind::{
     BindName, StaticBindKeyCasing, bind_name, emit_dynamic_bind_pair, has_prop_modifier,
     is_dynamic_bind_name, is_emitted_key_bind, js_value, static_bind_key,
 };
-pub(super) use super::props_object::{Piece, emit_props_object, pieces};
+pub(super) use super::props_object::{Piece, PropsObjectOptions, emit_props_object, pieces};
 pub(super) use super::props_value::bind_value;
 
 pub(super) struct Patch {
@@ -24,11 +29,15 @@ pub(super) struct Patch {
     pub dynamic_props: StdVec<String>,
 }
 
-pub(super) fn admit_bindings(
-    attributes: &[Attribute<'_>],
-    bindings: &[BindingOp<'_>],
-) -> Result<(), EmitError> {
-    admit_bindings_inner(attributes, bindings, false)
+#[derive(Clone, Copy, Default)]
+pub(super) struct BindPropsOptions<'a> {
+    pub if_key: Option<&'a str>,
+    pub skip_is: bool,
+    pub for_item: bool,
+    pub is_plain_element: bool,
+    pub once_layout: bool,
+    pub once_cache_initializer: bool,
+    pub force_multiline: bool,
 }
 
 pub(super) fn admit_element_bindings(
@@ -128,12 +137,19 @@ pub(super) fn bind_patch(
                 }
                 Ok(BindName::Static(raw_name)) => match raw_name {
                     "ref" => flag |= 512,
-                    "class" if bind_value_is_static_patchless(bind) => {}
+                    "class"
+                        if bind_value_is_static_patchless(bind)
+                            || bind_value_uses_legacy_patchless_runtime_expr(bind) => {}
                     "class" if !is_component => flag |= 2,
-                    "style" if bind_value_is_static_patchless(bind) => {}
+                    "style"
+                        if bind_value_is_static_patchless(bind)
+                            || bind_value_uses_legacy_patchless_runtime_expr(bind) => {}
                     "style" if !is_component => flag |= 4,
                     "key" => {}
-                    key if key.ends_with("Modifiers") || bind_value_is_static_patchless(bind) => {}
+                    key if key.ends_with("Modifiers")
+                        || bind_value_is_static_patchless(bind)
+                        || (!is_component
+                            && bind_value_uses_legacy_patchless_bounded_string_concat(bind)) => {}
                     _ => {
                         flag |= 8;
                         let Ok(key) = static_bind_key(bind, StaticBindKeyCasing::Preserve) else {
@@ -196,11 +212,32 @@ pub(super) fn bind_patch(
         flag |= 512;
     }
     if flag & 16 != 0 {
-        flag &= !8;
+        flag &= !(2 | 4 | 8);
     }
     Patch {
         flag,
         dynamic_props,
+    }
+}
+
+pub(super) fn prune_legacy_patchless_dynamic_props(
+    bindings: &[BindingOp<'_>],
+    dynamic_props: &mut StdVec<String>,
+) {
+    for binding in bindings.iter() {
+        let BindingOp::Bind(bind) = binding else {
+            continue;
+        };
+        if has_prop_modifier(bind) || !bind_value_uses_legacy_patchless_runtime_expr(bind) {
+            continue;
+        }
+        let Ok(BindName::Static(_)) = bind_name(bind) else {
+            continue;
+        };
+        let Ok(key) = static_bind_key(bind, StaticBindKeyCasing::Preserve) else {
+            continue;
+        };
+        dynamic_props.retain(|name| name.as_str() != key.as_str());
     }
 }
 
@@ -211,72 +248,21 @@ pub(super) fn bind_value_is_static_patchless(bind: &vize_s2::op::BindOp<'_>) -> 
     }
 }
 
-fn is_static_bound_expr(expr: &Expression<'_>) -> bool {
-    match unwrap_expr(expr) {
-        Expression::StringLiteral(_)
-        | Expression::BooleanLiteral(_)
-        | Expression::NullLiteral(_)
-        | Expression::NumericLiteral(_)
-        | Expression::BigIntLiteral(_)
-        | Expression::RegExpLiteral(_) => true,
-        Expression::TemplateLiteral(template) => template.expressions.is_empty(),
-        Expression::UnaryExpression(unary) => is_static_bound_expr(&unary.argument),
-        Expression::ArrayExpression(array) => array.elements.iter().all(static_array_element),
-        Expression::ObjectExpression(object) => object.properties.iter().all(|property| {
-            let ObjectPropertyKind::ObjectProperty(property) = property else {
-                return false;
-            };
-            !property.computed && is_static_bound_expr(&property.value)
-        }),
-        Expression::CallExpression(call)
-            if matches!(
-                &call.callee,
-                Expression::Identifier(ident)
-                    if matches!(ident.name.as_str(), "_normalizeClass" | "_normalizeStyle")
-            ) =>
-        {
-            call.arguments.iter().all(static_argument)
-        }
-        _ => false,
-    }
-}
-
-fn static_argument(argument: &Argument<'_>) -> bool {
-    match argument {
-        Argument::SpreadElement(_) => false,
-        _ => argument.as_expression().is_some_and(is_static_bound_expr),
-    }
-}
-
-fn static_array_element(element: &ArrayExpressionElement<'_>) -> bool {
-    match element {
-        ArrayExpressionElement::SpreadElement(_) => false,
-        ArrayExpressionElement::Elision(_) => true,
-        _ => element.as_expression().is_some_and(is_static_bound_expr),
-    }
-}
-
-fn unwrap_expr<'a>(mut expr: &'a Expression<'a>) -> &'a Expression<'a> {
-    loop {
-        match expr {
-            Expression::ParenthesizedExpression(paren) => expr = &paren.expression,
-            Expression::TSAsExpression(ts_as) => expr = &ts_as.expression,
-            Expression::TSNonNullExpression(ts_non_null) => expr = &ts_non_null.expression,
-            Expression::TSSatisfiesExpression(ts_satisfies) => expr = &ts_satisfies.expression,
-            _ => return expr,
-        }
-    }
-}
-
 pub(super) fn emit_bind_props(
     cx: &mut EmitCx<'_>,
     attributes: &[Attribute<'_>],
     bindings: &[BindingOp<'_>],
-    if_key: Option<&str>,
-    skip_is: bool,
-    for_item: bool,
-    is_plain_element: bool,
+    options: BindPropsOptions<'_>,
 ) -> Result<(), EmitError> {
+    let BindPropsOptions {
+        if_key,
+        skip_is,
+        for_item,
+        is_plain_element,
+        once_layout,
+        once_cache_initializer,
+        force_multiline,
+    } = options;
     if super::merge::has_object_spread(bindings) {
         return super::merge::emit_spread_props(
             cx,
@@ -298,11 +284,16 @@ pub(super) fn emit_bind_props(
     emit_props_object(
         cx,
         &pieces,
-        if_key,
-        false,
-        for_item && super::directive::has_custom(bindings),
-        is_plain_element,
-        for_item,
+        PropsObjectOptions {
+            if_key,
+            skip_normalize: false,
+            empty_key_multiline: for_item
+                && (super::directive::has_custom(bindings) || once_layout || force_multiline),
+            is_plain_element,
+            for_item,
+            suppress_once_cache_dynamic: once_cache_initializer,
+            force_multiline: once_layout || force_multiline,
+        },
     )?;
     if normalize {
         cx.buf.push(")");
@@ -312,7 +303,7 @@ pub(super) fn emit_bind_props(
 
 pub(super) fn apply_static_ref_patch(attributes: &[Attribute<'_>], flag: &mut i32) {
     let has_static_ref = attributes.iter().any(|attr| attr.name == "ref");
-    if has_static_ref && *flag & (2 | 4 | 8 | 16 | 32 | 1024) == 0 {
+    if has_static_ref && *flag & (2 | 4 | 8 | 16 | 32) == 0 {
         *flag |= 512;
     }
 }

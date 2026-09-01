@@ -29,8 +29,10 @@ use super::text;
 
 mod wrapper;
 
-pub use wrapper::{ForWrapper, WrapperKey, WrapperKeys};
-pub(crate) use wrapper::{capture_wrapper_key, record_template_drops};
+pub use wrapper::{ForWrapper, WrapperAttr, WrapperClass, WrapperKey, WrapperKeys};
+pub(crate) use wrapper::{
+    capture_wrapper_attrs, capture_wrapper_key, record_template_drops, record_template_drops_except,
+};
 
 /// One scanned branch of a chain: its element, analysis, branch-attr
 /// index, and the gap children it consumes.
@@ -57,7 +59,15 @@ pub(crate) fn lower_children<'a>(
                 let analyzed = analyze(element);
                 match analyzed.branch {
                     Some((idx, BranchKind::If)) => {
-                        i = lower_if_group(cx, children, i, (element, analyzed, idx), ns, &mut out);
+                        i = lower_if_group(
+                            cx,
+                            children,
+                            &plan,
+                            i,
+                            (element, analyzed, idx),
+                            ns,
+                            &mut out,
+                        );
                         continue;
                     }
                     Some((idx, BranchKind::ElseIf | BranchKind::Else)) => {
@@ -104,6 +114,7 @@ fn is_branch_gap(child: &SurfaceChild<'_>) -> bool {
 fn lower_if_group<'a>(
     cx: &mut Cx<'a>,
     children: &[SurfaceChild<'a>],
+    plan: &[text::TextAction<'a>],
     start: usize,
     (first, first_analyzed, first_attr): (&Element<'a>, Analyzed<'a>, usize),
     ns: Namespace,
@@ -157,9 +168,19 @@ fn lower_if_group<'a>(
     let mut lowered: Vec<'a, IfBranch<'a>> = Vec::new_in(&cx.allocator);
     let mut wrapper_keys: StdVec<Option<WrapperKey>> = StdVec::new();
     let mut from_template: StdVec<bool> = StdVec::new();
+    let mut preserved_gaps: StdVec<usize> = StdVec::new();
     for (element, analyzed, attr_idx, gaps) in branches {
         for gap in gaps {
-            if let SurfaceChild::Text(token) | SurfaceChild::Comment(token) = &children[gap] {
+            if matches!(
+                (children.get(gap), plan.get(gap)),
+                (
+                    Some(SurfaceChild::Text(_)),
+                    Some(text::TextAction::Keep | text::TextAction::Content(_))
+                )
+            ) {
+                preserved_gaps.push(gap);
+            } else if let SurfaceChild::Text(token) | SurfaceChild::Comment(token) = &children[gap]
+            {
                 let gap_span = cx.token_span(token);
                 cx.record(
                     "drop.branch-gap",
@@ -237,6 +258,9 @@ fn lower_if_group<'a>(
         },
         &cx.allocator,
     )));
+    for gap in preserved_gaps {
+        let _next = text::lower_text_run(cx, children, plan, gap, out);
+    }
     consumed_until
 }
 

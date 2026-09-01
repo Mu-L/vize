@@ -5,37 +5,29 @@
 //! holds them. The merge half (and the module-level decision record)
 //! stays in `lower/text.rs`.
 
+mod boundary;
+
 use alloc::vec::Vec as StdVec;
 
 use vize_s0::{String, StringBuilder};
 use vize_s1::SurfaceChild;
 
 use super::super::cx::Cx;
-
-/// Elements whose content is raw text, not template markup — exempt from
-/// condensing (the metamorphic suite's list, `tests/metamorphic/sites.rs`).
-pub(crate) const RAWTEXT_TAGS: [&str; 9] = [
-    "script",
-    "style",
-    "textarea",
-    "title",
-    "iframe",
-    "noscript",
-    "xmp",
-    "listing",
-    "plaintext",
-];
+use boundary::{
+    comment_separated_element_gap_with_newline, comments_reach_left_boundary,
+    comments_reach_right_boundary, trailing_comment_padding,
+};
 
 /// Whether `tag` suppresses condensing for its whole subtree: the
-/// shipped `is_pre_tag` (`tag == "pre"`) plus the rawtext set.
+/// shipped `is_pre_tag` (`tag == "pre"`).
 pub(crate) fn suppresses_condense(tag: &str) -> bool {
-    tag == "pre" || RAWTEXT_TAGS.contains(&tag)
+    tag == "pre"
 }
 
 /// Vue's whitespace alphabet for the condense strategy — exactly
 /// `[ \t\n\f\r]` (`whitespace.rs:12-16`), never full-Unicode.
 #[inline]
-fn is_vue_ws(c: char) -> bool {
+pub(super) fn is_vue_ws(c: char) -> bool {
     matches!(c, ' ' | '\t' | '\n' | '\u{000C}' | '\r')
 }
 
@@ -242,11 +234,25 @@ pub(crate) fn plan_whitespace<'a>(
 
     for group in &groups[first_group..last_group] {
         if group.ws_only {
+            if comment_separated_element_gap_with_newline(children, group, lo, hi) {
+                for slot in &mut plan[group.start..group.end] {
+                    *slot = TextAction::Drop;
+                }
+                continue;
+            }
             // Group neighbours are the nearest non-text children (on
             // parser output exactly `whitespace.rs:107-113`).
             let prev_is_text = group.start > lo && text_like(&children[group.start - 1]);
             let next_is_text = group.end < hi && text_like(&children[group.end]);
-            if !prev_is_text && !next_is_text && group.has_newline {
+            let prev_comment_edge =
+                group.start > lo && comments_reach_left_boundary(children, group.start - 1, lo);
+            let next_comment_edge =
+                group.end < hi && comments_reach_right_boundary(children, group.end, hi);
+            if trailing_comment_padding(children, group.start, lo)
+                || (!prev_is_text && !next_is_text && group.has_newline)
+                || (prev_is_text && next_comment_edge)
+                || (next_is_text && prev_comment_edge)
+            {
                 for slot in &mut plan[group.start..group.end] {
                     *slot = TextAction::Drop;
                 }

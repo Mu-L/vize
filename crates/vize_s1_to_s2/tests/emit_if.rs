@@ -56,6 +56,21 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
 }
 
 #[test]
+fn a_v_if_condition_keeps_authored_padding() {
+    assert_eq!(
+        assembled(r#"<button v-if=" !note.isArchived"></button>"#),
+        "\
+const { openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return ( !note.isArchived)
+    ? (_openBlock(), _createElementBlock(\"button\", { key: 0 }))
+    : _createCommentVNode(\"v-if\", true)
+}"
+    );
+}
+
+#[test]
 fn a_static_branch_key_is_quoted() {
     assert_eq!(
         assembled(r#"<div v-if="ok" key="k"></div>"#),
@@ -100,6 +115,39 @@ const { openBlock: _openBlock, createElementBlock: _createElementBlock, createCo
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   return (ok)
     ? (_openBlock(), _createElementBlock(\"div\", { key: k }))
+    : _createCommentVNode(\"v-if\", true)
+}"
+    );
+}
+
+#[test]
+fn template_if_static_child_key_keeps_the_legacy_duplicate_key() {
+    assert_eq!(
+        assembled(r#"<template v-if="ok"><div key="x" :class="c"></div></template>"#),
+        "\
+const { normalizeClass: _normalizeClass, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (ok)
+    ? (_openBlock(), _createElementBlock(\"div\", {
+      key: 0,
+      key: \"x\",
+      class: _normalizeClass(c)
+    }, null, 2 /* CLASS */))
+    : _createCommentVNode(\"v-if\", true)
+}"
+    );
+    assert_eq!(
+        assembled(r#"<template v-if="ok"><div :key="x" :class="c"></div></template>"#),
+        "\
+const { normalizeClass: _normalizeClass, openBlock: _openBlock, createElementBlock: _createElementBlock, createCommentVNode: _createCommentVNode } = Vue
+
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  return (ok)
+    ? (_openBlock(), _createElementBlock(\"div\", {
+      key: 0,
+      class: _normalizeClass(c)
+    }, null, 2 /* CLASS */))
     : _createCommentVNode(\"v-if\", true)
 }"
     );

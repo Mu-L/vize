@@ -32,11 +32,8 @@
 //! whitespace-only run between two non-text-like neighbours with a
 //! newline removed, condensed to one space otherwise; interior runs of
 //! the Vue alphabet `[ \t\n\f\r]` in mixed text collapsed to one space.
-//! Exemptions follow the shipped DOM configuration and the S2 artifact's
-//! own soundness: `<pre>` subtrees (`is_pre_tag`,
-//! `crates/vize_atelier_dom/src/compile/stage_options.rs`) and rawtext
-//! content elements ([`RAWTEXT_TAGS`] — a `<script>`'s bytes are another
-//! language, and collapsing them would change JS semantics via ASI).
+//! Exemptions follow the shipped DOM configuration: `<pre>` subtrees
+//! (`is_pre_tag`, `crates/vize_atelier_dom/src/compile/stage_options.rs`).
 //!
 //! # Merging, and the first `Compound` producer
 //!
@@ -63,19 +60,14 @@
 
 use alloc::vec::Vec as StdVec;
 
-use vize_s0::{Box, Span, String, StringBuilder, cstr};
-use vize_s1::SurfaceChild;
-use vize_s2::expr::OpaqueReason;
-use vize_s2::op::{InterpolationOp, Op, TextOp};
-
-use super::cx::Cx;
-use super::expr::{desc, opaque_at, trimmed};
+use vize_s0::{Span, String};
 
 mod condense;
+mod run;
 
-use condense::collapse_fused;
-use condense::extends_run;
 pub(crate) use condense::{TextAction, plan_whitespace, suppresses_condense};
+use condense::{collapse_fused, extends_run};
+pub(crate) use run::lower_text_run;
 
 /// One part of a merged run, owned (the fact crosses compile boundaries
 /// with its artifact, P1-11).
@@ -136,206 +128,86 @@ pub fn rebuild_source(parts: &[TextPart]) -> String {
     out
 }
 
-/// Fold a consumed dropped-member gap into the preceding part's
-/// authored range, so the recorded parts tile the merged span exactly.
-/// A dropped tail always follows its condensed whitespace head (the
-/// neighbour rules put a `Drop` between two kept text-family members in
-/// no other position), so the fold target is always a static part.
-fn fold_gap(parts: &mut StdVec<TextPart>, pending: &mut Option<u32>) {
-    if let Some(gap_end) = pending.take()
-        && let Some(last) = parts.last_mut()
-    {
-        debug_assert!(
-            !last.dynamic,
-            "a dropped run tail always follows its condensed head"
-        );
-        last.span.end = gap_end;
+pub(crate) fn legacy_slot_filler_text(text: &str) -> bool {
+    if text.trim().is_empty() {
+        return true;
     }
+    if !text.contains('&') {
+        return false;
+    }
+
+    let mut index = 0usize;
+    while index < text.len() {
+        let tail = &text[index..];
+        let ch = tail.chars().next().expect("index is in-bounds");
+        if ch.is_whitespace() {
+            index += ch.len_utf8();
+            continue;
+        }
+        if let Some(consumed) = nbsp_entity_len(tail) {
+            index += consumed;
+            continue;
+        }
+        return false;
+    }
+    true
 }
 
-/// Lower the maximal text/interpolation run starting at `start`,
-/// returning the index just past it. Dropped whitespace lowers to
-/// nothing (recorded); a one-node run lowers as the plain leaf; a
-/// longer run merges.
-pub(crate) fn lower_text_run<'a>(
-    cx: &mut Cx<'a>,
-    children: &[SurfaceChild<'a>],
-    plan: &[TextAction<'a>],
-    start: usize,
-    out: &mut vize_s0::Vec<'a, Op<'a>>,
-) -> usize {
-    if let SurfaceChild::Text(token) = &children[start]
-        && plan[start] == TextAction::Drop
+pub(crate) fn legacy_slot_filler_needs_props_placeholder(text: &str) -> bool {
+    legacy_slot_filler_text(text)
+        && text
+            .chars()
+            .any(|ch| ch == '&' || !ch.is_ascii_whitespace())
+}
+
+fn nbsp_entity_len(text: &str) -> Option<usize> {
+    if text.starts_with("&nbsp;") {
+        return Some("&nbsp;".len());
+    }
+    if let Some(rest) = text.strip_prefix("&nbsp")
+        && (rest.is_empty()
+            || rest.starts_with('&')
+            || rest.chars().next().is_some_and(char::is_whitespace))
     {
-        let span = cx.token_span(token);
-        cx.record(
-            "condense.drop-whitespace",
-            None,
-            token.text,
-            String::default(),
-            span,
-        );
-        return start + 1;
+        return Some("&nbsp".len());
+    }
+    numeric_nbsp_entity_len(text)
+}
+
+fn numeric_nbsp_entity_len(text: &str) -> Option<usize> {
+    let bytes = text.as_bytes();
+    if !bytes.starts_with(b"&#") {
+        return None;
     }
 
-    // Scan the run: span-contiguous text/interpolation children whose
-    // plan keeps them. Adjacent static members **fuse** into one part —
-    // two list-adjacent text nodes are one DOM text run (the shape only
-    // split or recovered S1 trees present; a parse emits maximal runs)
-    // — and the condense collapse re-runs across the fused content, so
-    // a whitespace run straddling the seam condenses exactly as the
-    // one-node spelling does. A `Drop`-planned member inside the run (a
-    // condensed whitespace run's tail) is consumed, recorded, and its
-    // bytes folded into the preceding part's authored range, so the
-    // parts still tile the merged span; dropped bytes with no following
-    // member stay outside the unit.
-    let mut parts: StdVec<TextPart> = StdVec::new();
-    let mut members = 0usize;
-    let mut i = start;
-    let mut end = 0u32;
-    let mut pending_gap: Option<u32> = None;
-    while i < children.len() {
-        let probe = pending_gap.unwrap_or(end);
-        if i > start && !extends_run(cx, &children[i], probe) {
+    let mut index = 2usize;
+    let radix = if matches!(bytes.get(index), Some(b'x' | b'X')) {
+        index += 1;
+        16
+    } else {
+        10
+    };
+    let start = index;
+    while let Some(byte) = bytes.get(index) {
+        let digit = if radix == 16 {
+            byte.is_ascii_hexdigit()
+        } else {
+            byte.is_ascii_digit()
+        };
+        if !digit {
             break;
         }
-        match &children[i] {
-            SurfaceChild::Text(token) => {
-                let span = cx.token_span(token);
-                if plan[i] == TextAction::Drop {
-                    // A condensed whitespace run's tail member: consume
-                    // and record it here (never a run start — the
-                    // pre-scan arm returns those).
-                    cx.record(
-                        "condense.drop-whitespace",
-                        None,
-                        token.text,
-                        String::default(),
-                        span,
-                    );
-                    pending_gap = Some(span.end);
-                    i += 1;
-                    continue;
-                }
-                let content = match plan[i] {
-                    TextAction::Content(content) => content,
-                    _ => token.text,
-                };
-                fold_gap(&mut parts, &mut pending_gap);
-                match parts.last_mut() {
-                    Some(last) if !last.dynamic => {
-                        last.text.push_str(content);
-                        last.span.end = span.end;
-                    }
-                    _ => parts.push(TextPart {
-                        text: String::from(content),
-                        span,
-                        dynamic: false,
-                    }),
-                }
-                end = span.end;
-            }
-            SurfaceChild::Interpolation(node) => {
-                let span = Span::new(cx.offset(node.open.text), cx.token_span(&node.close).end);
-                let (slice, _) = trimmed(cx, node.content.text);
-                fold_gap(&mut parts, &mut pending_gap);
-                parts.push(TextPart {
-                    text: String::from(slice),
-                    span,
-                    dynamic: true,
-                });
-                end = span.end;
-            }
-            _ => break,
-        }
-        members += 1;
-        i += 1;
+        index += 1;
     }
-    if !cx.condense_suppressed() {
-        for part in parts.iter_mut().filter(|part| !part.dynamic) {
-            collapse_fused(&mut part.text);
-        }
+    if index == start {
+        return None;
     }
-
-    if members == 1 {
-        // A lone node never merges (the legacy run grouping's own rule);
-        // it lowers as the plain leaf, with the condensed content.
-        match &children[start] {
-            SurfaceChild::Text(token) => {
-                let content = match plan[start] {
-                    TextAction::Content(content) => content,
-                    _ => token.text,
-                };
-                if content != token.text {
-                    let span = cx.token_span(token);
-                    cx.record(
-                        "condense.whitespace",
-                        None,
-                        token.text,
-                        String::from(content),
-                        span,
-                    );
-                }
-                super::leaf::lower_text(cx, token, content, out);
-            }
-            child => super::leaf::lower_leaf(cx, child, out),
-        }
-        return start + 1;
+    let digits = core::str::from_utf8(&bytes[start..index]).ok()?;
+    if u32::from_str_radix(digits, radix).ok()? != 0xa0 {
+        return None;
     }
-
-    let span = Span::new(parts[0].span.start, end);
-    let raw = cx
-        .source
-        .get(span.start as usize..span.end as usize)
-        .unwrap_or_default();
-    let dynamic = parts.iter().filter(|part| part.dynamic).count();
-    let node = cx.mint_op();
-    if dynamic == 0 {
-        // A text-only run merges into one `ui.text`.
-        let mut content = StringBuilder::with_capacity_in(raw.len(), cx.allocator);
-        for part in &parts {
-            content.push_str(part.text.as_str());
-        }
-        cx.record(
-            "lower.text-run",
-            node,
-            raw,
-            cstr!("ui.text merged={members}"),
-            span,
-        );
-        out.push(Op::Text(Box::new_in(
-            TextOp {
-                content: content.into_str(),
-                span,
-            },
-            &cx.allocator,
-        )));
-    } else {
-        // A mixed run is the compound representation: one
-        // `ui.interpolation` under the pessimal opaque laws, parts
-        // recorded beside the tree for the pass to validate and P2-11
-        // to compile from.
-        let rebuilt = rebuild_source(&parts);
-        let mut source = StringBuilder::with_capacity_in(rebuilt.len(), cx.allocator);
-        source.push_str(rebuilt.as_str());
-        let expression = opaque_at(cx, OpaqueReason::Compound, source.into_str(), span);
-        cx.record(
-            "lower.compound",
-            node,
-            raw,
-            cstr!(
-                "ui.interpolation {} parts={} dynamic={}",
-                desc(&expression),
-                parts.len(),
-                dynamic
-            ),
-            span,
-        );
-        cx.attach_texts(node, TextParts { parts });
-        out.push(Op::Interpolation(Box::new_in(
-            InterpolationOp { expression, span },
-            &cx.allocator,
-        )));
+    if bytes.get(index) == Some(&b';') {
+        index += 1;
     }
-    i
+    Some(index)
 }
