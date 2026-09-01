@@ -73,6 +73,10 @@ const BATTERY: &[(&str, &str)] = &[
         "slot_if_branch_static_vnodes_keep_shipped_order",
         r#"<a-auto-complete><template #option="item"><template v-if="item.options"><span>{{ item.value }}<a style="float: right" href="https://www.google.com/search?q=antd" target="_blank" rel="noopener noreferrer">more</a></span></template><template v-else-if="item.value === 'all'"><a href="https://www.google.com/search?q=ant-design-vue" target="_blank" rel="noopener noreferrer">View all results</a></template></template></a-auto-complete>"#,
     ),
+    (
+        "template_for_component_bind_props_keep_shipped_order_before_later_static_props",
+        r#"<a-form><a-row :gutter="24"><template v-for="i in 10" :key="i"><a-col v-show="expand || i <= 6" :span="8"><a-form-item><a-input /></a-form-item></a-col></template></a-row><a-row><a-col :span="24" style="text-align: right"><a-button type="primary" html-type="submit">Search</a-button></a-col></a-row></a-form>"#,
+    ),
 ];
 
 #[test]
