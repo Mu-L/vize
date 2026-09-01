@@ -57,6 +57,10 @@ const BATTERY: &[(&str, &str)] = &[
         "component_static_class_array_props_stay_inline",
         r#"<section><Menu><Content align="end" side="top" :side-offset="8" :class="['z-50', 'bg-white']"><Item /></Content></Menu><button><div class="i-stop"></div></button><button><div class="i-trash"></div></button></section>"#,
     ),
+    (
+        "dialog_content_static_props_stay_inline_before_slot_child_hoists",
+        r#"<slot v-bind="{ hasPermissions }" /><DialogRoot :open="showDialog"><DialogPortal><DialogOverlay class="fixed inset-0" /><DialogContent flex="~ col items-start gap-4" class="fixed left-1/2 top-1/2"><DialogTitle class="m-0 text-lg font-semibold">{{ title }}</DialogTitle><DialogDescription>{{ body }}<ol mt-4 list-decimal pl-5 text-sm><li>one</li></ol></DialogDescription></DialogContent></DialogPortal></DialogRoot>"#,
+    ),
 ];
 
 #[test]
