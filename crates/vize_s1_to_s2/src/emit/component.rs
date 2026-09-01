@@ -215,9 +215,14 @@ fn emit_call(
             || hoistable_static_props
                 .as_ref()
                 .is_some_and(|props| props.all_static_binds));
+    let hoist_static_props_in_scoped_slot_context = cx.slot_param_depth > 0
+        && (slots::has_text_only_implicit_default(&component.children)
+            || hoistable_static_props
+                .as_ref()
+                .is_some_and(|props| props.all_static_binds));
     let static_props_hoist_context = hoist_static_props_in_static_vnode_context
         || hoist_static_props_in_loop_context
-        || cx.slot_param_depth > 0;
+        || hoist_static_props_in_scoped_slot_context;
     let can_hoist_static_props = !has_custom
         && !for_item
         && if_key.is_none()
