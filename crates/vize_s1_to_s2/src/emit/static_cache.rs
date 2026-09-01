@@ -5,6 +5,8 @@
 //! so this pre-walk reconstructs the old `!root.hoists.is_empty()` gate from
 //! page-order ids plus `StaticFacts`.
 
+mod foreign_props;
+
 use vize_davinci::side_table::SideTable;
 use vize_s0::ensure_sufficient_stack;
 use vize_s2::op::{ComponentOp, ElementOp, Op, Region};
@@ -19,7 +21,10 @@ pub(super) fn enabled(
     wrappers: &SideTable<WrapperKeys>,
 ) -> bool {
     let mut walk = PageWalk::new();
-    region_has_legacy_hoist(&mut walk, &root.ops, facts, wrappers, true, false)
+    region_has_legacy_hoist(&mut walk, &root.ops, facts, wrappers, true, false) || {
+        let mut walk = PageWalk::new();
+        foreign_props::region_has_non_branch_foreign_props_hoist(&mut walk, &root.ops, facts, false)
+    }
 }
 
 fn region_has_legacy_hoist(

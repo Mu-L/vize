@@ -96,6 +96,13 @@ fn emit_condition(
             let source = super::js::js_expr_source(js);
             if let Some((leading, trailing)) =
                 authored_condition_padding(cx.source, branch_span, source.as_str(), js.span)
+                    .or_else(|| {
+                        authored_condition_quote_padding(cx.source, source.as_str(), js.span)
+                    })
+                    .or_else(|| {
+                        authored_condition_padding(cx.source, branch_span, js.source, js.span)
+                    })
+                    .or_else(|| authored_condition_quote_padding(cx.source, js.source, js.span))
             {
                 cx.buf.push(leading);
                 cx.buf.push(source.as_str());
@@ -170,6 +177,37 @@ fn authored_condition_padding<'a>(
     .then_some((leading, trailing))
 }
 
+fn authored_condition_quote_padding<'a>(
+    source: &'a str,
+    value: &str,
+    value_span: Span,
+) -> Option<(&'a str, &'a str)> {
+    let value_start = usize::try_from(value_span.start).ok()?;
+    let value_end = usize::try_from(value_span.end).ok()?;
+    if value_start > value_end
+        || value_end > source.len()
+        || source.get(value_start..value_end)? != value
+    {
+        return None;
+    }
+    let before = source.get(..value_start)?;
+    let quote_pos = before
+        .as_bytes()
+        .iter()
+        .rposition(|byte| matches!(*byte, b'\'' | b'"'))?;
+    let quote = before.as_bytes()[quote_pos];
+    let leading = source.get(quote_pos + 1..value_start)?;
+    let after = source.get(value_end..)?;
+    let trailing_end = after.as_bytes().iter().position(|byte| *byte == quote)?;
+    let trailing = after.get(..trailing_end)?;
+    if leading.is_empty() && trailing.is_empty() {
+        return None;
+    }
+    (leading.bytes().all(|byte| byte.is_ascii_whitespace())
+        && trailing.bytes().all(|byte| byte.is_ascii_whitespace()))
+    .then_some((leading, trailing))
+}
+
 fn branch_key_js(
     facts: Option<&IfFacts>,
     index: usize,
@@ -204,7 +242,11 @@ fn emit_branch(cx: &mut EmitCx<'_>, branch: &IfBranch<'_>, key: &str) -> Result<
         [Op::Component(component)] => {
             let _id = cx.walk.mint();
             cx.walk.skip(component.bindings.len());
-            super::component::emit_if_branch(cx, component, key, _id)
+            let previous = cx.template_if_branch_root;
+            cx.template_if_branch_root = authored_template_branch(cx, branch);
+            let result = super::component::emit_if_branch(cx, component, key, _id);
+            cx.template_if_branch_root = previous;
+            result
         }
         [Op::Slot(slot)] => {
             let _id = cx.walk.mint();
@@ -220,4 +262,16 @@ fn emit_branch(cx: &mut EmitCx<'_>, branch: &IfBranch<'_>, key: &str) -> Result<
             branch.span,
         )),
     }
+}
+
+fn authored_template_branch(cx: &EmitCx<'_>, branch: &IfBranch<'_>) -> bool {
+    let Ok(start) = usize::try_from(branch.span.start) else {
+        return false;
+    };
+    let Ok(end) = usize::try_from(branch.span.end) else {
+        return false;
+    };
+    cx.source
+        .get(start..end)
+        .is_some_and(|source| source.trim_start().starts_with("<template"))
 }
