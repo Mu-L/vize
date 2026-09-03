@@ -55,6 +55,12 @@
 #![no_std]
 
 extern crate alloc;
+// The `typescript` lane reaches oxc's transformer, whose entry point takes a
+// `&std::path::Path`. The feature is off by default, so both TS-24
+// portability builds link no `std` at all; turning it on links `std` for
+// that one API and nothing else.
+#[cfg(feature = "typescript")]
+extern crate std;
 
 pub mod dom;
 pub mod emit;
@@ -63,9 +69,10 @@ pub mod pass;
 
 pub use dom::DOM_LANE_FLAG;
 pub use emit::{
-    DomEmit, DomEmitBudget, EmitError, ObservedDomEmit, UnsupportedReason, UnsupportedRefusal,
-    emit_dom, emit_dom_source, emit_dom_source_observed, emit_dom_source_with_caps,
-    emit_dom_source_with_caps_observed,
+    BindingKind, BindingTable, DomEmit, DomEmitBudget, DomEmitMode, DomEmitOptions, EmitError,
+    ObservedDomEmit, UnsupportedReason, UnsupportedRefusal, emit_dom, emit_dom_source,
+    emit_dom_source_observed, emit_dom_source_observed_with_options, emit_dom_source_with_caps,
+    emit_dom_source_with_caps_observed, emit_dom_source_with_options, emit_dom_with_options,
 };
 pub use lower::{
     LegacyCaps, Lowered, lower, lower_source_block, lower_source_block_with_caps,

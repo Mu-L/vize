@@ -35,7 +35,9 @@
 //! template refs, Vue 2 `.native` event sugar, static+dynamic `style`,
 //! dynamic `v-on` keys, native-element `v-once` / `v-memo`, `v-html` /
 //! `v-text`, `v-bind` modifiers, dynamic `v-bind` keys / modifiers, and
-//! Vue 2 pipe filters legalized by `legacy-sugar`.
+//! Vue 2 pipe filters legalized by `legacy-sugar`, and **module mode**
+//! ([`DomEmitOptions`]: `import { … } from "vue"` + `export function
+//! render(_ctx, _cache)`, custom runtime module / global names).
 //! The old lane stays the shipped compile path; [`super::DOM_LANE_FLAG`]
 //! is named here and *read* in the atelier_dom witness.
 
@@ -49,6 +51,7 @@ mod create_slots_walk;
 mod cx;
 mod directive;
 mod entity;
+mod entry;
 mod error;
 mod filter;
 mod flag;
@@ -69,8 +72,10 @@ mod on_body;
 mod on_dynamic;
 mod on_typed;
 mod once;
+mod options;
 mod outlet;
 mod outlet_props;
+mod prefix;
 mod props;
 mod props_bind;
 mod props_class;
@@ -96,21 +101,26 @@ use alloc::vec::Vec as StdVec;
 use vize_davinci::diagnostic::Severity;
 use vize_davinci::id::NodeId;
 use vize_davinci::side_table::SideTable;
-use vize_s0::{Allocator, String};
+use vize_s0::String;
 use vize_s2::op::{ElementOp, ForOp, IfOp, Namespace};
 use vize_s2::scope::ScopeFacts;
 
-use crate::lower::{ForWrapper, LegacyCaps, Lowered, WrapperKeys};
+use crate::lower::{ForWrapper, Lowered, WrapperKeys};
 use crate::pass::S2Facts;
 use crate::pass::walk::PageWalk;
 
 pub use self::budget::{
-    DomEmitBudget, ObservedDomEmit, emit_dom_source_observed, emit_dom_source_with_caps_observed,
+    DomEmitBudget, ObservedDomEmit, emit_dom_source_observed,
+    emit_dom_source_observed_with_options, emit_dom_source_with_caps_observed,
 };
 use self::buf::Buf;
+pub use self::entry::{
+    DomEmit, emit_dom_source, emit_dom_source_with_caps, emit_dom_source_with_options,
+};
 pub use self::error::{EmitError, UnsupportedReason, UnsupportedRefusal};
 use self::fragment::emit_root;
 use self::helper::Helper;
+pub use self::options::{BindingKind, BindingTable, DomEmitMode, DomEmitOptions};
 
 fn emit_if_op(cx: &mut EmitCx<'_>, if_op: &IfOp<'_>, id: Option<NodeId>) -> Result<(), EmitError> {
     vif::emit_if(cx, if_op, id)
@@ -199,42 +209,44 @@ struct EmitCx<'facts> {
     /// depends on SVG/MathML boundaries staying block-local while same-namespace
     /// descendants remain inline VNodes.
     parent_ns: Namespace,
-}
-
-/// One DOM render module, split the way the shipped codegen splits it
-/// (`CodegenResult::{preamble, code}`) so a dual-run can compare each
-/// half and the concatenated form the DOM snapshots use.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DomEmit {
-    /// Helper destructure (`const { … } = Vue\n`).
-    pub preamble: String,
-    /// The `function render(…)` body, no trailing newline after `}`.
-    pub code: String,
-}
-
-impl DomEmit {
-    /// `preamble + "\\n" + code` — the same concatenation
-    /// `vize_atelier_dom` snapshots pin.
-    #[must_use]
-    pub fn assembled(&self) -> String {
-        let mut out = self.preamble.clone();
-        out.push('\n');
-        out.push_str(self.code.as_str());
-        out
-    }
+    /// `prefix_identifiers`: expressions go through [`prefix`] on their
+    /// way out instead of being pushed verbatim.
+    prefix_identifiers: bool,
+    /// The shipped lane's `is_ts`: expressions are type-erased first.
+    is_ts: bool,
+    /// The shipped lane's `component_name`, for the self-reference flag
+    /// on `resolveComponent`.
+    component_name: Option<&'facts str>,
+    /// The transform scope and codegen slot params the prefixer consults.
+    scope: prefix::PrefixScope<'facts>,
 }
 
 /// Emit a DOM render function from an already-lowered (and typically
-/// transformed) S2 artifact. `facts` is the transform product compounds
-/// compile from.
+/// transformed) S2 artifact under the shipped default options. `facts`
+/// is the transform product compounds compile from.
 pub fn emit_dom(lowered: &Lowered<'_>, facts: &S2Facts) -> Result<DomEmit, EmitError> {
-    emit_dom_with_emit_budget(lowered, facts).map(|(emit, _)| emit)
+    emit_dom_with_options(lowered, facts, &DomEmitOptions::DEFAULT)
 }
 
-fn emit_dom_with_emit_budget(
-    lowered: &Lowered<'_>,
-    facts: &S2Facts,
+/// [`emit_dom`] under explicit [`DomEmitOptions`].
+pub fn emit_dom_with_options<'f>(
+    lowered: &'f Lowered<'_>,
+    facts: &'f S2Facts,
+    options: &DomEmitOptions<'f>,
+) -> Result<DomEmit, EmitError> {
+    emit_dom_with_emit_budget(lowered, facts, options).map(|(emit, _)| emit)
+}
+
+fn emit_dom_with_emit_budget<'f>(
+    lowered: &'f Lowered<'_>,
+    facts: &'f S2Facts,
+    options: &DomEmitOptions<'f>,
 ) -> Result<(DomEmit, u32), EmitError> {
+    if options.is_ts && !cfg!(feature = "typescript") {
+        return Err(EmitError::unsupported(
+            UnsupportedReason::TypeScriptLaneUnavailable,
+        ));
+    }
     if lowered
         .diagnostics
         .iter()
@@ -269,36 +281,45 @@ fn emit_dom_with_emit_budget(
         transition_slot_root: false,
         static_cache,
         parent_ns: Namespace::Html,
+        prefix_identifiers: options.prefix_identifiers,
+        is_ts: options.is_ts,
+        component_name: options.component_name,
+        scope: prefix::PrefixScope::new(
+            options.bindings,
+            options.prefix_identifiers,
+            options.is_ts,
+        ),
     };
     let filters = &facts.legacy.filters;
     if facts.legacy.filter_helper_precedes_components {
         cx.buf.prefer(Helper::ResolveFilter);
     }
     let mut helper_walk = PageWalk::new();
-    helper_preference::prefer_helpers(
-        &mut cx.buf,
+    let prefer_cx = helper_preference::PreferCx {
         facts,
-        &lowered.for_wrappers,
-        &mut helper_walk,
-        &lowered.root,
-    );
+        for_wrappers: &lowered.for_wrappers,
+        bindings: options.bindings,
+    };
+    helper_preference::prefer_helpers(&mut cx.buf, &prefer_cx, &mut helper_walk, &lowered.root);
     fragment::prefer_root_fragment(&mut cx.buf, &lowered.root);
     cx.buf
-        .push("function render(_ctx, _cache, $props, $setup, $data, $options) {");
+        .push(options.mode.render_signature(options.bindings.is_some()));
     cx.buf.indent();
     cx.buf.newline();
     let names = component::collect_names(&lowered.root);
     let dirs = directive::collect_names(&lowered.root);
+    let mut resolved_assets = false;
     if !names.is_empty() {
-        component::emit_resolves(&mut cx, &names);
+        resolved_assets |= component::emit_resolves(&mut cx, &names);
     }
     if !dirs.is_empty() {
-        directive::emit_resolves(&mut cx, &dirs);
+        resolved_assets |= directive::emit_resolves(&mut cx, &dirs);
     }
     if !filters.is_empty() {
         filter::emit_resolves(&mut cx, filters);
+        resolved_assets = true;
     }
-    if !names.is_empty() || !dirs.is_empty() || !filters.is_empty() {
+    if resolved_assets {
         cx.buf.newline();
     }
     cx.buf.push("return ");
@@ -307,25 +328,7 @@ fn emit_dom_with_emit_budget(
     cx.buf.newline();
     cx.buf.push("}");
     let emit_visits = cx.walk.visits();
-    let preamble = cx.buf.preamble();
+    let preamble = cx.buf.preamble(options);
     let code = cx.buf.code;
     Ok((DomEmit { preamble, code }, emit_visits))
-}
-
-/// Parse → lower → S2 transform → emit. The comparator's one-shot entry
-/// so atelier_dom tests do not re-derive the pipeline.
-pub fn emit_dom_source<'a>(
-    allocator: &'a Allocator,
-    source: &'a str,
-) -> Result<DomEmit, EmitError> {
-    emit_dom_source_with_caps(allocator, source, LegacyCaps::VUE3)
-}
-
-/// [`emit_dom_source`] under an explicit Vue dialect capability set.
-pub fn emit_dom_source_with_caps<'a>(
-    allocator: &'a Allocator,
-    source: &'a str,
-    caps: LegacyCaps,
-) -> Result<DomEmit, EmitError> {
-    emit_dom_source_with_caps_observed(allocator, source, caps).map(|observed| observed.emit)
 }

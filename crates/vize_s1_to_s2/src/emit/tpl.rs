@@ -20,10 +20,11 @@ use super::EmitError;
 use super::UnsupportedReason as Reason;
 use super::hoist::is_hoistable;
 use super::js::escape_js_string;
+use super::prefix::Site;
 use super::props_static::PropHoistPosition;
 use crate::lower::{WrapperAttr, WrapperClass, WrapperKey};
 
-pub(super) fn wrapper_key_js(key: &WrapperKey) -> Result<String, EmitError> {
+pub(super) fn wrapper_key_js(cx: &EmitCx<'_>, key: &WrapperKey) -> Result<String, EmitError> {
     match key {
         WrapperKey::Static { value: None, .. } => Ok(String::from("\"\"")),
         WrapperKey::Static {
@@ -37,6 +38,9 @@ pub(super) fn wrapper_key_js(key: &WrapperKey) -> Result<String, EmitError> {
         WrapperKey::Dynamic { source, span } if source.is_empty() => Err(
             EmitError::unsupported_at(Reason::TemplateDynamicKeyEmpty, *span),
         ),
+        WrapperKey::Dynamic { source, .. } if cx.prefixing() => {
+            cx.prefixed_text(source.as_str(), Site::Expression)
+        }
         WrapperKey::Dynamic { source, .. } => Ok(source.clone()),
     }
 }
@@ -46,7 +50,7 @@ pub(super) fn emit_if_template_branch(
     branch: &IfBranch<'_>,
     key: &str,
 ) -> Result<(), EmitError> {
-    if should_unwrap_if(&branch.region.ops) {
+    if should_unwrap_if(&branch.region.ops, cx.is_ts) {
         return unwrap_if(cx, branch, key);
     }
     emit_inner_fragment(
@@ -59,9 +63,9 @@ pub(super) fn emit_if_template_branch(
     )
 }
 
-fn should_unwrap_if(ops: &[Op<'_>]) -> bool {
+fn should_unwrap_if(ops: &[Op<'_>], is_ts: bool) -> bool {
     match ops {
-        [Op::Element(element)] => !is_hoistable(element),
+        [Op::Element(element)] => !is_hoistable(element, is_ts),
         [Op::Component(_)] | [Op::Slot(_)] | [Op::For(_)] => true,
         _ => false,
     }
@@ -119,7 +123,7 @@ fn register_unwrapped_if_child_props_hoist(
     if !super::props_static::should_hoist(cx, id, PropHoistPosition::Nested) {
         return Ok(());
     }
-    if let Some(props) = super::props_static::root_hoist_props(attributes, bindings)? {
+    if let Some(props) = super::props_static::root_hoist_props(attributes, bindings, cx.is_ts)? {
         let _ = cx.buf.push_hoist(props);
     }
     Ok(())

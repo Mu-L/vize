@@ -1,5 +1,6 @@
 //! Component emission, including slots, builtins, and dynamic components.
 
+pub(super) mod binding;
 mod call_props;
 mod checks;
 mod children_arg;
@@ -165,6 +166,7 @@ fn emit_call(
     } else if let Some(helper) = builtin::helper(component.name) {
         cx.buf.use_helper(helper);
         cx.buf.push(helper.alias());
+    } else if binding::push_tag(cx, component.name) {
     } else {
         cx.buf
             .push(asset_ident("component", component.name).as_str());
@@ -179,7 +181,7 @@ fn emit_call(
     let static_nested = builtin::has_static_nested(&component.children);
     let builtin_helper = builtin::helper(component.name).is_some();
     let hoistable_static_props =
-        call_props::hoistable_static_props(component, skip_is, &hoist_attrs)?;
+        call_props::hoistable_static_props(component, skip_is, &hoist_attrs, cx.is_ts)?;
     if for_item
         && !has_component_root_slot
         && !has_custom
@@ -211,7 +213,10 @@ fn emit_call(
             && (facts.is_some() || create || foreign_static_props)
             && (!builtin_helper
                 || static_nested
-                || call_props::children_are_direct_static_vnode_hoists(&component.children)
+                || call_props::children_are_direct_static_vnode_hoists(
+                    &component.children,
+                    cx.is_ts,
+                )
                 || transition_props_slot_hoist
                 || foreign_static_props))
             || (array && static_nested))
@@ -235,7 +240,7 @@ fn emit_call(
         && cx.template_if_branch_root
         && hoistable_static_props.is_some()
         && (static_nested
-            || call_props::children_are_direct_static_vnode_hoists(&component.children));
+            || call_props::children_are_direct_static_vnode_hoists(&component.children, cx.is_ts));
     let unused_hoist = hoisted_static_props.is_none()
         && ((can_hoist_static_props && static_nested) || branch_unused_hoist);
     if unused_hoist {
@@ -247,7 +252,7 @@ fn emit_call(
                 .clone(),
         );
     }
-    let mut patch = bind_patch(&component.bindings, true, if_key, for_item);
+    let mut patch = bind_patch(&component.bindings, true, if_key, for_item, cx.is_ts);
     if skip_is {
         patch.dynamic_props.retain(|name| name.as_str() != "is");
         if patch.dynamic_props.is_empty() {

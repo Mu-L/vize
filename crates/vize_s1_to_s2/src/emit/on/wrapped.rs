@@ -22,14 +22,51 @@ pub(in crate::emit) fn emit_wrapped_handler(
         cx.buf.push(Buf::with_modifiers_alias());
         cx.buf.push("(");
     }
-    match on.handler {
-        Some(ExprRef::Js(js)) => emit_handler(cx, on, js, is_plain_element),
-        Some(ExprRef::Opaque(opaque)) if opaque.reason == OpaqueReason::MultiStatement => {
-            let padding = authored_handler_padding(cx.source, on, opaque.source, opaque.span);
-            super::super::on_body::emit(cx, opaque.source, padding);
+    let options_api = on
+        .handler
+        .and_then(|expr| options_api_handler_name(cx, &expr));
+    match (options_api, on.handler) {
+        // `generate_options_api_handler_reference`: a bare Options API
+        // method name is guarded and forwarded, never prefixed.
+        (Some(name), _) => {
+            cx.buf.push("(...args) => (_ctx.");
+            cx.buf.push(name);
+            cx.buf.push(" && _ctx.");
+            cx.buf.push(name);
+            cx.buf.push("(...args))");
         }
-        None => cx.buf.push("() => {}"),
-        Some(expr) => {
+        (None, Some(expr)) if cx.prefixing() => {
+            let text = cx.prefixed_handler(&expr)?;
+            cx.buf.push(text.as_str());
+        }
+        (None, Some(ExprRef::Js(js))) => emit_handler(cx, on, js, is_plain_element),
+        (None, Some(ExprRef::Opaque(opaque))) if opaque.reason == OpaqueReason::MultiStatement => {
+            let padding = authored_handler_padding(cx.source, on, opaque.source, opaque.span);
+            // The shipped codegen prefix-parses the text: `a; b` reads as the
+            // reference `a` and is pushed raw.
+            if super::super::prefix::handler_source_is_reference(opaque.source) {
+                let (leading, trailing) = padding.unwrap_or(("", ""));
+                cx.buf.push(leading);
+                cx.buf.push(opaque.source);
+                cx.buf.push(trailing);
+            } else if !opaque.source.contains(';')
+                && super::super::prefix::handler_source_is_expression(opaque.source)
+            {
+                // An expression the prefix parse admits with no `;` is
+                // paren-wrapped by the shipped codegen, trailing line
+                // comment and all; statement bodies keep the block form.
+                let (leading, trailing) = padding.unwrap_or(("", ""));
+                cx.buf.push("$event => (");
+                cx.buf.push(leading);
+                cx.buf.push(opaque.source);
+                cx.buf.push(trailing);
+                cx.buf.push(")");
+            } else {
+                super::super::on_body::emit(cx, opaque.source, padding);
+            }
+        }
+        (None, None) => cx.buf.push("() => {}"),
+        (None, Some(expr)) => {
             return Err(EmitError::unsupported_at(
                 Reason::OnHandlerNotJs,
                 expr.span(),
@@ -47,6 +84,25 @@ pub(in crate::emit) fn emit_wrapped_handler(
         cx.buf.push(")");
     }
     Ok(())
+}
+
+/// `options_api_handler_name`: the trimmed authored text is a simple
+/// identifier the binding table records as an Options API member.
+fn options_api_handler_name<'a>(cx: &EmitCx<'_>, expr: &ExprRef<'a>) -> Option<&'a str> {
+    let source = match expr {
+        ExprRef::Js(js) => js.source,
+        ExprRef::Opaque(opaque) => opaque.source,
+        ExprRef::Foreign(_) | ExprRef::Filter(_) => return None,
+    }
+    .trim();
+    if !super::super::prefix::is_simple_identifier(source) {
+        return None;
+    }
+    cx.scope
+        .bindings()
+        .and_then(|table| table.kind(source))
+        .filter(|kind| *kind == super::super::options::BindingKind::Options)
+        .map(|_| source)
 }
 
 fn emit_mod_array(cx: &mut EmitCx<'_>, mods: &[&str]) {
