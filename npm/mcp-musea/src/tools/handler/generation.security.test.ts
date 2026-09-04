@@ -17,12 +17,13 @@ test("generate_variants only reads Vue component sources", () => {
   assert.notEqual(end, -1, "generate_csf handler must follow generate_variants");
   assert.match(
     block,
-    /if \(!componentRelPath\.endsWith\("\.vue"\)\)/,
-    "generate_variants must reject non-vue paths before reading the file",
+    /assertVueSourcePath\(absolutePath, "componentPath"\)/,
+    "generate_variants must reject non-vue paths and .vue symlinks before reading",
   );
-  assert.match(
-    block,
-    /componentPath must be a \.vue file/,
-    "the rejection must name the .vue requirement",
+
+  const helper = fs.readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../vue-source-path.ts"),
+    "utf8",
   );
+  assert.match(helper, /must be a \.vue file/, "the rejection must name the .vue requirement");
 });
