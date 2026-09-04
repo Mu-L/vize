@@ -1,5 +1,6 @@
 //! Shared config model.
 
+mod compatibility;
 mod compiler;
 mod entries;
 mod experimentals;
@@ -182,6 +183,7 @@ pub(crate) struct RawVizeConfig {
     pub dialect: Option<VueDialect>,
     pub formatter: FormatterConfig,
     pub(crate) compiler: RawCompilerConfig,
+    pub(crate) compatibility: compatibility::RawCompatibilityConfig,
     pub(crate) experimentals: RawExperimentalsConfig,
     pub(crate) vue: RawVueConfig,
     pub linter: RawLinterConfig,
@@ -260,6 +262,7 @@ impl RawVizeConfig {
             dialect,
             formatter,
             compiler,
+            compatibility,
             experimentals,
             vue,
             linter: _,
@@ -275,7 +278,10 @@ impl RawVizeConfig {
 
         // Default-on (matches vue-tsc); explicit `false` opts out.
         let type_checker_options_api = raw_type_checker.options_api.unwrap_or(true);
-        let vue_version = vue.version.or(compiler.compatibility.vue_version);
+        let vue_version = vue
+            .version
+            .or(compiler.compatibility.vue_version)
+            .or(compatibility.vue_version);
         // A Vue 2 / 2.7 dialect implies legacy template lowering. Every consumer
         // downstream of the virtual-TS generator already collapses the two into
         // `legacy_vue2 || dialect ∈ {V2, V2_7}`, but the flag itself gates
