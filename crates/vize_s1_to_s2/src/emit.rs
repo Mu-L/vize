@@ -1,10 +1,8 @@
 //! S2 → DOM render-function emission (P2-11).
 //!
-//! The unpublished home for the new DOM backend: `vize_atelier_dom` is
-//! published and cannot name this crate in its release graph (the
-//! installment-1 publish-gate measurement). Dual-run lives in
-//! atelier_dom **test space** as a stripped-on-publish dev-dep, the
-//! P2-9 carve-out. It writes JS directly from S2 ops, without relief codegen-nodes.
+//! The published home for the DOM backend. `vize_atelier_dom` calls this
+//! module for normal DOM emission; it writes JS directly from S2 ops, without
+//! relief codegen-nodes.
 //!
 //! This installment emits **static native HTML / SVG / MathML**, interpolations,
 //! mixed text siblings, static-name `ui.bind`, static-name `ui.on`
@@ -38,8 +36,6 @@
 //! Vue 2 pipe filters legalized by `legacy-sugar`, and **module mode**
 //! ([`DomEmitOptions`]: `import { … } from "vue"` + `export function
 //! render(_ctx, _cache)`, custom runtime module / global names).
-//! The old lane stays the shipped compile path; [`super::DOM_LANE_FLAG`]
-//! is named here and *read* in the atelier_dom witness.
 
 mod budget;
 mod buf;
@@ -189,6 +185,9 @@ struct EmitCx<'facts> {
     is_ts: bool,
     /// The shipped lane's `cache_handlers`.
     cache_handlers: bool,
+    /// Scoped-style attr that only module-level static VNode hoists bake into
+    /// props; runtime VNodes rely on Vue's current scope id.
+    hoisted_scope_id: Option<&'facts str>,
     /// `(digit offset in `buf.code`, ordering key, slot number)` for
     /// every `_cache` index written so far. The shipped codegen takes a
     /// slot when it *reaches* the construct, so the ordering key is where
@@ -274,6 +273,7 @@ fn emit_dom_with_emit_budget<'f>(
         prefix_identifiers: options.prefix_identifiers,
         is_ts: options.is_ts,
         cache_handlers: options.cache_handlers,
+        hoisted_scope_id: options.hoisted_scope_id,
         cache_sites: StdVec::new(),
         used_unref: core::cell::Cell::new(u32::MAX),
         component_name: options.component_name,

@@ -5,11 +5,9 @@
 //! implicit text / native / component default slots, compared
 //! **byte-for-byte** including helper usage.
 //!
-//! `vize_atelier_dom` is published; the Davinci crates are not. The
-//! comparator therefore rides stripped-on-publish dev-deps (the same
-//! carve-out P2-9 used). The shipped `compile_template` path is
-//! unchanged. `VIZE_DAVINCI_DOM=legacy` disarms the dual-run; the
-//! pinned comparison count makes a silent disarm a loud failure.
+//! S2 owns the shipped DOM renderer. The comparison battery stays as a
+//! byte-for-byte release ratchet, and its pinned count makes any accidental
+//! reduction in coverage loud.
 
 #![allow(
     clippy::disallowed_macros,
@@ -18,8 +16,6 @@
 )]
 
 mod support;
-
-use vize_s1_to_s2::DOM_LANE_FLAG;
 
 const BATTERY: &[(&str, &str)] = &[
     ("empty_div", "<div></div>"),
@@ -340,9 +336,4 @@ const BATTERY: &[(&str, &str)] = &[
 #[test]
 fn s2_native_html_and_interpolations_match_the_shipped_dom_lane_byte_for_byte() {
     support::assert_s2_matches_shipped(BATTERY);
-}
-
-#[test]
-fn the_dom_lane_flag_has_its_recorded_name() {
-    assert_eq!(DOM_LANE_FLAG, "VIZE_DAVINCI_DOM");
 }

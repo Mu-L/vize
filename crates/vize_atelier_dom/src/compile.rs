@@ -275,8 +275,23 @@ fn compile_template_inner_with_sections<'a>(
         );
     }
 
-    let transform_opts = stage_options::transform_options(&options);
+    let has_croquis = options.croquis.is_some();
+    let codegen_opts = stage_options::codegen_options(&options, codegen_options);
     let template_syntax_quirks = template_syntax.is_quirks();
+    let has_custom_element_matcher = !custom_elements.is_empty();
+    let profile_s2_emit = stage_options::s2_profile_enabled()
+        && stage_options::s2_emit_supported(
+            &options,
+            &codegen_opts,
+            has_custom_element_matcher,
+            template_syntax,
+            has_croquis,
+        );
+    // Project the public output options before consuming Croquis below. Croquis
+    // intentionally crosses the transform boundary by ownership and is not
+    // cloneable, while S2 only borrows the remaining compiler settings.
+    let s2_emit_source = profile_s2_emit.then(|| (options.clone(), hoisted_scope_id.clone()));
+    let transform_opts = stage_options::transform_options(&options);
     // Park the summary on the allocator so it shares the allocator lifetime.
     let analysis: Option<&Croquis> = options.croquis.map(|c| allocator.alloc_owned(*c));
     let transform_errors = profile!(
@@ -299,27 +314,27 @@ fn compile_template_inner_with_sections<'a>(
     errors.extend(transform_errors);
 
     // Codegen
-    let codegen_opts = CodegenOptions {
-        mode: options.mode,
-        source_map: options.source_map,
-        component_name: options.component_name,
-        scope_id: options.scope_id.clone(),
-        ssr: options.ssr,
-        is_ts: options.is_ts,
-        inline: options.inline,
-        cache_handlers: options.cache_handlers,
-        binding_metadata: options.binding_metadata,
-        // Compound dynamic `v-bind` / `v-on` keys (`:[prefix+suffix]`) only
-        // walk identifiers when this flag is set. Transform already receives
-        // it; omitting it here left SFC module-mode render functions with
-        // bare `prefix+suffix` and a runtime ReferenceError.
-        prefix_identifiers: options.prefix_identifiers,
-        ..codegen_options
+    let s2_emit = s2_emit_source.map(|(s2_options_source, s2_hoisted_scope_id)| {
+        let binding_table =
+            stage_options::s2_binding_table(s2_options_source.binding_metadata.as_ref());
+        let s2_options = stage_options::s2_emit_options(
+            &s2_options_source,
+            &codegen_opts,
+            binding_table.as_ref(),
+            s2_hoisted_scope_id.as_deref(),
+        );
+        profile!(
+            "atelier.dom.template.s2_codegen",
+            stage_options::emit_s2(allocator, source, s2_options_source.dialect, &s2_options)
+        )
+    });
+    let codegen_result = match s2_emit {
+        Some(Ok(result)) => result,
+        Some(Err(_)) | None => profile!(
+            "atelier.dom.template.codegen_compat",
+            generate_with_sections(&root, codegen_opts)
+        ),
     };
-    let codegen_result = profile!(
-        "atelier.dom.template.codegen",
-        generate_with_sections(&root, codegen_opts)
-    );
 
     (root, errors, codegen_result)
 }
