@@ -7,38 +7,24 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range
 
 use super::{LineIndex, Severity};
 
-/// Source position mapping from @vize-map comments.
 #[cfg(feature = "native")]
 #[derive(Debug, Clone)]
 pub(in crate::ide) struct SourceMapping {
-    /// Byte offset start in SFC
     pub(in crate::ide) start: u32,
-    /// Byte offset end in SFC
     pub(in crate::ide) end: u32,
 }
 
-/// Virtual TypeScript generation result with position mapping info.
 #[cfg(feature = "native")]
 pub(in crate::ide) struct VirtualTsResult {
-    /// Generated TypeScript code (post `.vue` → `.vue.ts` import rewrite).
     pub(in crate::ide) code: String,
-    /// Byte-range source mappings from generated TS back to the source SFC.
-    /// Offsets are in pre-rewrite generated TS coordinates; callers must
-    /// translate post-rewrite byte offsets via `import_source_map` first.
     pub(in crate::ide) source_mappings: Vec<vize_canon::virtual_ts::VizeMapping>,
-    /// Stable semantic links in post-rewrite generated TS coordinates.
     pub(in crate::ide) semantic_links: Vec<vize_canon::virtual_ts::VizeSemanticLink>,
     /// Byte-offset mapping from post-rewrite to pre-rewrite virtual TS.
     /// Empty when no `.vue` import specifiers were rewritten.
     pub(in crate::ide) import_source_map: vize_canon::ImportSourceMap,
-    /// Line number where user code starts in virtual TS (0-indexed)
     pub(in crate::ide) user_code_start_line: u32,
-    /// Line number where script starts in original SFC (1-indexed)
     pub(in crate::ide) sfc_script_start_line: u32,
-    /// Line number where template scope starts in virtual TS (0-indexed)
     pub(in crate::ide) template_scope_start_line: u32,
-    /// Line-to-source mappings from @vize-map comments
-    /// Index is virtual TS line number (0-indexed), value is source position in SFC
     pub(in crate::ide) line_mappings: Vec<Option<SourceMapping>>,
     pub(in crate::ide) skipped_import_lines: u32,
 }
@@ -65,7 +51,12 @@ impl DiagnosticService {
         let path = uri.path();
         if path.ends_with(".art.vue") {
             if features.lint {
-                diagnostics.extend(Self::collect_musea_diagnostics(uri, &content, &line_index));
+                diagnostics.extend(Self::collect_musea_diagnostics(
+                    state,
+                    uri,
+                    &content,
+                    &line_index,
+                ));
             }
             return diagnostics;
         }
@@ -193,8 +184,13 @@ impl DiagnosticService {
 
         // Also lint inline <art> blocks in regular .vue files
         if features.lint {
-            let inline_art_diags =
-                Self::collect_inline_art_diagnostics(uri, &content, &descriptor, &line_index);
+            let inline_art_diags = Self::collect_inline_art_diagnostics(
+                state,
+                uri,
+                &content,
+                &descriptor,
+                &line_index,
+            );
             tracing::info!(
                 "collect: inline art diagnostics: {}",
                 inline_art_diags.len()
@@ -213,9 +209,7 @@ impl DiagnosticService {
     /// `vize/musea`. It reproduces exactly the lint/musea diagnostics that the
     /// full pipeline would publish — including the parser-error short-circuit
     /// that gates them — while skipping the expensive SFC compile, ecosystem,
-    /// and (per-call, uncached) SFC type-check passes that hover discards. The
-    /// returned set is byte-for-byte the lint/musea subset of `collect`'s
-    /// output for every document shape (Art file, standalone HTML, SFC).
+    /// and uncached SFC type-check passes that hover discards.
     pub fn collect_lint_only(state: &ServerState, uri: &Url) -> Vec<Diagnostic> {
         let Some(content) = state.documents.text(uri) else {
             return vec![];
@@ -235,7 +229,12 @@ impl DiagnosticService {
         // Art files (*.art.vue): Musea-specific lint only.
         let path = uri.path();
         if path.ends_with(".art.vue") {
-            diagnostics.extend(Self::collect_musea_diagnostics(uri, &content, &line_index));
+            diagnostics.extend(Self::collect_musea_diagnostics(
+                state,
+                uri,
+                &content,
+                &line_index,
+            ));
             return diagnostics;
         }
 
@@ -275,6 +274,7 @@ impl DiagnosticService {
             &line_index,
         ));
         diagnostics.extend(Self::collect_inline_art_diagnostics(
+            state,
             uri,
             &content,
             &descriptor,
