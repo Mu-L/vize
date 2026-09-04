@@ -43,7 +43,8 @@ pub(crate) fn skip_virtual_header(content: &str) -> usize {
 /// Get the tag name at the given offset (if cursor is on a tag).
 pub(crate) fn get_tag_at_offset(content: &str, offset: usize) -> Option<String> {
     let cursor = offset.min(content.len());
-    let (_, _, name_start, name_end) = find_tag_name_span(content, cursor)?;
+    let (_, _, name_start, name_end) = find_tag_name_span(content, cursor)
+        .or_else(|| crate::ide::pug::tag_name_span_at_offset(content, cursor))?;
 
     if cursor < name_start || cursor > name_end {
         return None;

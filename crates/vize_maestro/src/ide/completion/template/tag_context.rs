@@ -16,6 +16,19 @@ pub(super) fn opening_tag_context_at_offset(
     content: &str,
     offset: usize,
 ) -> Option<OpenTagContext> {
+    html_opening_tag_context_at_offset(content, offset).or_else(|| {
+        let context = crate::ide::pug::opening_tag_context_at_offset(content, offset)?;
+        Some(OpenTagContext {
+            tag_name: context.tag_name,
+            tag_start: context.tag_start,
+            current_token: context.current_token,
+            current_token_start: context.current_token_start,
+            inside_attribute_value: context.inside_attribute_value,
+        })
+    })
+}
+
+fn html_opening_tag_context_at_offset(content: &str, offset: usize) -> Option<OpenTagContext> {
     let cursor = offset.min(content.len());
     let tag_start = content[..cursor].rfind('<')?;
     if content[tag_start..cursor].contains('>') {
