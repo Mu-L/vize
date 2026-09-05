@@ -43,6 +43,11 @@ const vizeVue = path.join(
   "node_modules/.pnpm/vue@3.6.0-beta.10/node_modules/vue/dist/vue.d.mts",
 );
 
+function writePackage(packageRoot: string, name: string) {
+  fs.mkdirSync(packageRoot, { recursive: true });
+  fs.writeFileSync(path.join(packageRoot, "package.json"), `{"name":"${name}"}\n`);
+}
+
 test("a fixture typed against its own Vue runtime is measured, not rejected", () => {
   const fixture = setup({ baselineProgramFiles: [fixtureVue] });
   try {
@@ -66,6 +71,97 @@ test("a fixture typed against its own Vue runtime is measured, not rejected", ()
     assert.equal(artifact.budget.verdict, "passed");
     assert.equal(artifact.budget.passed, true);
     assert.equal(artifact.budget.unusableReason, null);
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("fixture-local Vue runtimes are pinned into the baseline config", () => {
+  const fixture = setup();
+  try {
+    for (const name of ["vue", "@vue/runtime-core", "@vue/runtime-dom"]) {
+      const packageRoot = path.join(fixture.fixtureRoot, "node_modules", ...name.split("/"));
+      writePackage(packageRoot, name);
+    }
+    fs.writeFileSync(
+      path.join(fixture.fixtureRoot, "tsconfig.json"),
+      `${JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: {
+            "#app": ["src/app"],
+          },
+        },
+      })}\n`,
+    );
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+
+    const config = readJson(path.join(fixture.reportDir, "fixture-vue-tsc.tsconfig.json"));
+    assert.equal(config.compilerOptions.baseUrl, ".");
+    assert.deepEqual(config.compilerOptions.paths, {
+      "#app": ["../src/app"],
+      "@vue/runtime-core": ["../node_modules/@vue/runtime-core"],
+      "@vue/runtime-core/*": ["../node_modules/@vue/runtime-core/*"],
+      "@vue/runtime-dom": ["../node_modules/@vue/runtime-dom"],
+      "@vue/runtime-dom/*": ["../node_modules/@vue/runtime-dom/*"],
+      vue: ["../node_modules/vue"],
+      "vue/*": ["../node_modules/vue/*"],
+    });
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("bare wildcard path mappings stay relative to the source baseUrl", () => {
+  const fixture = setup();
+  try {
+    fs.writeFileSync(
+      path.join(fixture.fixtureRoot, "tsconfig.json"),
+      `${JSON.stringify({
+        compilerOptions: {
+          baseUrl: "src",
+          paths: {
+            "@/*": ["*"],
+          },
+        },
+      })}\n`,
+    );
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+
+    const config = readJson(path.join(fixture.reportDir, "fixture-vue-tsc.tsconfig.json"));
+    assert.deepEqual(config.compilerOptions.paths["@/*"], ["../src/*"]);
+  } finally {
+    cleanup(fixture);
+  }
+});
+
+test("Vue dependency runtimes are pinned from the selected pnpm Vue store entry", () => {
+  const fixture = setup();
+  try {
+    const store = path.join(fixture.fixtureRoot, "node_modules/.pnpm");
+    const vueNodeModules = path.join(store, "vue@3.5.30/node_modules");
+    const nestedVueNodeModules = path.join(store, "motion-v@2.2.0_vue@3.5.30/node_modules");
+    const staleNodeModules = path.join(store, "@vue+runtime-core@3.6.0/node_modules");
+    writePackage(path.join(vueNodeModules, "vue"), "vue");
+    writePackage(path.join(vueNodeModules, "@vue/runtime-core"), "@vue/runtime-core");
+    writePackage(path.join(vueNodeModules, "@vue/runtime-dom"), "@vue/runtime-dom");
+    writePackage(path.join(nestedVueNodeModules, "vue"), "vue");
+    writePackage(path.join(staleNodeModules, "@vue/runtime-core"), "@vue/runtime-core");
+
+    const result = run(fixture);
+    assert.equal(result.status, 0, result.stderr);
+
+    const config = readJson(path.join(fixture.reportDir, "fixture-vue-tsc.tsconfig.json"));
+    assert.deepEqual(config.compilerOptions.paths, {
+      "@vue/runtime-core": ["../node_modules/.pnpm/vue@3.5.30/node_modules/@vue/runtime-core"],
+      "@vue/runtime-core/*": ["../node_modules/.pnpm/vue@3.5.30/node_modules/@vue/runtime-core/*"],
+      "@vue/runtime-dom": ["../node_modules/.pnpm/vue@3.5.30/node_modules/@vue/runtime-dom"],
+      "@vue/runtime-dom/*": ["../node_modules/.pnpm/vue@3.5.30/node_modules/@vue/runtime-dom/*"],
+      vue: ["../node_modules/.pnpm/vue@3.5.30/node_modules/vue"],
+      "vue/*": ["../node_modules/.pnpm/vue@3.5.30/node_modules/vue/*"],
+    });
   } finally {
     cleanup(fixture);
   }

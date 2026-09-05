@@ -101,6 +101,7 @@ fn write_project_artifact(root: &Path, args: &Args, project: &Value) -> Result<V
         })?
         .to_string();
     let source_config = common::read_text(fixture_root.join(&source_project))?;
+    let typecheck_source_roots = source_roots(&fixture_root, project, &vize_run.payload["parsed"])?;
     let baseline_config = materialize_baseline_project(
         root,
         &fixture_root,
@@ -108,6 +109,7 @@ fn write_project_artifact(root: &Path, args: &Args, project: &Value) -> Result<V
         project,
         &source_project,
         &vize_run.payload["parsed"],
+        &typecheck_source_roots,
     )?;
     let vue_tsc_version = run_capture_limited(
         &args.vue_tsc_bin,
@@ -202,6 +204,7 @@ fn write_project_artifact(root: &Path, args: &Args, project: &Value) -> Result<V
         &fixture_root,
         &vize_run.payload["parsed"],
         &baseline.run.output,
+        &typecheck_source_roots,
         &documented_differences,
     )?;
     let coverage = if let Some(reason) = baseline
@@ -215,6 +218,7 @@ fn write_project_artifact(root: &Path, args: &Args, project: &Value) -> Result<V
             &vize_run.payload["parsed"],
             &coverage_baseline.run.output,
             &fixture_root,
+            &typecheck_source_roots,
         )?
     };
     let configuration = if let Some(reason) = baseline.run_error.as_deref() {
@@ -460,7 +464,7 @@ fn read_and_validate_vize_run(
         ));
     }
     let fixture_root = root.join(project_string(project, "fixturePath")?);
-    let expected_files = collect_vue_input_paths(&fixture_root, &typecheck_corpus_globs(project)?)?;
+    let expected_files = expected_typecheck_vue_files(&fixture_root, project, &payload["parsed"])?;
     let authored_files = collect_typechecker_authored_paths(&fixture_root)?;
     let expected_coverage = validate_typechecker_output(
         project,
@@ -569,6 +573,7 @@ fn materialize_baseline_project(
     project: &Value,
     source_project: &str,
     vize_report: &Value,
+    source_roots: &[PathBuf],
 ) -> Result<BaselineConfig, String> {
     let source_path = fixture_root.join(source_project);
     let source_dir = source_path
@@ -580,18 +585,48 @@ fn materialize_baseline_project(
     let artifact_path = report_dir.join(format!("{project_id}-vue-tsc.tsconfig.json"));
     fs::create_dir_all(&config_dir)
         .map_err(|error| format!("cannot create {}: {error}", config_dir.display()))?;
-    let source_roots = source_roots(fixture_root, project)?;
+    let source_document = read_tsconfig_jsonc(&source_path)?;
+    let mut dot_roots = dot_directory_include_roots(fixture_root, vize_report);
+    let fixture_roots = [fixture_root.to_path_buf()];
+    dot_roots.extend(discover_dot_directory_include_roots(&fixture_roots)?);
+    dot_roots.extend(tsconfig_include_dot_roots(
+        fixture_root,
+        source_dir,
+        &source_document,
+    )?);
+    dedup_paths(&mut dot_roots);
     let mut ambient_roots = vec![source_dir.to_path_buf()];
-    ambient_roots.extend(source_roots.clone());
+    ambient_roots.extend(source_roots.iter().cloned());
+    ambient_roots.extend(dot_roots.clone());
     dedup_paths(&mut ambient_roots);
+    let mut include_roots = source_roots.to_vec();
+    include_roots.extend(dot_roots.clone());
+    dedup_paths(&mut include_roots);
+    let dot_vue_roots = dot_roots.clone();
+    let mut compiler_options = serde_json::Map::new();
+    compiler_options.insert("ignoreDeprecations".to_string(), json!("6.0"));
+    compiler_options.insert(
+        "rootDir".to_string(),
+        json!(config_relative_path(&config_dir, fixture_root)),
+    );
+    let source_base_url = source_document
+        .pointer("/compilerOptions/baseUrl")
+        .and_then(Value::as_str)
+        .map(|base_url| source_dir.join(base_url));
+    let path_mapping_root = source_base_url.as_deref().unwrap_or(source_dir);
+    let mut paths = source_path_mappings(path_mapping_root, &config_dir, &source_document);
+    extend_local_vue_runtime_paths(fixture_root, &config_dir, &mut paths)?;
+    if !paths.is_empty() {
+        compiler_options.insert("paths".to_string(), Value::Object(paths));
+        if source_base_url.is_some() {
+            compiler_options.insert("baseUrl".to_string(), json!("."));
+        }
+    }
     let config = json!({
         "extends": config_relative_path(&config_dir, &source_path),
-        "compilerOptions": {
-            "ignoreDeprecations": "6.0",
-            "rootDir": config_relative_path(&config_dir, fixture_root),
-        },
+        "compilerOptions": Value::Object(compiler_options),
         "files": vize_report.get("files").and_then(Value::as_array).unwrap_or(&Vec::new()).iter().take(vize_report.get("fileCount").and_then(Value::as_u64).unwrap_or(0) as usize).filter_map(|entry| entry.get("file").and_then(Value::as_str)).map(|file| config_relative_path(&config_dir, &fixture_root.join(file))).collect::<Vec<_>>(),
-        "include": include_globs(&config_dir, &ambient_roots, &source_roots),
+        "include": include_globs(&config_dir, &ambient_roots, &include_roots, &dot_vue_roots),
         "exclude": ambient_roots.iter().flat_map(|root_path| {
             let root = config_relative_path(&config_dir, root_path);
             vec![format!("{root}/**/node_modules/**"), format!("{root}/**/dist/**")]
@@ -707,6 +742,7 @@ fn compare_typecheck_diagnostics(
     cwd: &Path,
     vize_report: &Value,
     vue_tsc_output: &str,
+    source_roots: &[PathBuf],
     documented_differences: &[DocumentedDifference],
 ) -> Result<Value, String> {
     if project_id.is_empty() {
@@ -718,7 +754,13 @@ fn compare_typecheck_diagnostics(
     let expected = select_documented_differences(documented_differences, &project_id, cwd)?;
     let vize_input = collect_vize_diagnostics(vize_report, cwd)?;
     let comparable_vue_files = comparable_vue_file_set(vize_report, cwd)?;
-    let baseline_input = collect_vue_tsc_diagnostics(vue_tsc_output, cwd, &comparable_vue_files)?;
+    let support_classifier = SupportVueClassifier::new(cwd, source_roots);
+    let baseline_input = collect_vue_tsc_diagnostics(
+        vue_tsc_output,
+        cwd,
+        &comparable_vue_files,
+        &support_classifier,
+    )?;
     let mut vize_groups = group_by_identity(vize_input.diagnostics);
     let mut baseline_groups = group_by_identity(baseline_input.diagnostics);
     let mut identities = vize_groups
@@ -881,6 +923,7 @@ fn collect_vue_tsc_diagnostics(
     output: &str,
     cwd: &Path,
     comparable_vue_files: &BTreeSet<String>,
+    support_classifier: &SupportVueClassifier,
 ) -> Result<DiagnosticInput, String> {
     let positioned = Regex::new(r"^(.+)\((\d+),(\d+)\): (error|warning) TS(\d+): (.+)$").unwrap();
     let project = Regex::new(r"^(error|warning) TS(\d+): (.+)$").unwrap();
@@ -896,7 +939,8 @@ fn collect_vue_tsc_diagnostics(
                 None => excluded_external_count += 1,
                 Some(file) if !file.ends_with(".vue") => excluded_non_vue_count += 1,
                 Some(file)
-                    if !comparable_vue_files.contains(&file) && is_support_vue_file(&file) =>
+                    if !comparable_vue_files.contains(&file)
+                        && support_classifier.is_support_vue_file(&file) =>
                 {
                     excluded_support_vue_count += 1
                 }
@@ -943,6 +987,7 @@ fn evaluate_vue_program_coverage(
     vize_report: &Value,
     vue_tsc_output: &str,
     cwd: &Path,
+    source_roots: &[PathBuf],
 ) -> Result<Value, String> {
     let mut vize_vue_files = vize_report
         .get("files")
@@ -969,8 +1014,9 @@ fn evaluate_vue_program_coverage(
         .collect::<Vec<_>>();
     sort_bytes_dedup(&mut vize_vue_files);
     let comparable = vize_vue_files.iter().cloned().collect::<BTreeSet<_>>();
+    let support_classifier = SupportVueClassifier::new(cwd, source_roots);
     let (baseline_vue_files, dependency_vue_files, support_vue_files) =
-        collect_vue_tsc_program_files(vue_tsc_output, cwd, &comparable)?;
+        collect_vue_tsc_program_files(vue_tsc_output, cwd, &comparable, &support_classifier)?;
     let baseline_set = baseline_vue_files.iter().cloned().collect::<BTreeSet<_>>();
     let vize_set = vize_vue_files.iter().cloned().collect::<BTreeSet<_>>();
     let missing_vue_files = vize_vue_files
@@ -1062,6 +1108,7 @@ fn collect_vue_tsc_program_files(
     output: &str,
     cwd: &Path,
     comparable_vue_files: &BTreeSet<String>,
+    support_classifier: &SupportVueClassifier,
 ) -> Result<(Vec<String>, Vec<String>, Vec<String>), String> {
     let mut files = Vec::new();
     let mut dependency_files = Vec::new();
@@ -1086,7 +1133,9 @@ fn collect_vue_tsc_program_files(
         }
         if segments.contains(&"node_modules") {
             dependency_files.push(file);
-        } else if !comparable_vue_files.contains(&file) && is_support_vue_file(&file) {
+        } else if !comparable_vue_files.contains(&file)
+            && support_classifier.is_support_vue_file(&file)
+        {
             support_files.push(file);
         } else {
             files.push(file);
@@ -1255,6 +1304,12 @@ fn create_seeded_mutation_oracle(ctx: MutationContext<'_>) -> Result<Value, Stri
                 .unwrap_or("vue-tsc project configuration is unusable"),
         ));
     }
+    if optional_typecheck_corpus_globs(ctx.project).is_none() {
+        return Ok(unusable_mutation(
+            &seed,
+            "seeded mutation requires configured typecheck corpus globs to rerun Vize",
+        ));
+    }
     let mut shared_files = ctx
         .vize_report
         .get("files")
@@ -1401,11 +1456,13 @@ fn observe_mutation_state(
         .parsed
         .as_ref()
         .ok_or_else(|| "Vize mutation run emitted no parsed JSON".to_string())?;
+    let source_roots = source_roots(ctx.fixture_root, ctx.project, parsed)?;
     let comparison = compare_typecheck_diagnostics(
         project_string(ctx.project, "id")?,
         ctx.fixture_root,
         parsed,
         &baseline.output,
+        &source_roots,
         ctx.documented_differences,
     )?;
     Ok(ObservedMutation {
@@ -1435,8 +1492,7 @@ fn run_vize_typecheck(
     .map_err(mutation_run_error)?;
     let parsed = serde_json::from_str::<Value>(&run.stdout)
         .map_err(|error| format!("Vize mutation run emitted invalid JSON: {error}"))?;
-    let expected_files =
-        collect_vue_input_paths(ctx.fixture_root, &typecheck_corpus_globs(ctx.project)?)?;
+    let expected_files = expected_typecheck_vue_files(ctx.fixture_root, ctx.project, &parsed)?;
     let authored_files = collect_typechecker_authored_paths(ctx.fixture_root)?;
     validate_typechecker_output(
         ctx.project,
@@ -2085,12 +2141,55 @@ fn divergence_error(message: &str) -> String {
     format!("Invalid typecheck divergence input: {message}")
 }
 
-fn is_support_vue_file(file: &str) -> bool {
+struct SupportVueClassifier {
+    source_roots: Vec<String>,
+}
+
+impl SupportVueClassifier {
+    fn new(cwd: &Path, source_roots: &[PathBuf]) -> Self {
+        let mut source_roots = source_roots
+            .iter()
+            .filter_map(|source_root| pathdiff::diff_paths(source_root, cwd))
+            .map(|relative| {
+                let normalized = common::normalize_path(&relative);
+                if normalized.is_empty() {
+                    ".".to_string()
+                } else {
+                    normalized
+                }
+            })
+            .collect::<Vec<_>>();
+        sort_bytes_dedup(&mut source_roots);
+        Self { source_roots }
+    }
+
+    fn is_support_vue_file(&self, file: &str) -> bool {
+        has_dot_directory_parent(file) || self.is_outside_source_roots(file)
+    }
+
+    fn is_outside_source_roots(&self, file: &str) -> bool {
+        !self.source_roots.is_empty()
+            && !self
+                .source_roots
+                .iter()
+                .any(|root| relative_file_is_inside(root, file))
+    }
+}
+
+fn has_dot_directory_parent(file: &str) -> bool {
     file.split('/')
         .collect::<Vec<_>>()
         .split_last()
         .map(|(_, parents)| parents.iter().any(|segment| segment.starts_with('.')))
         .unwrap_or(false)
+}
+
+fn relative_file_is_inside(root: &str, file: &str) -> bool {
+    root == "."
+        || file == root
+        || file
+            .strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with('/'))
 }
 
 fn is_absolute_program_path(file: &str) -> bool {
@@ -2459,16 +2558,37 @@ fn tool_args(project: &Value) -> Result<Vec<String>, String> {
 }
 
 fn typecheck_corpus_globs(project: &Value) -> Result<Vec<String>, String> {
+    optional_typecheck_corpus_globs(project)
+        .ok_or_else(|| "project has no typecheck corpus globs".to_string())
+}
+
+fn optional_typecheck_corpus_globs(project: &Value) -> Option<Vec<String>> {
     let globs = project
         .pointer("/typecheckPerformance/corpusGlobs")
         .and_then(Value::as_array)
-        .or_else(|| project.get("vueGlobs").and_then(Value::as_array))
-        .ok_or_else(|| "project has no typecheck corpus globs".to_string())?;
-    Ok(globs
-        .iter()
-        .filter_map(Value::as_str)
-        .map(str::to_string)
-        .collect())
+        .or_else(|| project.get("vueGlobs").and_then(Value::as_array))?;
+    Some(
+        globs
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect(),
+    )
+}
+
+fn expected_typecheck_vue_files(
+    cwd: &Path,
+    project: &Value,
+    vize_report: &Value,
+) -> Result<Vec<String>, String> {
+    if let Some(globs) = optional_typecheck_corpus_globs(project) {
+        return collect_vue_input_paths(cwd, &globs);
+    }
+    let mut files = comparable_vue_file_set(vize_report, cwd)?
+        .into_iter()
+        .collect::<Vec<_>>();
+    sort_bytes_dedup(&mut files);
+    Ok(files)
 }
 
 fn typecheck_tsconfig_path(project: &Value) -> Option<String> {
@@ -3598,25 +3718,53 @@ fn ratio_field(performance: &Value, name: &str) -> Result<f64, String> {
     }
 }
 
-fn source_roots(fixture_root: &Path, project: &Value) -> Result<Vec<PathBuf>, String> {
+fn source_roots(
+    fixture_root: &Path,
+    project: &Value,
+    vize_report: &Value,
+) -> Result<Vec<PathBuf>, String> {
     let globs = project
         .pointer("/typecheckPerformance/corpusGlobs")
         .and_then(Value::as_array)
-        .or_else(|| project.get("vueGlobs").and_then(Value::as_array))
-        .ok_or_else(|| "project has no typecheck corpus globs".to_string())?;
+        .or_else(|| project.get("vueGlobs").and_then(Value::as_array));
     let mut roots = globs
-        .iter()
-        .filter_map(Value::as_str)
-        .map(|glob| fixture_root.join(literal_glob_root(glob)))
-        .collect::<Vec<_>>();
+        .map(|globs| {
+            globs
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|glob| fixture_root.join(literal_glob_root(glob)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if roots.is_empty() {
+        roots = vize_report_source_roots(fixture_root, vize_report);
+    }
     dedup_paths(&mut roots);
     Ok(roots)
+}
+
+fn vize_report_source_roots(fixture_root: &Path, vize_report: &Value) -> Vec<PathBuf> {
+    vize_report
+        .get("files")
+        .and_then(Value::as_array)
+        .unwrap_or(&Vec::new())
+        .iter()
+        .take(
+            vize_report
+                .get("fileCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(0) as usize,
+        )
+        .filter_map(|entry| entry.get("file").and_then(Value::as_str))
+        .map(|file| fixture_root.join(literal_glob_root(file)))
+        .collect()
 }
 
 fn include_globs(
     config_dir: &Path,
     ambient_roots: &[PathBuf],
     source_roots: &[PathBuf],
+    dot_vue_roots: &[PathBuf],
 ) -> Vec<String> {
     let mut values = Vec::new();
     for root in ambient_roots {
@@ -3639,7 +3787,371 @@ fn include_globs(
             format!("{root}/**/*.json"),
         ]);
     }
+    for root in dot_vue_roots {
+        values.push(format!(
+            "{}/**/*.vue",
+            config_relative_path(config_dir, root)
+        ));
+    }
     values
+}
+
+fn tsconfig_include_dot_roots(
+    fixture_root: &Path,
+    source_dir: &Path,
+    source_document: &Value,
+) -> Result<Vec<PathBuf>, String> {
+    let mut roots = Vec::new();
+    let Some(includes) = source_document.get("include").and_then(Value::as_array) else {
+        return Ok(roots);
+    };
+    for include in includes.iter().filter_map(Value::as_str) {
+        let root = source_dir.join(literal_glob_root(include));
+        if !path_stays_inside(fixture_root, &root) {
+            continue;
+        }
+        push_dot_ancestors(fixture_root, &root, &mut roots);
+        collect_dot_directories(&root, &mut roots)?;
+    }
+    Ok(roots)
+}
+
+fn push_dot_ancestors(fixture_root: &Path, path: &Path, roots: &mut Vec<PathBuf>) {
+    let Some(relative) = pathdiff::diff_paths(path, fixture_root) else {
+        return;
+    };
+    let mut current = fixture_root.to_path_buf();
+    for component in relative.components() {
+        let std::path::Component::Normal(segment) = component else {
+            return;
+        };
+        current.push(segment);
+        if is_dot_directory(&segment.to_string_lossy()) {
+            roots.push(current.clone());
+        }
+    }
+}
+
+fn dot_directory_include_roots(fixture_root: &Path, vize_report: &Value) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    for file in vize_report
+        .get("files")
+        .and_then(Value::as_array)
+        .unwrap_or(&Vec::new())
+        .iter()
+        .take(
+            vize_report
+                .get("fileCount")
+                .and_then(Value::as_u64)
+                .unwrap_or(0) as usize,
+        )
+        .filter_map(|entry| entry.get("file").and_then(Value::as_str))
+    {
+        let normalized = file.replace('\\', "/");
+        let segments = normalized.split('/').collect::<Vec<_>>();
+        for index in 0..segments.len().saturating_sub(1) {
+            if !is_dot_directory(segments[index])
+                || has_ancestor_segment(&segments, index, "node_modules")
+            {
+                continue;
+            }
+            roots.push(
+                segments[..=index]
+                    .iter()
+                    .fold(fixture_root.to_path_buf(), |path, segment| {
+                        path.join(segment)
+                    }),
+            );
+        }
+    }
+    roots
+}
+
+fn has_ancestor_segment(segments: &[&str], end: usize, expected: &str) -> bool {
+    segments
+        .iter()
+        .take(end)
+        .any(|segment| *segment == expected)
+}
+
+fn discover_dot_directory_include_roots(source_roots: &[PathBuf]) -> Result<Vec<PathBuf>, String> {
+    let mut roots = Vec::new();
+    for source_root in source_roots {
+        collect_dot_directories(source_root, &mut roots)?;
+    }
+    Ok(roots)
+}
+
+fn collect_dot_directories(directory: &Path, roots: &mut Vec<PathBuf>) -> Result<(), String> {
+    if !directory.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(directory)
+        .map_err(|error| format!("cannot read {}: {error}", directory.display()))?
+    {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !entry
+            .file_type()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+        {
+            continue;
+        }
+        if ignored_directory(&name) {
+            continue;
+        }
+        let child = entry.path();
+        if is_dot_directory(&name) {
+            roots.push(child.clone());
+        }
+        collect_dot_directories(&child, roots)?;
+    }
+    Ok(())
+}
+
+fn ignored_directory(name: &str) -> bool {
+    matches!(
+        name,
+        "node_modules" | "dist" | ".git" | ".generated" | ".vize-baseline" | ".yarn"
+    )
+}
+
+fn read_tsconfig_jsonc(path: &Path) -> Result<Value, String> {
+    let source = common::read_text(path)?;
+    serde_json::from_str(&source)
+        .or_else(|_| serde_json::from_str(&strip_jsonc_sugar(&source)))
+        .map_err(|error| format!("cannot parse JSON {}: {error}", path.display()))
+}
+
+fn strip_jsonc_sugar(source: &str) -> String {
+    let mut out = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                out.push(c);
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                for c in chars.by_ref() {
+                    if c == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut last = ' ';
+                for c in chars.by_ref() {
+                    if last == '*' && c == '/' {
+                        break;
+                    }
+                    last = c;
+                }
+            }
+            '}' | ']' => {
+                while out.ends_with(char::is_whitespace) {
+                    out.pop();
+                }
+                if out.ends_with(',') {
+                    out.pop();
+                }
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+fn is_dot_directory(name: &str) -> bool {
+    name.starts_with('.') && name != "." && name != ".."
+}
+
+fn source_path_mappings(
+    source_dir: &Path,
+    config_dir: &Path,
+    source_document: &Value,
+) -> serde_json::Map<String, Value> {
+    let Some(declared) = source_document
+        .pointer("/compilerOptions/paths")
+        .and_then(Value::as_object)
+    else {
+        return serde_json::Map::new();
+    };
+    declared
+        .iter()
+        .filter_map(|(name, targets)| {
+            let targets = targets
+                .as_array()?
+                .iter()
+                .map(|target| {
+                    target
+                        .as_str()
+                        .map(|target| json!(relocate_path_mapping(source_dir, config_dir, target)))
+                        .unwrap_or_else(|| target.clone())
+                })
+                .collect::<Vec<_>>();
+            Some((name.clone(), Value::Array(targets)))
+        })
+        .collect()
+}
+
+fn relocate_path_mapping(source_dir: &Path, config_dir: &Path, target: &str) -> String {
+    if target == "*" {
+        return format!("{}/*", config_relative_path(config_dir, source_dir));
+    }
+    if target.ends_with("/*") && !target[..target.len() - 2].contains('*') {
+        return format!(
+            "{}/*",
+            config_relative_path(config_dir, &source_dir.join(&target[..target.len() - 2]))
+        );
+    }
+    if !target.contains('*') {
+        return config_relative_path(config_dir, &source_dir.join(target));
+    }
+    target.to_string()
+}
+
+fn extend_local_vue_runtime_paths(
+    fixture_root: &Path,
+    config_dir: &Path,
+    paths: &mut serde_json::Map<String, Value>,
+) -> Result<(), String> {
+    let runtime_names = ["@vue/runtime-core", "@vue/runtime-dom", "vue"];
+    let vue_root = local_package_root(fixture_root, "vue")?;
+    for name in runtime_names {
+        let root = if name == "vue" {
+            vue_root.clone()
+        } else {
+            match local_vue_dependency_package_root(fixture_root, vue_root.as_deref(), name)? {
+                Some(root) => Some(root),
+                None => local_package_root(fixture_root, name)?,
+            }
+        };
+        if let Some(root) = root {
+            let root = config_relative_path(config_dir, &root);
+            paths.insert(name.to_string(), json!([root.clone()]));
+            paths.insert(format!("{name}/*"), json!([format!("{root}/*")]));
+        }
+    }
+    Ok(())
+}
+
+fn local_vue_dependency_package_root(
+    fixture_root: &Path,
+    vue_root: Option<&Path>,
+    name: &str,
+) -> Result<Option<PathBuf>, String> {
+    if name == "vue" {
+        return Ok(None);
+    }
+    let Some(vue_root) = vue_root else {
+        return Ok(None);
+    };
+    let real_vue_root = fs::canonicalize(vue_root)
+        .map_err(|error| format!("cannot resolve {}: {error}", vue_root.display()))?;
+    let Some(store_node_modules) = real_vue_root.parent() else {
+        return Ok(None);
+    };
+    let candidate = name
+        .split('/')
+        .fold(store_node_modules.to_path_buf(), |path, segment| {
+            path.join(segment)
+        });
+    if !candidate.join("package.json").exists() {
+        return Ok(None);
+    }
+    let real = fs::canonicalize(&candidate)
+        .map_err(|error| format!("cannot resolve {}: {error}", candidate.display()))?;
+    if !path_stays_inside(fixture_root, &real) {
+        return Ok(None);
+    }
+    Ok(Some(candidate))
+}
+
+fn local_package_root(fixture_root: &Path, name: &str) -> Result<Option<PathBuf>, String> {
+    let linked = name
+        .split('/')
+        .fold(fixture_root.join("node_modules"), |path, segment| {
+            path.join(segment)
+        });
+    if linked.join("package.json").exists() {
+        return Ok(Some(linked));
+    }
+    unique_pnpm_store_package_root(fixture_root, name)
+}
+
+fn unique_pnpm_store_package_root(
+    fixture_root: &Path,
+    name: &str,
+) -> Result<Option<PathBuf>, String> {
+    let store = fixture_root.join("node_modules/.pnpm");
+    if !store.exists() {
+        return Ok(None);
+    }
+    let mut matches = BTreeMap::new();
+    for entry in
+        fs::read_dir(&store).map_err(|error| format!("cannot read {}: {error}", store.display()))?
+    {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let entry_name = entry.file_name().to_string_lossy().to_string();
+        if entry_name.starts_with('.') {
+            continue;
+        }
+        if !pnpm_store_entry_matches_package(&entry_name, name) {
+            continue;
+        }
+        let candidate = name
+            .split('/')
+            .fold(entry.path().join("node_modules"), |path, segment| {
+                path.join(segment)
+            });
+        if !candidate.join("package.json").exists() {
+            continue;
+        }
+        let real = fs::canonicalize(&candidate)
+            .map_err(|error| format!("cannot resolve {}: {error}", candidate.display()))?;
+        if !path_stays_inside(fixture_root, &real) {
+            continue;
+        }
+        matches.insert(real, candidate);
+    }
+    Ok(if matches.len() == 1 {
+        matches.into_values().next()
+    } else {
+        None
+    })
+}
+
+fn pnpm_store_entry_matches_package(entry_name: &str, name: &str) -> bool {
+    let encoded = name.replace('/', "+");
+    entry_name
+        .strip_prefix(&encoded)
+        .is_some_and(|suffix| suffix.starts_with('@'))
+}
+
+fn path_stays_inside(root: &Path, path: &Path) -> bool {
+    pathdiff::diff_paths(path, root).is_some_and(|relative| {
+        relative
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
+    })
 }
 
 fn literal_glob_root(glob: &str) -> &str {

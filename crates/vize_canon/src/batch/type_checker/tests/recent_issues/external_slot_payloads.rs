@@ -10,6 +10,8 @@
 use super::super::{create_project_case, resolve_test_tsgo_binary, snapshot_project_diagnostics};
 use vize_s0::String;
 
+mod v_for_any;
+
 /// `<script setup generic>` child whose slot payload is its type parameter.
 const GENERIC_LIST: &str = r#"<script setup lang="ts" generic="T extends { id: string }">
 defineSlots<{
@@ -251,44 +253,70 @@ function takesString(value: string) {
 }
 
 #[test]
-fn any_v_for_key_matches_vue_tsc_object_fallback() {
+fn unnamed_inner_slot_does_not_shadow_outer_scoped_slot_payload() {
     if resolve_test_tsgo_binary().is_none() {
         return;
     }
     let project_root = create_project_case(
-        "external-slot-payload-vfor-any",
-        &[(
-            "src/App.vue",
-            r#"<script setup lang="ts">
-const anyList: any = null;
-const arrList: string[] = [];
-const objList: Record<string, number> = {};
-const unknownList: unknown = null;
+        "external-slot-payload-unnamed-inner-slot",
+        &[
+            (
+                "src/List.vue",
+                r#"<script setup lang="ts">
+defineSlots<{
+  default(props: { item: { title: string }; index: number }): any;
+}>();
 
-function takesNumber(value: number) {
+defineProps<{ items: Array<{ title: string }> }>();
+</script>
+
+<template>
+  <div v-for="(item, index) in items" :key="item.title">
+    <slot :item="item" :index="index" />
+  </div>
+</template>
+"#,
+            ),
+            (
+                "src/Card.vue",
+                r#"<script setup lang="ts">
+defineSlots<{
+  title(): any;
+}>();
+</script>
+
+<template>
+  <section>
+    <slot name="title" />
+  </section>
+</template>
+"#,
+            ),
+            (
+                "src/App.vue",
+                r#"<script setup lang="ts">
+import List from './List.vue';
+import Card from './Card.vue';
+
+const items = [{ title: 'Ready' }];
+
+function takesString(value: string) {
   return value;
 }
 </script>
 
 <template>
-  <div v-for="(item, index) in anyList" :key="index">
-    {{ item }}{{ index < arrList.length - 1 ? ',' : '' }}
-  </div>
-  <div v-for="(item2, index2) in arrList" :key="index2">
-    {{ item2 }}{{ index2 < arrList.length - 1 ? ',' : '' }}
-  </div>
-  <div v-for="(value3, key3, index3) in objList" :key="key3">
-    {{ value3 }}{{ takesNumber(index3) }}
-  </div>
-  <div v-for="(item4, key4, index4) in anyList" :key="key4">
-    {{ item4 }}{{ takesNumber(index4) }}
-  </div>
-  <div v-for="(item5, index5) in unknownList" :key="index5">
-    {{ item5 }}{{ takesNumber(index5) }}
-  </div>
+  <List :items="items">
+    <template #default="slotProps">
+      <Card>
+        <template #title>{{ takesString(slotProps.item.title) }}</template>
+      </Card>
+    </template>
+  </List>
 </template>
 "#,
-        )],
+            ),
+        ],
     );
 
     let Some(snapshot) = snapshot_project_diagnostics(&project_root) else {
@@ -297,18 +325,8 @@ function takesNumber(value: number) {
     };
     let _ = std::fs::remove_dir_all(&project_root);
 
-    // vue-tsc treats an `any` source as the object fallback: the second binding
-    // is `string | number`, while the third binding remains `number`. This is
-    // the exact shape that reports Vuestic Admin's
-    // `EditProjectForm.vue:106:35` template-comparison diagnostic.
-    assert_eq!(
-        snapshot,
-        vec![(
-            String::from("src/App.vue"),
-            Some(2365),
-            String::from(
-                "14:18:error Operator '<' cannot be applied to types 'string | number' and 'number'."
-            ),
-        )]
+    assert!(
+        snapshot.is_empty(),
+        "a slot without authored props must not shadow outer scoped-slot payloads: {snapshot:#?}"
     );
 }
