@@ -287,15 +287,24 @@ fn a_repeated_v_slots_is_rejected() {
 }
 
 #[test]
-fn spreads_and_computed_keys_keep_their_object_children_warnings() {
-    // `lower_object_slots` is shared with the object-children idiom, so these
-    // stay warnings naming what was ignored rather than silence.
+fn spreads_keep_their_object_children_warning() {
+    // `lower_object_slots` is shared with the object-children idiom, so spread
+    // entries stay warnings naming what was ignored rather than silence.
     assert_eq!(
         diagnostics("const A = () => <B v-slots={{...rest}}/>;"),
         vec!["spread in a JSX slot object is not supported and was ignored".to_string()]
     );
+    let dynamic_source = "const π = n; const A = () => <B v-slots={{[π]: () => <i/>}}/>;";
+    assert_eq!(diagnostics(dynamic_source), Vec::<String>::new());
     assert_eq!(
-        diagnostics("const A = () => <B v-slots={{[n]: () => <i/>}}/>;"),
-        vec!["computed JSX slot names are not supported and were ignored".to_string()]
+        render_code(dynamic_source),
+        "export function render(_ctx, _cache) {\n  \
+         const _component_B = _resolveComponent(\"B\")\n  \n  \
+         return (_openBlock(), _createBlock(_component_B, null, {\n    \
+         [π]: _withCtx(() => [\n      \
+         _createElementVNode(\"i\")\n    \
+         ]),\n    \
+         _: 2 /* DYNAMIC */\n  \
+         }, 1024 /* DYNAMIC_SLOTS */))\n}"
     );
 }
