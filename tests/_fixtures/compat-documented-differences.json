@@ -259,34 +259,6 @@
     },
     {
       "project": "reka-ui",
-      "file": "packages/core/src/Select/story/_Select.vue",
-      "severity": "error",
-      "line": 34,
-      "column": 5,
-      "vize": {
-        "code": 2353,
-        "message": "Object literal may only specify known properties, and '\"ariaLabel\"' does not exist in type 'Partial<Props<string>> & { autocomplete?: unknown; by?: unknown; defaultOpen?: unknown; defaultValue?: unknown; dir?: unknown; disabled?: unknown; modelValue?: unknown; multiple?: unknown; name?: unknown; nullableValue?: unknown; open?: unknown; required?: unknown; } & VNodeProps & AllowedComponentProps & ComponentC...'."
-      },
-      "baseline": null,
-      "issue": 5722,
-      "reason": "Vize preserves this stricter real-project diagnostic while vue-tsc accepts the same source; the exact row is tracked for follow-up under issue 5722."
-    },
-    {
-      "project": "reka-ui",
-      "file": "packages/core/src/Select/story/_SelectTest.vue",
-      "severity": "error",
-      "line": 33,
-      "column": 7,
-      "vize": {
-        "code": 2353,
-        "message": "Object literal may only specify known properties, and '\"ariaLabel\"' does not exist in type 'Partial<Props<string | number | bigint | Record<string, any> | null>> & { autocomplete?: unknown; by?: unknown; defaultOpen?: unknown; defaultValue?: unknown; dir?: unknown; disabled?: unknown; modelValue?: unknown; multiple?: unknown; name?: unknown; nullableValue?: unknown; open?: unknown; required?: unknown; } & ...'."
-      },
-      "baseline": null,
-      "issue": 5722,
-      "reason": "Vize preserves this stricter real-project diagnostic while vue-tsc accepts the same source; the exact row is tracked for follow-up under issue 5722."
-    },
-    {
-      "project": "reka-ui",
       "file": "packages/core/src/Splitter/story/SplitterAction.story.vue",
       "severity": "error",
       "line": 18,
