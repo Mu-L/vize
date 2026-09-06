@@ -771,6 +771,7 @@
           "tests/_fixtures/_git/hoppscotch",
           "tests/_fixtures/_git/inspira-ui",
           "tests/_fixtures/_git/reka-ui",
+          "tests/_fixtures/_git/naive-ui",
           "tests/_fixtures/_git/elk",
           "tests/_fixtures/_git/misskey",
           "tests/_fixtures/_git/motion-vue",
