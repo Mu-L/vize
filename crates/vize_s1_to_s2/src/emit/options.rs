@@ -7,7 +7,6 @@
 //! emitter silently assumes — it is production surface the series has
 
 use alloc::vec::Vec as StdVec;
-
 use vize_s0::String;
 
 /// Which module form the render function is emitted in — the shipped
@@ -229,6 +228,9 @@ pub struct DomEmitOptions<'a> {
     pub comments: bool,
     /// Preserve Vue's experimental `//` comments inside opening tag attrs.
     pub experimental_in_tag_comments: bool,
+    /// Declarative tag patterns that the shipped lane treats as custom
+    /// elements instead of components.
+    pub custom_element_patterns: &'a [String],
     /// The shipped lane's `binding_metadata`, honoured in non-inline mode:
     /// prefixed identifiers resolve to the same proxy members and signatures.
     pub bindings: Option<&'a BindingTable>,
@@ -250,6 +252,7 @@ impl DomEmitOptions<'static> {
         is_ts: false,
         comments: false,
         experimental_in_tag_comments: false,
+        custom_element_patterns: &[],
         bindings: None,
     };
 }
@@ -281,6 +284,7 @@ mod tests {
                 is_ts: false,
                 comments: false,
                 experimental_in_tag_comments: false,
+                custom_element_patterns: &[],
                 bindings: None,
             }
         );
@@ -316,10 +320,6 @@ mod tests {
         assert_eq!(table.kind("msg"), Some(BindingKind::SetupLet));
         assert_eq!(table.kind("Comp"), Some(BindingKind::SetupConst));
         assert_eq!(table.kind("other"), None);
-        // `contains` is the membership half of the same lookup; both
-        // answers are pinned, and the call stays out of the assertion so
-        // the Davinci assertion lint's partial-match scan reads it as the
-        // exact query it is.
         let named = (table.contains("Comp"), table.contains("other"));
         assert_eq!(named, (true, false));
         assert_eq!(

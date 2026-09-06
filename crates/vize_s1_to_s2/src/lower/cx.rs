@@ -16,7 +16,6 @@
 //! contract): past `u32::MAX - 1` ops the context reports once and stops
 //! minting; side tables simply stop gaining keys while the op tree stays
 //! total.
-//!
 //! [`S2Folio`]: vize_s2::folio::S2Folio
 
 use alloc::vec::Vec;
@@ -28,6 +27,8 @@ use vize_s0::{Allocator, SourceBlock, Span, String};
 use vize_s1::{CloseTag, Element, ElementClose, SurfaceChild, Token};
 use vize_s2::provenance::ProvenanceRecord;
 use vize_s2::scope::{ScopeFacts, ScopeTag};
+
+mod custom_element;
 
 pub(crate) struct Cx<'a> {
     pub allocator: &'a Allocator,
@@ -52,6 +53,7 @@ pub(crate) struct Cx<'a> {
     pub wrappers: SideTable<super::structural::WrapperKeys>,
     pub for_wrappers: SideTable<super::structural::ForWrapper>,
     pub caps: super::caps::LegacyCaps,
+    custom_element_patterns: Vec<String>,
 }
 
 impl<'a> Cx<'a> {
@@ -60,6 +62,7 @@ impl<'a> Cx<'a> {
         block: SourceBlock<'a>,
         caps: super::caps::LegacyCaps,
         preserve_comments: bool,
+        custom_element_patterns: &[String],
     ) -> Self {
         Self {
             allocator,
@@ -78,6 +81,7 @@ impl<'a> Cx<'a> {
             wrappers: SideTable::new(),
             for_wrappers: SideTable::new(),
             caps,
+            custom_element_patterns: custom_element_patterns.to_vec(),
         }
     }
 

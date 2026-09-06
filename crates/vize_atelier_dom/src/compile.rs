@@ -286,11 +286,11 @@ fn compile_template_inner_with_sections<'a>(
     let has_croquis = options.croquis.is_some();
     let codegen_opts = stage_options::codegen_options(&options, codegen_options);
     let template_syntax_quirks = template_syntax.is_quirks();
-    let has_custom_element_matcher = !custom_elements.is_empty();
+    let custom_elements_supported = !custom_elements.has_static_predicate();
     let use_s2_emit = stage_options::s2_emit_supported(
         &options,
         &codegen_opts,
-        has_custom_element_matcher,
+        custom_elements_supported,
         template_syntax,
         has_croquis,
         s2_emit_selection,
@@ -298,6 +298,7 @@ fn compile_template_inner_with_sections<'a>(
     // Project the public output options before consuming Croquis below. Croquis
     // intentionally crosses the transform boundary by ownership and is not
     // cloneable, while S2 only borrows the remaining compiler settings.
+    let s2_custom_elements = custom_elements.clone();
     let s2_emit_source = use_s2_emit.then(|| (options.clone(), hoisted_scope_id.clone()));
     let transform_opts = stage_options::transform_options(&options);
     // Park the summary on the allocator so it shares the allocator lifetime.
@@ -328,6 +329,7 @@ fn compile_template_inner_with_sections<'a>(
         let s2_options = stage_options::s2_emit_options(
             &s2_options_source,
             &codegen_opts,
+            &s2_custom_elements,
             binding_table.as_ref(),
             s2_hoisted_scope_id.as_deref(),
         );
