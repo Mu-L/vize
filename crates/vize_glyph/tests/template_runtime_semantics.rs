@@ -40,7 +40,7 @@ fn text_and_interpolation_boundaries_do_not_gain_runtime_whitespace() {
 }
 
 #[test]
-fn order_sensitive_bindings_remain_as_authored() {
+fn dynamic_attribute_groups_remain_as_authored() {
     let source = concat!(
         r#"<Widget :z="first()" :a="second()" "#,
         r#":getter="observed" :assigned="value = next" :updated="count++" "#,
@@ -75,6 +75,18 @@ fn literal_attributes_sort_only_inside_safe_unique_runs() {
     assert_fixed_point(
         r#"<Widget title="{{ first() }}" id="root" />"#,
         r#"<Widget title="{{ first() }}" id="root" />"#,
+    );
+}
+
+#[test]
+fn dynamic_argument_bindings_keep_literal_collision_order() {
+    assert_fixed_point(
+        r#"<Widget :[name]="dynamic" id="literal" class="box" />"#,
+        r#"<Widget :[name]="dynamic" id="literal" class="box" />"#,
+    );
+    assert_fixed_point(
+        r#"<Widget v-bind:[name]="dynamic" id="literal" class="box" />"#,
+        r#"<Widget :[name]="dynamic" id="literal" class="box" />"#,
     );
 }
 

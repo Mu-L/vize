@@ -274,19 +274,18 @@ mod tests {
 
     #[test]
     fn test_attribute_sorting() {
-        let source =
-            r#"<div :class="cls" v-if="show" v-for="item in items" @click="handle"></div>"#;
+        let source = r#"<div title="t" ref="root" class="c" id="main"></div>"#;
         let options = FormatOptions::default();
         let result = format_template_content(source, &options).unwrap();
 
-        let vfor_pos = result.find("v-for").unwrap();
-        let vif_pos = result.find("v-if").unwrap();
-        let class_pos = result.find(":class").unwrap();
-        let click_pos = result.find("@click").unwrap();
+        let id_pos = result.find("id=").unwrap();
+        let ref_pos = result.find("ref=").unwrap();
+        let class_pos = result.find("class=").unwrap();
+        let title_pos = result.find("title=").unwrap();
 
-        assert!(class_pos < vif_pos, "bound attributes stay as authored");
-        assert!(vif_pos < vfor_pos, "directives stay as authored");
-        assert!(vfor_pos < click_pos, "events stay as authored");
+        assert!(id_pos < ref_pos);
+        assert!(ref_pos < class_pos);
+        assert!(class_pos < title_pos);
     }
 
     #[test]
@@ -416,7 +415,6 @@ mod tests {
 
     #[test]
     fn test_merge_bind_and_non_bind_true() {
-        // When merge_bind_and_non_bind_attrs is true, bind and non-bind are merged
         let source = r#"<div :class="cls" class="base" :style="s" style="color:red"></div>"#;
         let mut options = FormatOptions::default();
         options.merge_bind_and_non_bind_attrs = true;
@@ -470,34 +468,22 @@ mod tests {
 
     #[test]
     fn test_custom_attribute_groups() {
-        // Custom groups: [["id"], ["class", ":class"], ["@*"], ["*"]]
-        let source = r#"<div @click="h" class="c" id="main" title="t"></div>"#;
+        // Custom groups apply within static, order-safe attribute runs.
+        let source = r#"<div title="t" class="c" data-role="main"></div>"#;
         let mut options = FormatOptions::default();
         options.attribute_groups = Some(vec![
-            vec!["id".to_compact_string()],
-            vec!["class".to_compact_string(), ":class".to_compact_string()],
-            vec!["@*".to_compact_string()],
+            vec!["data-role".to_compact_string()],
+            vec!["class".to_compact_string()],
             vec!["*".to_compact_string()],
         ]);
         let result = format_template_content(source, &options).unwrap();
 
-        let id_pos = result.find("id=").unwrap();
+        let data_role_pos = result.find("data-role=").unwrap();
         let class_pos = result.find("class=").unwrap();
-        let click_pos = result.find("@click=").unwrap();
         let title_pos = result.find("title=").unwrap();
 
-        assert!(
-            click_pos < id_pos,
-            "dynamic event remains the first barrier"
-        );
-        assert!(
-            id_pos < class_pos,
-            "safe static attrs still use custom groups"
-        );
-        assert!(
-            class_pos < title_pos,
-            "class (group 1) before title (group 3)"
-        );
+        assert!(data_role_pos < class_pos);
+        assert!(class_pos < title_pos);
     }
 
     #[test]

@@ -35,11 +35,7 @@ pub(crate) fn sort_attributes(attrs: &mut [ParsedAttribute], options: &FormatOpt
     }
 }
 
-/// Sort one contiguous group that cannot cross an object directive spread.
-///
-/// Vue applies object `v-bind` and `v-on` directives in source order. Moving
-/// an attribute across either directive changes the order of `mergeProps`
-/// arguments and can therefore change which value wins at runtime.
+/// Sort one contiguous group with no order-sensitive dynamic attributes.
 fn sort_attribute_segment(attrs: &mut [ParsedAttribute], options: &FormatOptions) {
     match options.attribute_sort_order {
         AttributeSortOrder::Alphabetical => {
@@ -119,14 +115,14 @@ fn attr_sort_key(name: &str, merge_bind: bool) -> (u8, String) {
 /// Attribute sort priority mirroring patina's `vue/attribute-order` groups
 /// (the eslint-plugin-vue `vue/attributes-order` default), so default fmt
 /// output can never introduce that lint finding (#3251). Patina quirks are
-/// mirrored on purpose: `:ref`/`:id` are plain bindings, only `:key`/`:is`
-/// are special, static Vue 2 slots are unique attributes, and unmatched
+/// mirrored on purpose: bound `is`, `id`, `ref`, `key`, and Vue 2 slots keep
+/// their named groups; unmatched
 /// directives (`v-is`, `v-memo`) join the slots.
 /// 0 `is`/`:is`; 1 `v-for`; 2 conditionals `v-if`/`v-else-if`/`v-else`/
 /// `v-show`/`v-cloak`; 3 render modifiers `v-pre`/`v-once`; 4 `id`; 5 unique
-/// `ref`/`key`/`slot`/`slot-scope`/`:key`; 6 `v-model`; 7 other directives
-/// `v-slot`/`#xxx`; 8 other attributes (bound `:class` and static `class`
-/// share a priority); 9 events `@xxx`/`v-on`; 10 content `v-html`/`v-text`.
+/// `ref`/`key`/`slot`/`slot-scope`; 6 `v-model`; 7 other directives
+/// `v-slot`/`#xxx`; 8 other attributes; 9 events `@xxx`/`v-on`; 10 content
+/// `v-html`/`v-text`.
 pub(crate) fn attribute_priority(name: &str) -> u8 {
     // Exact directive name or an `:arg`/`.mod` boundary (so `v-models` etc. fall through to 7).
     fn matches_directive(name: &str, directive: &str) -> bool {
@@ -145,12 +141,23 @@ pub(crate) fn attribute_priority(name: &str) -> u8 {
     if matches!(name, "v-pre" | "v-once") {
         return 3;
     }
-    if name == "id" {
+    if matches!(name, "id" | ":id" | "v-bind:id") {
         return 4;
     }
     if matches!(
         name,
-        "ref" | "key" | "slot" | "slot-scope" | ":key" | "v-bind:key"
+        "ref"
+            | "key"
+            | "slot"
+            | "slot-scope"
+            | ":ref"
+            | ":key"
+            | ":slot"
+            | ":slot-scope"
+            | "v-bind:ref"
+            | "v-bind:key"
+            | "v-bind:slot"
+            | "v-bind:slot-scope"
     ) {
         return 5;
     }
