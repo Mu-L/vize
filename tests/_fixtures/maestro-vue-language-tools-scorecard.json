@@ -109,6 +109,41 @@
       ]
     },
     {
+      "dimension": "signature-help",
+      "lspMethods": ["textDocument/signatureHelp"],
+      "mustInclude": [
+        {
+          "id": "template-call-signature",
+          "summary": "Template interpolation calls return TypeScript signature help on authored Vue positions.",
+          "evidence": [
+            {
+              "file": "tests/tooling/lsp-signature-help-capability.test.ts",
+              "contains": [
+                "vize lsp maps textDocument/signatureHelp from authored SFC template calls",
+                "signature help should answer the authored template call",
+                "precision: number"
+              ]
+            }
+          ]
+        }
+      ],
+      "mustExclude": [
+        {
+          "id": "non-call-position",
+          "summary": "Authored positions outside callable expressions return null instead of stale signature help.",
+          "evidence": [
+            {
+              "file": "tests/tooling/lsp-signature-help-capability.test.ts",
+              "contains": [
+                "nonCallHelp",
+                "signature help must not answer outside a callable authored expression"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "dimension": "hover",
       "lspMethods": ["textDocument/hover"],
       "mustInclude": [

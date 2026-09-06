@@ -111,6 +111,7 @@ test("Maestro scorecard fixture covers every Vue Language Server parity dimensio
   const requiredDimensions = [
     "diagnostics",
     "completion",
+    "signature-help",
     "hover",
     "definition",
     "references",
