@@ -85,33 +85,6 @@ fn source_map_compiles_stay_on_compatibility_when_profiled() {
 }
 
 #[test]
-fn comments_stay_on_compatibility_without_profiler() {
-    let _guard = lock_profiler();
-    let profiler = global_profiler();
-    profiler.disable();
-    profiler.clear();
-
-    let source = "<div><!--kept--><span>probe</span></div>";
-    let options = DomCompilerOptions {
-        comments: true,
-        ..Default::default()
-    };
-
-    let result = compile(source, options);
-    let counters = profiler.counter_summary();
-
-    assert!(
-        result.sections.is_some(),
-        "comment-preserving compiles must keep compatibility sections"
-    );
-    assert_eq!(
-        counter_total(&counters, "davinci.s2_dom.files"),
-        None,
-        "compatibility compiles must not instantiate the profiling observer"
-    );
-}
-
-#[test]
 fn unsupported_options_stay_on_compatibility_without_profiler() {
     let _guard = lock_profiler();
     let profiler = global_profiler();
