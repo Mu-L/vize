@@ -1679,6 +1679,9 @@ fn contains_span(outer: &LintRecord, inner: &LintRecord) -> bool {
 }
 
 fn unused_component_name(message: &str) -> Option<String> {
+    let message = message
+        .split_once("] ")
+        .map_or(message, |(_, stripped)| stripped);
     let prefix = "Component '";
     if let Some(rest) = message.strip_prefix(prefix) {
         if let Some((name, _)) = rest.split_once("' is registered but never used") {
