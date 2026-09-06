@@ -183,3 +183,96 @@ test("the Rust runner pairs prefixed unused-component location divergences", () 
     fs.rmSync(outputDir, { recursive: true, force: true });
   }
 });
+
+test("the Rust runner keeps embedded brackets in unused-component messages", () => {
+  fs.mkdirSync(path.join(repoRoot, "target"), { recursive: true });
+  const fixtureDir = fs.mkdtempSync(path.join(repoRoot, "target", "lint-unused-bracket-fixture-"));
+  const outputDir = fs.mkdtempSync(path.join(repoRoot, "target", "lint-unused-bracket-report-"));
+  try {
+    fs.writeFileSync(
+      path.join(fixtureDir, "App.vue"),
+      [
+        "<template>",
+        "  <main />",
+        "</template>",
+        "<script>",
+        "import UploaderFile from './UploaderFile.vue';",
+        "export default {",
+        "  components: {",
+        "    UploaderFile,",
+        "  },",
+        "};",
+        "</script>",
+        "",
+      ].join("\n"),
+    );
+    const fakeVize = path.join(fixtureDir, "fake-vize.mjs");
+    fs.writeFileSync(
+      fakeVize,
+      [
+        "#!/usr/bin/env node",
+        "if (process.argv[2] !== 'lint') process.exit(2);",
+        "process.stdout.write(JSON.stringify([{",
+        '  file: "App.vue",',
+        "  messages: [",
+        "    {",
+        '      ruleId: "vue/no-unused-components",',
+        '      severity: "warning",',
+        "      line: 1, column: 11, endLine: 2, endColumn: 12,",
+        "      message: \"debug ] Component 'UploaderFile' is registered but never used in template\",",
+        "    },",
+        "  ],",
+        "}]));",
+        "",
+      ].join("\n"),
+    );
+    fs.chmodSync(fakeVize, 0o755);
+    const registryPath = path.join(fixtureDir, "registry.json");
+    fs.writeFileSync(
+      registryPath,
+      JSON.stringify({
+        projects: [
+          {
+            id: "lint-unused-bracket-fixture",
+            revision: "0".repeat(40),
+            fixturePath: path.relative(repoRoot, fixtureDir),
+            vueGlobs: ["App.vue"],
+            coverage: ["linter"],
+          },
+        ],
+      }),
+    );
+
+    const result = spawnSync(
+      "rust-script",
+      [
+        "tools/commands/fixtures/lint-divergence-report.rs",
+        "--registry",
+        registryPath,
+        "--output-dir",
+        outputDir,
+        "--vize-bin",
+        fakeVize,
+        "--budget-mode",
+        "record-only",
+        "--timeout-ms",
+        "30000",
+      ],
+      { cwd: repoRoot, encoding: "utf8", env: { ...process.env, LANG: "C", LC_ALL: "C" } },
+    );
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const artifact = JSON.parse(
+      fs.readFileSync(
+        path.join(outputDir, "lint-unused-bracket-fixture-lint-divergence.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(artifact.divergence.summary.falsePositiveCount, 1);
+    assert.equal(artifact.divergence.summary.falseNegativeCount, 1);
+    assert.equal(artifact.divergence.summary.ruleLocationDivergenceCount, 0);
+  } finally {
+    fs.rmSync(fixtureDir, { recursive: true, force: true });
+    fs.rmSync(outputDir, { recursive: true, force: true });
+  }
+});
