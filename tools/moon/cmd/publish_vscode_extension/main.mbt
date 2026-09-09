@@ -63,6 +63,17 @@ fn vsce_dlx_args(
   extra_args : Array[String],
 ) -> Array[String] {
   let args = []
+  if dlx_bin == "npx" {
+    args.push("-y")
+    args.push("-p")
+    args.push("@vscode/vsce@^3.3.2")
+    args.push("vsce")
+    args.push(command)
+    for arg in extra_args {
+      args.push(arg)
+    }
+    return args
+  }
   if dlx_bin == "corepack" {
     args.push("pnpm")
   }
