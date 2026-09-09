@@ -38,7 +38,10 @@ test("real-project workflow carries a full-canonical S2 DOM corpus job", () => {
 
   const checkout = steps.find((step) => step.uses?.startsWith("actions/checkout@"));
   assert.match(checkout?.uses ?? "", /de0fac2e4500dabe0009e67214ff5f5447ce83dd/);
-  assert.deepEqual(checkout?.with, { "persist-credentials": false });
+  assert.deepEqual(checkout?.with, {
+    "persist-credentials": false,
+    ref: "${{ github.sha }}",
+  });
   assert.ok(steps.some((step) => step.uses?.startsWith("dtolnay/rust-toolchain@")));
   assert.ok(steps.some((step) => step.uses === "./.github/actions/setup-rust-script"));
   assert.ok(steps.some((step) => step.uses === "./.github/actions/setup-rust-sticky-cache"));
