@@ -70,3 +70,61 @@ test("publish_vscode_extension allows corepack pnpm dlx builds for vsce signing 
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test("publish_vscode_extension can publish with npx without pnpm hydration", () => {
+  const tempDir = mkdtempSync(path.join(tmpdir(), "moonbit-publish-vsix-npx-"));
+  const binDir = path.join(tempDir, "bin");
+  const argsLogPath = path.join(tempDir, "npx-args.log");
+  const vsixPath = path.join(tempDir, "vize.vsix");
+  const packageJsonPath = path.join(tempDir, "package.json");
+
+  try {
+    fs.mkdirSync(binDir, { recursive: true });
+    writeFileSync(vsixPath, "placeholder");
+    writeFileSync(
+      packageJsonPath,
+      `${JSON.stringify({ publisher: "ubugeeei", name: "vize", version: "0.58.0" }, null, 2)}\n`,
+    );
+    writeFakeCommand(
+      binDir,
+      "npx",
+      [
+        "const fs = require('node:fs');",
+        "const args = process.argv.slice(2);",
+        "if (args[0] === '-y' && args[1] === '-p' && args[3] === 'vsce' && args[4] === 'show') {",
+        "  if (fs.existsSync(process.env.NPX_ARGS_LOG)) {",
+        "    process.stdout.write(JSON.stringify({ versions: [{ version: '0.58.0' }] }));",
+        "    process.exit(0);",
+        "  }",
+        "  process.exit(1);",
+        "}",
+        "fs.writeFileSync(process.env.NPX_ARGS_LOG, args.join('\\n'));",
+        "process.exit(0);",
+      ].join("\n"),
+    );
+
+    const result = runMoonScript("publish_vscode_extension", [vsixPath, packageJsonPath], {
+      env: {
+        NPM_TAG: "rc",
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+        NPX_ARGS_LOG: argsLogPath,
+        VSCE_DLX_BIN: "npx",
+      },
+    });
+
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`.trim());
+    assert.deepEqual(fs.readFileSync(argsLogPath, "utf8").trim().split("\n"), [
+      "-y",
+      "-p",
+      "@vscode/vsce@^3.3.2",
+      "vsce",
+      "publish",
+      "--no-dependencies",
+      "--packagePath",
+      vsixPath,
+      "--pre-release",
+    ]);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
