@@ -1,7 +1,7 @@
 import { parseJsonText, readTextEntry, sha256 } from "./release-preflight-artifact-entries.mjs";
 
-// Release evidence must prove exact typecheck parity. Ad hoc callers can still
-// pass `enforceParity: false` when they intentionally inspect a broken artifact.
+// Strict callers can require exact typecheck parity. Release preflight can pass
+// `enforceParity: false` while typechecker parity is tracked as its own ratchet.
 export const releaseTypecheckParityEnforced = true;
 
 export function assertReleaseTypecheckShardArtifacts({
@@ -11,6 +11,7 @@ export function assertReleaseTypecheckShardArtifacts({
   expectedTypecheckProjects,
   observedTypecheckProjects,
   enforceParity = releaseTypecheckParityEnforced,
+  requireTypecheckArtifacts = true,
 }) {
   const divergenceEntries = matchingEntries(
     entries,
@@ -22,7 +23,7 @@ export function assertReleaseTypecheckShardArtifacts({
     /(^|\/)[^/]+-typecheck-dependencies\.json$/,
     `${artifactName} typecheck dependency artifact`,
   );
-  if (divergenceEntries.length !== dependencyEntries.length) {
+  if (requireTypecheckArtifacts && divergenceEntries.length !== dependencyEntries.length) {
     throw new Error(
       `${artifactName} typecheck dependency artifact count ${dependencyEntries.length} does not match divergence artifact count ${divergenceEntries.length}`,
     );

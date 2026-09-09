@@ -33,6 +33,7 @@ export async function assertRealProjectMatrixReleaseArtifacts({
   readArtifactEntries,
   registry = readDefaultTypecheckRegistry(),
   enforceParity,
+  requireTypecheckArtifacts = true,
 }) {
   if (typeof readArtifactEntries !== "function") {
     throw new Error("Real Project Matrix artifact reader is required");
@@ -61,9 +62,12 @@ export async function assertRealProjectMatrixReleaseArtifacts({
       expectedTypecheckProjects,
       observedTypecheckProjects,
       enforceParity,
+      requireTypecheckArtifacts,
     });
   }
-  assertReleaseTypecheckCoverage(expectedTypecheckProjects, observedTypecheckProjects);
+  if (requireTypecheckArtifacts) {
+    assertReleaseTypecheckCoverage(expectedTypecheckProjects, observedTypecheckProjects);
+  }
 }
 
 function assertRealProjectShardArtifact({
@@ -74,6 +78,7 @@ function assertRealProjectShardArtifact({
   expectedTypecheckProjects,
   observedTypecheckProjects,
   enforceParity,
+  requireTypecheckArtifacts,
 }) {
   const summary = readJsonEntry(entries, "summary.json", artifactName);
   if (
@@ -109,6 +114,7 @@ function assertRealProjectShardArtifact({
     expectedTypecheckProjects,
     observedTypecheckProjects,
     enforceParity,
+    requireTypecheckArtifacts,
   });
 }
 

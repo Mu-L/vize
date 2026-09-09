@@ -209,6 +209,52 @@ test("release preflight can explicitly waive typecheck parity for ad hoc artifac
   assert.match(warnings[0], /must not be record-only/);
 });
 
+test("release preflight can treat typecheck divergence artifacts as optional", async () => {
+  const run = successfulReleaseRun("Real Project Matrix", 516);
+
+  await assert.doesNotReject(() =>
+    assertRealProjectMatrixReleaseArtifacts({
+      run,
+      artifacts: realProjectArtifacts(run),
+      registry: typecheckRegistry(["fixture-0"]),
+      enforceParity: false,
+      requireTypecheckArtifacts: false,
+      readArtifactEntries: async (artifact) => {
+        const entries = shardEntries(Number(artifact.name.split("-").pop()), {
+          typecheckProject: artifact.name === "real-project-matrix-0" ? "fixture-0" : null,
+        });
+        for (const entryName of Object.keys(entries)) {
+          if (entryName.endsWith("-typecheck-divergence.json")) delete entries[entryName];
+        }
+        return entries;
+      },
+    }),
+  );
+});
+
+test("release preflight still binds present optional typecheck evidence", async () => {
+  const run = successfulReleaseRun("Real Project Matrix", 518);
+  await assert.rejects(
+    assertRealProjectMatrixReleaseArtifacts({
+      run,
+      artifacts: realProjectArtifacts(run),
+      registry: typecheckRegistry(),
+      enforceParity: false,
+      requireTypecheckArtifacts: false,
+      readArtifactEntries: async (artifact) => {
+        const entries = shardEntries(Number(artifact.name.split("-").pop()));
+        if (artifact.name === "real-project-matrix-0") {
+          mutateDivergence(entries, (artifact) => {
+            artifact.evidence.commitSha = "c".repeat(40);
+          });
+        }
+        return entries;
+      },
+    }),
+    /not bound to/,
+  );
+});
+
 test("release preflight still rejects unbound typecheck evidence while parity is waived", async () => {
   const run = successfulReleaseRun("Real Project Matrix", 517);
   await assert.rejects(

@@ -177,10 +177,9 @@ fn env_value(name: &str) -> String {
 }
 
 fn record_only_verdict(outcome: String, mode: String) -> String {
-    if mode == "record-only" && outcome == "failure" {
-        "success".to_string()
-    } else {
-        outcome
+    match (mode.as_str(), outcome.as_str()) {
+        ("record-only", "failure") | ("skip", "skipped") => "success".to_string(),
+        _ => outcome,
     }
 }
 

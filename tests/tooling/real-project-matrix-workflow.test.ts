@@ -69,7 +69,7 @@ test("real-project workflow schedules every balanced fixture shard", () => {
     required: false,
     default: "enforce",
     type: "choice",
-    options: ["enforce", "record-only"],
+    options: ["enforce", "record-only", "skip"],
   });
   assert.deepEqual(dispatch.inputs?.davinci_dom_corpus_mode, {
     description: "Davinci S2 DOM corpus gate handling",
@@ -184,7 +184,14 @@ test("real-project workflow hydrates only its shard and runs every core tool", (
     [divergence, "typecheck_divergence"],
   ] as const) {
     assert.equal(step.id, id);
-    assert.equal(step.if, "${{ !cancelled() }}");
+    if (id === "typecheck_divergence") {
+      assert.equal(
+        step.if,
+        "${{ !cancelled() && (inputs.typecheck_divergence_mode || 'enforce') != 'skip' }}",
+      );
+    } else {
+      assert.equal(step.if, "${{ !cancelled() }}");
+    }
     assert.equal(step["continue-on-error"], true);
   }
   assert.ok(

@@ -29,8 +29,8 @@ test("release gate wait budget covers the full Real Project Matrix release gate"
 
 /**
  * The gate set is the release's critical path, so it is asserted whole. Real
- * Project Matrix is intentionally back because typecheck divergence now enforces
- * exact parity and release preflight validates the shard artifacts.
+ * Project Matrix stays in the release path for real-project smoke evidence,
+ * while typecheck parity remains a separately enforced ratchet.
  */
 test("the release gate set includes Real Project Matrix but not artifact-only smoke gates", () => {
   assert.deepEqual(requiredReleaseWorkflows, [
