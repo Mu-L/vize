@@ -96,6 +96,17 @@ test("real-project workflow schedules every balanced fixture shard", () => {
     FIXTURE_SHARD_INDEX: "${{ matrix.shard }}",
     FIXTURE_REPORT_DIR: "real-project-results/shard-${{ matrix.shard }}",
   });
+  const corpus = workflow.jobs?.["davinci-dom-corpus"];
+  assert.ok(corpus);
+  for (const checkout of [
+    findStep(job.steps ?? [], "Checkout matrix commit"),
+    findStep(corpus.steps ?? [], "Checkout matrix commit"),
+  ]) {
+    assert.deepEqual(checkout.with, {
+      "persist-credentials": false,
+      ref: "${{ github.sha }}",
+    });
+  }
 });
 
 test("real-project workflow hydrates only its shard and runs every core tool", () => {
