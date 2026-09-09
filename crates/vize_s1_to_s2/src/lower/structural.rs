@@ -283,8 +283,12 @@ fn lower_if_group<'a>(
         },
         &cx.allocator,
     )));
+    let mut next_preserved_gap = 0usize;
     for gap in preserved_gaps {
-        let _next = text::lower_text_run(cx, children, plan, gap, out);
+        if gap < next_preserved_gap {
+            continue;
+        }
+        next_preserved_gap = text::lower_text_run(cx, children, plan, gap, out);
     }
     consumed_until
 }

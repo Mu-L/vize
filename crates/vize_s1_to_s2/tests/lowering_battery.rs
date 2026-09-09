@@ -173,6 +173,16 @@ fn tokenizer_error_diagnostics_snap_to_utf8_boundary() {
 }
 
 #[test]
+fn branch_gap_text_run_reproducer_lowers_once() {
+    let source = std::str::from_utf8(
+        b"<<<<  <pre f=\"formsu|\">\n      <div v-if=\"ut\">\n</div>    <!--  Tab -->\n      <div v-else-if=\"\\\\\0>",
+    )
+    .expect("reproducer is valid UTF-8");
+
+    assert_sound(source, "s1-lowering-branch-gap-text-run-reproducer");
+}
+
+#[test]
 fn the_battery_aggregates_are_pinned() {
     // The decision-surface census over the whole battery: ops minted,
     // diagnostics raised, provenance records written, scopes tagged.
