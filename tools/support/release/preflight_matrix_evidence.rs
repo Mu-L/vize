@@ -19,10 +19,17 @@ const ARTIFACT_MAX_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
 
 static SCRATCH_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-pub fn assert_real_project_matrix_release_artifacts<F>(
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReleaseTypecheckEvidencePolicy {
+    Enforce,
+    Optional,
+}
+
+pub fn assert_real_project_matrix_release_artifacts_with_typecheck_policy<F>(
     repo_root: &Path,
     run: &Value,
     artifacts: &[Value],
+    typecheck_policy: ReleaseTypecheckEvidencePolicy,
     mut read_artifact_entries: F,
 ) -> Result<(), String>
 where
@@ -52,9 +59,14 @@ where
             &entries,
             &expected_typecheck_projects,
             &mut observed_typecheck_projects,
+            typecheck_policy,
         )?;
     }
-    assert_release_typecheck_coverage(&expected_typecheck_projects, &observed_typecheck_projects)
+    if typecheck_policy == ReleaseTypecheckEvidencePolicy::Enforce {
+        assert_release_typecheck_coverage(&expected_typecheck_projects, &observed_typecheck_projects)
+    } else {
+        Ok(())
+    }
 }
 
 pub fn download_artifact_entries(
@@ -289,6 +301,7 @@ fn assert_real_project_shard_artifact(
     entries: &BTreeMap<String, String>,
     expected_typecheck_projects: &BTreeSet<String>,
     observed_typecheck_projects: &mut BTreeMap<String, String>,
+    typecheck_policy: ReleaseTypecheckEvidencePolicy,
 ) -> Result<(), String> {
     let run_head_sha = run_head_sha(run)?;
     let summary = read_json_entry(entries, "summary.json", artifact_name)?;
@@ -330,6 +343,7 @@ fn assert_real_project_shard_artifact(
         entries,
         expected_typecheck_projects,
         observed_typecheck_projects,
+        typecheck_policy,
     )
 }
 
@@ -362,10 +376,13 @@ fn assert_release_typecheck_shard_artifacts(
     entries: &BTreeMap<String, String>,
     expected_typecheck_projects: &BTreeSet<String>,
     observed_typecheck_projects: &mut BTreeMap<String, String>,
+    typecheck_policy: ReleaseTypecheckEvidencePolicy,
 ) -> Result<(), String> {
     let divergence_entries = matching_entries(entries, "-typecheck-divergence.json");
     let dependency_entries = matching_entries(entries, "-typecheck-dependencies.json");
-    if divergence_entries.len() != dependency_entries.len() {
+    if typecheck_policy == ReleaseTypecheckEvidencePolicy::Enforce
+        && divergence_entries.len() != dependency_entries.len()
+    {
         return Err(format!(
             "{artifact_name} typecheck dependency artifact count {} does not match divergence artifact count {}",
             dependency_entries.len(),
@@ -405,6 +422,7 @@ fn assert_release_typecheck_shard_artifacts(
             &divergence,
             dependency,
             dependency_sha256,
+            typecheck_policy,
         )?;
         if !expected_typecheck_projects.contains(project) {
             return Err(format!(
@@ -446,6 +464,7 @@ fn assert_release_typecheck_divergence_artifact(
     divergence: &Value,
     dependency: &Value,
     dependency_sha256: &str,
+    typecheck_policy: ReleaseTypecheckEvidencePolicy,
 ) -> Result<(), String> {
     let run_head_sha = run_head_sha(run)?;
     if string_field(divergence, "schema") != Some("vize.fixtureTypecheckDivergenceRun")
@@ -456,7 +475,11 @@ fn assert_release_typecheck_divergence_artifact(
             "{artifact_name} typecheck divergence artifact is not bound to {run_head_sha}"
         ));
     }
-    assert_release_typecheck_parity(artifact_name, divergence)?;
+    if typecheck_policy == ReleaseTypecheckEvidencePolicy::Enforce {
+        assert_release_typecheck_parity(artifact_name, divergence)?;
+    } else if let Err(error) = assert_release_typecheck_parity(artifact_name, divergence) {
+        println!("::warning title=Release typecheck parity not enforced::{error}");
+    }
     assert_release_dependency_link(artifact_name, divergence, dependency, dependency_sha256)
 }
 

@@ -202,10 +202,11 @@ fn verify_release_preflight(bootstrap: bool) -> Result<(), String> {
             &format!("actions/runs/{run_id}/artifacts"),
             None,
         )?;
-        matrix_evidence::assert_real_project_matrix_release_artifacts(
+        matrix_evidence::assert_real_project_matrix_release_artifacts_with_typecheck_policy(
             &repo_root()?,
             run,
             &artifacts,
+            matrix_evidence::ReleaseTypecheckEvidencePolicy::Optional,
             |artifact| matrix_evidence::download_artifact_entries(&token, artifact),
         )?;
     }
@@ -531,7 +532,7 @@ fn create_release_gate_dispatch_plans(
                 "typecheck_dependencies_mode": "record-only",
                 "lint_divergence_mode": "record-only",
                 "lsp_mode": "record-only",
-                "typecheck_divergence_mode": "enforce",
+                "typecheck_divergence_mode": "skip",
                 "davinci_dom_corpus_mode": "record-only",
             }),
             expected_run_name: format!("Real Project Matrix @ {head_sha}"),

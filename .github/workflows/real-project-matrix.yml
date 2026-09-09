@@ -49,6 +49,7 @@ on:
         options:
           - enforce
           - record-only
+          - skip
       davinci_dom_corpus_mode:
         description: "Davinci S2 DOM corpus gate handling"
         required: false
@@ -68,7 +69,6 @@ concurrency:
 permissions:
   contents: read
   issues: read
-
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -259,7 +259,7 @@ jobs:
           exit "$glyph_exit_code"
       - name: Enforce typechecker baseline divergence
         id: typecheck_divergence
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (inputs.typecheck_divergence_mode || 'enforce') != 'skip' }}
         continue-on-error: true
         timeout-minutes: 100
         env:

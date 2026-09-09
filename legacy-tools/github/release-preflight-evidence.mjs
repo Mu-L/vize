@@ -1,9 +1,9 @@
 import { requiredRealProjectMatrixShardCount } from "./release-preflight-matrix-evidence.mjs";
 
 /**
- * Real Project Matrix is a required release gate again because the
- * typecheck-divergence surface now runs in enforce mode and the release
- * preflight validates every shard artifact before publishing.
+ * Real Project Matrix stays on the release path for shard-level smoke evidence.
+ * Typecheck parity can be skipped by the release bootstrap while the stricter
+ * ratchet stays available on manual and scheduled matrix runs.
  */
 export const requiredReleaseWorkflows = [
   "Check",

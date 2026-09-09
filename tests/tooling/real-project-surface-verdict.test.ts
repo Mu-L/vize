@@ -138,3 +138,29 @@ test("workflow surface inputs preserve enforce modes and soften only record-only
     { name: "typecheck-divergence", outcome: "success" },
   ]);
 });
+
+test("workflow surface inputs accept explicitly skipped typecheck divergence", () => {
+  const { result, verdict } = runWorkflowVerdict({
+    VIZE_WAIVER_AUDIT_OUTCOME: "success",
+    TYPECHECK_DEPENDENCIES_MODE: "record-only",
+    VIZE_TYPECHECK_DEPENDENCIES_OUTCOME: "success",
+    CORE_TOOLS_MODE: "record-only",
+    VIZE_CORE_TOOLS_OUTCOME: "success",
+    LSP_MODE: "record-only",
+    VIZE_LSP_OUTCOME: "success",
+    LINT_DIVERGENCE_MODE: "record-only",
+    VIZE_LINT_DIVERGENCE_OUTCOME: "success",
+    VIZE_SYNTAX_HIGHLIGHTER_OUTCOME: "success",
+    VIZE_GLYPH_OUTCOME: "success",
+    TYPECHECK_DIVERGENCE_MODE: "skip",
+    VIZE_TYPECHECK_DIVERGENCE_OUTCOME: "skipped",
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(verdict.status, "success");
+  assert.deepEqual(verdict.failedSurfaceNames, []);
+  assert.deepEqual(
+    verdict.surfaces.find((surface: { name: string }) => surface.name === "typecheck-divergence"),
+    { name: "typecheck-divergence", outcome: "success" },
+  );
+});
