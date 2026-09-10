@@ -93,10 +93,8 @@ fn transform_css_block_with_parents(
 }
 
 fn should_recurse_at_rule(statement: &str) -> bool {
-    matches!(
-        statement.split_whitespace().next(),
-        Some("@container" | "@layer" | "@media" | "@supports")
-    )
+    ["@container", "@layer", "@media", "@supports"]
+        .contains(&statement.split_whitespace().next().unwrap_or(""))
 }
 
 fn find_rule_header_start(css: &str, start: usize, brace: usize) -> usize {
@@ -430,24 +428,26 @@ fn split_leading_trivia(value: &str) -> (&str, &str) {
 }
 
 fn add_scope_before_trailing_combinator(selector: &str, scope_id: &str) -> String {
-    let Some((combinator_start, _)) = selector
-        .trim_end()
-        .char_indices()
-        .next_back()
-        .filter(|(_, char)| matches!(char, '>' | '+' | '~'))
-    else {
+    let trimmed = selector.trim_end();
+    let Some(combinator_start) = trailing_combinator_start(trimmed) else {
         return add_scope_to_selector_end(selector, scope_id);
     };
 
     let target = selector[..combinator_start].trim_end();
-    let suffix = &selector[target.len()..];
     let mut output = if target.is_empty() {
         scope_attr(scope_id)
     } else {
         add_scope_to_selector_end(target, scope_id)
     };
-    output.push_str(suffix);
+    output.push_str(&selector[target.len()..]);
     output
+}
+
+fn trailing_combinator_start(selector: &str) -> Option<usize> {
+    selector
+        .strip_suffix("||")
+        .or_else(|| selector.strip_suffix(['>', '+', '~']))
+        .map(str::len)
 }
 
 fn add_scope_to_selector_end(selector: &str, scope_id: &str) -> String {
