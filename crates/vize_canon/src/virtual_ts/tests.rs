@@ -19,6 +19,7 @@ mod options_api_props_spread;
 mod options_api_setup_spread;
 mod options_api_this_bridge;
 mod slot_component_bindings;
+mod slot_outlet_spread;
 mod template_ref_unwrap;
 mod unused_refs;
 mod vif_chain;
@@ -31,7 +32,6 @@ fn assert_virtual_ts_snapshot(name: &str, value: &str) {
 fn test_vue_setup_helpers_are_actual_functions() {
     assert_virtual_ts_snapshot("virtual_ts_vue_setup_helpers", VUE_SETUP_HELPERS);
 }
-
 #[test]
 fn test_vue_template_context() {
     let ctx = generate_template_context(&VirtualTsOptions::default(), VueVersion::V3, false);
@@ -1973,33 +1973,33 @@ function handleTest(value1: string, value2: number) {
         output.code
     );
 
-    // Bare callable reference: checked against the listener type and invoked
-    // with every argument spread.
     assert!(
         output.code.contains(
-            "const __vize_handler_8_13: __Test_8_test_listener | null | undefined = (handleTest);"
+            "type __Test_8_test_handler = unknown[] extends __Test_8_test_args ? ((...args: any[]) => any) : __Test_8_test_listener;"
+        ) && output.code.contains(
+            "const __vize_handler_8_13: __Test_8_test_handler | null | undefined = (handleTest);"
         ),
-        "bare handler reference must be typed against the emit listener type:\n{}",
+        "bare handler reference must be typed through the emit handler alias:\n{}",
         output.code
     );
     assert!(
-        output.code.contains("__vize_handler_8_13(...__vize_args);"),
+        output
+            .code
+            .contains("(__vize_handler_8_13 as __Test_8_test_listener)(...__vize_args);"),
         "bare handler reference must be invoked with the full argument spread:\n{}",
         output.code
     );
-
-    // Inline multi-parameter arrow: also checked against the listener type (so
-    // its parameters are typed) and invoked through the typed const with the
-    // full argument spread, avoiding TS2556 on the fixed-arity arrow.
     assert!(
         output.code.contains(
-            "const __vize_handler_9_40: __Test_9_test_listener | null | undefined = ((value1, value2) => handleTest(value1, value2));"
+            "const __vize_handler_9_40: __Test_9_test_handler | null | undefined = ((value1, value2) => handleTest(value1, value2));"
         ),
-        "inline multi-arg arrow must be typed against the emit listener type:\n{}",
+        "inline multi-arg arrow must be typed through the emit handler alias:\n{}",
         output.code
     );
     assert!(
-        output.code.contains("__vize_handler_9_40(...__vize_args);"),
+        output
+            .code
+            .contains("(__vize_handler_9_40 as __Test_9_test_listener)(...__vize_args);"),
         "inline multi-arg arrow must be invoked with the full argument spread:\n{}",
         output.code
     );

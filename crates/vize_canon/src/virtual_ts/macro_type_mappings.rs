@@ -2,8 +2,10 @@
 
 use std::ops::Range;
 
-use vize_carton::cstr;
+use vize_carton::{FxHashSet, String, cstr};
 use vize_croquis::macros::{MacroCall, ModelDefinition};
+
+use crate::virtual_ts::helpers::push_ts_string_literal;
 
 use super::VizeMapping;
 
@@ -83,18 +85,26 @@ impl<'a> MacroTypeMappings<'a> {
         generated_start: usize,
         models: &[ModelDefinition],
         declarations: &vize_croquis::macros::MacroTracker,
+        emitted_model_names: &FxHashSet<String>,
     ) {
         let generated = &ts[generated_start..];
         for model in models {
+            if !emitted_model_names
+                .iter()
+                .any(|name| name.as_str() == model.name.as_str())
+            {
+                continue;
+            }
             let Some(authored) = declarations.model_declaration(model.name.as_str()) else {
                 continue;
             };
-            let needle = cstr!("  \"{}\"", model.name);
+            let mut needle = String::from("  ");
+            push_ts_string_literal(&mut needle, model.name.as_str());
             let Some(start) = generated.find(needle.as_str()) else {
                 continue;
             };
             let start = generated_start + start + 2;
-            self.map_exact(start..start + model.name.len() + 2, authored);
+            self.map_whole_symbol(start..start + needle.len() - 2, authored);
         }
     }
 

@@ -1,5 +1,4 @@
-use vize_carton::config::VueVersion;
-use vize_carton::cstr;
+use vize_carton::{config::VueVersion, cstr};
 use vize_croquis::Croquis;
 
 use super::super::helpers::VUE_TYPE_HELPERS;
@@ -16,8 +15,12 @@ type __RuntimePropCtor<T> = [__RuntimePropCtorInner<T>] extends [never] ? unknow
 type __RuntimePropHasBoolean<T> = T extends BooleanConstructor ? true : T extends readonly (infer U)[] ? __RuntimePropHasBoolean<U> : T extends { type: infer U } ? __RuntimePropHasBoolean<U> : false;
 type __RuntimePropResolved<T> = T extends { required: true } ? true : T extends { default: any } ? true : __RuntimePropHasBoolean<T>;
 type __RuntimePropShape<T extends Record<string, any>> = { [K in keyof T]: __RuntimePropResolved<T[K]> extends true ? __RuntimePropCtor<T[K]> : __RuntimePropCtor<T[K]> | undefined; };
-type __DefaultFactory<T> = (props: any) => T;
-type __WithDefaultValue<T> = T | __DefaultFactory<T>;
+type __VizeIsAny<T> = 0 extends (1 & T) ? true : false; type __VizeModelIsUnknown<T> = __VizeIsAny<T> extends true ? false : unknown extends T ? ([keyof T] extends [never] ? true : false) : false;
+type __VizeModelRuntimeValue<T> = __RuntimePropShape<{ modelValue: T }>["modelValue"]; type __VizeModelOptionValue<T, O extends Record<string, any>> = __VizeModelIsUnknown<T> extends true ? __VizeModelRuntimeValue<O> : T; type __VizeModelOptionGetValue<T, O extends Record<string, any>> = O extends { get?: infer __F } ? NonNullable<__F> extends (value: any) => infer __G ? __G : T : T; type __VizeModelOptionSetValue<T, O extends Record<string, any>> = O extends { set?: infer __F } ? NonNullable<__F> extends (value: infer __S) => any ? __S : T : T;
+type __VizePropConstructor<T = any> = { new (...args: any[]): T & {} } | { (): T };
+type __VizePropType<T> = __VizePropConstructor<T> | readonly (__VizePropConstructor<T> | null)[] | null;
+type __VizeDefineModelOptions<T, G = T, S = T> = { type?: __VizePropType<T>; required?: boolean; default?: any; get?: (value: T) => G; set?: (value: S) => any } & Record<string, any>;
+type __DefaultFactory<T> = (props: any) => T; type __WithDefaultValue<T> = T | __DefaultFactory<T>;
 type __LooseRequired<T> = { [P in keyof (T & Required<T>)]: T[P] };
 type __VizeBooleanKey<T, K extends keyof T = keyof T> = K extends any ? [Exclude<T[K], undefined>] extends [never] ? never : [Exclude<T[K], undefined>] extends [boolean] ? K : never : never;
 type __DefineProps<T, __BKeys extends keyof T = never> = __LooseRequired<T>;
@@ -31,7 +34,6 @@ type __ShallowRef<T> = __Ref<T> & { readonly __v_isShallow?: true };
 type __VizeKebabCase<S extends string> = S extends `${infer Head}${infer Tail}` ? Head extends Lowercase<Head> ? `${Head}${__VizeKebabCase<Tail>}` : `-${Lowercase<Head>}${__VizeKebabCase<Tail>}` : S;
 type __VizeKebabProps<T> = { [K in keyof T & string as __VizeKebabCase<K>]: T[K] };
 type __VizeComponentProps<T> = T extends unknown ? T & Partial<__VizeKebabProps<T>> : never;
-type __VizeIsAny<T> = 0 extends (1 & T) ? true : false;
 type __VizeVue2LooseEventArg<T> = __VizeIsAny<T> extends true ? any : [T] extends [Object] ? ([Object] extends [T] ? any : T) : T;
 declare type __VizeVue2LooseEmitArgs<A extends readonly unknown[]> = { [K in keyof A]: __VizeVue2LooseEventArg<A[K]> };
 type __VForEntry<T> = T extends number ? [item: number, key: number, index: number] : T extends string ? [item: string, key: number, index: number] : T extends readonly (infer U)[] ? [item: U, key: number, index: number] : T extends Iterable<infer U> ? [item: U, key: number, index: number] : [item: T[keyof T], key: keyof T extends string ? keyof T : `${keyof T & (string | number)}`, index: number];
@@ -43,9 +45,7 @@ const LEGACY_EXPOSED_UNWRAP_HELPER: &str = "type __VizeShallowUnwrapRef<T> = { [
 /// preamble is *not* hoisted (check server, content mapper).
 ///
 /// The widening conditional types stay here, inside `__template()`, instead of
-/// joining the module-scope preamble: `__U` is their only reference, and
-/// `TemplateRefUnwraps::emit_template_variables` emits no `__U` at all for a
-/// component with no setup bindings in template scope. Module-scope
+/// joining the module-scope preamble: `__U` is their only reference. Module-scope
 /// declarations are module-local, so an unused one surfaces to the user as a
 /// `TS6196` hint on their own file.
 const MODERN_REF_UNWRAP_HELPER: &str = r#"    type __VizeIsUnion<T, __U = T> = T extends unknown ? ([__U] extends [T] ? false : true) : false;
@@ -57,9 +57,9 @@ const MODERN_REF_UNWRAP_HELPER: &str = r#"    type __VizeIsUnion<T, __U = T> = T
 /// widening types once per program and never reports them unused.
 ///
 /// `__U` itself stays per file — it is dialect-dependent. Hoisting the two
-/// type-parameterized aliases saves 369 bytes in every generated `.vue.ts` and
-/// stops TypeScript instantiating a distinct declaration per file instead of
-/// caching one (#3443, #3460).
+/// aliases saves 369 bytes in every generated `.vue.ts` and stops TypeScript
+/// instantiating a distinct declaration per file instead of caching one
+/// (#3443, #3460).
 const MODERN_HOISTED_REF_UNWRAP_HELPER: &str =
     "    type __U<T> = T extends import('vue').Ref ? __VizeWidenTemplateRef<T['value']> : T;\n";
 const MODERN_GENERIC_REF_UNWRAP_HELPER: &str =

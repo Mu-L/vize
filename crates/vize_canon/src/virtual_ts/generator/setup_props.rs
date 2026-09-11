@@ -1,4 +1,4 @@
-use vize_carton::{String, append, cstr, profile};
+use vize_carton::{CompactString, FxHashSet, String, append, cstr, profile};
 use vize_croquis::Croquis;
 
 use super::generics::generic_fallback_args;
@@ -6,8 +6,8 @@ use super::setup_scope::define_props_type_requires_setup_scope;
 use crate::virtual_ts::macro_type_mappings::MacroTypeMappings;
 use crate::virtual_ts::props::{
     OptionsApiPropsSource, PropBindingMappings, PropsSource, PropsTypeEmission,
-    add_generic_defaults, append_default_props, extract_generic_names, generate_props_type,
-    generate_props_variables, generate_setup_scoped_props_artifact,
+    add_generic_defaults, append_default_props, emitted_model_prop_names, extract_generic_names,
+    generate_props_type, generate_props_variables, generate_setup_scoped_props_artifact,
 };
 
 pub(super) use crate::virtual_ts::props::prop_source;
@@ -20,21 +20,35 @@ pub(super) fn generate_setup_props(
     source: PropsSource<'_>,
     generic_param: Option<&str>,
     options_api_props: Option<&OptionsApiPropsSource>,
+    type_only_imported_names: &FxHashSet<CompactString>,
     props_is_public_export: bool,
 ) -> SetupPropsPlan {
     let summary = source.summary;
-    let plan = SetupPropsPlan::new(summary, options_api_props, props_is_public_export);
+    let plan = SetupPropsPlan::new(
+        summary,
+        options_api_props,
+        type_only_imported_names,
+        props_is_public_export,
+    );
     let generated_start = ts.len();
     profile!("canon.virtual_ts.generate_props_type", {
-        plan.generate_props_type(ts, summary, generic_param, options_api_props);
+        plan.generate_props_type(
+            ts,
+            summary,
+            generic_param,
+            options_api_props,
+            type_only_imported_names,
+        );
     });
     let mut type_mappings = MacroTypeMappings::new(source.mappings, source.script, source.offset);
     type_mappings.map_exported_type(ts, generated_start, summary.macros.define_props(), "Props");
+    let emitted_model_names = emitted_model_prop_names(summary, summary.macros.models());
     type_mappings.map_model_props(
         ts,
         generated_start,
         summary.macros.models(),
         &summary.macros,
+        &emitted_model_names,
     );
     plan
 }
@@ -51,6 +65,7 @@ impl SetupPropsPlan {
     pub(super) fn new(
         summary: &Croquis,
         options_api_props: Option<&OptionsApiPropsSource>,
+        type_only_imported_names: &FxHashSet<CompactString>,
         props_is_public_export: bool,
     ) -> Self {
         // A `Props` declaration only lands at module scope when it is hoisted
@@ -59,22 +74,35 @@ impl SetupPropsPlan {
         // A private, non-hoisted `type Props` stays inside `__setup`, so it must
         // NOT be treated as an existing public alias — otherwise the public
         // `export type Props` consumers need is suppressed.
+        let has_models = !summary.macros.models().is_empty();
+        let define_props_is_authored = summary.macros.define_props().is_some();
+        let props_imported_type_only = type_only_imported_names
+            .iter()
+            .any(|name| name.as_str() == "Props");
+        let options_api_props_present = options_api_props.is_some();
+        let options_api_props_are_deferred =
+            options_api_props.is_some_and(|source| source.deferred_object_source().is_some());
+        let imported_props_would_collide = props_imported_type_only
+            && (define_props_is_authored || has_models || options_api_props_present);
         let module_scope_declares_props = props_is_public_export
             || summary
                 .type_exports
                 .iter()
-                .any(|te| te.hoisted && te.name.as_str() == "Props");
+                .any(|te| te.hoisted && te.name.as_str() == "Props")
+            || imported_props_would_collide;
         let defer = define_props_type_requires_setup_scope(summary);
         Self {
             defer,
-            defer_options_api_props: !module_scope_declares_props
-                && options_api_props
-                    .is_some_and(|source| source.deferred_object_source().is_some()),
+            defer_options_api_props: options_api_props_are_deferred
+                && (!module_scope_declares_props || imported_props_would_collide),
             capture_options_api_default: options_api_props
                 .is_some_and(OptionsApiPropsSource::captures_default),
             module_scope_declares_props,
             uses_resolved_props: module_scope_declares_props
-                && (defer || !summary.macros.models().is_empty()),
+                && (defer
+                    || has_models
+                    || (imported_props_would_collide
+                        && (define_props_is_authored || options_api_props_present))),
         }
     }
 
@@ -92,12 +120,14 @@ impl SetupPropsPlan {
         summary: &Croquis,
         generic_param: Option<&str>,
         options_api_props: Option<&OptionsApiPropsSource>,
+        type_only_imported_names: &FxHashSet<CompactString>,
     ) {
         generate_props_type(
             ts,
             summary,
             generic_param,
             options_api_props,
+            type_only_imported_names,
             self.props_type_emission(),
         );
     }
@@ -185,6 +215,7 @@ impl SetupPropsPlan {
                 generated_start,
                 source.summary.macros.models(),
                 &source.summary.macros,
+                &emitted_model_prop_names(source.summary, source.summary.macros.models()),
             );
         }
     }
@@ -211,7 +242,7 @@ impl SetupPropsPlan {
         else {
             return;
         };
-        if self.module_scope_declares_props {
+        if self.module_scope_declares_props && !self.defer_options_api_props {
             return;
         }
         let const_assertion = if source.trim_start().starts_with('{') {
@@ -245,15 +276,21 @@ impl SetupPropsPlan {
                     "export type Props = Awaited<ReturnType<typeof __setup>>[\"__vize_setup_props\"];\n\n",
                 );
             }
-        } else if !self.module_scope_declares_props {
+        } else if self.defer_options_api_props {
             let Some(source) =
                 options_api_props.filter(|source| source.deferred_object_source().is_some())
             else {
                 return;
             };
-            ts.push_str(
-                "export type Props = __VizeOptionsPropShape<Awaited<ReturnType<typeof __setup>>[\"__vize_options_props\"]>",
-            );
+            if self.module_scope_declares_props {
+                ts.push_str(
+                    "type __VizeResolvedProps = __VizeOptionsPropShape<Awaited<ReturnType<typeof __setup>>[\"__vize_options_props\"]>",
+                );
+            } else {
+                ts.push_str(
+                    "export type Props = __VizeOptionsPropShape<Awaited<ReturnType<typeof __setup>>[\"__vize_options_props\"]>",
+                );
+            }
             append_default_props(ts, source);
             ts.push_str(";\n\n");
         }
