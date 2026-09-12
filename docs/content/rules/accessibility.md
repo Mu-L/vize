@@ -11,7 +11,7 @@ use with assistive technology or keyboard navigation.
 
 Requires an `alt` attribute on `<img>`.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -34,7 +34,7 @@ Good:
 
 Requires alternative text for media elements that need a text alternative.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -57,7 +57,7 @@ Good:
 
 Reports click handlers on non-native interactive elements when no keyboard handler is present.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -80,7 +80,7 @@ Good:
 
 Requires elements with interactive roles to be focusable.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -103,7 +103,7 @@ Good:
 
 Requires labels to be associated with a form control.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -128,7 +128,7 @@ Good:
 
 Requires controls to have a visible or programmatic label.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -154,7 +154,7 @@ Good:
 
 Reports focusable elements hidden from assistive technology.
 
-Default severity: `error`  
+Default severity: `error`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -177,7 +177,7 @@ Good:
 
 Reports mouse or keyboard handlers on static elements.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -200,7 +200,7 @@ Good:
 
 Reports positive `tabindex` values because they create a custom tab order that is hard to predict.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -226,7 +226,7 @@ Static `href` values are checked after scheme normalization, so `JaVaScRiPt:` an
 control characters inside `java&#x0A;script:` are still reported while similar non-matching schemes
 stay allowed.
 
-Default severity: `warning`  
+Default severity: `warning`
 Presets: `happy-path`, `nuxt`, `opinionated`
 
 Bad:
@@ -294,57 +294,26 @@ Default severity: `warning`. Presets: `happy-path`, `nuxt`, `opinionated`.
 
 ## Additional Accessibility Rules
 
-The split here is documentation detail only: every `a11y/*` rule listed on this page is a normal
-Patina accessibility rule. Expanded sections above have examples; the compact entries below are
-listed until they receive the same treatment.
+The split here is documentation detail only: these rules run through the same Patina template
+pipeline, support the same config surface, and report the same severity regardless of whether this
+page gives them a full example section or a compact rule note.
 
-`a11y/anchor-has-content` requires anchor elements to have accessible content. Default: `warning`.
-Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/aria-props` disallows invalid ARIA attributes. Default: `error`. Presets: `happy-path`,
-`nuxt`, `opinionated`.
-
-`a11y/aria-role` requires valid, non-abstract ARIA roles. Default: `error`. Presets: `happy-path`,
-`nuxt`, `opinionated`.
-
-`a11y/aria-unsupported-elements` disallows ARIA attributes on elements that do not support them.
-Default: `error`. Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/heading-has-content` requires heading elements to have accessible content. Default: `warning`.
-Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/heading-levels` disallows skipped heading levels. Default: `warning`. Presets: `nuxt`,
-`opinionated`.
-
-`a11y/iframe-has-title` requires `<iframe>` to have a `title`. Default: `warning`. Presets:
-`happy-path`, `nuxt`, `opinionated`.
-
-`a11y/landmark-roles` validates landmark role placement and uniqueness. Default: `warning`.
-Presets: `nuxt`, `opinionated`.
-
-`a11y/media-has-caption` requires captions for media elements. Default: `warning`. Presets:
-`happy-path`, `nuxt`, `opinionated`.
-
-`a11y/no-access-key` disallows the `accesskey` attribute. Default: `warning`. Presets:
-`happy-path`, `nuxt`, `opinionated`.
-
-`a11y/no-autofocus` disallows `autofocus`. Default: `warning`. Presets: `happy-path`, `nuxt`,
-`opinionated`.
-
-`a11y/no-distracting-elements` disallows distracting elements such as `<marquee>` and `<blink>`.
-Default: `warning`. Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/no-redundant-roles` disallows ARIA roles that duplicate native semantics. Default:
-`warning`. Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/no-role-presentation-on-focusable` disallows `role="presentation"` or `role="none"` on
-focusable elements. Default: `error`. Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/placeholder-label-option` requires disabled or hidden on placeholder `<option>` values.
-Default: `warning`. Presets: `nuxt`, `opinionated`.
-
-`a11y/role-has-required-aria-props` requires roles to include their required ARIA attributes.
-Default: `warning`. Presets: `happy-path`, `nuxt`, `opinionated`.
-
-`a11y/use-list` suggests list elements for bullet-like text. Default: `warning`. Presets: `nuxt`,
-`opinionated`.
+| Rule | Default | What it checks |
+| --- | --- | --- |
+| `a11y/anchor-has-content` | `warning` | Anchors need an accessible name from text, interpolation, labelled children, non-empty image `alt`, `aria-label`, or `aria-labelledby`. |
+| `a11y/aria-props` | `error` | Only valid `aria-*` attributes are allowed, so typos such as `aria-lable` do not silently disappear from the accessibility tree. |
+| `a11y/aria-role` | `error` | `role` values must be concrete WAI-ARIA roles; unknown and abstract roles are rejected. |
+| `a11y/aria-unsupported-elements` | `error` | Elements that are not exposed to assistive technology, such as metadata or script/style elements, must not carry ARIA attributes or roles. |
+| `a11y/heading-has-content` | `warning` | `h1`-`h6` elements need visible text, interpolation, accessible children, or an ARIA name. |
+| `a11y/heading-levels` | `warning` | Heading levels should not skip outline steps, for example from `h1` directly to `h3`. |
+| `a11y/iframe-has-title` | `warning` | Each `iframe` needs a non-empty static title or a dynamic title binding. |
+| `a11y/landmark-roles` | `warning` | Allows only one `main` landmark and reports repeated same-role landmarks, such as `nav` or `region`, when they have missing or duplicate labels. |
+| `a11y/media-has-caption` | `warning` | `video` and `audio` need captions via `track kind="captions"` unless the rule can prove captions are unnecessary, such as muted ambient media. |
+| `a11y/no-access-key` | `warning` | Native elements should not use `accesskey`, which collides with browser, OS, and assistive-technology shortcuts. |
+| `a11y/no-autofocus` | `warning` | `autofocus` is disallowed because automatic focus movement interrupts reading order and keyboard flow. |
+| `a11y/no-distracting-elements` | `warning` | Deprecated moving or flashing elements such as `marquee` and `blink` are rejected. |
+| `a11y/no-redundant-roles` | `warning` | Explicit roles that duplicate native semantics, such as `button role="button"`, are reported and can be fixed by removing the role. |
+| `a11y/no-role-presentation-on-focusable` | `error` | Focusable elements must not use `role="presentation"` or `role="none"`, because focus remains while semantics disappear. |
+| `a11y/placeholder-label-option` | `warning` | Checks the first `option` child in a `select`; when that first option has an empty static `value`, it must be `disabled` or `hidden`. |
+| `a11y/role-has-required-aria-props` | `warning` | Roles that require ARIA state must include the enforced required property, such as `aria-checked` for checkbox or `aria-valuenow` for slider. |
+| `a11y/use-list` | `warning` | Text that looks like a bullet list should use semantic `ul`/`ol` and `li` markup so assistive technology can expose list boundaries and item counts. |

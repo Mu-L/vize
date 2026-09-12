@@ -297,57 +297,25 @@ ID を指していることを要求します。
 
 ## 追加のアクセシビリティ ルール
 
-この分け方はドキュメントの詳しさだけの違いです。このページに載っている `a11y/*` はすべて通常の
-Patina アクセシビリティルールです。上のセクションは例付きで詳説済み、下の項目は同じ扱いで今後
-例を追加していくコンパクトな一覧です。
+ドキュメントの詳しさだけの違いで、この一覧のルールも同じ Patina template pipeline、同じ設定、
+同じ severity で実行されます。
 
-`a11y/anchor-has-content` では、アンカー要素にアクセス可能なコンテンツが必要です。デフォルト: `warning`。
-プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/aria-props` は無効な ARIA 属性を許可しません。デフォルト: `error`。プリセット: `happy-path`、
-`nuxt`、`opinionated`。
-
-`a11y/aria-role` には、有効な非抽象 ARIA ロールが必要です。デフォルト: `error`。プリセット: `happy-path`、
-`nuxt`、`opinionated`。
-
-`a11y/aria-unsupported-elements` は、ARIA 属性をサポートしていない要素の ARIA 属性を許可しません。
-デフォルト: `error`。プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/heading-has-content` では、見出し要素にアクセス可能なコンテンツが必要です。デフォルト: `warning`。
-プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/heading-levels` は、見出しレベルのスキップを許可しません。デフォルト: `warning`。プリセット: `nuxt`、
-`opinionated`。
-
-`a11y/iframe-has-title` には、`<iframe>` に `title` が必要です。デフォルト: `warning`。プリセット:
-`happy-path`、`nuxt`、`opinionated`。
-
-`a11y/landmark-roles` は、ランドマークの役割の配置と一意性を検証します。デフォルト: `warning`。
-プリセット: `nuxt`、`opinionated`。
-
-`a11y/media-has-caption` にはメディア要素のキャプションが必要です。デフォルト: `warning`。プリセット:
-`happy-path`、`nuxt`、`opinionated`。
-
-`a11y/no-access-key` は、`accesskey` 属性を禁止します。デフォルト: `warning`。プリセット:
-`happy-path`、`nuxt`、`opinionated`。
-
-`a11y/no-autofocus` は `autofocus` を許可しません。デフォルト: `warning`。プリセット: `happy-path`、`nuxt`、
-`opinionated`。
-
-`a11y/no-distracting-elements` は、`<marquee>` や `<blink>` などの気が散る要素を禁止します。
-デフォルト: `warning`。プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/no-redundant-roles` は、ネイティブ セマンティクスを複製する ARIA ロールを禁止します。デフォルト:
-`warning`。プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/no-role-presentation-on-focusable` は `role="presentation"` または `role="none"` を禁止します
-フォーカス可能な要素。デフォルト: `error`。プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/placeholder-label-option` では、プレースホルダーの `<option>` 値を無効にするか非表示にする必要があります。
-デフォルト: `warning`。プリセット: `nuxt`、`opinionated`。
-
-`a11y/role-has-required-aria-props` では、ロールに必要な ARIA 属性を含める必要があります。
-デフォルト: `warning`。プリセット: `happy-path`、`nuxt`、`opinionated`。
-
-`a11y/use-list` は、箇条書きのようなテキストのリスト要素を提案します。デフォルト: `warning`。プリセット: `nuxt`、
-`opinionated`。
+| ルール | デフォルト | 確認する内容 |
+| --- | --- | --- |
+| `a11y/anchor-has-content` | `warning` | アンカーには、テキスト、補間、アクセシブルな子要素、空でない画像 `alt`、`aria-label`、`aria-labelledby` のいずれかによるアクセシブルネームが必要です。 |
+| `a11y/aria-props` | `error` | 有効な `aria-*` 属性だけを許可し、`aria-lable` のような typo がアクセシビリティツリーから静かに消える前に検出します。 |
+| `a11y/aria-role` | `error` | `role` の値は具体的な WAI-ARIA role である必要があり、不明な role や抽象 role は拒否します。 |
+| `a11y/aria-unsupported-elements` | `error` | metadata、script、style など支援技術に公開されない要素では、ARIA 属性や role を禁止します。 |
+| `a11y/heading-has-content` | `warning` | `h1`-`h6` には、表示テキスト、補間、アクセシブルな子要素、または ARIA による名前付けが必要です。 |
+| `a11y/heading-levels` | `warning` | 見出しは `h1` から直接 `h3` に飛ぶような outline level のスキップを避けます。 |
+| `a11y/iframe-has-title` | `warning` | 各 `iframe` には、空でない静的 title または動的 title binding が必要です。 |
+| `a11y/landmark-roles` | `warning` | `main` landmark は 1 つだけ許可し、`nav` や `region` など同じ role の landmark が複数ある場合は、ラベルの欠落や重複を報告します。 |
+| `a11y/media-has-caption` | `warning` | `video` と `audio` には `track kind="captions"` が必要です。ただし muted の ambient media など、caption が不要だと判定できる場合は許可されます。 |
+| `a11y/no-access-key` | `warning` | ネイティブ要素の `accesskey` は、ブラウザ、OS、支援技術の shortcut と衝突しやすいため禁止します。 |
+| `a11y/no-autofocus` | `warning` | 自動 focus 移動は読み上げ順や keyboard flow を中断するため、`autofocus` を禁止します。 |
+| `a11y/no-distracting-elements` | `warning` | `marquee` や `blink` のような、動きや点滅を発生させる古い要素を拒否します。 |
+| `a11y/no-redundant-roles` | `warning` | `button role="button"` のように native semantics と重複する明示 role を報告し、role の削除で修正できます。 |
+| `a11y/no-role-presentation-on-focusable` | `error` | focus 可能な要素で `role="presentation"` や `role="none"` を使うと、focus は残るのに semantics だけ消えるため禁止します。 |
+| `a11y/placeholder-label-option` | `warning` | `select` の最初の `option` 子を確認し、その先頭 option の静的な `value` が空なら `disabled` または `hidden` を要求します。 |
+| `a11y/role-has-required-aria-props` | `warning` | ARIA state が必須の role には、checkbox の `aria-checked` や slider の `aria-valuenow` など、実装が要求する required property が必要です。 |
+| `a11y/use-list` | `warning` | 箇条書きに見えるテキストは semantic な `ul`/`ol` と `li` にして、支援技術が list の境界や item 数を扱えるようにします。 |
