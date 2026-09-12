@@ -6,13 +6,13 @@
 
 #![allow(clippy::collapsible_match)]
 #![cfg_attr(test, allow(clippy::disallowed_macros))]
-
 pub mod codegen;
 mod compile;
 pub mod errors;
 #[cfg(test)]
 mod experimental_tests;
 pub mod options;
+mod s4;
 mod stage_options;
 pub mod steps;
 
