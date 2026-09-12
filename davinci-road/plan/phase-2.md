@@ -67,38 +67,38 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [x] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON — landed 2026-08-20; the ICE policy made real — per-file panic guard writing `repro.folio` (batch continues, exact file set pinned), the new `vize repro` command replaying to the same failure by exact equality, hash-gated `--folio-dir`/`--folio-after-change` dumps real on `davinci-opt` and pinned-empty on the build path until P2-12b, timing JSON through the P0-11 export validated by the TS-15 validator ([record](./phase-2-records/p2-13.md))
 - [x] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes — landed 2026-08-20 for the original two libraries ([historical record](./phase-2-records/p2-14.md)); the current required TS-24 lane covers all four `#![no_std]` libraries (`vize_davinci`, S1, S2, S1→S2) with `--lib`, while S0 (`vize_s0`, package `vize_carton`) and `davinci-opt` remain accepted std host infrastructure outside the claim ([current boundary](./no-std-boundary.md))
 - [x] [P2-15](./phase-2-tasks-later.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1 — landed 2026-08-21; four mutators in `vize_s1_to_s2` test space, each with a written equivalence justification, conservative exclusion predicates and a per-mutator declared normalization (Display elision + attr-sort / text-merge / a cited condense mirror), TS-21 established over the newly committed 90-stub matrix plane (census pinned, staleness `--check` wired into TS-12 and proven to fail on an injected edit) and a corpus shard per PR (the two test-scripts submodules; full corpus 12,215 files × 179,992 mutations, zero divergences, run twice) with the scope proof — skips counted, a zero-mutation run fails ([record](./phase-2-records/p2-15.md))
-- [ ] [P2-16](./phase-2-tasks-later.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2
+- [x] [P2-16](./phase-2-tasks-later.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2 — landed 2026-09-08 through [#5927](https://github.com/ubugeeei-prod/vize/pull/5927); JSX VDOM production now selects the S2 emitter for admitted roots, with Relief retained for Patina and explicit fallback cases ([record](./phase-2-records/p2-16.md))
 - [ ] [P2-17](./phase-2-tasks-later.md#p2-17--ir-contract-review-milestone) IR contract review milestone
 - [x] [P2-18](./phase-2-tasks-later.md#p2-18--spolvero-feed-v1) Spolvero feed v1 — landed 2026-08-21; the feed is a serialization of P2-13's `FolioDump` (never a second page collector): `davinci-opt --folio-dir` writes `spolvero.json` beside the pages, the inspector payload and the wasm `analyzeSfc` result embed the same schema-versioned shape (S1 pages through `vize_s1`, byte-faithful; S2 joins when P2-8 gives it a producer), the croquis alias pinned byte-identical for the first time, TS-52 registered and established ([record](./phase-2-records/p2-18.md))
 - [x] [P2-19](./phase-2-tasks-later.md#p2-19--devtool-protocol-spike) DevTool protocol spike — landed 2026-08-21; decided **document over JSON-RPC**: the P2-18 feed document stays the unit on every surface — C-7's local server speaks content-mapper-style JSON-RPC whose `initialize` negotiates the feed `schema_version` before any payload is serialized (the only candidate that negotiates rather than refusing after the producer wrote everything), served files stay the at-rest form, the wasm playground keeps the P2-18 embedding, JSON-lines rejected (every named consumer reassembles the document anyway); spike deleted deliberately, measurements and reproduction recipe in the record ([record](./phase-2-records/p2-19.md))
 - [ ] [P2-20](./phase-2-tasks-later.md#p2-20--phase-exit) Phase exit
 
-## Current execution ledger (2026-09-07)
+## Current execution ledger (2026-09-12)
 
 This is the current snapshot. The phase re-cut above and the per-installment
 records are historical evidence and are not silently rewritten when current
 counts or fixture availability changes.
 
-- **Complete: 18 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
+- **Complete: 19 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
   P2-7, P2-8, P2-9, P2-10, P2-11, P2-12a, P2-13, P2-14, P2-15,
-  P2-18 and P2-19.**
+  P2-16, P2-18 and P2-19.**
   Each completion is joined to its merged PR and current evidence in the
-  [evidence index](./phase-2-records.md#current-completion-evidence-2026-09-07);
+  [evidence index](./phase-2-records.md#current-completion-evidence-2026-09-12);
   review-only evidence is labeled there rather than presented as executable.
   P2-11 keeps the hydrated full-corpus differential contract pinned as
-  144 DOM-output comparisons.
+  144 DOM-output comparisons. P2-16 keeps the JSX S2-vs-Relief differential
+  lane in the required check job; its retirement remains a P2-20 exit item.
 - **Active and blocked: 0 of 22 — none.**
-- **Ready: 2 of 22 — P2-12b and P2-16.** P2-12b now has all declared
-  dependencies closed (P2-12a, P2-11 and P2-3); TS-22 groundwork now exposes
-  the one code-producing S2 DOM emit walk, a source-map-free build counter that
+- **Ready: 1 of 22 — P2-12b.** P2-12b now has all declared dependencies
+  closed (P2-12a, P2-11 and P2-3); TS-22 groundwork now exposes the one
+  code-producing S2 DOM emit walk, a source-map-free build counter that
   reconciles with the S2 observer, and a demand-gated text transform. The
   remaining P2-12b work is direct parse-to-S2, transform fusion for genuinely
-  required passes, and the exact traversal gate. P2-16 is unblocked by
-  P2-11's completed S2 DOM backend and can now move JSX lowering onto S2.
+  required passes, and the exact traversal gate.
 - **Open and dependency-blocked: 2 of 22 — P2-17 and P2-20.** P2-17 depends on
   P2-11, P2-12b and P2-13; P2-11 and P2-13 are available, so P2-12b is the
   remaining dependency gate. P2-20 depends on all of P2-1 through P2-19 and
-  waits for P2-12b, P2-16 and P2-17.
+  waits for P2-12b and P2-17.
 - **Executable corpus inventory:** 146 gitlinks, including 142 ecosystem
   projects, as asserted by
   [`fixture-compatibility-ledger.test.ts`](../../tests/tooling/fixture-compatibility-ledger.test.ts).

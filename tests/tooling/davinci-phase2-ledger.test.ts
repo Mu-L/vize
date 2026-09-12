@@ -45,11 +45,11 @@ const text = Object.fromEntries(Object.entries(docs).map(([name, url]) => [name,
 };
 
 const completedTasks =
-  "P2-1 P2-2 P2-3 P2-4 P2-5a P2-5b P2-6 P2-7 P2-8 P2-9 P2-10 P2-11 P2-12a P2-13 P2-14 P2-15 P2-18 P2-19".split(
+  "P2-1 P2-2 P2-3 P2-4 P2-5a P2-5b P2-6 P2-7 P2-8 P2-9 P2-10 P2-11 P2-12a P2-13 P2-14 P2-15 P2-16 P2-18 P2-19".split(
     " ",
   );
 const activeTasks: string[] = [];
-const readyTasks = ["P2-12b", "P2-16"];
+const readyTasks = ["P2-12b"];
 const openDependencyTasks = ["P2-17", "P2-20"];
 
 function taskIndex(source: string): Map<string, boolean> {
@@ -201,6 +201,7 @@ test("every completion joins a merged PR to honest current evidence", () => {
     ["P2-13", "4509"],
     ["P2-14", "4509"],
     ["P2-15", "4547"],
+    ["P2-16", "5927"],
     ["P2-18", "4543"],
     ["P2-19", "4543"],
   ]);
@@ -226,7 +227,7 @@ test("P2-9 records the hydrated residual completion honestly", () => {
     "P2-9 current evidence row",
   );
   for (const source of [text.roadmap, text.readme, text.phase, text.records]) {
-    assert.match(source, /18 of 22/);
+    assert.match(source, /19 of 22/);
     assert.match(source, /11\.73%/);
   }
   assert.match(text.phase, /P2-9, P2-10/);
@@ -322,8 +323,8 @@ test("validator rejects a stale task count or suite range", () => {
   const tasks = taskIndex(text.phase);
   const maximum = suiteMaximum(text.suites);
   assert.throws(
-    () => assertCurrentCount(text.readme.replace("18 of 22", "17 of 22"), 18, tasks.size),
-    /stale task count: expected 18 of 22/,
+    () => assertCurrentCount(text.readme.replace("19 of 22", "18 of 22"), 19, tasks.size),
+    /stale task count: expected 19 of 22/,
   );
   assert.throws(
     () => assertSuiteRange(text.readme.replace("TS-1..52", "TS-1..51"), maximum),
