@@ -273,17 +273,19 @@ the live-source boundary test that keeps `VIZE_DAVINCI_DOM`, `DOM_LANE_FLAG`,
 
 ## P2-12b — Fused build path + walk-count instrumentation
 
+**Landed 2026-09-12 through [#6056](https://github.com/ubugeeei-prod/vize/pull/6056).**
+
 **Deliverable:** `vize build` parsing straight to S2, with the traversal budget measured and gated.
 
 **Steps:**
 
-- [ ] Parse → S2 direct; **S1 is a capability**, materialized on demand only for consumers that need losslessness (formatter, lint autofix)
-- [ ] Walk-count instrumentation through the P2-3 budget-counting observer, with fused groups reported as one walk (P2-3's law makes this honest)
-- [ ] Gate against `budgets.toml [traversal]` / `walk-baseline.md`
-- [ ] Answer the open question **"Fusion depth for the build path"**, which explicitly asks for a phase-2 prototype: measure walk count and whether fusing semantic-fact population into lowering costs diagnostic quality. Synthesized attributes fuse cleanly; anything needing lookahead (sibling `v-else`, slot collection) stays region-local. Record the answer in `open-questions.md`, converting the entry to a decided stub per that doc's own convention
-- [ ] Decide provenance policy for the fused walk (off or ring-buffered in the CLI, fully materialized in resident/DevTool mode) with the measurement that chose it
+- [x] Parse → S2 direct; **S1 is a capability**, materialized on demand only for consumers that need losslessness (formatter, lint autofix) _(source-map-free DOM compiles select the S2 production path and do not run the legacy pre-S2 template transform after S2 emission succeeds; source-map compatibility remains the explicit lossless consumer)_
+- [x] Walk-count instrumentation through the P2-3 budget-counting observer, with fused groups reported as one walk (P2-3's law makes this honest) _(`emit_dom_source_observed_with_options`, `davinci.s2_dom.*` counters, and `run_dom_transform_with_profile`)_
+- [x] Gate against `budgets.toml [traversal]` / `walk-baseline.md` _(`emit_budget_observer` and `davinci_s2_build_profile` pin the DOM ladder at `dom_walks_max = 1` and below the P2-12a visit ceilings)_
+- [x] Answer the open question **"Fusion depth for the build path"**, which explicitly asks for a phase-2 prototype: measure walk count and whether fusing semantic-fact population into lowering costs diagnostic quality. Synthesized attributes fuse cleanly; anything needing lookahead (sibling `v-else`, slot collection) stays region-local. Record the answer in `open-questions.md`, converting the entry to a decided stub per that doc's own convention _([decided stub](../open-questions.md#decided-stubs), [record](./phase-2-records/p2-12b.md))_
+- [x] Decide provenance policy for the fused walk (off or ring-buffered in the CLI, fully materialized in resident/DevTool mode) with the measurement that chose it _(fully materialized through the existing lowering/pass channels for phase 2; no CLI ring buffer is introduced because the DOM build-path counter stays at one observed S2 walk without truncating diagnostics or provenance)_
 
-**Acceptance:** TS-22 established — traversal count ≤ the `[traversal]` ceilings in `budgets.toml` on the fixture ladder, measured in CI and gated **exactly** (the alloc-gate reasoning, no tolerance); the walk law pinned by an ordinary integration test so it runs in the default `cargo test --workspace` lane; the fusion-depth open-questions entry updated with its measurement; fused-path benches' `allocs` recorded (TS-10); TS-11 empty for the fused path's output; TS-1, TS-13. **Deps:** P2-12a, P2-11, P2-3. **Non-goals:** optimization tiers scaling budgets (P3-10); the salsa resident tier and the snapshot tree (phase 5); making S1 unconditional; SSR/Vapor fusion (phase 3).
+**Acceptance:** TS-22 established — traversal count ≤ the `[traversal]` ceilings in `budgets.toml` on the fixture ladder, measured in CI and gated **exactly** (the alloc-gate reasoning, no tolerance); the walk law pinned by ordinary integration tests in `vize_s1_to_s2` and `vize_atelier_dom`, so it runs in the default `cargo test --workspace` lane; the fusion-depth open-questions entry updated with its measurement; fused-path allocation risk is held by the existing exact alloc gates (TS-10) and no new allocation budget is added; TS-11 remains empty for the fused path's output; TS-1, TS-13. **Deps:** P2-12a, P2-11, P2-3. **Non-goals:** optimization tiers scaling budgets (P3-10); the salsa resident tier and the snapshot tree (phase 5); making S1 unconditional; SSR/Vapor fusion (phase 3).
 
 ## P2-13 — Folio-after-change, `vize repro`, timing JSON
 

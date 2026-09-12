@@ -32,74 +32,11 @@
   speaks content-mapper-style JSON-RPC with `initialize` negotiating
   `schema_version` before any payload; served files stay the at-rest form,
   the wasm playground keeps the embedding; JSON-lines rejected.
-
-## Fusion depth for the build path
-
-How far can `vize build` fuse before diagnostics quality suffers? Emitting S2
-during parse and skipping S1 materialization assumes spans + source text are
-enough for error rendering (they should be — excerpts derive from `Span` +
-source). The riskier line is fusing semantic-fact population into lowering:
-synthesized attributes fuse cleanly, but anything needing lookahead (sibling
-`v-else`, slot collection) must stay region-local. Needs a phase-2 prototype
-measuring walk count and instruction locality against the phase-0 baselines.
-
-Prototype note (2026-09-02): the S2 DOM emitter now exposes
-`emit_dom_source_observed`, measuring the transform `BudgetObserver` plus the
-single code-producing emit walk over the ladder in `emit_budget_observer`.
-This does not answer the fusion policy yet: transform groups are still
-serialized and the production build path is not switched.
-
-Prototype note (2026-09-07): profiled source-map-free DOM compiles now record
-the remaining pre-S2 template walk as `davinci.s2_dom.pre_s2.*` and reconcile
-`davinci.s2_dom.build.walks` as that walk plus the S2 observer total. Ladder
-evidence shows the emit walk is already at the one-walk target; model-free
-artifacts also skip the `v-model` diagnostic pass, dropping the observed
-build path to 7 walks (1 pre-S2 + 6 S2 observer). P2-12b still needs
-parse-to-S2 and S2 transform fusion to reach the phase target.
-
-Prototype note (2026-09-07, second): **most of the transform's walks were
-not fusion's to save.** Each mandatory S2 pass consumes exactly one op
-family, so against an artifact whose family the lowering never built it
-walks the whole tree to publish an empty fact table and raise no
-diagnostic. The lowering now records the families it built
-(`vize_s1_to_s2::lower::features`, one bit set where the op is minted) and
-the planner drops those passes. Ladder evidence, transform walks per
-fixture: small 5 -> 2, medium 5 -> 3, large 5 -> 4, stress-deep 5 -> 3,
-stress-wide 5 -> 2, stress-interp 5 -> 2; the profiled build path falls
-from 7 walks to 4/5/6/5/4/4. Four corpus lanes (default, prefixed,
-bindings over 12,062 hydrated templates; the lowering lane over 12,215
-files) stay at zero divergence, and `tests/lowering_features.rs` pins the
-stronger claim per artifact: the planned run and the forced four-pass table
-agree on the artifact, its diagnostics, its provenance and every fact
-table.
-
-This narrows the fusion question rather than answering it. What remains
-above the one-walk target is (a) the pre-S2 template walk, which
-parse-to-S2 removes, and (b) the passes an artifact genuinely owes —
-`v-if`'s sibling lookahead and `v-slot`'s slot collection are the two the
-task contract already names as region-local, so those are the ones real
-fusion has to earn. **Skipping is not fusing**, and the walk counts above
-should not be read as evidence that fusion is unnecessary: an artifact
-that uses every transform family still pays four transform walks.
-
-Prototype note (2026-09-07, third): source-map-free DOM compiles now skip the
-legacy pre-S2 transform when S2 emission succeeds. The profiled build counter
-therefore matches the S2 observer total on the ladder set. After compound text
-facts and `v-for` facts became lowering-published, the current counts are: small and
-stress-interp at 2 walks; medium and stress-deep at 3 walks; stress-wide at 2
-walks; and large at 4 walks. P2-12b's remaining work is S2 transform fusion for
-the genuinely required passes above the one-walk emit floor, plus the direct
-parse-to-S2 path and exact traversal gate; source-map requests still use the
-compatibility path.
-
-One measured correction to the derivation: the first cut read the family
-bits off provenance rule names, which is wrong. Provenance records
-_decisions_, and a failed decision records a different rule while still
-leaving its op behind — `<p v-for="items">` records
-`error.v-for-malformed` and keeps its `ui.for`, so any provenance-derived
-feature bit would miss the lowering-published facts. `vfor_pass.rs`'s
-`an_undecomposable_value_is_pessimally_pending` caught it. The bits are
-set at the op's construction site instead.
+- **Fusion depth for the build path** →
+  [P2-12b record](./plan/phase-2-records/p2-12b.md). Source-map-free DOM
+  compiles report one observer-facing S2 build walk. Synthesized and preserving
+  facts fold before codegen; Vue 2 legacy sugar remains a compatibility pass,
+  and SSR/Vapor fusion waits for phase 3.
 
 ## Orphan analyses: productize or cut
 
