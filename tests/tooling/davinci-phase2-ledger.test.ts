@@ -31,6 +31,7 @@ const docs = {
     import.meta.url,
   ),
   p2_11: new URL("../../davinci-road/plan/phase-2-records/p2-11.md", import.meta.url),
+  p2_17: new URL("../../davinci-road/plan/phase-2-records/p2-17.md", import.meta.url),
   suites: new URL("../../davinci-road/plan/test-suites.md", import.meta.url),
   devtool: new URL("../../davinci-road/devtool.md", import.meta.url),
   questions: new URL("../../davinci-road/open-questions.md", import.meta.url),
@@ -45,12 +46,12 @@ const text = Object.fromEntries(Object.entries(docs).map(([name, url]) => [name,
 };
 
 const completedTasks =
-  "P2-1 P2-2 P2-3 P2-4 P2-5a P2-5b P2-6 P2-7 P2-8 P2-9 P2-10 P2-11 P2-12a P2-12b P2-13 P2-14 P2-15 P2-16 P2-18 P2-19".split(
+  "P2-1 P2-2 P2-3 P2-4 P2-5a P2-5b P2-6 P2-7 P2-8 P2-9 P2-10 P2-11 P2-12a P2-12b P2-13 P2-14 P2-15 P2-16 P2-17 P2-18 P2-19".split(
     " ",
   );
 const activeTasks: string[] = [];
-const readyTasks = ["P2-17"];
-const openDependencyTasks = ["P2-20"];
+const readyTasks = ["P2-20"];
+const openDependencyTasks: string[] = [];
 
 function taskIndex(source: string): Map<string, boolean> {
   const entries = [
@@ -172,7 +173,7 @@ test("dependency edges explain every open dependency classification", () => {
   }
 });
 
-test("P2-17 and P2-20 stay blocked by explicit exit-gate dependencies", () => {
+test("P2-17 sign-off leaves only P2-20 ready for exit evaluation", () => {
   const tasks = taskIndex(text.phase);
   assertP2_17P2_20ExitBlockers(
     text.phase,
@@ -203,6 +204,7 @@ test("every completion joins a merged PR to honest current evidence", () => {
     ["P2-14", "4509"],
     ["P2-15", "4547"],
     ["P2-16", "5927"],
+    ["P2-17", "6057"],
     ["P2-18", "4543"],
     ["P2-19", "4543"],
   ]);
@@ -213,7 +215,10 @@ test("every completion joins a merged PR to honest current evidence", () => {
   );
   assert.deepEqual(rows, expectedPrs);
   assert.match(text.records, /current evidence/);
+  const p2_17 = /^\| P2-17\s+\|[^\n]+$/mu.exec(text.records)?.[0] ?? "";
   const p2_19 = /^\| P2-19\s+\|[^\n]+$/mu.exec(text.records)?.[0] ?? "";
+  assert.match(p2_17, /p2-17\.md/);
+  assert.match(p2_17, /ir_contract_spans/);
   assert.match(p2_19, /Review evidence/);
   assert.match(p2_19, /p2-19\.md/);
   assert.match(p2_19, /not a transport implementation witness/);
@@ -228,7 +233,7 @@ test("P2-9 records the hydrated residual completion honestly", () => {
     "P2-9 current evidence row",
   );
   for (const source of [text.roadmap, text.readme, text.phase, text.records]) {
-    assert.match(source, /20 of 22/);
+    assert.match(source, /21 of 22/);
     assert.match(source, /11\.73%/);
   }
   assert.match(text.phase, /P2-9, P2-10/);
@@ -324,8 +329,8 @@ test("validator rejects a stale task count or suite range", () => {
   const tasks = taskIndex(text.phase);
   const maximum = suiteMaximum(text.suites);
   assert.throws(
-    () => assertCurrentCount(text.readme.replace("20 of 22", "18 of 22"), 20, tasks.size),
-    /stale task count: expected 20 of 22/,
+    () => assertCurrentCount(text.readme.replace("21 of 22", "18 of 22"), 21, tasks.size),
+    /stale task count: expected 21 of 22/,
   );
   assert.throws(
     () => assertSuiteRange(text.readme.replace("TS-1..52", "TS-1..51"), maximum),

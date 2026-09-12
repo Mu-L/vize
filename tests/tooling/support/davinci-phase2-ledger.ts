@@ -198,7 +198,7 @@ export function assertP2_17P2_20ExitBlockers(
   const p2_20 = phaseTaskSection(tasksLater, "P2-20");
   const gateItems = exitGateItems(phase);
 
-  assert.equal(p2_17Checked, false, "P2-17 must not be ticked before review sign-off");
+  assert.equal(p2_17Checked, true, "P2-17 must be ticked after review sign-off");
   assert.equal(p2_20Checked, false, "P2-20 must not be ticked before exit evaluation");
   assert.deepEqual(phaseDependencySet(tasksLater, "P2-17", taskIds), ["P2-11", "P2-12b", "P2-13"]);
   assert.deepEqual(
@@ -206,6 +206,7 @@ export function assertP2_17P2_20ExitBlockers(
     taskIds.filter((id) => id !== "P2-20"),
   );
 
+  assert.match(p2_17, /\*\*Landed 2026-09-12\*\*/);
   assert.match(p2_17, /mechanical half is machine-checked and must land as tests/);
   assert.match(p2_17, /every S2 op's span resolves into its authored SFC/);
   assert.match(p2_17, /`schema_version` is present and negotiated/);
@@ -214,14 +215,15 @@ export function assertP2_17P2_20ExitBlockers(
   assert.match(p2_20, /no line's wording is softened to make it tickable/);
 
   assert.match(phaseLedger, /P2-17\/P2-20 pre-exit blocker map/);
-  assert.match(phaseLedger, /P2-11's S2 DOM lane/);
+  assert.match(phaseLedger, /P2-17 is signed off/);
   assert.match(phaseLedger, /P2-12b's traversal-budget swap/);
-  assert.match(phaseLedger, /P2-13's failure\s+provenance contract/);
+  assert.match(phaseLedger, /P2-13's\s+failure\s+provenance contract/);
   assert.match(phaseLedger, /ir_contract_spans\.rs/);
   assert.match(phaseLedger, /spolvero_feed\.rs/);
-  assert.match(phaseLedger, /pre-signoff evidence, not a P2-17 completion/);
-  assert.match(phaseLedger, /P2-20 cannot evaluate\s+the exit gate until every P2-1\.\.P2-19/);
-  assert.match(phaseLedger, /tick a line only\s+with evidence/);
+  assert.match(phaseLedger, /davinci_opt_dumps\.rs/);
+  assert.match(phaseLedger, /spolvero_payload\.rs/);
+  assert.match(phaseLedger, /P2-20\s+evaluates it line by line/);
+  assert.match(phaseLedger, /ticks satisfied lines with evidence/);
   assertP2_17MechanicalWitnesses();
 
   assert.equal(gateItems.length, 12, "the P2 exit gate item count changed");
@@ -250,6 +252,17 @@ export function assertP2_17P2_20ExitBlockers(
 }
 
 function assertP2_17MechanicalWitnesses(): void {
+  const signoffRecord = fs.readFileSync(
+    new URL("../../../davinci-road/plan/phase-2-records/p2-17.md", import.meta.url),
+    "utf8",
+  );
+  assert.match(signoffRecord, /No redundant encodings/);
+  assert.match(signoffRecord, /No constructor-time folding/);
+  assert.match(signoffRecord, /Escape variant semantics/);
+  assert.match(signoffRecord, /Spans survive lowering/);
+  assert.match(signoffRecord, /`schema_version` everywhere/);
+  assert.match(signoffRecord, /Provenance survives failure/);
+
   const spanWitness = fs.readFileSync(
     new URL("../../../crates/vize_s1_to_s2/tests/ir_contract_spans.rs", import.meta.url),
     "utf8",
@@ -265,4 +278,18 @@ function assertP2_17MechanicalWitnesses(): void {
   assert.match(schemaWitness, /consumers_negotiate_schema_version_before_reading_pages/);
   assert.match(schemaWitness, /not read until the version is accepted/);
   assert.match(schemaWitness, /SchemaGateError::VersionMismatch/);
+
+  const profileWitness = fs.readFileSync(
+    new URL("../../../crates/vize_davinci/tests/davinci_opt_dumps.rs", import.meta.url),
+    "utf8",
+  );
+  assert.match(profileWitness, /timing_json_satisfies_the_p0_11_schema/);
+  assert.match(profileWitness, /json\["schema_version"\]/);
+
+  const inspectorWitness = fs.readFileSync(
+    new URL("../../../crates/vize_curator/tests/spolvero_payload.rs", import.meta.url),
+    "utf8",
+  );
+  assert.match(inspectorWitness, /schema_version/);
+  assert.match(inspectorWitness, /serialize_payload/);
 }

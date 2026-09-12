@@ -68,7 +68,7 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [x] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes — landed 2026-08-20 for the original two libraries ([historical record](./phase-2-records/p2-14.md)); the current required TS-24 lane covers all four `#![no_std]` libraries (`vize_davinci`, S1, S2, S1→S2) with `--lib`, while S0 (`vize_s0`, package `vize_carton`) and `davinci-opt` remain accepted std host infrastructure outside the claim ([current boundary](./no-std-boundary.md))
 - [x] [P2-15](./phase-2-tasks-later.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1 — landed 2026-08-21; four mutators in `vize_s1_to_s2` test space, each with a written equivalence justification, conservative exclusion predicates and a per-mutator declared normalization (Display elision + attr-sort / text-merge / a cited condense mirror), TS-21 established over the newly committed 90-stub matrix plane (census pinned, staleness `--check` wired into TS-12 and proven to fail on an injected edit) and a corpus shard per PR (the two test-scripts submodules; full corpus 12,215 files × 179,992 mutations, zero divergences, run twice) with the scope proof — skips counted, a zero-mutation run fails ([record](./phase-2-records/p2-15.md))
 - [x] [P2-16](./phase-2-tasks-later.md#p2-16--jsx-lowering-re-targets-s2) JSX lowering re-targets S2 — landed 2026-09-08 through [#5927](https://github.com/ubugeeei-prod/vize/pull/5927); JSX VDOM production now selects the S2 emitter for admitted roots, with Relief retained for Patina and explicit fallback cases ([record](./phase-2-records/p2-16.md))
-- [ ] [P2-17](./phase-2-tasks-later.md#p2-17--ir-contract-review-milestone) IR contract review milestone
+- [x] [P2-17](./phase-2-tasks-later.md#p2-17--ir-contract-review-milestone) IR contract review milestone — landed 2026-09-12 through [#6057](https://github.com/ubugeeei-prod/vize/pull/6057); signed-off internal S2 contract checklist with span, schema-version and provenance witnesses ([record](./phase-2-records/p2-17.md))
 - [x] [P2-18](./phase-2-tasks-later.md#p2-18--spolvero-feed-v1) Spolvero feed v1 — landed 2026-08-21; the feed is a serialization of P2-13's `FolioDump` (never a second page collector): `davinci-opt --folio-dir` writes `spolvero.json` beside the pages, the inspector payload and the wasm `analyzeSfc` result embed the same schema-versioned shape (S1 pages through `vize_s1`, byte-faithful; S2 joins when P2-8 gives it a producer), the croquis alias pinned byte-identical for the first time, TS-52 registered and established ([record](./phase-2-records/p2-18.md))
 - [x] [P2-19](./phase-2-tasks-later.md#p2-19--devtool-protocol-spike) DevTool protocol spike — landed 2026-08-21; decided **document over JSON-RPC**: the P2-18 feed document stays the unit on every surface — C-7's local server speaks content-mapper-style JSON-RPC whose `initialize` negotiates the feed `schema_version` before any payload is serialized (the only candidate that negotiates rather than refusing after the producer wrote everything), served files stay the at-rest form, the wasm playground keeps the P2-18 embedding, JSON-lines rejected (every named consumer reassembles the document anyway); spike deleted deliberately, measurements and reproduction recipe in the record ([record](./phase-2-records/p2-19.md))
 - [ ] [P2-20](./phase-2-tasks-later.md#p2-20--phase-exit) Phase exit
@@ -79,9 +79,9 @@ This is the current snapshot. The phase re-cut above and the per-installment
 records are historical evidence and are not silently rewritten when current
 counts or fixture availability changes.
 
-- **Complete: 20 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
+- **Complete: 21 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
   P2-7, P2-8, P2-9, P2-10, P2-11, P2-12a, P2-12b, P2-13, P2-14,
-  P2-15, P2-16, P2-18 and P2-19.**
+  P2-15, P2-16, P2-17, P2-18 and P2-19.**
   Each completion is joined to its merged PR and current evidence in the
   [evidence index](./phase-2-records.md#current-completion-evidence-2026-09-12);
   review-only evidence is labeled there rather than presented as executable.
@@ -91,29 +91,28 @@ counts or fixture availability changes.
   P2-12b keeps the DOM build-path traversal target as an ordinary Rust
   integration gate over the ladder.
 - **Active and blocked: 0 of 22 — none.**
-- **Ready: 1 of 22 — P2-17.** P2-17 now has all declared dependencies closed:
-  P2-11's S2 DOM lane, P2-12b's traversal-budget swap and P2-13's failure
-  provenance contract are all available for the contract review.
-- **Open and dependency-blocked: 1 of 22 — P2-20.** P2-20 depends on all of
-  P2-1 through P2-19 and waits for the P2-17 review sign-off before it can
-  evaluate the phase exit.
+- **Ready: 1 of 22 — P2-20.** P2-20 now has all P2-1 through P2-19
+  dependencies closed and can evaluate the phase exit.
+- **Open and dependency-blocked: 0 of 22 — none.**
 - **Executable corpus inventory:** 146 gitlinks, including 142 ecosystem
   projects, as asserted by
   [`fixture-compatibility-ledger.test.ts`](../../tests/tooling/fixture-compatibility-ledger.test.ts).
   A worktree's initialized or uninitialized submodule count is transient and
   must not replace this inventory.
-- **P2-17/P2-20 pre-exit blocker map:** P2-17 now has P2-11's S2 DOM lane,
-  P2-12b's traversal-budget swap and P2-13's failure provenance contract
-  available to review. Its mechanical
-  span-resolution witness now runs in
+- **P2-17/P2-20 pre-exit blocker map:** P2-17 is signed off for internal S2
+  consumers: P2-11's S2 DOM lane, P2-12b's traversal-budget swap and P2-13's
+  failure provenance contract were reviewed together. Its mechanical
+  span-resolution witness runs in
   [`ir_contract_spans.rs`](../../crates/vize_s1_to_s2/tests/ir_contract_spans.rs),
-  and its `schema_version` negotiation witness now runs in
-  [`spolvero_feed.rs`](../../crates/vize_davinci/tests/spolvero_feed.rs); those
-  tests are pre-signoff evidence, not a P2-17 completion. P2-20 cannot evaluate
-  the exit gate until every P2-1..P2-19 dependency is closed. Until then the
-  exit gate below stays unticked: P2-20's acceptance rule is to tick a line only
-  with evidence, or leave it unticked with its blocker named during the
-  phase-exit evaluation.
+  while serialized agent-visible artifact witnesses run in
+  [`spolvero_feed.rs`](../../crates/vize_davinci/tests/spolvero_feed.rs),
+  [`davinci_opt_dumps.rs`](../../crates/vize_davinci/tests/davinci_opt_dumps.rs)
+  and [`spolvero_payload.rs`](../../crates/vize_curator/tests/spolvero_payload.rs).
+  Future remark and fact-table serializations are not real payloads yet, so the
+  signed-off rule is that they must join the same schema-versioned refusal
+  pattern when introduced. The exit gate below stays unticked until P2-20
+  evaluates it line by line, ticks satisfied lines with evidence, and leaves
+  any misses unticked with blockers named.
 
 ## Davinci describes the shipped pipeline — and cannot yet consume it (2026-08-19)
 
