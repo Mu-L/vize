@@ -23,6 +23,7 @@
  */
 
 import path from "node:path";
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ArtFileInfo } from "../types/index.js";
 import { scanArtFiles, parseArtFile } from "./utils.js";
@@ -292,5 +293,13 @@ if (isDirectRun()) {
 
 function isDirectRun(): boolean {
   const entrypoint = process.argv[1];
-  return entrypoint ? fileURLToPath(import.meta.url) === path.resolve(entrypoint) : false;
+  if (!entrypoint) {
+    return false;
+  }
+
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(path.resolve(entrypoint));
+  } catch {
+    return false;
+  }
 }
