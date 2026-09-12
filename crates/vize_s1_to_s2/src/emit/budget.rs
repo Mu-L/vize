@@ -3,15 +3,17 @@ use vize_s0::{Allocator, ensure_sufficient_stack};
 use vize_s1::{SurfaceParseOptions, parse_with_options};
 
 use crate::lower::{LegacyCaps, lower_with_caps_and_comment_policy};
-use crate::pass::{TransformProfile, run_transform_with_profile};
+use crate::pass::{TransformProfile, run_dom_transform_with_profile};
 
 use super::{DomEmit, DomEmitOptions, EmitError, emit_dom_with_emit_budget};
 
 /// Observer-facing counts for the S2 DOM emitter.
 ///
-/// `emit_walks` / `emit_visits` deliberately describe the single
-/// code-producing walk. Helper/name/static probes are subtree queries
-/// and stay outside the P2-12a traversal baseline by design.
+/// `transform` reports only pass-manager walks still needed before DOM
+/// emission. On the Vue 3 build path, preserving fact products are folded into
+/// the emitter setup, so the single code-producing walk is the whole
+/// observer-facing budget. Helper/name/static probes are subtree queries and
+/// stay outside the P2-12a traversal baseline by design.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DomEmitBudget {
     pub transform: BudgetObserver,
@@ -100,7 +102,7 @@ pub(super) fn emit_dom_source_with_options_and_observer<'a, O: PassObserver>(
         if !options.hoist_static {
             profile = profile.without_static_analysis();
         }
-        let facts = run_transform_with_profile(&mut lowered, observer, profile);
+        let facts = run_dom_transform_with_profile(&mut lowered, observer, profile);
         let (emit, emit_visits) = emit_dom_with_emit_budget(&lowered, &facts, options)?;
         Ok((emit, emit_visits))
     })

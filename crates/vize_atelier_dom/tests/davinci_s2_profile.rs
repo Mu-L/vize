@@ -50,13 +50,13 @@ fn profile_reports_real_s2_dom_walks() {
     assert_eq!(result.code, unobserved.code);
     assert_eq!(result.preamble, unobserved.preamble);
     assert_eq!(counter(&counters, "davinci.s2_dom.files"), 1);
-    // `<div>{{ msg }}</div>` builds no compound text and no structural
-    // family, so the plan is the static analysis alone.
-    assert_eq!(counter(&counters, "davinci.s2_dom.transform.walks"), 1);
-    assert_eq!(counter(&counters, "davinci.s2_dom.transform.passes"), 1);
+    // Vue 3 DOM emission folds preserving fact products before the
+    // code-producing walk, so no pass-manager transform walk is reported.
+    assert_eq!(counter(&counters, "davinci.s2_dom.transform.walks"), 0);
+    assert_eq!(counter(&counters, "davinci.s2_dom.transform.passes"), 0);
     assert_eq!(counter(&counters, "davinci.s2_dom.emit.walks"), 1);
     assert!(counter(&counters, "davinci.s2_dom.emit.visits") > 0);
-    assert_eq!(counter(&counters, "davinci.s2_dom.total.walks"), 2);
+    assert_eq!(counter(&counters, "davinci.s2_dom.total.walks"), 1);
 }
 
 #[test]

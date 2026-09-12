@@ -19,29 +19,26 @@ struct TraversalBudget {
 
 /// fixture -> current S2 observer walks and profiled build walks.
 ///
-/// Both columns are per fixture because the S2 pass planner declines a
-/// mandatory pass whose op family the lowering never built
-/// (`vize_s1_to_s2::lower::features`). The S2 column is the artifact's
-/// transform plan plus its one emit walk; `v-if` and `v-for` facts are
-/// lowering-published, so they no longer add transform walks. The build
-/// column now matches it because source-map-free DOM compiles no longer
-/// run the legacy pre-S2 transform after S2 emission succeeds.
+/// Source-map-free DOM compiles now enter S2 directly and report only the
+/// single code-producing walk. Preserving fact products are folded before
+/// emission; the legacy pre-S2 transform remains absent after S2 emission
+/// succeeds.
 ///
-/// | fixture       | families present                      | S2 | build |
-/// | ------------- | ------------------------------------- | -- | ----- |
-/// | small         | compound text                         | 2  | 2     |
-/// | medium        | components                            | 3  | 3     |
-/// | large         | `v-if`, `v-for`, slot carriers        | 3  | 3     |
-/// | stress-deep   | `v-if`                                | 2  | 2     |
-/// | stress-wide   | none                                  | 2  | 2     |
-/// | stress-interp | compound text                         | 2  | 2     |
+/// | fixture       | S2 | build |
+/// | ------------- | -- | ----- |
+/// | small         | 1  | 1     |
+/// | medium        | 1  | 1     |
+/// | large         | 1  | 1     |
+/// | stress-deep   | 1  | 1     |
+/// | stress-wide   | 1  | 1     |
+/// | stress-interp | 1  | 1     |
 const CURRENT_WALKS: [(&str, u64, u64); 6] = [
-    ("small", 2, 2),
-    ("medium", 3, 3),
-    ("large", 3, 3),
-    ("stress-deep", 2, 2),
-    ("stress-wide", 2, 2),
-    ("stress-interp", 2, 2),
+    ("small", 1, 1),
+    ("medium", 1, 1),
+    ("large", 1, 1),
+    ("stress-deep", 1, 1),
+    ("stress-wide", 1, 1),
+    ("stress-interp", 1, 1),
 ];
 
 fn current_walks(fixture: &str) -> (u64, u64) {
@@ -115,12 +112,12 @@ fn profile_build_walks_report_the_current_p2_12b_gap() {
         );
         assert_eq!(
             build_walks, current_build_walks,
-            "{} current profiled DOM build walk gap",
+            "{} current profiled DOM build walk count",
             fixture.name
         );
-        assert!(
-            build_walks >= fused_walk_target,
-            "{} build walk counter must stay above the emit floor",
+        assert_eq!(
+            build_walks, fused_walk_target,
+            "{} build walk counter must meet the fused DOM target",
             fixture.name
         );
     }

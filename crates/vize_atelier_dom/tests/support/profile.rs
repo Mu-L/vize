@@ -13,20 +13,16 @@ pub struct S2DomEmitCount {
 
 /// fixture -> S2 DOM emit walks, emit op visits, transform walks.
 ///
-/// The transform column is per fixture because the S2 pass planner
-/// declines a mandatory pass whose op family the lowering never built
-/// (`vize_s1_to_s2::lower::features`): static analysis is the default
-/// floor, text, `v-if`, and `v-for` facts are lowering-published, and
-/// each remaining structural family adds one walk only when present.
-/// `medium` pays two for its kebab-case components, which are slot
-/// carriers even though it spells no `v-slot`.
+/// Vue 3 DOM emission folds preserving fact products before codegen, leaving
+/// no pass-manager transform walks in the profiled source-map-free build path.
+/// Vue 2 legacy sugar still reports through the pass manager when selected.
 const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
     (
         "small",
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 5,
-            transform_walks: 1,
+            transform_walks: 0,
         },
     ),
     (
@@ -34,7 +30,7 @@ const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 33,
-            transform_walks: 2,
+            transform_walks: 0,
         },
     ),
     (
@@ -42,7 +38,7 @@ const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 54,
-            transform_walks: 2,
+            transform_walks: 0,
         },
     ),
     (
@@ -50,7 +46,7 @@ const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 72,
-            transform_walks: 1,
+            transform_walks: 0,
         },
     ),
     (
@@ -58,7 +54,7 @@ const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 2,
-            transform_walks: 1,
+            transform_walks: 0,
         },
     ),
     (
@@ -66,7 +62,7 @@ const S2_DOM_EMIT_COUNTS: [(&str, S2DomEmitCount); 6] = [
         S2DomEmitCount {
             emit_walks: 1,
             emit_visits: 201,
-            transform_walks: 1,
+            transform_walks: 0,
         },
     ),
 ];

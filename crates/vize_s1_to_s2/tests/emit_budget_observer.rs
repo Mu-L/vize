@@ -26,35 +26,20 @@ struct EmitCount {
     transform_walks: u32,
 }
 
-/// fixture name -> current S2 DOM emit-only walks and op visits, and the
-/// transform walks the artifact's own op families buy.
+/// fixture name -> current S2 DOM emit-only walks and op visits, plus the
+/// pass-manager transform walks the artifact still pays before codegen.
 ///
-/// The transform column is per fixture rather than a constant because the
-/// planner declines a mandatory pass whose op family the lowering never
-/// built (`lower::features`). The optional static analysis is the floor
-/// every default artifact pays; text, `v-if`, and `v-for` facts are
-/// lowering-published, and each remaining structural family adds its own
-/// pass only when the lowering built that product:
-///
-/// | fixture       | families present                      | transform walks |
-/// | ------------- | ------------------------------------- | --------------- |
-/// | small         | compound text                         | 1               |
-/// | medium        | components (`el-row`, `svg-icon`, ...)| 2               |
-/// | large         | `v-if`, `v-for`, slot carriers        | 2               |
-/// | stress-deep   | `v-if`                                | 1               |
-/// | stress-wide   | none                                  | 1               |
-/// | stress-interp | compound text                         | 1               |
-///
-/// `medium` is the reminder that a slot carrier is any non-native tag,
-/// kebab-case included — it has no `v-slot` anywhere and still owes the
-/// slot pass its grouping walk.
+/// On the Vue 3 DOM path the preserving products (`v-slot`, `v-model`, and
+/// `hoist-static`) are folded before the code-producing walk rather than
+/// reported as separate transform walks. Vue 2 legacy sugar remains the
+/// compatibility exception because it mutates the lowered S2 surface.
 const S2_DOM_EMIT_COUNTS: [(&str, u32, u32, u32); 6] = [
-    ("small", 1, 5, 1),
-    ("medium", 1, 33, 2),
-    ("large", 1, 54, 2),
-    ("stress-deep", 1, 72, 1),
-    ("stress-wide", 1, 2, 1),
-    ("stress-interp", 1, 201, 1),
+    ("small", 1, 5, 0),
+    ("medium", 1, 33, 0),
+    ("large", 1, 54, 0),
+    ("stress-deep", 1, 72, 0),
+    ("stress-wide", 1, 2, 0),
+    ("stress-interp", 1, 201, 0),
 ];
 
 #[test]
@@ -90,7 +75,7 @@ fn observed_dom_emit_keeps_output_and_walk_budget() {
             fixture.name
         );
         assert_eq!(
-            observed.budget.transform.pipelines, 1,
+            observed.budget.transform.pipelines, 0,
             "{} transform pipelines",
             fixture.name
         );
@@ -128,12 +113,11 @@ fn observed_dom_emit_keeps_output_and_walk_budget() {
             observed.budget.emit_visits,
             baseline.visits
         );
-        assert!(
-            observed.budget.total_walks() > fused_walk_target,
-            "{} total walks {} already meet the phase-2 fused DOM target {} before the build path has switched",
-            fixture.name,
+        assert_eq!(
             observed.budget.total_walks(),
-            fused_walk_target
+            fused_walk_target,
+            "{} total walks must meet the phase-2 fused DOM target",
+            fixture.name,
         );
         println!(
             "davinci.s2_dom.walk {} emit_walks={} emit_visits={} transform_walks={} transform_passes={} total_walks={} fused_walk_target={} baseline_walks={} baseline_visits={}",
@@ -164,11 +148,12 @@ fn model_bindings_keep_the_model_diagnostic_pass_in_the_emit_budget() {
         plain.assembled(),
         "the profiling observer must not change model output"
     );
-    // `v-model` alone: the model pass rejoins the optional analysis floor.
-    assert_eq!(observed.budget.transform.walks, 2);
-    assert_eq!(observed.budget.transform.passes, 2);
+    // `v-model` diagnostics are preserved without buying an observer-visible
+    // transform walk on the Vue 3 DOM path.
+    assert_eq!(observed.budget.transform.walks, 0);
+    assert_eq!(observed.budget.transform.passes, 0);
     assert_eq!(observed.budget.emit_walks, 1);
-    assert_eq!(observed.budget.total_walks(), 3);
+    assert_eq!(observed.budget.total_walks(), 1);
 }
 
 #[test]
@@ -225,12 +210,12 @@ fn disabled_static_hoist_keeps_model_diagnostics_when_models_exist() {
     )
     .expect("observed model emit succeeds without static hoist");
 
-    // The analysis is declined by the option, the model pass is not:
-    // declining a pass may never decline a diagnostic.
-    assert_eq!(observed.budget.transform.walks, 1);
-    assert_eq!(observed.budget.transform.passes, 1);
+    // The analysis is declined by the option, and model diagnostics are still
+    // produced by the folded DOM fact path.
+    assert_eq!(observed.budget.transform.walks, 0);
+    assert_eq!(observed.budget.transform.passes, 0);
     assert_eq!(observed.budget.emit_walks, 1);
-    assert_eq!(observed.budget.total_walks(), 2);
+    assert_eq!(observed.budget.total_walks(), 1);
 }
 
 fn assert_s2_dom_emit_counts_cover_ladder() {
