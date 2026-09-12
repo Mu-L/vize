@@ -334,3 +334,9 @@ whole-file equality, no partial matching). The harness is
 `crates/vize_s2/tests/verifier_fixtures.rs`; the id-resolution and
 liveness lanes, which no page text can encode, are pinned with the same
 exact oracles in `tests/verifier_observer.rs`.
+
+## Impeto page (P3-1)
+
+The S3 stage dump is documented in
+[`folio-format-impeto.md`](./folio-format-impeto.md). That page owns the flat
+Impeto grammar and the TS-27 validator contract.

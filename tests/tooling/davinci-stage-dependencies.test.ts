@@ -20,6 +20,13 @@ const aliases = new Map<string, ReadonlyArray<readonly [string, string | null]>>
   ["vize_s1", [["vize_carton", "vize_s0"]]],
   ["vize_s2", [["vize_carton", "vize_s0"]]],
   [
+    "vize_impeto",
+    [
+      ["vize_carton", "vize_s0"],
+      ["vize_davinci", null],
+    ],
+  ],
+  [
     "vize_s1_to_s2",
     [
       ["vize_carton", "vize_s0"],
@@ -34,6 +41,7 @@ const publishedDavinciStages = new Set([
   "vize_davinci",
   "vize_s1",
   "vize_s2",
+  "vize_impeto",
   "vize_s1_to_s2",
 ]);
 
@@ -60,6 +68,7 @@ test("Davinci stage dependencies are one-way and acyclic", () => {
     ["vize_davinci", 1],
     ["vize_s1", 1],
     ["vize_s2", 2],
+    ["vize_impeto", 3],
     ["vize_s1_to_s2", 3],
   ]);
   const expectedEdges = new Map<string, string[]>([
@@ -67,6 +76,7 @@ test("Davinci stage dependencies are one-way and acyclic", () => {
     ["vize_davinci", ["vize_carton"]],
     ["vize_s1", ["vize_carton"]],
     ["vize_s2", ["vize_carton", "vize_davinci"]],
+    ["vize_impeto", ["vize_carton", "vize_davinci"]],
     ["vize_s1_to_s2", ["vize_carton", "vize_davinci", "vize_s1", "vize_s2"]],
   ]);
 
@@ -156,6 +166,19 @@ test("Davinci S1-to-S2 uses the physical crate package and directory", () => {
   assert.doesNotMatch(lockfile, /\bvize_ricalco\b/u);
 });
 
+test("Davinci S3 uses the Impeto package through the stage alias", () => {
+  const workspaceManifest = readRepoFile("Cargo.toml");
+  assert.match(workspaceManifest, /^\s*"crates\/vize_impeto",$/m);
+  assert.deepEqual(workspaceDependencyDeclaration("vize_s3"), {
+    path: "crates/vize_impeto",
+    version: `=${workspacePackage(metadata, "vize_impeto").version}`,
+  });
+  assert.doesNotMatch(workspaceManifest, /^vize_s3 = \{ path = "crates\/vize_s3"/m);
+
+  const impetoManifest = readRepoFile("crates", "vize_impeto", "Cargo.toml");
+  assert.match(impetoManifest, /^name = "vize_impeto"$/m);
+});
+
 test("Davinci S1-to-S2 source paths use the physical S2 folio type", () => {
   const sourceDir = path.join(repoRoot, "crates", "vize_s1_to_s2", "src");
   for (const fullPath of walkRustFiles(sourceDir)) {
@@ -187,7 +210,7 @@ test("Davinci DOM production imports lowering through the physical S1-to-S2 pack
   }
 });
 
-test("Davinci atelier core S2 witnesses import lowering through the physical S1-to-S2 package", () => {
+test("Atelier core S2 witnesses import lowering through the physical S1-to-S2 package", () => {
   const lowering = dependency(metadata, "vize_atelier_core", "vize_s1_to_s2", "dev");
   assert.equal(lowering.rename, null);
   const dependencies = workspacePackage(metadata, "vize_atelier_core").dependencies;
@@ -211,53 +234,27 @@ test("Davinci atelier core S2 witnesses import lowering through the physical S1-
   }
 });
 
-test("Vize CLI package imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize",
-    label: "vize package",
-    directory: path.join(repoRoot, "crates", "vize"),
-  });
-});
+const s0AliasConsumers = [
+  ["vize", "vize package", ["crates", "vize"]],
+  ["vize_test_runner", "Test runner", ["tests", "vize_test_runner"]],
+  ["vize_armature", "Armature parser", ["crates", "vize_armature"]],
+  ["vize_patina", "Patina linter", ["crates", "vize_patina"]],
+  ["vize_musea", "Musea component gallery", ["crates", "vize_musea"]],
+  ["vize_fresco", "Fresco TUI", ["crates", "vize_fresco"]],
+  ["vize_curator", "Curator reporting utilities", ["crates", "vize_curator"]],
+  ["vize_vitrine", "Vitrine bindings", ["crates", "vize_vitrine"]],
+  ["vize_maestro", "Maestro LSP", ["crates", "vize_maestro"]],
+  ["vize_atelier_ssr", "Atelier SSR compiler", ["crates", "vize_atelier_ssr"]],
+  ["vize_atelier_dom", "Atelier DOM compiler", ["crates", "vize_atelier_dom"]],
+  ["vize_atelier_jsx", "Atelier JSX compiler", ["crates", "vize_atelier_jsx"]],
+  ["vize_relief", "Relief AST", ["crates", "vize_relief"]],
+] as const;
 
-test("Test runner imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_test_runner",
-    label: "Test runner",
-    directory: path.join(repoRoot, "tests", "vize_test_runner"),
+for (const [packageName, label, parts] of s0AliasConsumers) {
+  test(`${label} imports S0 storage through the stage alias`, () => {
+    assertS0AliasConsumer({ packageName, label, directory: path.join(repoRoot, ...parts) });
   });
-});
-
-test("Armature parser imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_armature",
-    label: "Armature parser",
-    directory: path.join(repoRoot, "crates", "vize_armature"),
-  });
-});
-
-test("Patina linter imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_patina",
-    label: "Patina linter",
-    directory: path.join(repoRoot, "crates", "vize_patina"),
-  });
-});
-
-test("Musea component gallery imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_musea",
-    label: "Musea component gallery",
-    directory: path.join(repoRoot, "crates", "vize_musea"),
-  });
-});
-
-test("Fresco TUI imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_fresco",
-    label: "Fresco TUI",
-    directory: path.join(repoRoot, "crates", "vize_fresco"),
-  });
-});
+}
 
 test("Canon content-mapper imports S0 storage through the stage alias", () => {
   const manifest = readRepoFile("crates", "vize_canon", "Cargo.toml");
@@ -268,54 +265,6 @@ test("Canon content-mapper imports S0 storage through the stage alias", () => {
     label: "Canon content-mapper",
     directory: path.join(repoRoot, "crates", "vize_canon", "src", "batch", "virtual_project"),
     filter: (fullPath) => path.basename(fullPath).startsWith("content_mapper"),
-  });
-});
-
-test("Curator reporting utilities import S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_curator",
-    label: "Curator reporting utilities",
-    directory: path.join(repoRoot, "crates", "vize_curator"),
-  });
-});
-
-test("Vitrine bindings import S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_vitrine",
-    label: "Vitrine bindings",
-    directory: path.join(repoRoot, "crates", "vize_vitrine"),
-  });
-});
-
-test("Maestro LSP imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_maestro",
-    label: "Maestro LSP",
-    directory: path.join(repoRoot, "crates", "vize_maestro"),
-  });
-});
-
-test("Atelier SSR compiler imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_atelier_ssr",
-    label: "Atelier SSR compiler",
-    directory: path.join(repoRoot, "crates", "vize_atelier_ssr"),
-  });
-});
-
-test("Atelier DOM compiler imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_atelier_dom",
-    label: "Atelier DOM compiler",
-    directory: path.join(repoRoot, "crates", "vize_atelier_dom"),
-  });
-});
-
-test("Atelier JSX compiler imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_atelier_jsx",
-    label: "Atelier JSX compiler",
-    directory: path.join(repoRoot, "crates", "vize_atelier_jsx"),
   });
 });
 
@@ -333,12 +282,4 @@ test("Atelier core compiler macros import S0 storage through the stage alias", (
     const source = readRepoFile("crates", "vize_atelier_core", "src", relative);
     assert.doesNotMatch(source, /\bvize_carton\b/u, `${relative} must use vize_s0 or $crate`);
   }
-});
-
-test("Relief AST imports S0 storage through the stage alias", () => {
-  assertS0AliasConsumer({
-    packageName: "vize_relief",
-    label: "Relief AST",
-    directory: path.join(repoRoot, "crates", "vize_relief"),
-  });
 });
