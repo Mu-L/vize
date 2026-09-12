@@ -39,16 +39,18 @@
 
 ## P2-17 — IR contract review milestone
 
+**Landed 2026-09-12** — full record: [phase-2-records/p2-17.md](./phase-2-records/p2-17.md).
+
 **Deliverable:** a signed-off checklist — the last cheap-fix window before caches, Spolvero and external consumers depend on the S2 format.
 
 **Steps** — the checklist, against the prior-art rules imported from LLVM's three expensive regrets:
 
-- [ ] **No redundant encodings**: every S2 field is semantic **xor** derived-and-cached, never both (the pointee-type regret: ~7 years to remove)
-- [ ] **No constructor-time folding**: folding happens in exactly one designated pass per stage (the top infinite-loop source)
-- [ ] **The escape variant has pessimal documented semantics** from day one — P2-5b's decision is reviewed here against the `undef`/`poison` regret
-- [ ] **Spans survive lowering**: every S2 op traces to an authored SFC span
-- [ ] **`schema_version` on every agent-visible artifact** (devtool.md's data layer requires it: folio format, profile export, remark and fact-table schemas) so Spolvero negotiates and refuses mismatches loudly
-- [ ] **Provenance survives failure**: partial S2 kept on error (P2-8's commitment, verified here)
+- [x] **No redundant encodings**: every S2 field is semantic **xor** derived-and-cached, never both (the pointee-type regret: ~7 years to remove)
+- [x] **No constructor-time folding**: folding happens in exactly one designated pass per stage (the top infinite-loop source)
+- [x] **The escape variant has pessimal documented semantics** from day one — P2-5b's decision is reviewed here against the `undef`/`poison` regret
+- [x] **Spans survive lowering**: every S2 op traces to an authored SFC span
+- [x] **`schema_version` on every current serialized agent-visible artifact** (devtool.md's data layer requires it: folio/feed and profile export) so Spolvero negotiates and refuses mismatches loudly; future remark and fact-table payloads inherit the same requirement when they become serialized artifacts
+- [x] **Provenance survives failure**: partial S2 kept on error (P2-8's commitment, verified here)
 
 **Acceptance:** the signed-off checklist committed. The mechanical half is machine-checked and must land as tests, not prose: a corpus-wide assertion that every S2 op's span resolves into its authored SFC, and a folio-level assertion that `schema_version` is present and negotiated. **Review point** for the judgement half — this milestone exists precisely because these are the cheap fixes that become expensive once formats have consumers. **Deps:** P2-11, P2-12b, P2-13. **Non-goals:** S3 contracts (P3-5's op reference does the same job one stage later); freezing the format for external consumers, which is phase 6's contracts GA; a stability guarantee — charter #23 keeps internal formats free to break until then.
 
