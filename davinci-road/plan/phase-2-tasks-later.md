@@ -25,13 +25,15 @@
 
 ## P2-16 — JSX lowering re-targets S2
 
+**Landed 2026-09-08** — full record: [phase-2-records/p2-16.md](./phase-2-records/p2-16.md).
+
 **Deliverable:** `vize_atelier_jsx` lowering to Disegno instead of relief, which is the neutral core's first real fairness test.
 
 **Steps:**
 
-- [ ] `lower_source` at `crates/vize_atelier_jsx/src/lib.rs:206` — signature `lower_source<'a>(bump: &'a Allocator, allocator: &oxc_allocator::Allocator, source, lang)` — produces S2 rather than a relief `RootNode`; the crate-private `lower_source_with_compat` (`lib.rs:229`) follows
-- [ ] Record whether the JSX hot path's deliberate bypass of `MarkupDocument::from_jsx` can now go. That bypass exists because Relief is Vue-shaped — it is the symptom the neutral core is supposed to remove, so its survival or removal is the honest fairness measurement
-- [ ] Differential lane in the house shape for the JSX path
+- [x] `lower_source` and the crate-private `lower_source_with_compat` produce an S2 projection beside the legacy Relief root; VDOM production attempts the S2 emitter first for every admitted root
+- [x] Record whether the JSX hot path's deliberate bypass of `MarkupDocument::from_jsx` can now go: it survives for Patina and explicit fallback cases, but not as the admitted JSX VDOM hot path
+- [x] Differential lane in the house shape for the JSX path
 
 **Acceptance:** the babel-compat oracle green on the new path — `cargo test -p vize_atelier_jsx` (`babel_compat_oracle`), TS-6, with the nine committed snapshots unchanged; the JSX corpus projects' rows in TS-11 empty; differential lane zero divergence (TS-25); TS-1, TS-13. **Deps:** P2-11. **Non-goals:** rule-corpus fairness convergence (phase 4, TS-39) — this task _measures_ the gap, it does not close it; Svelte/Solid input dialects; deleting the relief JSX lowering, which Patina still consumes until it re-bases in phase 4.
 
