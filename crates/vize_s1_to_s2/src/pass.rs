@@ -50,6 +50,7 @@ use vize_davinci::side_table::SideTable;
 
 use crate::lower::Lowered;
 
+mod dom;
 pub mod hoist;
 pub mod legacy;
 mod plan;
@@ -60,6 +61,7 @@ pub mod vmodel;
 pub mod vslot;
 pub(crate) mod walk;
 
+pub use dom::run_dom_transform_with_profile;
 pub use hoist::{StaticFacts, StaticLevel};
 pub use plan::TransformProfile;
 pub use text::TextFacts;

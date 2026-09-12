@@ -113,17 +113,18 @@ holds or improves — this phase should be a measurable win, not a wash.
   timing, remark emission) land with the pass manager itself, so the DevTool's
   data feed exists from the first S2 build.
 
-**Current execution ledger (2026-09-12):** [19 of 22 tasks are complete](./plan/phase-2.md#current-execution-ledger-2026-09-12).
+**Current execution ledger (2026-09-12):** [20 of 22 tasks are complete](./plan/phase-2.md#current-execution-ledger-2026-09-12).
 P2-9 is complete: the hydrated corpus run compiled 41,580 files at zero
 divergence and measured the retained-`None` residual at 11.73%. P2-11 is now
 complete through [#5860](https://github.com/ubugeeei-prod/vize/pull/5860), so
 there are no active blocked tasks. P2-16 is complete through
 [#5927](https://github.com/ubugeeei-prod/vize/pull/5927): admitted JSX VDOM
 roots select the S2 emitter first, with Relief retained for Patina and explicit
-fallback cases. P2-12b is the only ready task, while P2-17 and P2-20 remain
-dependency-blocked. P2-12b has TS-22 groundwork for observed S2 DOM emit walks,
-build-path reconciliation and a demand-gated text transform, but not direct
-parse-to-S2, transform fusion or the exact traversal gate.
+fallback cases. P2-12b is complete through
+[#6056](https://github.com/ubugeeei-prod/vize/pull/6056): source-map-free DOM
+compiles report the exact one-walk S2 build budget, with preserving fact
+products folded before codegen and Vue 2 legacy sugar kept on its compatibility
+pass-manager path. P2-17 is ready, while P2-20 remains dependency-blocked.
 P2-11 has 123 landed installments through
 [#5860](https://github.com/ubugeeei-prod/vize/pull/5860).
 Installments 84-123 open and close the production option surface the switch

@@ -63,7 +63,7 @@ Each ID links to its contract in [phase-2-tasks.md](./phase-2-tasks.md); what a 
 - [x] [P2-10](./phase-2-tasks.md#p2-10--style-v-bind-ops) Style `v-bind()` ops — landed 2026-08-23; `vue.css-bind` with file-absolute spans, ricalco admission, committed SFC folio pin; compile path / css-var names untouched ([record](./phase-2-records/p2-10.md))
 - [x] [P2-11](./phase-2-tasks.md#p2-11--dom-backend-on-s2) DOM backend on S2 — landed 2026-09-06 through installment 123; final PR [#5860](https://github.com/ubugeeei-prod/vize/pull/5860) deleted the DOM legacy lane flag and left the S2 DOM selector as the production path ([record](./phase-2-records/p2-11.md))
 - [x] [P2-12a](./phase-2-tasks.md#p2-12a--phase-start-baselines-and-pinned-targets) Phase-start baselines and pinned targets — landed 2026-08-19 at rev `232870a8`; DOM/SSR/Vapor ladder pinned in `[traversal]`, `[target.phase-2]` set, `walk-baseline.md` committed. One clause carried: the corpus `--check` is not evaluable by CI or a working tree ([record](./phase-2-records/p2-12a.md))
-- [ ] [P2-12b](./phase-2-tasks.md#p2-12b--fused-build-path--walk-count-instrumentation) Fused build path + walk-count instrumentation
+- [x] [P2-12b](./phase-2-tasks.md#p2-12b--fused-build-path--walk-count-instrumentation) Fused build path + walk-count instrumentation — landed 2026-09-12 through [#6056](https://github.com/ubugeeei-prod/vize/pull/6056); source-map-free DOM compiles now report the exact one-walk S2 build budget, with preserving fact products folded before codegen and Vue 2 legacy sugar kept on its compatibility pass-manager path ([record](./phase-2-records/p2-12b.md))
 - [x] [P2-13](./phase-2-tasks.md#p2-13--folio-after-change-vize-repro-timing-json) Folio-after-change / `vize repro` / timing JSON — landed 2026-08-20; the ICE policy made real — per-file panic guard writing `repro.folio` (batch continues, exact file set pinned), the new `vize repro` command replaying to the same failure by exact equality, hash-gated `--folio-dir`/`--folio-after-change` dumps real on `davinci-opt` and pinned-empty on the build path until P2-12b, timing JSON through the P0-11 export validated by the TS-15 validator ([record](./phase-2-records/p2-13.md))
 - [x] [P2-14](./phase-2-tasks.md#p2-14--no_std-boundary-audit--wasm32-wasip2-lanes) `no_std` boundary audit + wasm32-wasip2 lanes — landed 2026-08-20 for the original two libraries ([historical record](./phase-2-records/p2-14.md)); the current required TS-24 lane covers all four `#![no_std]` libraries (`vize_davinci`, S1, S2, S1→S2) with `--lib`, while S0 (`vize_s0`, package `vize_carton`) and `davinci-opt` remain accepted std host infrastructure outside the claim ([current boundary](./no-std-boundary.md))
 - [x] [P2-15](./phase-2-tasks-later.md#p2-15--metamorphic-suite-v1) Metamorphic suite v1 — landed 2026-08-21; four mutators in `vize_s1_to_s2` test space, each with a written equivalence justification, conservative exclusion predicates and a per-mutator declared normalization (Display elision + attr-sort / text-merge / a cited condense mirror), TS-21 established over the newly committed 90-stub matrix plane (census pinned, staleness `--check` wired into TS-12 and proven to fail on an injected edit) and a corpus shard per PR (the two test-scripts submodules; full corpus 12,215 files × 179,992 mutations, zero divergences, run twice) with the scope proof — skips counted, a zero-mutation run fails ([record](./phase-2-records/p2-15.md))
@@ -79,34 +79,32 @@ This is the current snapshot. The phase re-cut above and the per-installment
 records are historical evidence and are not silently rewritten when current
 counts or fixture availability changes.
 
-- **Complete: 19 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
-  P2-7, P2-8, P2-9, P2-10, P2-11, P2-12a, P2-13, P2-14, P2-15,
-  P2-16, P2-18 and P2-19.**
+- **Complete: 20 of 22 — P2-1, P2-2, P2-3, P2-4, P2-5a, P2-5b, P2-6,
+  P2-7, P2-8, P2-9, P2-10, P2-11, P2-12a, P2-12b, P2-13, P2-14,
+  P2-15, P2-16, P2-18 and P2-19.**
   Each completion is joined to its merged PR and current evidence in the
   [evidence index](./phase-2-records.md#current-completion-evidence-2026-09-12);
   review-only evidence is labeled there rather than presented as executable.
   P2-11 keeps the hydrated full-corpus differential contract pinned as
   144 DOM-output comparisons. P2-16 keeps the JSX S2-vs-Relief differential
   lane in the required check job; its retirement remains a P2-20 exit item.
+  P2-12b keeps the DOM build-path traversal target as an ordinary Rust
+  integration gate over the ladder.
 - **Active and blocked: 0 of 22 — none.**
-- **Ready: 1 of 22 — P2-12b.** P2-12b now has all declared dependencies
-  closed (P2-12a, P2-11 and P2-3); TS-22 groundwork now exposes the one
-  code-producing S2 DOM emit walk, a source-map-free build counter that
-  reconciles with the S2 observer, and a demand-gated text transform. The
-  remaining P2-12b work is direct parse-to-S2, transform fusion for genuinely
-  required passes, and the exact traversal gate.
-- **Open and dependency-blocked: 2 of 22 — P2-17 and P2-20.** P2-17 depends on
-  P2-11, P2-12b and P2-13; P2-11 and P2-13 are available, so P2-12b is the
-  remaining dependency gate. P2-20 depends on all of P2-1 through P2-19 and
-  waits for P2-12b and P2-17.
+- **Ready: 1 of 22 — P2-17.** P2-17 now has all declared dependencies closed:
+  P2-11's S2 DOM lane, P2-12b's traversal-budget swap and P2-13's failure
+  provenance contract are all available for the contract review.
+- **Open and dependency-blocked: 1 of 22 — P2-20.** P2-20 depends on all of
+  P2-1 through P2-19 and waits for the P2-17 review sign-off before it can
+  evaluate the phase exit.
 - **Executable corpus inventory:** 146 gitlinks, including 142 ecosystem
   projects, as asserted by
   [`fixture-compatibility-ledger.test.ts`](../../tests/tooling/fixture-compatibility-ledger.test.ts).
   A worktree's initialized or uninitialized submodule count is transient and
   must not replace this inventory.
-- **P2-17/P2-20 pre-exit blocker map:** P2-17 now has P2-11's S2 DOM lane and
-  P2-13's failure provenance contract available to review, but it cannot be
-  signed off until P2-12b's traversal-budget swap is also available. Its mechanical
+- **P2-17/P2-20 pre-exit blocker map:** P2-17 now has P2-11's S2 DOM lane,
+  P2-12b's traversal-budget swap and P2-13's failure provenance contract
+  available to review. Its mechanical
   span-resolution witness now runs in
   [`ir_contract_spans.rs`](../../crates/vize_s1_to_s2/tests/ir_contract_spans.rs),
   and its `schema_version` negotiation witness now runs in
