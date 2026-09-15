@@ -52,6 +52,15 @@ should behave unless noted below.
 | `vue/attribute-hyphenation` | `"always" \| "never"` | Configures whether component prop attributes should be hyphenated in templates. |
 | `musea/prefer-design-tokens` | `{ tokens?: Array<{ path: string; value: string; tier?: string }> }` | Off unless token data is configured and the rule is enabled or implicitly selected by a non-empty token list. `tier` defaults to `primitive`. |
 
+## Detailed Examples
+
+- [Script Rule Options](./options-script.md): restricted globals, restricted members, and custom
+  event casing.
+- [Vue Rule Options](./options-vue.md): component casing, prop mutation depth, SFC block order,
+  self-closing tags, event names, and attribute casing.
+- [Musea Rule Options](./options-musea.md): design-token inventory configuration.
+
+
 ## Scoped Entries
 
 When `entries` match a file, their `linter.ruleOptions` overlay the root options for that file.
