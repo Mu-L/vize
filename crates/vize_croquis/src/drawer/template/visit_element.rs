@@ -4,7 +4,7 @@
 //! info (which must be entered before other directives), second pass
 //! processes v-bind, v-if, v-show, v-model, v-on in the correct scope.
 
-mod bounds;
+pub(super) mod bounds;
 mod first_pass;
 mod scopes;
 mod second_pass;
@@ -25,7 +25,17 @@ impl Drawer {
         el: &ElementNode<'_>,
         scope_vars: &mut Vec<CompactString>,
     ) {
+        self.visit_element_with_pattern_recovery(el, scope_vars, false);
+    }
+
+    pub(in crate::drawer::template) fn visit_element_with_pattern_recovery(
+        &mut self,
+        el: &ElementNode<'_>,
+        scope_vars: &mut Vec<CompactString>,
+        recover_pattern_arm: bool,
+    ) {
         let tag = el.tag;
+        self.check_orphan_pattern_arm(el, recover_pattern_arm);
         let is_component = is_component_tag(tag);
         let mut subtree_end = None;
 
@@ -92,7 +102,7 @@ impl Drawer {
         if is_component {
             self.parent_component_stack.push(CompactString::new(tag));
         }
-        self.visit_element_children(el, scope_vars);
+        self.visit_element_children(el, scope_vars, recover_pattern_arm);
         if is_component {
             self.parent_component_stack.pop();
         }
@@ -202,12 +212,16 @@ impl Drawer {
         &mut self,
         el: &ElementNode<'_>,
         scope_vars: &mut Vec<CompactString>,
+        recover_pattern_arm: bool,
     ) {
         // Children form a fresh sibling group, so the running `v-if` branch
         // chain is saved and reset here and restored afterwards.
         let saved_branch_conditions = std::mem::take(&mut self.vif_branch_conditions);
-        for child in el.children.iter() {
-            self.visit_template_child(child, scope_vars);
+        // Skip only the invalid arm host; valid descendants still dispatch patterns normally.
+        if recover_pattern_arm || !self.visit_patterned_children(el, scope_vars) {
+            for child in el.children.iter() {
+                self.visit_template_child(child, scope_vars);
+            }
         }
         self.vif_branch_conditions = saved_branch_conditions;
     }

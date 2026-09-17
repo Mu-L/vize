@@ -61,12 +61,15 @@ export type ScopeKind =
   | "block"
   | "vFor"
   | "vSlot"
+  | "v-match"
+  | "v-when"
   | "class"
   | "staticBlock"
   | "catch";
 
 export interface ScopeDisplay {
   id: number;
+  isTemplateScope?: boolean;
   parentIds?: number[]; // Multiple parent scopes (e.g., setup can access mod, universal, etc.)
   kind: ScopeKind;
   kindStr: string;
@@ -276,6 +279,7 @@ export interface Croquis {
 export interface CroquisOptions {
   filename?: string;
   experimentalInTagComments?: boolean;
+  experimentalPatternedTemplate?: boolean;
 }
 
 export interface CroquisResult {
