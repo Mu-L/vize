@@ -4,10 +4,8 @@ title: Vue RFC Experimental Details
 
 # Vue RFC Experimental Details
 
-This page expands the Vue-RFC part of [Experimentals](./experimentals.md). It documents Vize's
-shipped opt-in contract, the examples each flag enables, and the boundaries that are still RFC or
-tooling work. The upstream pull requests remain the design sources, but no RFC feature is enabled
-unless the matching Vize flag is explicitly on.
+This page expands [Experimentals](./experimentals.md) with opt-in contracts, examples, and tooling boundaries.
+Upstream RFCs remain the design sources; no RFC feature is enabled unless the matching Vize flag is explicitly on.
 
 ## Opt-in Contract
 
@@ -63,6 +61,11 @@ For entry-point and proof checklists, see [Experimentals Reference](./experiment
 `patternedTemplate` implements the long-form `v-match` / `v-when` syntax from RFC #823. The subject
 expression is evaluated once, direct branch children are tested in source order, and only the first
 matching branch renders.
+
+Inline HTML SFCs accept outer `<template v-match>` with nested-match semantics in DOM, SSR, and Vapor.
+Header-only subject edits invalidate HMR; parsed `template.content` remains the original block body.
+External `src`, preprocessors, and descriptors missing original source metadata are rejected.
+Canon narrowing/exhaustiveness remains unsupported; assembled SFC source maps remain script-only.
 
 ```vue
 <script setup lang="ts">
@@ -157,13 +160,10 @@ as compatibility aliases for older Vize experiments; new templates should use `v
 
 ### Patterned Type Boundary
 
-RFC #823 treats branch narrowing and exhaustiveness as upstream type-tooling acceptance criteria.
-Current Vize lowering does not yet certify exhaustiveness, unreachable branches, or future union
-members in `vize check`. Use `v-when="_"` when you need a runtime fallback, and keep manual union
-coverage tests when missing-case diagnostics are required. Binding inside an or-pattern alternative
-is also deferred, so split those cases into separate branches when a branch needs a binding. The
-shorthand candidates discussed in the RFC are not public Vize syntax: `?=`, `|=`, and `~=` are not
-parsed as branch attributes.
+RFC #823 requires branch narrowing and exhaustiveness; `vize check` does not yet certify exhaustiveness,
+unreachable branches, or future union members. Use `v-when="_"` for runtime fallback and manual union coverage tests.
+Binding inside an or-pattern alternative is also deferred: split cases needing bindings into separate branches.
+The RFC shorthand candidates `?=`, `|=`, and `~=` are not public Vize branch syntax.
 
 ## In-Tag Comments
 
