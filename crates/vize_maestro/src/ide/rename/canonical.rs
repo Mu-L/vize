@@ -28,6 +28,11 @@ pub(super) async fn prepare(
     bridge: Option<&CorsaBridge>,
 ) -> Answer<PrepareRenameResponse> {
     match prepare_strict(ctx, bridge).await {
+        Ok(Answer::Unavailable) | Err(_)
+            if crate::ide::template_scope::needs_patterned_navigation(ctx) =>
+        {
+            Answer::Available(None)
+        }
         Ok(answer) => answer,
         Err(error) => error.into_lenient_answer(),
     }
@@ -127,6 +132,9 @@ fn collect_style_edits(
     let Some(ctx) = IdeContext::new(query.state, uri, offset) else {
         return;
     };
+    if !crate::ide::template_scope::may_reference_style_binding(&ctx, &word) {
+        return;
+    }
     for location in ReferencesService::find_references_in_style(&ctx, &word) {
         let edits = changes.entry(location.uri).or_default();
         if !edits.iter().any(|edit| edit.range == location.range) {
