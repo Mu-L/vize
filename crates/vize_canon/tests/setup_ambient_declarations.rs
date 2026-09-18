@@ -124,11 +124,25 @@ fn nested_declarations_keep_their_authored_scope() {
 fn adjacent_code_is_never_lost_by_line_based_emission() {
     let declaration = "declare const label: string;";
     let source = setup(&format!("{declaration} const invalid: number = 'bad';"));
-    assert_module_declaration(&source, declaration, false);
+    assert_module_declaration(&source, declaration, true);
     assert_eq!(
         authored_setup_body(&virtual_source(&source)),
-        "declare const label: string; const invalid: number = 'bad';"
+        "const invalid: number = 'bad';"
     );
+}
+
+#[test]
+fn adjacent_local_captures_and_comment_scopes_stay_in_setup() {
+    for script in [
+        "const local = 'fixed'; declare const label: typeof local;",
+        "// @ts-expect-error assignment\nconst invalid: number = 'bad'; declare const label: string;",
+        "// @ts-ignore assignment\ndeclare const label: string; const invalid: number = 'bad';",
+        "const before = 1; /** documented label */ declare const label: string;",
+        "const before = 1; declare const label: {\n// @ts-ignore assignment\ntext: string; }; const invalid: number = 'bad';",
+    ] {
+        let output = virtual_source(&setup(script));
+        assert_eq!(authored_setup_body(&output), script.replace('\n', "\n  "));
+    }
 }
 
 #[test]
