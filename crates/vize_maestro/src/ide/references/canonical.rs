@@ -59,8 +59,7 @@ pub(super) async fn references(
     // its references live in this SFC and the already-open project surface;
     // materializing every workspace SFC for it takes minutes on a
     // component-library-sized workspace and cannot add hits.
-    let document_only =
-        crate::ide::template_scope::is_patterned_local(ctx) && !ctx.state.lsp_features().cross_file;
+    let document_only = !ctx.state.lsp_features().cross_file;
     let document = if document_only || is_script_setup_local_binding(ctx) {
         corsa_support::open_canonical_virtual_project_document_strict(ctx, bridge)
             .await
@@ -88,7 +87,7 @@ pub(super) async fn references(
         line,
         character,
     });
-    if linked.is_empty() && !include_declaration {
+    if !include_declaration {
         let discovery = bridge
             .references(&document.request_uri, line, character, true)
             .await
