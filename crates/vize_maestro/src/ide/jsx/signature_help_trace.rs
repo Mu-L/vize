@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::SignatureHelp;
 use vize_canon::CorsaBridge;
 
-use super::{position::source_offset_to_virtual_position, service::JsxService, service_project};
+use super::{position::source_offset_to_virtual_position, service_project};
 use crate::ide::{IdeContext, SignatureHelpService, signature_help::SignatureHelpStage};
 
 pub(in crate::ide) async fn signature_help_traced(
@@ -18,31 +18,23 @@ pub(in crate::ide) async fn signature_help_traced(
     if !bridge.is_initialized() {
         return (None, stages);
     }
-    let Some(virtual_ts) = JsxService::virtual_ts(ctx) else {
-        stages.push(SignatureHelpStage::VirtualOpenFailed {
-            message: "JSX virtual TypeScript generation returned no document".into(),
-        });
-        return (None, stages);
+    let (virtual_ts, uri) = match service_project::open_virtual_project(ctx, &bridge).await {
+        Some(document) => {
+            stages.push(SignatureHelpStage::VirtualOpened);
+            document
+        }
+        None => {
+            stages.push(SignatureHelpStage::VirtualOpenFailed {
+                message: "failed to open canonical JSX project".into(),
+            });
+            return (None, stages);
+        }
     };
-    let Some((line, character)) =
-        source_offset_to_virtual_position(&virtual_ts.code, &virtual_ts.mappings, ctx.offset)
-    else {
+    let Some((line, character)) = source_offset_to_virtual_position(&virtual_ts, ctx.offset) else {
         stages.push(SignatureHelpStage::VirtualOpenFailed {
             message: "JSX cursor did not map into virtual TypeScript".into(),
         });
         return (None, stages);
-    };
-    let uri = match service_project::open_virtual_project(ctx, &bridge, &virtual_ts).await {
-        Some(uri) => {
-            stages.push(SignatureHelpStage::VirtualOpened);
-            uri
-        }
-        None => {
-            stages.push(SignatureHelpStage::VirtualOpenFailed {
-                message: "failed to open JSX virtual project".into(),
-            });
-            return (None, stages);
-        }
     };
     let help = match bridge
         .signature_help_with_context(&uri, line, character, context)

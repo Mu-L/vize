@@ -33,10 +33,9 @@ use directives::template_diagnostic_directives;
 mod component_name;
 use component_name::content_mapper_component_name;
 
-use super::build::{
-    descriptor_uses_jsx_script, prepend_vue_jsx_reference, virtual_ts_options_for_descriptor,
-};
+use super::build::{descriptor_uses_jsx_script, prepend_vue_jsx_reference};
 use super::diagnostics::invalid_sfc_fallback_virtual_ts;
+use super::javascript_sfc::prepare_script_blocks;
 use super::vue_codegen::{GeneratedVueFile, VueCodegenOptions, generate_vue_virtual_ts};
 
 #[path = "content_mapper_span_features.rs"]
@@ -134,7 +133,7 @@ pub fn generate_vue_content_mapper_transform_with_options(
         }
     };
 
-    let options = virtual_ts_options_for_descriptor(&VirtualTsOptions::default(), &descriptor);
+    let descriptor = prepare_script_blocks(descriptor);
     let use_tsx = descriptor_uses_jsx_script(&descriptor);
     let component_name = content_mapper_component_name(path);
     let GeneratedVueFile {
@@ -146,7 +145,7 @@ pub fn generate_vue_content_mapper_transform_with_options(
         path,
         content,
         &descriptor,
-        &options,
+        &VirtualTsOptions::default(),
         VueCodegenOptions {
             check_options: VirtualTsCheckOptions::default(),
             preserve_unused_diagnostics: transform_options.preserve_unused_diagnostics,

@@ -2134,22 +2134,11 @@ const count =
 
     let stdout = std::string::String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let diagnostics = json["files"][0]["diagnostics"].as_array().unwrap();
-
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(json["errorCount"], 1);
-    assert_eq!(diagnostics.len(), 1);
-    assert!(
-        diagnostics[0]
-            .as_str()
-            .unwrap()
-            .contains("Script parse error")
-    );
-    assert!(
-        !diagnostics[0]
-            .as_str()
-            .unwrap()
-            .contains("Cannot find name")
+    assert_eq!(
+        json["files"][0]["diagnostics"],
+        serde_json::json!(["error:3:1 [TS1109] Expression expected."])
     );
 
     let _ = std::fs::remove_dir_all(&project_root);
@@ -3533,78 +3522,7 @@ fn write_test_vue_runtime_dom_stub(target: &Path) -> std::io::Result<()> {
     )?;
     std::fs::write(
         runtime_dom_dir.join("index.d.ts"),
-        r#"export interface ComponentPublicInstance<Props = {}> {
-  $props: Props;
-  $attrs: { [key: string]: unknown };
-  $slots: { [key: string]: unknown };
-  $refs: { [key: string]: unknown };
-  $emit: (...args: any[]) => void;
-}
-
-export type DefineComponent<
-  Props = {},
-  RawBindings = {},
-  D = {},
-  C = {},
-  M = {},
-  Mixin = {},
-  Extends = {},
-  E = {},
-  EE = string,
-  PP = Props,
-  PropsDefaults = {},
-  MakeDefaultsOptional = true,
-  Options = {},
-  S = {}
-> = {
-  new (): ComponentPublicInstance<Props>;
-};
-
-export interface Ref<T = unknown, _Raw = T> {
-  value: T;
-}
-
-export interface ComputedRef<T = unknown> extends Ref<T> {
-  readonly value: T;
-}
-
-export interface WritableComputedRef<T = unknown> extends Ref<T> {
-  value: T;
-}
-
-export interface ShallowRef<T = unknown, _Raw = T> extends Ref<T, _Raw> {
-  readonly __v_isShallow?: true;
-}
-
-export type InjectionKey<T> = symbol & { readonly __v_vlsInjection?: T };
-export type PropType<T> = { new (...args: any[]): T & {} } | { (): T } | null;
-
-export declare const Transition: DefineComponent;
-export declare function defineComponent(options: any): DefineComponent;
-export declare function defineAsyncComponent(source: any): DefineComponent;
-export declare function defineProps<T = {}>(): T;
-export declare function computed<T>(getter: () => T): ComputedRef<T>;
-export declare function computed<T>(options: { get: () => T; set: (value: T) => void }): WritableComputedRef<T>;
-export declare function ref<T>(value: T): Ref<T>;
-export declare function reactive<T extends object>(target: T): T;
-export declare function shallowRef<T>(value: T): ShallowRef<T>;
-export declare function toRef<T extends object, K extends keyof T>(object: T, key: K): Ref<T[K]>;
-export declare function useTemplateRef<T = unknown>(key: string): ShallowRef<T | null>;
-export declare function useId(): string;
-export declare function watch<T>(source: T, callback: (...args: any[]) => void, options?: any): void;
-export declare function watchEffect(effect: (onCleanup: (cleanupFn: () => void) => void) => void): void;
-export declare function onMounted(callback: () => void): void;
-export declare function customRef<T>(factory: any): Ref<T>;
-export declare function provide<T>(key: InjectionKey<T> | string | symbol, value: T): void;
-export declare function inject<T>(key: InjectionKey<T> | string | symbol): T | undefined;
-export declare function inject<T>(key: InjectionKey<T> | string | symbol, defaultValue: T): T;
-export declare function markRaw<T extends object>(value: T): T;
-export declare function createApp(root: any): {
-  config: {
-    globalProperties: { [key: string]: any };
-  };
-};
-"#,
+        include_str!("support/vue-runtime-dom.d.ts"),
     )?;
     Ok(())
 }

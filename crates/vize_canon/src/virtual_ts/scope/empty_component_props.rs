@@ -1,5 +1,6 @@
 //! Required-prop checks for component usages without authored named values.
 
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use vize_carton::CompactString;
 use vize_carton::FxHashSet;
 use vize_carton::String;
@@ -18,6 +19,7 @@ use super::component_event_navigation;
 use super::component_prop_checker::has_inference_props;
 use super::component_slots::{ComponentSlotCheckMeta, generate_component_slot_checks};
 use super::context::{ComponentPropsContext, VForPropsContext};
+use super::explicit_generics::ExplicitGenerics;
 
 pub(super) fn is_empty_props_usage(usage: &ComponentUsage) -> bool {
     !has_inference_props(usage) && usage.spread_props.is_empty()
@@ -52,10 +54,11 @@ pub(super) fn generate_empty_root_checks(
         options: ctx.options,
         template_ast: ctx.template_ast,
         syntactic_type_only_imported_names: ctx.syntactic_type_only_imported_names,
-        template_prop_names: ctx.template_prop_names,
+        template_binding_access: ctx.template_binding_access,
         source_context: ctx.source_context(),
         indent: "  ",
         experimental_strict_slot_children: ctx.experimental_strict_slot_children,
+        explicit_generics: ctx.explicit_generics,
     };
     generate_empty_checks(&mut empty_context, &root_usages);
 }
@@ -67,10 +70,11 @@ struct EmptyChecksContext<'a, 'template, 'b> {
     options: &'a VirtualTsOptions,
     template_ast: Option<&'a vize_relief::RootNode<'template>>,
     syntactic_type_only_imported_names: &'a FxHashSet<CompactString>,
-    template_prop_names: &'a FxHashSet<String>,
+    template_binding_access: &'a TemplateBindingAccess,
     source_context: ComponentPropSource<'a>,
     indent: &'b str,
     experimental_strict_slot_children: bool,
+    explicit_generics: &'a ExplicitGenerics,
 }
 
 fn generate_empty_checks(
@@ -84,17 +88,20 @@ fn generate_empty_checks(
     let body_indent = cstr!("{indent}    ");
     append!(*ts, "{indent}void [\n");
     for &(idx, usage) in usages {
-        let component_ref = component_binding_reference(
-            ctx.summary,
-            ctx.options,
-            ctx.syntactic_type_only_imported_names,
-            usage.name.as_str(),
+        let component_ref = ctx.explicit_generics.usage_reference(
+            usage.start,
+            component_binding_reference(
+                ctx.summary,
+                ctx.options,
+                ctx.syntactic_type_only_imported_names,
+                usage.name.as_str(),
+            ),
         );
         append!(*ts, "{arrow_indent}() => {{\n");
         let mut check_context = ComponentPropCheckContext::new(
             ts,
             mappings,
-            ctx.template_prop_names,
+            ctx.template_binding_access,
             ctx.source_context,
             body_indent.as_str(),
         );
@@ -141,19 +148,23 @@ pub(super) fn generate_scope_checks(
             continue;
         }
         profile!("canon.virtual_ts.component_prop_checks", {
-            let component_ref = component_binding_reference(
-                ctx.summary,
-                ctx.options,
-                ctx.syntactic_type_only_imported_names,
-                usage.name.as_str(),
+            let component_ref = ctx.explicit_generics.usage_reference(
+                usage.start,
+                component_binding_reference(
+                    ctx.summary,
+                    ctx.options,
+                    ctx.syntactic_type_only_imported_names,
+                    usage.name.as_str(),
+                ),
             );
             let mut check_context = ComponentPropCheckContext::new(
                 ts,
                 mappings,
-                ctx.template_prop_names,
+                ctx.template_binding_access,
                 ctx.source_context,
                 indent,
-            );
+            )
+            .strict_v_model(ctx.strict_v_model);
             generate_component_prop_checks(&mut check_context, usage, idx, component_ref.as_str());
             generate_component_slot_checks(
                 &mut check_context,
@@ -183,10 +194,11 @@ pub(super) fn generate_scope_checks(
             options: ctx.options,
             template_ast: ctx.template_ast,
             syntactic_type_only_imported_names: ctx.syntactic_type_only_imported_names,
-            template_prop_names: ctx.template_prop_names,
+            template_binding_access: ctx.template_binding_access,
             source_context: ctx.source_context,
             indent,
             experimental_strict_slot_children: ctx.experimental_strict_slot_children,
+            explicit_generics: ctx.explicit_generics,
         };
         generate_empty_checks(&mut empty_context, &empty_usages);
     }

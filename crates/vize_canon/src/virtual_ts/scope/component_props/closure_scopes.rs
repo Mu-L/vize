@@ -50,7 +50,8 @@ pub(in crate::virtual_ts::scope) fn generate_closure_component_props_recursive(
                 ctx.summary.scopes.v_for_source_offset(scope.id),
                 &loop_indent,
                 scope,
-                ctx.template_prop_names,
+                ctx.template_binding_access,
+                false,
             );
 
             for value in &data.value_bindings {
@@ -67,7 +68,8 @@ pub(in crate::virtual_ts::scope) fn generate_closure_component_props_recursive(
             recurse_child_closure_scopes(ts, mappings, ctx, scope_id, &vfor_inner_indent);
 
             ts.push_str(&loop_indent);
-            ts.push_str("});\n");
+            ts.push_str("}\n");
+            append!(*ts, "{loop_indent}}}\n");
             if enclosing_guard.is_some() {
                 append!(*ts, "{indent}}}\n");
             }

@@ -1,6 +1,8 @@
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use vize_carton::{FxHashMap, FxHashSet, String, profile};
 use vize_croquis::{Croquis, ScopeId, ScopeKind};
 
+use crate::virtual_ts::component_reference::component_binding_reference;
 use crate::virtual_ts::expressions::{
     ExpressionListEmitContext, TemplateValueCheckTables, generate_expressions,
 };
@@ -10,6 +12,7 @@ use super::component_event_navigation::emit_event_references;
 use super::component_prop_expressions::collect_component_prop_expression_ranges;
 use super::component_props::{collect_checkable_usages, generate_component_props};
 use super::context::{ComponentPropsContext, ScopeGenContext, ScopeGenerationOptions};
+use super::explicit_generics::ExplicitGenerics;
 use super::globals::{generate_instance_global_refs, generate_undefined_refs};
 pub(super) use super::node::generate_scope_node;
 use super::slot_outlet_props::{SlotOutletChecks, generate_scope_slot_outlet_checks};
@@ -20,14 +23,40 @@ pub(crate) fn generate_scope_closures(
     mappings: &mut Vec<VizeMapping>,
     semantic_links: &mut Vec<VizeSemanticLink>,
     summary: &Croquis,
-    template_prop_names: &FxHashSet<String>,
+    template_binding_access: &TemplateBindingAccess,
     template_offset: u32,
     options: ScopeGenerationOptions<'_, '_>,
 ) {
     let check_options = options.check_options;
     let virtual_ts_options = options.virtual_ts_options;
     let check_tables = TemplateValueCheckTables::collect(summary, &options);
-    let checks = check_tables.as_checks();
+    let checks = check_tables.as_checks(options.template_ast.map(|root| root.source));
+
+    if check_options.check_props
+        && check_options.check_unknown_props
+        && !options.legacy_vue2
+        && let Some(root) = options.template_ast
+    {
+        super::native_prop_names::emit(ts, mappings, root, template_offset);
+    }
+    super::dynamic_component::emit_dynamic_component_aliases(ts, summary, options.template_ast);
+    let template_source = options.template_ast.map(|root| root.source);
+    let explicit_generics = ExplicitGenerics::collect(summary, template_source);
+    explicit_generics.emit(
+        ts,
+        mappings,
+        summary,
+        template_source,
+        template_offset,
+        |name| {
+            component_binding_reference(
+                summary,
+                virtual_ts_options,
+                options.syntactic_type_only_imported_names,
+                name,
+            )
+        },
+    );
 
     let expressions_by_scope: FxHashMap<u32, Vec<_>> =
         profile!("canon.virtual_ts.group_template_expressions", {
@@ -121,21 +150,41 @@ pub(crate) fn generate_scope_closures(
             generate_instance_global_refs(ts, mappings, summary, template_offset, &options)
         );
     }
+    // Under `checkRequiredFallthroughAttributes` the fallthrough root's
+    // required props are forwarded to this component's parent, so the root
+    // usage must not also demand them here.
+    let relaxed_required_usage_starts: FxHashSet<u32> = if check_options.fallthrough_attributes
+        && check_options.check_required_fallthrough_attributes
+        && !options.legacy_vue2
+    {
+        crate::virtual_ts::generator::fallthrough_component_root_starts(
+            summary,
+            options.template_ast,
+        )
+        .into_iter()
+        .collect()
+    } else {
+        FxHashSet::default()
+    };
     let props_ctx = ComponentPropsContext {
         summary,
         template_ast: options.template_ast,
         template_source: options.template_ast.map(|root| root.source),
         children_map: &children_map,
         vfor_enclosing_guards: &vfor_enclosing_guards,
-        template_prop_names,
+        template_binding_access,
         syntactic_type_only_imported_names: options.syntactic_type_only_imported_names,
         template_offset,
         options: virtual_ts_options,
         preserve_event_navigation: options.preserve_event_navigation,
-        check_unresolved_global_components: options.check_unresolved_global_components,
+        check_unknown_events: check_options.check_unknown_events && check_options.check_emits,
+        strict_v_model: check_options.strict_v_model && check_options.check_emits,
+        component_binding_check: options.component_binding_check,
         legacy_vue2: options.legacy_vue2,
         check_unknown_props: check_options.check_unknown_props,
         experimental_strict_slot_children: options.experimental_strict_slot_children,
+        relaxed_required_usage_starts: &relaxed_required_usage_starts,
+        explicit_generics: &explicit_generics,
     };
     let usages = check_options
         .check_props
@@ -152,7 +201,7 @@ pub(crate) fn generate_scope_closures(
             skipped_expression_ranges: &skipped_expression_ranges,
             children_map: &children_map,
             slot_outlets: &slot_outlets,
-            template_prop_names,
+            template_binding_access,
             syntactic_type_only_imported_names: options.syntactic_type_only_imported_names,
             checks,
             template_ast: options.template_ast,
@@ -160,6 +209,7 @@ pub(crate) fn generate_scope_closures(
             template_offset,
             check_options,
             legacy_vue2: options.legacy_vue2,
+            explicit_generics: &explicit_generics,
         };
 
         if nested_scope_ids.contains(&scope.id) {
@@ -180,7 +230,7 @@ pub(crate) fn generate_scope_closures(
                     ts,
                     mappings,
                     exprs,
-                    template_prop_names,
+                    template_binding_access,
                     &ExpressionListEmitContext::new(
                         &skipped_expression_ranges,
                         template_offset,
@@ -204,7 +254,7 @@ pub(crate) fn generate_scope_closures(
                 ts,
                 mappings,
                 summary,
-                template_prop_names,
+                template_binding_access,
                 template_offset,
                 &options,
             )
@@ -216,4 +266,38 @@ pub(crate) fn generate_scope_closures(
             generate_component_props(ts, mappings, semantic_links, &props_ctx, usages)
         );
     }
+    let mut record = Vec::new();
+    if !options.forwarded_root_starts.is_empty() {
+        let forwarded = super::forwarded_roots::emit_forwarded_root_probes(
+            ts,
+            &super::forwarded_roots::ForwardedRootContext {
+                summary,
+                options: virtual_ts_options,
+                syntactic_type_only_imported_names: options.syntactic_type_only_imported_names,
+                template_binding_access,
+            },
+            options.forwarded_root_starts,
+        );
+        let forwarded = forwarded.unwrap_or_else(|| String::from("{}"));
+        record.push((
+            super::FORWARDED_RETURN_KEY,
+            vize_carton::cstr!("{{}} as {forwarded}"),
+        ));
+    }
+    if !options.instantiated_ref_starts.is_empty() {
+        let refs = super::ref_instances::emit_ref_instance_probes(
+            ts,
+            &super::ref_instances::RefInstanceContext {
+                summary,
+                options: virtual_ts_options,
+                syntactic_type_only_imported_names: options.syntactic_type_only_imported_names,
+                template_binding_access,
+                template_offset,
+                vfor_enclosing_guards: &vfor_enclosing_guards,
+            },
+            options.instantiated_ref_starts,
+        );
+        record.push((super::REFS_RETURN_KEY, refs));
+    }
+    slot_outlets.emit_root_result(ts, summary, &record);
 }

@@ -5,18 +5,42 @@ use crate::virtual_ts::component_reference::{
     component_reference_alias, contains_compact_name, has_type_only_component_candidate,
 };
 use crate::virtual_ts::helpers::to_safe_identifier;
-use crate::virtual_ts::scope::GlobalComponentCheck;
-use crate::virtual_ts::types::VirtualTsOptions;
+use crate::virtual_ts::scope::{ComponentBindingCheck, GlobalComponentCheck};
+use crate::virtual_ts::types::{VirtualTsCheckOptions, VirtualTsOptions, VizeMapping};
 
 use super::imports::extract_declared_name;
+
+pub(super) struct GlobalComponentDiagnostics<'a> {
+    pub(super) mappings: &'a mut Vec<VizeMapping>,
+    pub(super) template_offset: u32,
+}
+
+impl<'a> GlobalComponentDiagnostics<'a> {
+    pub(super) fn new(
+        options: VirtualTsCheckOptions,
+        mappings: &'a mut Vec<VizeMapping>,
+        template_offset: u32,
+    ) -> Option<Self> {
+        (options.check_unknown_components && options.check_template_bindings).then_some(Self {
+            mappings,
+            template_offset,
+        })
+    }
+}
 
 pub(super) struct GlobalComponentPlan<'a> {
     slot_component_names: FxHashSet<&'a str>,
     component_check: GlobalComponentCheck,
+    self_component_name: Option<String>,
 }
 
 impl<'a> GlobalComponentPlan<'a> {
-    pub(super) fn new(summary: &'a Croquis, legacy_vue2: bool, include_all: bool) -> Self {
+    pub(super) fn new(
+        summary: &'a Croquis,
+        legacy_vue2: bool,
+        include_all: bool,
+        self_component_name: Option<&str>,
+    ) -> Self {
         let slot_component_names = if legacy_vue2 {
             FxHashSet::default()
         } else {
@@ -31,6 +55,11 @@ impl<'a> GlobalComponentPlan<'a> {
         };
         Self {
             slot_component_names,
+            self_component_name: summary
+                .macros
+                .define_options_name()
+                .or(self_component_name)
+                .map(|name| capitalize(&camelize(name))),
             // Vue 3 projects can contribute component types through ambient
             // `GlobalComponents` augmentation without an SFC-local
             // reference-types directive. Vue 2 retains the explicit-reference
@@ -48,14 +77,24 @@ impl<'a> GlobalComponentPlan<'a> {
     pub(super) fn enabled(&self) -> bool {
         !matches!(self.component_check, GlobalComponentCheck::None)
             || !self.slot_component_names.is_empty()
+            || self.self_component_name.is_some()
     }
 
-    pub(super) fn component_check(&self) -> GlobalComponentCheck {
-        self.component_check
+    fn is_self_component(&self, name: &str) -> bool {
+        self.component_check().is_self(name)
+    }
+
+    pub(super) fn component_check(&self) -> ComponentBindingCheck<'_> {
+        ComponentBindingCheck {
+            globals: self.component_check,
+            self_component_name: self.self_component_name.as_deref(),
+        }
     }
 
     pub(super) fn keeps_unresolved_binding(&self, name: &str) -> bool {
-        self.component_check.allows(name) || self.slot_component_names.contains(name)
+        self.component_check.allows(name)
+            || self.slot_component_names.contains(name)
+            || self.is_self_component(name)
     }
 
     pub(super) fn emit(
@@ -65,6 +104,7 @@ impl<'a> GlobalComponentPlan<'a> {
         options: &VirtualTsOptions,
         imported_names: &FxHashSet<&str>,
         syntactic_type_only_imported_names: &FxHashSet<CompactString>,
+        mut diagnostics: Option<GlobalComponentDiagnostics<'_>>,
     ) {
         if !self.enabled() || summary.component_usages.is_empty() {
             return;
@@ -83,9 +123,13 @@ impl<'a> GlobalComponentPlan<'a> {
 
         let mut emitted_refs = FxHashSet::default();
         let mut has_header = false;
-        for usage in &summary.component_usages {
+        for (index, usage) in summary.component_usages.iter().enumerate() {
             let name = usage.name.as_str();
-            if !self.component_check.allows(name) && !self.slot_component_names.contains(name) {
+            let is_self = self.is_self_component(name);
+            if !self.component_check.allows(name)
+                && !self.slot_component_names.contains(name)
+                && !is_self
+            {
                 continue;
             }
             let camel_name = camelize(name);
@@ -109,6 +153,26 @@ impl<'a> GlobalComponentPlan<'a> {
                 } else {
                     to_safe_identifier(name)
                 };
+            if let Some(diagnostics) = diagnostics.as_mut().filter(|_| !is_self) {
+                append!(*ts, "const {{ ");
+                let start = ts.len();
+                crate::virtual_ts::helpers::push_ts_string_literal(ts, name);
+                let end = ts.len();
+                append!(*ts, ": __vize_global_component_{index} }} = {{}} as (");
+                for candidate in [pascal_name.as_str(), camel_name.as_str(), name] {
+                    crate::virtual_ts::helpers::push_ts_string_literal(ts, candidate);
+                    ts.push_str(" extends keyof import('vue').GlobalComponents ? { ");
+                    crate::virtual_ts::helpers::push_ts_string_literal(ts, name);
+                    ts.push_str(": unknown } : ");
+                }
+                append!(*ts, "{{}});\nvoid __vize_global_component_{index};\n");
+                let source_start = (diagnostics.template_offset + usage.start + 1) as usize;
+                diagnostics.mappings.push(VizeMapping {
+                    gen_range: start..end,
+                    src_range: source_start..source_start + name.len(),
+                    sub_spans: Vec::new(),
+                });
+            }
             if !emitted_refs.insert(component_ref.clone()) {
                 continue;
             }
@@ -118,7 +182,19 @@ impl<'a> GlobalComponentPlan<'a> {
                 has_header = true;
             }
 
-            append_global_component_stub(ts, component_ref.as_str(), name, pascal_name.as_str());
+            if is_self {
+                append!(
+                    *ts,
+                    "declare const {component_ref}: typeof __vize_component__;\n"
+                );
+            } else {
+                append_global_component_stub(
+                    ts,
+                    component_ref.as_str(),
+                    name,
+                    pascal_name.as_str(),
+                );
+            }
         }
     }
 }

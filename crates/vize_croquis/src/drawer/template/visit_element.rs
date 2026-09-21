@@ -5,9 +5,11 @@
 //! processes v-bind, v-if, v-show, v-model, v-on in the correct scope.
 
 pub(super) mod bounds;
+mod dynamic_component_alias;
 mod first_pass;
 mod scopes;
 mod second_pass;
+pub use dynamic_component_alias::{dynamic_component_alias, is_dynamic_component_alias};
 mod v_for_scope;
 
 use crate::croquis::ComponentUsage;
@@ -39,11 +41,12 @@ impl Drawer {
         let is_component = is_component_tag(tag);
         let mut subtree_end = None;
 
-        let component_usage_name = if is_component {
-            Some(CompactString::new(tag))
-        } else {
-            self.dynamic_component_target(el, tag)
-        };
+        let component_usage_name =
+            if is_component || crate::builtins::is_runtime_builtin_component(tag) {
+                Some(CompactString::new(tag))
+            } else {
+                self.dynamic_component_target(el, tag)
+            };
 
         if self.options.track_usage {
             if let Some(component_name) = component_usage_name.as_ref() {

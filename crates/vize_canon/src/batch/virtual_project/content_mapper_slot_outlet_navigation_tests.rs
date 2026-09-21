@@ -18,7 +18,7 @@ const slots = defineSlots<{
     assert_static_name_mapping(
         source,
         "header",
-        "__VizeSlotOutletPayload<typeof slots, \"header\">",
+        "__vizeSlotOutlet((undefined as unknown as typeof slots)[\"header\"])",
         "name=\"header\"",
     );
 }
@@ -35,7 +35,7 @@ defineSlots<{
     assert_static_name_mapping(
         source,
         "item-row",
-        "__VizeSlotOutletPayload<Slots, \"item-row\">",
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"item-row\"])",
         "name=\"item-row\"",
     );
 }
@@ -56,7 +56,7 @@ defineSlots<{
         .expect("transform");
     let generated_ranges = all_static_slot_name_ranges(
         &result.text,
-        "__VizeSlotOutletPayload<Slots, \"header\">",
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"header\"])",
         "header",
     );
     let source_ranges = all_authored_attr_value_ranges(source, "name=\"header\"", "header");
@@ -81,7 +81,7 @@ defineSlots<{
         .expect("transform");
     let generated = static_slot_name_range(
         &result.text,
-        "__VizeSlotOutletPayload<Slots, \"default\">",
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"default\"])",
         "default",
     );
 
@@ -101,7 +101,7 @@ defineSlots<{
         .expect("transform");
     let generated = static_slot_name_range(
         &result.text,
-        "__VizeSlotOutletPayload<Slots, \"default\">",
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"default\"])",
         "default",
     );
 
@@ -109,7 +109,7 @@ defineSlots<{
 }
 
 #[test]
-fn static_slot_outlet_names_without_payload_props_do_not_emit_checks() {
+fn static_slot_outlet_names_without_payload_props_retain_navigation() {
     let source = r#"<script setup lang="ts">
 defineSlots<{
   header(): any;
@@ -120,12 +120,15 @@ defineSlots<{
     let result = generate_vue_content_mapper_transform(Path::new("SlotProvider.vue"), source)
         .expect("transform");
 
-    assert!(
-        !result
-            .text
-            .contains("__VizeSlotOutletPayload<Slots, \"header\">"),
-        "{}",
-        result.text
+    let generated = static_slot_name_range(
+        &result.text,
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"header\"])",
+        "header",
+    );
+    assert_has_name_mapping(
+        &result.mappings,
+        generated,
+        authored_attr_value_range(source, "name=\"header\"", "header"),
     );
 }
 
@@ -138,12 +141,12 @@ const slotName = "header";
 "#;
     let result = generate_vue_content_mapper_transform(Path::new("SlotProvider.vue"), source)
         .expect("transform");
-    let generated = generated_text_range(&result.text, "__VizeAnySlotOutletPayload<Slots>");
+    let generated = generated_text_range(&result.text, "NonNullable<typeof __vize_slot_name_");
 
     assert!(
         !result
             .text
-            .contains("__VizeSlotOutletPayload<Slots, \"header\">")
+            .contains("__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"header\"])")
     );
     assert_no_mapping_overlaps_generated(&result, generated);
 }
@@ -159,12 +162,15 @@ defineSlots<{
 "#;
     let result = generate_vue_content_mapper_transform(Path::new("SlotProvider.vue"), source)
         .expect("transform");
-    let generated = generated_text_range(&result.text, "__VizeAnySlotOutletPayload<Slots>");
+    let generated = generated_text_range(
+        &result.text,
+        "(undefined as unknown as __VizeSlots)['header']",
+    );
 
     assert!(
         !result
             .text
-            .contains("__VizeSlotOutletPayload<Slots, \"header\">")
+            .contains("__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"header\"])")
     );
     assert_no_mapping_overlaps_generated(&result, generated);
 }
@@ -178,12 +184,12 @@ const slotName = "header";
 "#;
     let result = generate_vue_content_mapper_transform(Path::new("SlotProvider.vue"), source)
         .expect("transform");
-    let generated = generated_text_range(&result.text, "__VizeAnySlotOutletPayload<Slots>");
+    let generated = generated_text_range(&result.text, "NonNullable<typeof __vize_slot_name_");
 
     assert!(
         !result
             .text
-            .contains("__VizeSlotOutletPayload<Slots, \"header\">")
+            .contains("__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"header\"])")
     );
     assert_no_mapping_overlaps_generated(&result, generated);
 }
@@ -197,12 +203,12 @@ const name = "header";
 "#;
     let result = generate_vue_content_mapper_transform(Path::new("SlotProvider.vue"), source)
         .expect("transform");
-    let generated = generated_text_range(&result.text, "__VizeAnySlotOutletPayload<Slots>");
+    let generated = generated_text_range(&result.text, "NonNullable<typeof __vize_slot_name_");
 
     assert!(
         !result
             .text
-            .contains("__VizeSlotOutletPayload<Slots, \"default\">")
+            .contains("__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"default\"])")
     );
     assert_no_mapping_overlaps_generated(&result, generated);
 }
@@ -220,7 +226,7 @@ defineSlots<{
         .expect("transform");
     let generated = static_slot_name_range(
         &result.text,
-        "__VizeSlotOutletPayload<Slots, \"a\\\"b\">",
+        "__vizeSlotOutlet((undefined as unknown as __VizeSlots)[\"a\\\"b\"])",
         r#"a\"b"#,
     );
     let original = authored_attr_value_range(source, "name='a\"b'", "a\"b");

@@ -35,6 +35,12 @@ struct PendingInitialDiagnostics {
 }
 
 impl PendingInitialDiagnostics {
+    fn complete(&mut self, uri: &Url, version: i32) {
+        if self.jobs.get(uri).is_some_and(|job| job.version <= version) {
+            self.jobs.remove(uri);
+        }
+    }
+
     fn insert(&mut self, uri: Url, version: i32, not_before: Instant) {
         if self
             .jobs
@@ -90,13 +96,20 @@ pub(super) struct InitialDiagnosticsScheduler {
 
 impl InitialDiagnosticsScheduler {
     #[allow(clippy::disallowed_types)] // One bounded queue is shared with its worker thread.
-    pub(super) fn new(worker: MaestroServer) -> Self {
+    pub(super) fn new(mut worker: MaestroServer) -> Self {
         // The channel carries only a wake token. The authoritative queue keeps
         // at most one pending version per URI, so repeated opens cannot build
         // an unbounded FIFO backlog while Corsa is processing another file.
         let (sender, receiver) = mpsc::sync_channel(1);
         let pending = std::sync::Arc::new(Mutex::new(PendingInitialDiagnostics::default()));
         let worker_pending = std::sync::Arc::clone(&pending);
+        // Importer refreshes can finish a queued document's initial pass. Give
+        // the worker completion access without retaining a channel sender,
+        // which would prevent shutdown when the foreground server is dropped.
+        worker.initial_diagnostics = Some(Self {
+            sender: None,
+            pending: std::sync::Arc::clone(&pending),
+        });
         let spawned = thread::Builder::new()
             .name("vize-initial-diagnostics".into())
             .spawn(move || run_worker(&worker, receiver, &worker_pending));
@@ -132,6 +145,10 @@ impl InitialDiagnosticsScheduler {
             }
         }
     }
+
+    pub(super) fn complete(&self, uri: &Url, version: i32) {
+        self.pending.lock().complete(uri, version);
+    }
 }
 
 fn run_worker(
@@ -155,7 +172,15 @@ fn run_worker(
             let Some((uri, job)) = pending.lock().take_ready(Instant::now()) else {
                 continue;
             };
-            crate::runtime::block_on(worker.publish_diagnostics_if_version(&uri, job.version));
+            crate::runtime::block_on(async {
+                worker
+                    .publish_diagnostics_if_version(&uri, job.version)
+                    .await;
+                // Opening an unsaved dependency changes its importers too.
+                worker
+                    .publish_importer_diagnostics(&uri, Some(job.version))
+                    .await;
+            });
         }
     }
 }
@@ -175,6 +200,21 @@ mod tests {
     use tower_lsp::lsp_types::Url;
 
     use super::{MAX_PENDING_DOCUMENTS, PendingInitialDiagnostics};
+
+    #[test]
+    fn completed_diagnostics_consume_only_the_satisfied_initial_version() {
+        let uri = Url::parse("file:///workspace/App.vue").unwrap();
+        let now = Instant::now();
+        let mut pending = PendingInitialDiagnostics::default();
+        pending.insert(uri.clone(), 3, now);
+        pending.complete(&uri, 2);
+        assert_eq!(pending.jobs[&uri].version, 3);
+        pending.complete(&uri, 3);
+        assert!(pending.take_ready(now).is_none());
+        pending.insert(uri.clone(), 4, now);
+        pending.complete(&uri, 5);
+        assert!(pending.take_ready(now).is_none());
+    }
 
     #[test]
     fn pending_jobs_keep_only_the_newest_version_per_uri() {

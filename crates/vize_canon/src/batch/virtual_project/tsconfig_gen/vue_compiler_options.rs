@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 use vize_carton::{FxHashMap, FxHashSet};
 
 use crate::batch::error::CorsaResult;
+use crate::virtual_ts::ResolveStyleClassNames;
 
 use super::super::VirtualProject;
 use super::super::tsconfig_paths::{
@@ -26,15 +27,126 @@ struct ChainLoad {
 }
 
 impl VirtualProject {
-    pub(in super::super) fn resolve_check_unknown_props(&self) -> bool {
-        let Some(tsconfig_path) = self.resolved_tsconfig_path() else {
-            return true;
+    pub(in super::super) fn refresh_vue_compiler_options(&mut self) {
+        let path = self.resolved_tsconfig_path();
+        let options = self.load_vue_compiler_options(path.as_deref()).ok();
+        self.virtual_ts_check_options.check_unknown_props = if path.is_none() {
+            true
+        } else {
+            options
+                .as_ref()
+                .map(check_unknown_props_enabled)
+                .unwrap_or(true)
         };
-        self.load_vue_compiler_options(Some(tsconfig_path.as_path()))
-            .ok()
+        self.virtual_ts_check_options.strict_css_modules = options
             .as_ref()
-            .map(check_unknown_props_enabled)
-            .unwrap_or(true)
+            .and_then(|options| options.get("strictCssModules").and_then(Value::as_bool))
+            .unwrap_or(false);
+        self.virtual_ts_check_options.check_unknown_components = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("checkUnknownComponents")
+                    .or_else(|| options.get("strictTemplates"))
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.check_unknown_events = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("checkUnknownEvents")
+                    .or_else(|| options.get("strictTemplates"))
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.strict_v_model = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("strictVModel")
+                    .or_else(|| options.get("strictTemplates"))
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.vapor = options
+            .as_ref()
+            .and_then(|options| options.get("vapor").and_then(Value::as_bool))
+            .unwrap_or(false);
+        self.virtual_ts_check_options.infer_component_dollar_el = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("inferComponentDollarEl")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.infer_template_dollar_el = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("inferTemplateDollarEl")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        let flag = |name: &str| {
+            options
+                .as_ref()
+                .and_then(|options| options.get(name).and_then(Value::as_bool))
+                .unwrap_or(false)
+        };
+        self.virtual_ts_check_options.infer_component_dollar_refs =
+            flag("inferComponentDollarRefs");
+        self.virtual_ts_check_options.infer_template_dollar_refs = flag("inferTemplateDollarRefs");
+        self.virtual_ts_check_options.jsx_slots = options
+            .as_ref()
+            .and_then(|options| options.get("jsxSlots").and_then(Value::as_bool))
+            .unwrap_or(false);
+        self.virtual_ts_check_options.infer_template_dollar_slots = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("inferTemplateDollarSlots")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.infer_template_dollar_attrs = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("inferTemplateDollarAttrs")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.fallthrough_attributes = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("fallthroughAttributes")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options
+            .check_required_fallthrough_attributes = options
+            .as_ref()
+            .and_then(|options| {
+                options
+                    .get("checkRequiredFallthroughAttributes")
+                    .and_then(Value::as_bool)
+            })
+            .unwrap_or(false);
+        self.virtual_ts_check_options.resolve_style_class_names = match options
+            .as_ref()
+            .and_then(|options| options.get("resolveStyleClassNames"))
+        {
+            Some(Value::Bool(true)) => ResolveStyleClassNames::All,
+            Some(Value::Bool(false)) => ResolveStyleClassNames::None,
+            _ => ResolveStyleClassNames::Scoped,
+        };
+        self.virtual_ts_check_options.resolve_style_imports = options
+            .as_ref()
+            .and_then(|options| options.get("resolveStyleImports").and_then(Value::as_bool))
+            .unwrap_or(false);
     }
 
     #[cfg(test)]

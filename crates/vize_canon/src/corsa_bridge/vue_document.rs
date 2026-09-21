@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use vize_carton::{FxHashMap, String, cstr};
+use vize_carton::{FxHashMap, String};
 
 use super::bridge::CorsaBridge;
 use super::types::CorsaBridgeError;
@@ -11,6 +11,7 @@ use crate::batch::{ImportRewriter, VueDocumentVirtualTsOptions};
 use crate::file_uri::path_to_file_uri;
 use crate::virtual_ts::VirtualTsOptions;
 
+pub(super) mod materialized_documents;
 #[path = "vue_document/types.rs"]
 mod model;
 pub(crate) use model::CorsaVueVirtualProject;
@@ -20,14 +21,7 @@ pub use model::{
     CorsaVueVirtualDocument, CorsaVueVirtualDocumentOptions,
 };
 
-#[derive(Clone, Copy)]
-pub(crate) struct CorsaProjectEnvironment<'a> {
-    pub(crate) virtual_ts_options: &'a VirtualTsOptions,
-    pub(crate) package_routes: &'a crate::PackageRouteResolver,
-    pub(crate) project_root: Option<&'a Path>,
-    pub(crate) tsconfig_path: Option<&'a Path>,
-    pub(crate) editor_session: &'a crate::corsa_bridge::EditorMirrorSession,
-}
+pub(crate) use model::CorsaProjectEnvironment;
 
 impl CorsaBridge {
     /// Remove virtual TypeScript overlays derived from deleted Vue SFCs.
@@ -104,8 +98,8 @@ impl CorsaBridge {
 
     /// Generate and sync a Vue document without copying unchanged overlay text.
     ///
-    /// Only dependency entries reachable from the host's imports are read, so
-    /// callers with shared buffer snapshots can lend their text for this call.
+    /// Reachable dependencies and previously registered live sources share one
+    /// revision. Callers with shared buffer snapshots can lend their text.
     pub async fn open_vue_virtual_document_with_borrowed_overlays_and_options(
         &self,
         source_path: &Path,
@@ -114,11 +108,34 @@ impl CorsaBridge {
         overlays: &[(PathBuf, &str)],
         virtual_ts_options: &VirtualTsOptions,
     ) -> Result<CorsaVueVirtualDocument, CorsaBridgeError> {
-        let project = build_vue_virtual_project_with_overlays_and_options_and_package_routes(
+        self.open_vue_virtual_workspace_document(
             source_path,
             content,
             options,
             overlays,
+            virtual_ts_options,
+            &[],
+        )
+        .await
+    }
+
+    /// Register a complete query surface and synchronize one native revision.
+    /// Workspace references should not rebuild the project once per SFC.
+    pub async fn open_vue_virtual_workspace_document(
+        &self,
+        source_path: &Path,
+        content: &str,
+        options: CorsaVueVirtualDocumentOptions,
+        overlays: &[(PathBuf, &str)],
+        virtual_ts_options: &VirtualTsOptions,
+        requested_sources: &[(PathBuf, &str)],
+    ) -> Result<CorsaVueVirtualDocument, CorsaBridgeError> {
+        let project = build_vue_virtual_workspace_project(
+            source_path,
+            content,
+            options,
+            overlays,
+            requested_sources,
             CorsaProjectEnvironment {
                 virtual_ts_options,
                 package_routes: &self.package_route_resolver,
@@ -144,6 +161,7 @@ impl CorsaBridge {
         session_project_root: Option<PathBuf>,
         materialized_changes: crate::batch::virtual_project::MaterializedFileDelta,
     ) -> Result<(), CorsaBridgeError> {
+        let timer = self.profiler().timer("corsa_project_synchronize");
         if let Some(project_root) = session_project_root {
             self.with_client(move |client| {
                 client
@@ -152,7 +170,11 @@ impl CorsaBridge {
             })
             .await?;
         }
-        self.open_virtual_documents_batch(documents).await
+        self.open_virtual_documents_batch(documents).await?;
+        if let Some(timer) = timer {
+            timer.record(self.profiler());
+        }
+        Ok(())
     }
 }
 
@@ -211,6 +233,17 @@ pub(crate) fn build_vue_virtual_project_with_overlays_and_options_and_package_ro
     overlays: &[(PathBuf, &str)],
     environment: CorsaProjectEnvironment<'_>,
 ) -> Result<CorsaVueVirtualProject, CorsaBridgeError> {
+    build_vue_virtual_workspace_project(source_path, content, options, overlays, &[], environment)
+}
+
+fn build_vue_virtual_workspace_project(
+    source_path: &Path,
+    content: &str,
+    options: CorsaVueVirtualDocumentOptions,
+    overlays: &[(PathBuf, &str)],
+    requested_sources: &[(PathBuf, &str)],
+    environment: CorsaProjectEnvironment<'_>,
+) -> Result<CorsaVueVirtualProject, CorsaBridgeError> {
     let rewriter = ImportRewriter::new();
     let overlays = overlays
         .iter()
@@ -222,10 +255,11 @@ pub(crate) fn build_vue_virtual_project_with_overlays_and_options_and_package_ro
     // The alias mirror is built before generation, and from the same buffers the
     // dependency walk reads, so a specifier the resolver rewrites always has a
     // materialized target (#3900).
-    let alias_context = super::vue_dependencies_alias::AliasContext::for_host_cached(
+    let alias_context = super::vue_dependencies_alias::AliasContext::for_hosts_cached(
         source_path,
         content,
         &overlays,
+        requested_sources,
         options,
         environment,
     )?;
@@ -242,7 +276,7 @@ pub(crate) fn build_vue_virtual_project_with_overlays_and_options_and_package_ro
     if host.generated.virtual_suffix == ".tsx" {
         documents.push(tsx_vue_import_shim(&host.source_path, &host.virtual_uri));
     }
-    collect_dependency_documents(
+    let resolved_dependencies = collect_dependency_documents(
         &mut documents,
         &mut dependencies,
         &host,
@@ -253,6 +287,14 @@ pub(crate) fn build_vue_virtual_project_with_overlays_and_options_and_package_ro
     );
     let generated = host.generated;
     let materialized_sources = alias_context.materialized_sources();
+    if !requested_sources.is_empty() || !overlays.is_empty() {
+        materialized_documents::append_materialized_documents(
+            &mut documents,
+            &materialized_sources,
+            &overlays,
+            !requested_sources.is_empty(),
+        );
+    }
     let session_project_root = alias_context.mirror_project_root_for_source(source_path);
     let materialized_changes = alias_context.materialized_changes.clone();
     Ok(CorsaVueVirtualProject {
@@ -266,6 +308,7 @@ pub(crate) fn build_vue_virtual_project_with_overlays_and_options_and_package_ro
             source_type: generated.source_type,
             virtual_suffix: generated.virtual_suffix,
             dependencies,
+            resolved_dependencies,
             materialized_sources,
             session_project_root: session_project_root.clone(),
         },
@@ -294,54 +337,6 @@ pub(super) fn generate_vue_document_with_alias(
     )
 }
 
-fn generate_vue_document_with_options(
-    source_path: &Path,
-    content: &str,
-    options: CorsaVueVirtualDocumentOptions,
-    virtual_ts_options: &VirtualTsOptions,
-    rewriter: &ImportRewriter,
-    alias_context: Option<&super::vue_dependencies_alias::AliasContext>,
-) -> Result<GeneratedVueDocument, CorsaBridgeError> {
-    let source_dir = source_path.parent().map(std::path::Path::to_path_buf);
-    let alias_resolver = alias_context.zip(source_dir).map(|(context, dir)| {
-        move |specifier: &str, mode| context.resolve_specifier_to_mirror_path(specifier, &dir, mode)
-    });
-    let generated = crate::batch::virtual_project::generate_vue_document_virtual_ts_with_options_and_alias_resolver(
-        source_path,
-        content,
-        virtual_ts_options,
-        rewriter,
-        false,
-        VueDocumentVirtualTsOptions {
-            options_api: options.options_api,
-            legacy_vue2: options.legacy_vue2,
-            experimental_patterned_template: options.experimental_patterned_template,
-            preserve_event_navigation: options.preserve_event_navigation,
-            dialect: options.dialect,
-            preserve_missing_vue_diagnostics: true,
-        },
-        alias_resolver
-            .as_ref()
-            .map(|resolver| resolver as crate::batch::import_rewriter_alias::AliasSpecifierResolver<'_>),
-    )
-    .map_err(|error| CorsaBridgeError::CommunicationError(cstr!("{error}")))?;
-    let virtual_path = alias_context
-        .and_then(|context| context.mirror_virtual_path(source_path))
-        .unwrap_or_else(|| {
-            source_path.with_file_name(cstr!(
-                "{}{}",
-                source_path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_default(),
-                generated.virtual_suffix
-            ))
-        });
-    let virtual_uri = path_to_file_uri(&virtual_path);
-
-    Ok(GeneratedVueDocument {
-        source_path: source_path.to_path_buf(),
-        virtual_uri,
-        generated,
-    })
-}
+#[path = "vue_document/generate.rs"]
+mod generate;
+use generate::generate_vue_document_with_options;

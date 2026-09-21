@@ -71,7 +71,7 @@
 
 use std::path::Path;
 
-use vize_atelier_jsx::{JsxDiagnostic, JsxLang, lower_source};
+use vize_atelier_jsx::{JsxDiagnostic, JsxLang, lower_source_for_typecheck};
 use vize_carton::{Allocator, String as CompactString, cstr};
 
 use crate::batch::error::CorsaResult;
@@ -87,10 +87,10 @@ mod slot;
 use collect::{collect_root_expressions, collect_style_expressions, expr_of};
 
 /// The generated plain-`.ts` virtual file for one `.jsx`/`.tsx` source.
-pub(super) struct GeneratedJsxFile {
-    pub(super) code: CompactString,
-    pub(super) mappings: Vec<VizeMapping>,
-    pub(super) diagnostics: Vec<Diagnostic>,
+pub struct GeneratedJsxFile {
+    pub code: CompactString,
+    pub mappings: Vec<VizeMapping>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Name of the synthesized helper that swallows every re-emitted JSX
@@ -168,13 +168,13 @@ enum JsxEmit {
 }
 
 /// Lower a `.jsx`/`.tsx` Vize component to plain virtual TypeScript.
-pub(super) fn generate_jsx_virtual_ts(
+pub fn generate_jsx_virtual_ts(
     path: &Path,
     source: &str,
     lang: JsxLang,
 ) -> CorsaResult<GeneratedJsxFile> {
     let allocator = Allocator::new();
-    let lowered = lower_source(&allocator, allocator.as_oxc(), source, lang);
+    let lowered = lower_source_for_typecheck(&allocator, allocator.as_oxc(), source, lang);
 
     // Collect every outermost JSX root's byte range together with the dynamic
     // expressions inside it, in source order.

@@ -1,4 +1,4 @@
-use vize_carton::{config::VueVersion, cstr};
+use vize_carton::config::VueVersion;
 use vize_croquis::Croquis;
 
 use super::super::helpers::VUE_TYPE_HELPERS;
@@ -15,11 +15,7 @@ type __RuntimePropCtor<T> = [__RuntimePropCtorInner<T>] extends [never] ? unknow
 type __RuntimePropHasBoolean<T> = T extends BooleanConstructor ? true : T extends readonly (infer U)[] ? __RuntimePropHasBoolean<U> : T extends { type: infer U } ? __RuntimePropHasBoolean<U> : false;
 type __RuntimePropResolved<T> = T extends { required: true } ? true : T extends { default: any } ? true : __RuntimePropHasBoolean<T>;
 type __RuntimePropShape<T extends Record<string, any>> = { [K in keyof T]: __RuntimePropResolved<T[K]> extends true ? __RuntimePropCtor<T[K]> : __RuntimePropCtor<T[K]> | undefined; };
-type __VizeIsAny<T> = 0 extends (1 & T) ? true : false; type __VizeModelIsUnknown<T> = __VizeIsAny<T> extends true ? false : unknown extends T ? ([keyof T] extends [never] ? true : false) : false;
-type __VizeModelRuntimeValue<T> = __RuntimePropShape<{ modelValue: T }>["modelValue"]; type __VizeModelOptionValue<T, O extends Record<string, any>> = __VizeModelIsUnknown<T> extends true ? __VizeModelRuntimeValue<O> : T; type __VizeModelOptionGetValue<T, O extends Record<string, any>> = O extends { get?: infer __F } ? NonNullable<__F> extends (value: any) => infer __G ? __G : T : T; type __VizeModelOptionSetValue<T, O extends Record<string, any>> = O extends { set?: infer __F } ? NonNullable<__F> extends (value: infer __S) => any ? __S : T : T;
-type __VizePropConstructor<T = any> = { new (...args: any[]): T & {} } | { (): T };
-type __VizePropType<T> = __VizePropConstructor<T> | readonly (__VizePropConstructor<T> | null)[] | null;
-type __VizeDefineModelOptions<T, G = T, S = T> = { type?: __VizePropType<T>; required?: boolean; default?: any; get?: (value: T) => G; set?: (value: S) => any } & Record<string, any>;
+type __VizeIsAny<T> = 0 extends (1 & T) ? true : false;
 type __DefaultFactory<T> = (props: any) => T; type __WithDefaultValue<T> = T | __DefaultFactory<T>;
 type __LooseRequired<T> = { [P in keyof (T & Required<T>)]: T[P] };
 type __VizeBooleanKey<T, K extends keyof T = keyof T> = K extends any ? [Exclude<T[K], undefined>] extends [never] ? never : [Exclude<T[K], undefined>] extends [boolean] ? K : never : never;
@@ -27,9 +23,6 @@ type __DefineProps<T, __BKeys extends keyof T = never> = __LooseRequired<T>;
 type __WithDefaultsArgs<T> = { [K in keyof T]?: __WithDefaultValue<T[K]> };
 type __WithDefaultsResult<T, D, __BKeys extends keyof T = never, __Props = __LooseRequired<T>> = T extends unknown ? Omit<__Props, keyof D> & { [K in keyof D & keyof T]-?: [D[K]] extends [undefined] ? __LooseRequired<T>[K] : Exclude<__Props[K & keyof __Props], undefined> } : never;
 type __Ref<T> = { value: T };
-type __VizeModelModifiers<M extends PropertyKey> = Record<M, true | undefined>;
-type __VizeWritableRef<G, S> = Omit<__Ref<G>, 'value'> & { get value(): G; set value(value: S); };
-type __VizeModelRef<T, M extends PropertyKey = string, G = T, S = T> = __VizeWritableRef<G, S> & [__VizeModelRef<T, M, G, S>, __VizeModelModifiers<M>];
 type __ShallowRef<T> = __Ref<T> & { readonly __v_isShallow?: true };
 type __VizeKebabCase<S extends string> = S extends `${infer Head}${infer Tail}` ? Head extends Lowercase<Head> ? `${Head}${__VizeKebabCase<Tail>}` : `-${Lowercase<Head>}${__VizeKebabCase<Tail>}` : S;
 type __VizeKebabProps<T> = { [K in keyof T & string as __VizeKebabCase<K>]: T[K] };
@@ -175,52 +168,8 @@ pub(super) fn define_component_helper(legacy_vue2: bool, dialect: VueVersion) ->
     }
 }
 
-pub(super) fn instance_helper(legacy_vue2: bool, dialect: VueVersion) -> &'static str {
-    if needs_legacy_vue2_helpers(legacy_vue2, dialect) {
-        LEGACY_COMPONENT_INSTANCE_HELPER
-    } else {
-        ""
-    }
-}
-
-/// [`instance_suffix`] for the generic component constructor, where the SFC's
-/// type parameters are in scope and a generic `Exposed` alias must therefore be
-/// instantiated rather than left to its declared defaults (#3354).
-///
-/// `exposed_generic_args` is `None` when the alias takes no parameters, which
-/// keeps the output identical to [`instance_suffix`].
-pub(super) fn generic_instance_suffix(
-    legacy_vue2: bool,
-    dialect: VueVersion,
-    has_exposed_type: bool,
-    exposed_generic_args: Option<&str>,
-) -> vize_carton::String {
-    let Some(args) = exposed_generic_args.filter(|_| has_exposed_type) else {
-        return vize_carton::String::from(instance_suffix(legacy_vue2, dialect, has_exposed_type));
-    };
-
-    if needs_legacy_vue2_helpers(legacy_vue2, dialect) {
-        cstr!("}} & __VizeVue2ComponentInstance & __VizeShallowUnwrapRef<Exposed<{args}>>;\n")
-    } else {
-        cstr!("}} & __VizeComponentPublicBase & __VizeShallowUnwrapRef<Exposed<{args}>>;\n")
-    }
-}
-
-pub(super) fn instance_suffix(
-    legacy_vue2: bool,
-    dialect: VueVersion,
-    has_exposed_type: bool,
-) -> &'static str {
-    match (
-        needs_legacy_vue2_helpers(legacy_vue2, dialect),
-        has_exposed_type,
-    ) {
-        (true, true) => "} & __VizeVue2ComponentInstance & __VizeShallowUnwrapRef<Exposed>;\n",
-        (true, false) => "} & __VizeVue2ComponentInstance;\n",
-        (false, true) => "} & __VizeComponentPublicBase & __VizeShallowUnwrapRef<Exposed>;\n",
-        (false, false) => "} & __VizeComponentPublicBase;\n",
-    }
-}
+mod instance;
+pub(super) use instance::{generic_instance_suffix, instance_helper, instance_suffix};
 
 /// Generate virtual TypeScript with Vue 2.7 / Nuxt 2 compatibility enabled.
 pub fn generate_virtual_ts_with_offsets_legacy_vue2(

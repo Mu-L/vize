@@ -5,9 +5,12 @@
 //! bare reference is legal TypeScript that silently resolves against the
 //! alias's declared defaults instead of the caller's arguments (#3354).
 
+mod generic_function;
+
 use vize_carton::config::VueVersion;
 use vize_carton::{String, append, cstr};
 
+use super::component_export::GenericComponentContract;
 use super::legacy_vue2::{
     exposed_unwrap_helper, generic_instance_suffix, instance_helper, instance_suffix,
     needs_legacy_vue2_helpers,
@@ -23,6 +26,10 @@ pub(super) struct ComponentInstanceAliases<'a> {
     pub(super) exposed_is_generic: bool,
     pub(super) has_emits_for_props: bool,
     pub(super) has_exposed_type: bool,
+    pub(super) has_root_el: bool,
+    /// `inferComponentDollarRefs`: the instance holds the template's refs.
+    pub(super) has_refs: bool,
+    pub(super) jsx_slots: bool,
     pub(super) has_authored_default: bool,
 }
 
@@ -56,14 +63,35 @@ const LEGACY_VUE2_COMPONENT_CONSTRUCTOR_STATICS: &str = r#"type __VizeVue2Compon
 };
 "#;
 
-pub(super) fn emit_component_constructors(
+pub(super) fn emit_component_constructors<'a>(
     ts: &mut String,
     setup_props_plan: &SetupPropsPlan,
-    aliases: &ComponentInstanceAliases<'_>,
+    aliases: &ComponentInstanceAliases<'a>,
+    authored_generic: Option<&str>,
     legacy_vue2: bool,
     dialect: VueVersion,
-) {
+) -> Option<GenericComponentContract<'a>> {
     let legacy_component = needs_legacy_vue2_helpers(legacy_vue2, dialect);
+    if aliases.jsx_slots {
+        ts.push_str("declare global { namespace JSX { interface ElementChildrenAttribute {} } }\ntype __VizeJsxSlotProps<S> = { [K in keyof JSX.ElementChildrenAttribute]?: S };\n");
+    }
+    if !legacy_component && let Some((declaration, names)) = aliases.generic_params {
+        generic_function::emit(
+            ts,
+            aliases,
+            authored_generic.expect("generic SFC has authored parameters"),
+            declaration,
+            names,
+            setup_props_plan.component_props_type_ref(),
+        );
+        return Some(GenericComponentContract {
+            declaration,
+            names,
+            slots_is_generic: aliases.slots_is_generic,
+            public_type: "__VizeGenericComponent",
+            props_type: setup_props_plan.component_props_type_ref(),
+        });
+    }
     ts.push_str("// ========== Default Export ==========\n");
     ts.push_str(instance_helper(legacy_vue2, dialect));
     if aliases.has_exposed_type {
@@ -83,18 +111,20 @@ pub(super) fn emit_component_constructors(
         aliases.has_emits_for_props,
         aliases.generic_params.map(|(decl, _)| decl.as_str()),
         legacy_component,
+        aliases.jsx_slots,
     );
     if legacy_component {
         ts.push_str("  $emit: __EmitFn<Emits>;\n");
-        ts.push_str("  $slots: Slots;\n");
+        ts.push_str("  $slots: __VizeSlots;\n");
     } else {
         ts.push_str("  $emit: __VizePublicEmit<Emits>;\n");
-        ts.push_str("  $slots: __VizePublicSlots<Slots>;\n");
+        ts.push_str("  $slots: __VizePublicSlots<__VizeSlots>;\n");
     }
     ts.push_str(instance_suffix(
         legacy_vue2,
         dialect,
         aliases.has_exposed_type,
+        (aliases.has_root_el, aliases.has_refs),
     ));
     if legacy_component {
         ts.push_str(LEGACY_VUE2_COMPONENT_CONSTRUCTOR_STATICS);
@@ -102,12 +132,15 @@ pub(super) fn emit_component_constructors(
             "type __VizeComponentConstructor = {\n  new (...args: any[]): any;\n  new (...args: any[]): __VizeComponentInstance;\n} & __VizeVue2ComponentConstructorStatics;\n",
         );
     } else {
-        let props_ref = aliases
+        let mut props_ref = aliases
             .generic_params
             .map(|(decl, _)| {
                 setup_props_plan.generic_fallback_component_props_type_ref(decl.as_str())
             })
             .unwrap_or_else(|| setup_props_plan.component_props_type_ref().into());
+        if aliases.jsx_slots {
+            props_ref = cstr!("{props_ref} & __VizeJsxSlotProps<__VizeSlots>");
+        }
         let emit_props_ref = if aliases.has_emits_for_props {
             "__EmitProps<Emits>"
         } else {
@@ -131,53 +164,24 @@ pub(super) fn emit_component_constructors(
         );
     }
 
-    let Some((generic_decl, generic_names)) = aliases.generic_params else {
-        return;
-    };
-    let slots_ref = alias_ref("Slots", aliases.slots_is_generic, generic_names);
+    let (generic_decl, generic_names) = aliases.generic_params?;
+    let slots_ref = alias_ref("__VizeSlots", aliases.slots_is_generic, generic_names);
     let emits_ref = alias_ref("Emits", aliases.emits_is_generic, generic_names);
     let emit_props_field = if aliases.has_emits_for_props {
         cstr!(" & __EmitProps<{emits_ref}>")
     } else {
         String::default()
     };
-    if legacy_component {
-        append!(
-            *ts,
-            "type __VizeGenericComponentConstructor = {{\n  new (...args: any[]): any;\n  new <{generic_decl}>(...args: any[]): "
-        );
-        if aliases.has_authored_default {
-            ts.push_str("__VizeAuthoredInstance & ");
-        }
-        append!(
-            *ts,
-            "{{\n  $props: __VizeComponentProps<Props<{generic_names}>>{emit_props_field};\n  readonly __vizeRawProps?: Props<{generic_names}>;\n  $emit: __EmitFn<{emits_ref}>;\n  $slots: {slots_ref};\n"
-        );
-        ts.push_str(&generic_instance_suffix(
-            legacy_vue2,
-            dialect,
-            aliases.has_exposed_type,
-            aliases.exposed_is_generic.then_some(generic_names.as_str()),
-        ));
-        ts.push_str("} & __VizeVue2ComponentConstructorStatics;\n");
-        return;
-    }
-
-    let emit_props_ref = if aliases.has_emits_for_props {
-        cstr!("__EmitProps<{emits_ref}>")
-    } else {
-        String::from("{}")
-    };
     append!(
         *ts,
-        "type __VizeGenericComponentInstance<{generic_decl}> = "
+        "type __VizeGenericComponentConstructor = {{\n  new (...args: any[]): any;\n  new <{generic_decl}>(...args: any[]): "
     );
     if aliases.has_authored_default {
-        ts.push_str("Omit<__VizeAuthoredInstance, '$props' | '$emit' | '$slots'> & ");
+        ts.push_str("__VizeAuthoredInstance & ");
     }
     append!(
         *ts,
-        "{{\n  $props: Props<{generic_names}>{emit_props_field};\n  readonly __vizeRawProps?: Props<{generic_names}>;\n  $emit: __VizePublicEmit<{emits_ref}>;\n  $slots: __VizePublicSlots<{slots_ref}>;\n"
+        "{{\n  $props: __VizeComponentProps<Props<{generic_names}>>{emit_props_field};\n  readonly __vizeRawProps?: Props<{generic_names}>;\n  $emit: __EmitFn<{emits_ref}>;\n  $slots: {slots_ref};\n"
     );
     ts.push_str(&generic_instance_suffix(
         legacy_vue2,
@@ -185,13 +189,12 @@ pub(super) fn emit_component_constructors(
         aliases.has_exposed_type,
         aliases.exposed_is_generic.then_some(generic_names.as_str()),
     ));
-    // Deliberately not routed through `__VizeComponentInput`: a generic SFC
-    // infers its own type parameters from the same argument, and hiding the
-    // input shape behind a deferred conditional leaves listener parameters
-    // without a contextual type (`TS7006` on `<Generic onPick={(value) => …} />`).
-    // Generic components are rare, so they keep the eager spelling.
-    append!(
-        *ts,
-        "type __VizeGenericComponentConstructor = new <{generic_decl}, __VizeAuthoredProps = unknown>(props?: __VizeAuthoredProps & __VizeComponentInputProps<Props<{generic_names}>, {emit_props_ref}> & __VizeComponentInputGuard<Props<{generic_names}>, {emit_props_ref}, __VizeAuthoredProps>, ...args: any[]) => __VizeUsePublicInstance<__VizeAuthoredProps> extends true ? __VizeGenericComponentInstance<{generic_names}> : Omit<__VizeGenericComponentInstance<{generic_names}>, '$props'> & {{\n  $props: __VizeAuthoredKeyWitness<__VizeAuthoredProps> & __VizeComponentInputProps<Props<{generic_names}>, {emit_props_ref}> & __VizeComponentInputGuard<Props<{generic_names}>, {emit_props_ref}, __VizeAuthoredProps>;\n}};\n"
-    );
+    ts.push_str("} & __VizeVue2ComponentConstructorStatics;\n");
+    Some(GenericComponentContract {
+        declaration: generic_decl,
+        names: generic_names,
+        slots_is_generic: aliases.slots_is_generic,
+        public_type: "__VizeGenericComponentConstructor & __VizeComponentConstructor & __VizeVueComponentOptions",
+        props_type: setup_props_plan.component_props_type_ref(),
+    })
 }

@@ -1,11 +1,11 @@
 //! Generating virtual TypeScript for `.vue` SFCs: parsing the template, running
 //! Croquis analysis, augmenting type-based props, and emitting the `.vue.ts`
-//! source consumed by Corsa. Parse/compile errors are surfaced as diagnostics
-//! and replaced with a typed fallback module.
+//! source consumed by Corsa. Incomplete scripts retain their authored code and
+//! mappings; unrecoverable SFC/template structure uses a typed fallback module.
 
 use std::path::Path;
 use vize_carton::config::VueVersion;
-use vize_carton::{Allocator, String as CompactString, cstr, profile};
+use vize_carton::{Allocator, cstr, profile};
 
 use vize_atelier_core::{
     ParserOptions, TemplateSyntaxMode, parser::parse_with_options_and_template_syntax,
@@ -19,16 +19,15 @@ use vize_atelier_sfc::{
     },
 };
 
+use crate::batch::SfcBlockType;
 use crate::batch::error::CorsaResult;
-use crate::batch::{Diagnostic, SfcBlockType};
-use crate::script_parse::collect_script_parse_diagnostics;
 use crate::virtual_ts::{
-    VirtualTsCheckOptions, VirtualTsGenerationOptions, VirtualTsOptions,
-    generate_virtual_ts_with_offsets_and_checks,
+    VirtualTsGenerationOptions, VirtualTsOptions, generate_virtual_ts_with_offsets_and_checks,
 };
 
 use super::diagnostics::{
-    collect_sfc_compile_diagnostic, diagnostic_for_offset, invalid_sfc_fallback_virtual_ts,
+    collect_script_parse_fallbacks, collect_sfc_compile_diagnostic, diagnostic_for_offset,
+    invalid_sfc_fallback_virtual_ts,
 };
 use super::{
     art_usage::collect_art_template_referenced_names,
@@ -36,45 +35,26 @@ use super::{
     setup_props::{RuntimePropResolveCache, augment_type_based_props_from_script_context},
 };
 
-pub(super) struct GeneratedVueFile {
-    pub(super) code: CompactString,
-    pub(super) mappings: Vec<crate::virtual_ts::VizeMapping>,
-    pub(super) semantic_links: Vec<crate::virtual_ts::VizeSemanticLink>,
-    pub(super) diagnostics: Vec<Diagnostic>,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct VueCodegenOptions<'a> {
-    pub(super) check_options: VirtualTsCheckOptions,
-    pub(super) preserve_unused_diagnostics: bool,
-    pub(super) options_api: bool,
-    pub(super) preserve_authored_component: bool,
-    pub(super) component_name: Option<&'a str>,
-    pub(super) preserve_event_navigation: bool,
-    pub(super) legacy_vue2: bool,
-    pub(super) dialect: VueVersion,
-    pub(super) template_syntax: TemplateSyntaxMode,
-    pub(super) experimental_in_tag_comments: bool,
-    pub(super) experimental_patterned_template: bool,
-    pub(super) experimental_strict_slot_children: bool,
-    /// Hoist shared helpers to the batch ambient `.d.ts`; socket sessions keep
-    /// them inline because they do not materialize that file.
-    pub(super) hoist_shared_preamble: bool,
-    /// Content-mapper transforms can run outside Vite projects.
-    pub(super) omit_vite_client_reference: bool,
-    /// Batch generation can share imported runtime prop/default resolution
-    /// across rayon workers. Document/content-mapper callers use a per-file
-    /// cache to avoid keeping stale source-derived state.
-    pub(super) runtime_prop_resolve_cache: Option<&'a RuntimePropResolveCache>,
-}
+mod style_modules;
+mod types;
+pub(super) use types::{GeneratedVueFile, VueCodegenOptions};
 
 pub(super) fn generate_vue_virtual_ts(
     path: &Path,
     source: &str,
     descriptor: &SfcDescriptor,
     options: &VirtualTsOptions,
-    codegen_options: VueCodegenOptions<'_>,
+    mut codegen_options: VueCodegenOptions<'_>,
 ) -> CorsaResult<GeneratedVueFile> {
+    codegen_options.check_options =
+        super::vue_compiler_comments::apply(source, codegen_options.check_options);
+    // All consumers resolve per-SFC metadata after project and top-level options.
+    let options = &super::build::virtual_ts_options_for_descriptor(
+        options,
+        descriptor,
+        codegen_options.check_options.strict_css_modules,
+        codegen_options.check_options.resolve_style_imports,
+    );
     let allocator = Allocator::new();
     let mut diagnostics = Vec::new();
 
@@ -102,53 +82,14 @@ pub(super) fn generate_vue_virtual_ts(
     };
     let descriptor = &*view;
 
-    if let Some(ref script) = descriptor.script {
-        let script_diagnostics = collect_script_parse_diagnostics(
-            &script.content,
-            script.loc.start as u32,
-            script.lang.as_deref(),
-        );
-        if !script_diagnostics.is_empty() {
-            diagnostics.extend(script_diagnostics.into_iter().map(|diagnostic| {
-                diagnostic_for_offset(
-                    path,
-                    source,
-                    diagnostic.start,
-                    cstr!("Script parse error: {}", diagnostic.message),
-                    SfcBlockType::Script,
-                )
-            }));
-        }
-    }
-
-    if let Some(ref script_setup) = descriptor.script_setup {
-        let script_diagnostics = collect_script_parse_diagnostics(
-            &script_setup.content,
-            script_setup.loc.start as u32,
-            script_setup.lang.as_deref(),
-        );
-        if !script_diagnostics.is_empty() {
-            diagnostics.extend(script_diagnostics.into_iter().map(|diagnostic| {
-                diagnostic_for_offset(
-                    path,
-                    source,
-                    diagnostic.start,
-                    cstr!("Script parse error: {}", diagnostic.message),
-                    SfcBlockType::ScriptSetup,
-                )
-            }));
-        }
-    }
-
     let template_offset = descriptor
         .template
         .as_ref()
         .map(|template| template.loc.start as u32)
         .unwrap_or(0);
-    // Script parse errors leave no AST, so they always abort to the fallback
-    // stub. Template diagnostics do not: they are counted separately below and
-    // only *hard* ones abort.
-    let script_hard_error = !diagnostics.is_empty();
+    // Keep authored scripts even when OXC cannot recover their analysis AST.
+    // The native TypeScript parser recovers incomplete expressions and can
+    // still answer editor requests against their exact source mappings.
     // Track whether the template produced any *hard* parse error. Only hard
     // errors abort codegen and collapse the file to the fallback stub.
     // Recovery-level diagnostics keep the real virtual TS:
@@ -201,11 +142,15 @@ pub(super) fn generate_vue_virtual_ts(
         })
     });
 
-    // Abort to the fallback stub only on hard errors — from any block. Pure
+    let script_diagnostics =
+        collect_script_parse_fallbacks(path, source, descriptor, !template_hard_error);
+    diagnostics.extend(script_diagnostics.diagnostics);
+
+    // Abort to the fallback stub only on hard template errors. Pure
     // recovery-level template diagnostics must not suppress real codegen: the
     // parse diagnostic is still reported, alongside the script's own type
     // diagnostics, which is what `vize check` and the linter now agree on.
-    if script_hard_error || template_hard_error {
+    if template_hard_error {
         return Ok(GeneratedVueFile {
             code: invalid_sfc_fallback_virtual_ts(),
             mappings: Vec::new(),
@@ -310,6 +255,7 @@ pub(super) fn generate_vue_virtual_ts(
                 options_api: codegen_options.options_api || vue2_compat,
                 preserve_authored_component: codegen_options.preserve_authored_component,
                 component_name: codegen_options.component_name,
+                self_component_name: path.file_stem().and_then(|name| name.to_str()),
                 preserve_event_navigation: codegen_options.preserve_event_navigation,
                 legacy_vue2: vue2_compat,
                 template_syntax_quirks: matches!(
@@ -320,6 +266,7 @@ pub(super) fn generate_vue_virtual_ts(
                 lib_references: None,
                 omit_vite_client_reference: codegen_options.omit_vite_client_reference,
                 split_script_setup_offsets,
+                script_syntax_boundaries: &script_diagnostics.boundaries,
                 experimental_strict_slot_children: codegen_options
                     .experimental_strict_slot_children,
             },
@@ -336,10 +283,51 @@ pub(super) fn generate_vue_virtual_ts(
         diagnostics.push(diagnostic);
     }
 
+    let mut code = output.code;
+    let mut mappings = output.mappings;
+    append_style_scoped_classes(&mut code, source, descriptor, codegen_options.check_options);
+    style_modules::append_duplicate_style_modules(
+        &mut code,
+        &mut mappings,
+        source,
+        descriptor,
+        codegen_options.check_options.strict_css_modules,
+    );
+
     Ok(GeneratedVueFile {
-        code: output.code,
-        mappings: output.mappings,
+        code,
+        mappings,
         semantic_links: output.semantic_links,
         diagnostics,
     })
+}
+
+/// Vue Language Tools' `__VLS_StyleScopedClasses`: the class names the SFC's
+/// styles declare, as `boolean` members, for a template that checks `:class`
+/// bindings against them. It is a module-level alias appended after every
+/// mapped byte, so it shifts no mapping and is visible from the template
+/// scope like any other module type. It only exists for a file that names it,
+/// so no other file pays for it, and one object literal keeps the type
+/// identical to the literal an author compares it with.
+fn append_style_scoped_classes(
+    code: &mut vize_carton::String,
+    source: &str,
+    descriptor: &SfcDescriptor,
+    check_options: crate::virtual_ts::VirtualTsCheckOptions,
+) {
+    if !source.contains("__VLS_StyleScopedClasses") {
+        return;
+    }
+    let names =
+        super::build::style_scoped_class_names(descriptor, check_options.resolve_style_class_names);
+    if names.is_empty() {
+        return;
+    }
+    code.push_str("\ntype __VLS_StyleScopedClasses = {");
+    for name in &names {
+        code.push(' ');
+        crate::virtual_ts::push_ts_string_literal(code, name.as_str());
+        code.push_str(": boolean;");
+    }
+    code.push_str(" };\nvoid ({} as __VLS_StyleScopedClasses);\n");
 }

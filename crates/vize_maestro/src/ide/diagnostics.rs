@@ -8,6 +8,8 @@
 #![allow(clippy::disallowed_types, clippy::disallowed_methods)]
 
 #[cfg(all(test, feature = "native"))]
+mod art_dependency_typecheck_tests;
+#[cfg(all(test, feature = "native"))]
 mod art_variant_typecheck_tests;
 mod builder;
 mod collectors;
@@ -24,6 +26,8 @@ mod editor_typecheck_fixture;
 mod editor_typecheck_tests;
 mod line_index;
 mod linter_options;
+#[cfg(feature = "native")]
+mod native;
 mod service;
 mod severity;
 #[cfg(all(test, feature = "native"))]
@@ -46,7 +50,7 @@ pub(in crate::ide) use line_index::LineIndex;
 #[cfg(test)]
 pub(in crate::ide) use line_index::offset_to_line_col;
 #[cfg(feature = "native")]
-pub(in crate::ide) use service::{SourceMapping, VirtualTsResult};
+pub(in crate::ide) use service::VirtualTsResult;
 
 #[cfg(feature = "native")]
 pub(crate) const TYPECHECK_UNAVAILABLE_HINT_MESSAGE: &str = "Type checking is unavailable in this workspace. Make sure `tsconfig.json` exists. \

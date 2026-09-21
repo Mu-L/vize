@@ -7,8 +7,10 @@ fn protocol_v1_omits_internal_navigation_links() {
     let links: Vec<_> = [
         VizeSemanticLinkKind::VueSetupTemplateRefUnwrap,
         VizeSemanticLinkKind::VueComponentPropNavigation,
+        VizeSemanticLinkKind::VueComponentPropCompletion,
         VizeSemanticLinkKind::VuePlainScriptExport,
         VizeSemanticLinkKind::VueOptionsApiBinding,
+        VizeSemanticLinkKind::VueSetupImportSpecialization,
     ]
     .into_iter()
     .map(|kind| VizeSemanticLink {

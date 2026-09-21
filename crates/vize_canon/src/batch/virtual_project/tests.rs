@@ -159,10 +159,7 @@ fn tsx_script_block_is_type_checked_not_collapsed_to_fallback_stub() {
         tsconfig["compilerOptions"]["jsx"],
         serde_json::json!("preserve")
     );
-    assert_eq!(
-        tsconfig["compilerOptions"]["jsxImportSource"],
-        serde_json::json!("vue")
-    );
+    assert!(tsconfig["compilerOptions"].get("jsxImportSource").is_none());
 
     let _ = fs::remove_dir_all(&case_dir);
 }
@@ -302,7 +299,7 @@ defineProps<{
 }
 
 #[test]
-fn test_register_vue_file_reports_script_parse_error_with_fallback() {
+fn test_register_vue_file_preserves_authored_script_despite_parse_error() {
     let case_dir = unique_case_dir("script-parse-error");
     let _ = fs::remove_dir_all(&case_dir);
     let src_dir = case_dir.join("src");
@@ -321,15 +318,14 @@ const count =
     project.register_vue_file(&vue_path, vue_content).unwrap();
 
     let diagnostics = project.diagnostics();
-    assert_eq!(diagnostics.len(), 1);
-    insta::assert_debug_snapshot!(
-        "script_parse_error_diagnostics",
-        diagnostic_snapshot(diagnostics)
+    assert!(
+        diagnostics.is_empty(),
+        "the native checker owns retained script syntax"
     );
 
     let virtual_file = project.find_by_original(&vue_path).unwrap();
     insta::assert_snapshot!(
-        "script_parse_error_fallback_virtual_ts",
+        "script_parse_error_authored_virtual_ts",
         snapshot_text(virtual_file.content.as_str())
     );
 

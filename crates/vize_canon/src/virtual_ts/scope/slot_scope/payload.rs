@@ -1,56 +1,30 @@
 use vize_carton::String;
 use vize_croquis::{Croquis, Scope, ScopeData, analysis::ComponentUsage};
 
-/// The slot-payload aliases, emitted per file rather than hoisted into the
-/// shared preamble.
+/// The resolver lives at module scope so the same host type is used for
+/// named and dynamic slot scopes, including functional components.
+const SLOT_RESOLVER_HELPERS: &str = r#"type __VizeSlotHostSlots<C> = C extends { readonly __vizeSlots?: infer __S } ? NonNullable<__S> : C extends { new (): { $slots: infer __S } } ? __S : C extends (props: any, context: infer __Ctx, ...args: any[]) => any ? NonNullable<__Ctx> extends { slots: infer __S } ? __S : any : any;
+declare function __vizeConstructorSlots<P, S>(component: new (props: P, ...args: any[]) => { $slots: S }): (props: P) => S;
+declare function __vizeFunctionalSlots<P, C, R>(component: (props: P, context: C, ...args: any[]) => R): (props: P) => "__ctx" extends keyof R ? NonNullable<R["__ctx"]> extends { slots: infer S } ? S : any : NonNullable<C> extends { slots: infer S } ? S : any;
+type __VizeNativeSlotsFactory<C> = C extends new (...args: any[]) => any ? typeof __vizeConstructorSlots : C extends (...args: any[]) => any ? typeof __vizeFunctionalSlots : (component: C) => (props: any) => __VizeSlotHostSlots<C>;
+type __VizeSlotsFactory<C> = __VizeIsAny<C> extends true ? (component: C) => (props: any) => any : C extends { __vizeResolveSlots?: infer F } ? F extends (...args: any[]) => any ? (component: C) => F : __VizeNativeSlotsFactory<C> : __VizeNativeSlotsFactory<C>;
+"#;
+
+/// Only names admitted by the authored key contribute payloads. A broad string
+/// can select any string slot; a literal union cannot acquire unrelated slots.
+/// Optional slot provisioning must not add `undefined` to the payload itself.
 ///
-/// They deliberately stay out of `VUE_TYPE_HELPERS`: every other alias there is
-/// transitively referenced by the always-emitted default-export types, while
-/// these three are roots that only a resolvable `v-slot` scope reaches. A
-/// module-scope copy in a component that has no such scope is dead code, which
-/// a `noUnusedLocals` consumer reports as `TS6196` — the same reason
-/// `__VizeWidenTemplateRef` and `__EmitProps` are emitted conditionally. A
-/// component without a resolvable `v-slot` scope therefore gains nothing.
-const SLOT_RESOLVER_HELPERS: &str = "type __VizeStructuralSlots<C> = C extends { readonly __vizeSlots?: infer __S } ? NonNullable<__S> : C extends { new (): { $slots: infer __S } } ? __S : any;\ntype __VizeSlotsResolver<C> = C extends { __vizeResolveSlots?: infer __F } ? (__F extends (...args: any[]) => any ? __F : (props: any) => __VizeStructuralSlots<C>) : C extends { readonly __vizeSlots?: any } ? (props: any) => __VizeStructuralSlots<C> : __VizeIsAny<C> extends true ? (props: any) => any : (props: any) => __VizeStructuralSlots<C>;\n";
+/// An untyped host (an unresolved tag, an `any` component) yields an *error
+/// type* rather than a declared `any`. Both leave the payload unchecked, but
+/// TypeScript never reports on values derived from an error type, where a
+/// declared `any` still fails a `never` parameter. `vue-tsc` resolves an
+/// unknown tag through a missing registry key, so its payloads are silent in
+/// exactly this way. The component itself stays `any`: listener and prop
+/// checks rely on conditional types an error type would collapse.
+const SLOT_PAYLOAD_HELPER: &str = "// @ts-ignore The unchecked payload of an untyped host: an error type, never reported.\ntype __VizeSilentAny = {}[\"__vizeSilentAny\"];\ntype __VizeSlotPayload<__S, __N> = __VizeIsAny<__S> extends true ? __VizeSilentAny : { [__K in keyof __S & __N]-?: NonNullable<__S[__K]> extends (props: infer __P, ...args: any[]) => any ? __P : never }[keyof __S & __N] extends infer __P ? ([__P] extends [never] ? any : __P) : any;\n";
 
-/// Payload of one statically named slot.
-const STATIC_SLOT_PAYLOAD_HELPER: &str = "type __VizeSlotPayload<__S, __K extends PropertyKey> = __K extends keyof __S ? (NonNullable<__S[__K]> extends (props: infer __P, ...args: any[]) => any ? __P : any) : any;\n";
-
-/// Union of every declared payload, for `v-slot:[name]`.
-/// `-?` removes the marker's optional provisioning modifier from the mapped
-/// result; otherwise indexing `Partial<Slots>` adds `undefined` to the payload.
-const DYNAMIC_SLOT_PAYLOAD_HELPER: &str = "type __VizeAnySlotPayload<__S> = { [__K in keyof __S]-?: NonNullable<__S[__K]> extends (props: infer __P, ...args: any[]) => any ? __P : never }[keyof __S] extends infer __P ? ([__P] extends [never] ? any : __P) : any;\n";
-
-/// Whether any `v-slot` scope in this document resolves a host component, split
-/// by how the slot is named — the static and dynamic payload aliases have
-/// disjoint call sites, so a document that only has one kind must only declare
-/// that one.
-fn slot_helper_usage(summary: &Croquis) -> (bool, bool) {
-    let mut used = (false, false);
-    for scope in summary.scopes.iter() {
-        let Some(data) = (match scope.data() {
-            ScopeData::VSlot(data) => Some(data),
-            _ => None,
-        }) else {
-            continue;
-        };
-        let Some(component) = data.component.as_deref() else {
-            continue;
-        };
-        if find_slot_host(summary, scope, component).is_none() {
-            continue;
-        }
-        if summary.scopes.is_v_slot_name_static(scope.id) {
-            used.0 = true;
-        } else {
-            used.1 = true;
-        }
-    }
-    used
-}
-
-/// Emit the per-file slot-payload aliases this document actually references,
-/// plus the blank line that closed the embedded preamble before them.
+/// Emit helpers only when a component owns an authored slot scope. Keeping
+/// unused aliases out also preserves `noUnusedLocals` declaration consumers.
 pub(crate) fn emit_slot_payload_helpers(
     ts: &mut String,
     summary: &Croquis,
@@ -59,16 +33,13 @@ pub(crate) fn emit_slot_payload_helpers(
     if embedded_preamble {
         ts.push('\n');
     }
-    let (static_names, dynamic_names) = slot_helper_usage(summary);
-    if !static_names && !dynamic_names {
-        return;
-    }
-    ts.push_str(SLOT_RESOLVER_HELPERS);
-    if static_names {
-        ts.push_str(STATIC_SLOT_PAYLOAD_HELPER);
-    }
-    if dynamic_names {
-        ts.push_str(DYNAMIC_SLOT_PAYLOAD_HELPER);
+    if summary
+        .scopes
+        .iter()
+        .any(|scope| matches!(scope.data(), ScopeData::VSlot(data) if data.component.is_some()))
+    {
+        ts.push_str(SLOT_RESOLVER_HELPERS);
+        ts.push_str(SLOT_PAYLOAD_HELPER);
     }
 }
 

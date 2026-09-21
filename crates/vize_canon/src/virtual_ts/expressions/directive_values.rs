@@ -1,56 +1,42 @@
-//! Custom directive value discovery, type assertions, and authored-range
-//! mappings.
+//! Resolve custom directive bindings and check their original hook signatures.
 //!
-//! A custom directive's bound value is checked against the `Value` parameter of
-//! the directive's declared `Directive<El, Value>` type, which is what `vue-tsc`
-//! does: `const vFocus: Directive<HTMLElement, number>` makes
-//! `<div v-focus="'nope'" />` a `TS2322` anchored on the authored value.
-//!
-//! `__VizeDirectiveValue` carries the same two-part guard as the native element
-//! table (see the module docs on [`super::native_props`]), and for the same two
-//! reasons:
-//!
-//! * `// @ts-ignore` on the alias, because it names `import('vue').Directive`.
-//!   A `vue` whose typings do not export it — Vue 2.7, a trimmed or shimmed
-//!   package, a workspace with no `vue` at all — must degrade every directive
-//!   value check to unchecked, never report `TS2694`/`TS2307` on correct code.
-//! * an ambient `declare function __vizeDirectiveValue` that references the
-//!   alias, because `@ts-ignore` filters errors but not the suggestion channel,
-//!   and a program whose files bind no custom directive would otherwise reach
-//!   `check-server` clients as an unmapped `TS6196` hint on a clean SFC.
-//!
-//! ## Why the binding must exist before a check is emitted
-//!
-//! `v-focus` resolves to the setup binding `vFocus` by Vue's own convention,
-//! `'v' + capitalize(camelize(name))`. A directive registered globally — through
-//! `app.directive('focus', …)`, a plugin, or an Options API `directives` block —
-//! has no such binding, and naming it anyway would turn every globally
-//! registered directive in the ecosystem into a `TS2304` false positive. So a
-//! binding that is not in `BindingMetadata::bindings` is left unchecked, exactly
-//! as it is today.
-//!
-//! ## Argument and modifiers are out of scope
-//!
-//! `Directive<El, Value, Modifiers, Arg>` keeps `Value` in the same position, so
-//! `v-focus:arg.mod="x"` checks its value identically. Checking `arg` and
-//! `mod` against their own parameters is separate, larger work.
+//! Calling the hook preserves generic relationships between tuple members and
+//! callback parameters. Extracting `Directive<El, Value>` first erases those
+//! relationships. Only authored value ranges participate in diagnostics.
 
-use super::super::types::{VizeMapping, VizeSubSpan};
+use super::super::types::VizeMapping;
 use vize_carton::{CompactString, FxHashMap, String, append, camelize, capitalize};
 use vize_croquis::TemplateExpression;
 use vize_croquis::croquis::BindingMetadata;
-use vize_relief::{DirectiveNode, ElementNode, PropNode, RootNode, TemplateChildNode};
+use vize_relief::{
+    DirectiveNode, ElementNode, ExpressionNode, PropNode, RootNode, TemplateChildNode,
+};
 
 pub(crate) type DirectiveValueBindings = FxHashMap<(u32, u32), DirectiveValueBinding>;
 
 pub(crate) struct DirectiveValueBinding {
-    /// The setup binding the directive name resolves to, e.g. `vFocus`.
-    variable: CompactString,
+    /// Vue's resolution name of the directive, e.g. `vFocus`.
+    pub(super) variable: CompactString,
+    /// Whether `variable` is a setup binding. Any other directive is one the
+    /// component registers (`directives`) or the application does
+    /// (`GlobalDirectives`).
+    pub(super) in_setup: bool,
+    /// The static argument and its template range: `v-dir:arg`.
+    pub(super) arg: Option<(CompactString, (u32, u32))>,
+    /// Each modifier and its template range: `v-dir.a.b`.
+    pub(super) modifiers: Vec<(CompactString, (u32, u32))>,
+    /// Whether the classic `<script>` default export is in scope as
+    /// `__default__`, the home of a component's own `directives` option.
+    pub(super) has_default_alias: bool,
+    /// A Vapor component calls the directive itself, with a value getter,
+    /// instead of a hook that receives a binding object.
+    vapor: bool,
 }
 
 pub(crate) fn collect_directive_value_bindings(
     root: Option<&RootNode<'_>>,
     bindings: &BindingMetadata,
+    (has_default_alias, vapor): (bool, bool),
     enabled: bool,
 ) -> DirectiveValueBindings {
     let mut collected = DirectiveValueBindings::default();
@@ -59,6 +45,10 @@ pub(crate) fn collect_directive_value_bindings(
     };
     for child in &root.children {
         collect_child_bindings(child, bindings, &mut collected);
+    }
+    for binding in collected.values_mut() {
+        binding.has_default_alias = has_default_alias;
+        binding.vapor = vapor;
     }
     collected
 }
@@ -120,13 +110,35 @@ fn directive_value_binding(
     }
     let expression = directive.exp.as_ref()?;
     let variable = directive_binding_name(directive.name);
-    if !bindings.bindings.contains_key(variable.as_str()) {
-        return None;
-    }
+    let in_setup = bindings.bindings.contains_key(variable.as_str());
+    let arg = match directive.arg.as_ref() {
+        Some(ExpressionNode::Simple(arg)) if arg.is_static => Some((
+            CompactString::new(arg.content),
+            (arg.loc.span.start, arg.loc.span.end),
+        )),
+        _ => None,
+    };
+    let modifiers = directive
+        .modifiers
+        .iter()
+        .map(|modifier| {
+            (
+                CompactString::new(modifier.content),
+                (modifier.loc.span.start, modifier.loc.span.end),
+            )
+        })
+        .collect();
     let location = expression.loc();
     Some((
         (location.span.start, location.span.end),
-        DirectiveValueBinding { variable },
+        DirectiveValueBinding {
+            variable,
+            in_setup,
+            arg,
+            modifiers,
+            has_default_alias: false,
+            vapor: false,
+        },
     ))
 }
 
@@ -148,49 +160,82 @@ pub(super) fn generate_directive_value_statement(
     template_offset: u32,
     indent: &str,
 ) {
-    let value_src_start = (template_offset + expr.start) as usize;
-    let value_src_end = (template_offset + expr.end) as usize;
-    let gen_stmt_start = ts.len();
-
-    append!(*ts, "{indent}const ");
-    let check_name_start = ts.len();
-    append!(*ts, "__vize_directive_check_{}", expr.start);
-    let check_name_end = ts.len();
+    let source = (template_offset + expr.start) as usize..(template_offset + expr.end) as usize;
+    let name = vize_carton::cstr!("__vize_directive_check_{}", expr.start);
+    let variable = binding.variable.as_str();
+    if binding.vapor {
+        super::vapor_directive::generate(
+            ts,
+            mappings,
+            (name.as_str(), generated_expression, source),
+            binding,
+            template_offset,
+            indent,
+        );
+        return;
+    }
+    if binding.in_setup {
+        append!(*ts, "{indent}const {name} = __vizeDirective({variable});\n");
+    } else {
+        let registered = if binding.has_default_alias {
+            "typeof __default__"
+        } else {
+            "unknown"
+        };
+        append!(
+            *ts,
+            "{indent}const {name} = __vizeDirective(__vizeRegisteredDirective<{registered}, \"{variable}\">());\n",
+        );
+    }
     append!(
         *ts,
-        ": __VizeDirectiveValue<typeof {}> = (",
-        binding.variable.as_str()
+        "{indent}{name}(null!, {{ ...__vizeDirectiveBindingRest, "
     );
-    let value_gen_start = ts.len();
-    ts.push_str(generated_expression);
-    let value_gen_end = ts.len();
-    ts.push_str(");\n");
-    let gen_stmt_end = ts.len();
-    append!(
-        *ts,
-        "{indent}void __vize_directive_check_{}; // CustomDirective\n",
-        expr.start
-    );
-
-    // TypeScript anchors `TS2322` on an annotated `const` at the declaration
-    // name, so the identifier's sub-span maps to the authored *value*. The
-    // oracle in #3445 puts the diagnostic at the start of `'nope'`, not at the
-    // directive name — the opposite of the native prop check, where `vue-tsc`
-    // anchors on the prop name.
+    let mut push_mapped = |ts: &mut String, text: &str, (start, end): (u32, u32)| {
+        let gen_start = ts.len();
+        ts.push_str(text);
+        mappings.push(VizeMapping {
+            gen_range: gen_start..ts.len(),
+            src_range: (template_offset + start) as usize..(template_offset + end) as usize,
+            sub_spans: Vec::new(),
+        });
+    };
+    if let Some((arg, range)) = &binding.arg {
+        push_mapped(ts, "arg", *range);
+        ts.push_str(": ");
+        crate::virtual_ts::helpers::push_ts_string_literal(ts, arg.as_str());
+        ts.push_str(", ");
+    }
+    if let (Some(first), Some(last)) = (binding.modifiers.first(), binding.modifiers.last()) {
+        push_mapped(ts, "modifiers", (first.1.0, last.1.1));
+        ts.push_str(": { ");
+        for (modifier, range) in &binding.modifiers {
+            let mut key = String::default();
+            crate::virtual_ts::helpers::push_ts_string_literal(&mut key, modifier.as_str());
+            push_mapped(ts, key.as_str(), *range);
+            ts.push_str(": true, ");
+        }
+        ts.push_str("}, ");
+    }
+    let key_start = ts.len();
+    ts.push_str("value");
     mappings.push(VizeMapping {
-        gen_range: gen_stmt_start..gen_stmt_end,
-        src_range: value_src_start..value_src_end,
-        sub_spans: vec![
-            VizeSubSpan {
-                gen_range: check_name_start..check_name_end,
-                src_range: value_src_start..value_src_end,
-            },
-            VizeSubSpan {
-                gen_range: value_gen_start..value_gen_end,
-                src_range: value_src_start..value_src_end,
-            },
-        ],
+        gen_range: key_start..ts.len(),
+        src_range: source.clone(),
+        sub_spans: Vec::new(),
     });
+    ts.push_str(": (");
+    let value_start = ts.len();
+    ts.push_str(generated_expression);
+    mappings.push(VizeMapping {
+        gen_range: value_start..ts.len(),
+        src_range: source,
+        sub_spans: Vec::new(),
+    });
+    append!(
+        *ts,
+        ") }}, ...__vizeDirectiveTail({name})); // CustomDirective\n"
+    );
 }
 
 #[cfg(test)]

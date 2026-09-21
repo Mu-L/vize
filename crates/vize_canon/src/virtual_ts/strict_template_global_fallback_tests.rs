@@ -16,6 +16,8 @@ fn template_global_helper_uses_fallback_for_unknown_public_instance_members() {
         },
         VueVersion::V3,
         false,
+        false,
+        (None, None),
     );
 
     assert!(

@@ -1,6 +1,5 @@
 //! Orchestration of Corsa diagnostic collection for a single SFC document.
 
-use std::path::Path;
 use std::sync::Arc;
 
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range, Url};
@@ -8,22 +7,31 @@ use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Range
 use crate::server::ServerState;
 
 use super::super::{DiagnosticService, sources};
-use super::collect_virtual::{
-    collect_synced_virtual_result_diagnostics, collect_virtual_result_diagnostics,
-    deduplicate_diagnostics,
-};
+use super::collect_variant::{VariantProjectContext, collect_virtual_result_diagnostics};
+use super::collect_virtual::{collect_synced_virtual_result_diagnostics, deduplicate_diagnostics};
 use vize_canon::{CorsaBridgeError, CorsaVueVirtualDocumentOptions};
 use vize_s0::cstr;
+
+#[path = "template_directives.rs"]
+mod template_directives;
+#[path = "template_instance.rs"]
+mod template_instance;
 
 /// One attempt either yields diagnostics (possibly empty for non-Corsa
 /// reasons such as unsupported documents) or fails on a bridge call.
 enum CollectFailure {
+    Unavailable,
     /// The backend session answered but the request failed; not retried.
     Request(CorsaBridgeError),
     /// The backend process/transport is gone or unusable (crashed,
     /// OOM-killed, disconnected, or timed out). The carried bridge must be
     /// retired so a fresh session can be spawned (#3240, #3975).
     DeadBridge(Arc<vize_canon::CorsaBridge>, CorsaBridgeError),
+}
+
+pub(in crate::ide::diagnostics) enum CorsaDiagnostics {
+    Complete(Vec<Diagnostic>),
+    Unavailable(Vec<Diagnostic>),
 }
 
 fn classify(bridge: &Arc<vize_canon::CorsaBridge>, error: CorsaBridgeError) -> CollectFailure {
@@ -47,10 +55,11 @@ impl DiagnosticService {
     pub(in crate::ide::diagnostics) async fn collect_corsa_diagnostics(
         state: &ServerState,
         uri: &Url,
-    ) -> Vec<Diagnostic> {
+    ) -> CorsaDiagnostics {
         for attempt in 0..2 {
             match Self::try_collect_corsa_diagnostics(state, uri).await {
-                Ok(diagnostics) => return diagnostics,
+                Ok(diagnostics) => return CorsaDiagnostics::Complete(diagnostics),
+                Err(CollectFailure::Unavailable) => return CorsaDiagnostics::Unavailable(vec![]),
                 Err(CollectFailure::DeadBridge(bridge, error)) if attempt == 0 => {
                     tracing::warn!(
                         "corsa backend unreachable for {uri} ({error}); respawning and retrying"
@@ -59,24 +68,24 @@ impl DiagnosticService {
                 }
                 Err(CollectFailure::DeadBridge(_, error)) => {
                     tracing::warn!("corsa retry failed for {uri}: {error}");
-                    return match error {
+                    return CorsaDiagnostics::Unavailable(match error {
                         CorsaBridgeError::Timeout => vec![typecheck_timed_out_hint()],
                         _ => vec![],
-                    };
+                    });
                 }
                 Err(CollectFailure::Request(error)) => {
                     tracing::warn!("corsa request failed for {uri}: {error}");
                     // A bound that fires has to be visible. Returning an empty
                     // list would make a timed-out pass indistinguishable from a
                     // clean file, which is the silence #3376 is about.
-                    return match error {
+                    return CorsaDiagnostics::Unavailable(match error {
                         CorsaBridgeError::Timeout => vec![typecheck_timed_out_hint()],
                         _ => vec![],
-                    };
+                    });
                 }
             }
         }
-        vec![]
+        CorsaDiagnostics::Unavailable(vec![])
     }
 
     async fn try_collect_corsa_diagnostics(
@@ -96,7 +105,11 @@ impl DiagnosticService {
         // hand the single executor thread to another queued handler, and a live
         // `documents.get` shard guard would deadlock the server against that
         // handler's `didOpen`/`didChange`/`didClose` write (#3315).
-        let Some(content) = state.documents.text(uri) else {
+        let Some((revision, content)) = state
+            .documents
+            .get(uri)
+            .map(|document| (document.revision(), document.text()))
+        else {
             tracing::warn!("document not found: {}", uri);
             return Ok(vec![]);
         };
@@ -105,7 +118,7 @@ impl DiagnosticService {
         tracing::info!("getting corsa bridge...");
         let Some(bridge) = state.get_corsa_bridge().await else {
             tracing::warn!("corsa bridge not available");
-            return Ok(vec![]);
+            return Err(CollectFailure::Unavailable);
         };
         tracing::info!("corsa bridge acquired");
 
@@ -120,6 +133,25 @@ impl DiagnosticService {
             .iter()
             .map(|path| path.to_string_lossy().as_ref().into())
             .collect();
+        // Incrementally refreshed: documents unchanged since the last pass
+        // keep their cached text instead of being copied out of their ropes
+        // again, so a keystroke costs one document rather than every open
+        // one (#3442). The snapshot is owned and lock-free, so holding it
+        // across the bridge `.await` below is safe (#3315).
+        let cached_overlays = state.corsa_overlays();
+        let overlays = cached_overlays
+            .iter()
+            .map(|(path, text)| (path.clone(), &**text))
+            .collect::<Vec<(std::path::PathBuf, &str)>>();
+        let document_options = CorsaVueVirtualDocumentOptions {
+            options_api,
+            legacy_vue2,
+            jsx_typecheck: state.jsx_typecheck_enabled(),
+            experimental_patterned_template: state.patterned_template_enabled(),
+            preserve_event_navigation: true,
+            dialect: state.type_checker_vue_version(),
+        };
+        let mut resolved_dependencies = Vec::new();
         let mut diagnostics = if is_art_file {
             let Some(art_virtual) = Self::generate_virtual_ts_for_art_with_dependencies(
                 uri,
@@ -129,31 +161,24 @@ impl DiagnosticService {
                 tracing::warn!("failed to generate virtual ts for {}", uri);
                 return Ok(vec![]);
             };
-            sync_art_vue_dependencies(
-                &bridge,
-                &art_virtual.vue_dependencies,
-                CorsaVueVirtualDocumentOptions {
-                    options_api,
-                    legacy_vue2,
-                    experimental_patterned_template: state.patterned_template_enabled(),
-                    preserve_event_navigation: false,
-                    dialect: state.type_checker_vue_version(),
-                },
-            )
-            .await;
             let mut art_diagnostics = Vec::new();
             for variant in art_virtual.variants {
-                art_diagnostics.extend(
-                    collect_virtual_result_diagnostics(
-                        &bridge,
-                        uri,
-                        content.as_str(),
-                        super::virtual_ts_art::art_variant_virtual_name(uri, variant.variant_index),
-                        variant.virtual_result,
-                    )
-                    .await
-                    .map_err(|error| classify(&bridge, error))?,
-                );
+                let (diagnostics, dependencies) = collect_virtual_result_diagnostics(
+                    &bridge,
+                    uri,
+                    content.as_str(),
+                    super::virtual_ts_art::art_variant_virtual_name(uri, variant.variant_index),
+                    variant.virtual_result,
+                    VariantProjectContext {
+                        options: document_options,
+                        overlays: &overlays,
+                        virtual_ts_options: &virtual_ts_options,
+                    },
+                )
+                .await
+                .map_err(|error| classify(&bridge, error))?;
+                art_diagnostics.extend(diagnostics);
+                resolved_dependencies.extend(dependencies);
             }
             art_diagnostics
         } else {
@@ -161,38 +186,19 @@ impl DiagnosticService {
                 tracing::warn!("cannot derive source path for {}", uri);
                 return Ok(vec![]);
             };
-            // Incrementally refreshed: documents unchanged since the last pass
-            // keep their cached text instead of being copied out of their ropes
-            // again, so a keystroke costs one document rather than every open
-            // one (#3442). The snapshot is owned and lock-free, so holding it
-            // across the bridge `.await` below is safe (#3315).
-            let cached_overlays = state.corsa_overlays();
-            let overlays = cached_overlays
-                .iter()
-                .map(|(path, text)| (path.clone(), &**text))
-                .collect::<Vec<(std::path::PathBuf, &str)>>();
             let opened = bridge
                 .open_vue_virtual_document_with_borrowed_overlays_and_options(
                     &source_path,
                     &content,
-                    CorsaVueVirtualDocumentOptions {
-                        options_api,
-                        legacy_vue2,
-                        experimental_patterned_template: state.patterned_template_enabled(),
-                        preserve_event_navigation: false,
-                        dialect: state.type_checker_vue_version(),
-                    },
+                    document_options,
                     &overlays,
                     &virtual_ts_options,
                 )
                 .await
                 .map_err(|error| classify(&bridge, error))?;
-            let Some((virtual_uri, virtual_result)) =
-                Self::virtual_ts_result_from_corsa_vue_document(uri, &content, opened)
-            else {
-                tracing::warn!("failed to map virtual ts metadata for {}", uri);
-                return Ok(vec![]);
-            };
+            resolved_dependencies.extend(opened.resolved_dependencies.iter().cloned());
+            let (virtual_uri, virtual_result) =
+                Self::virtual_ts_result_from_corsa_vue_document(opened);
             collect_synced_virtual_result_diagnostics(
                 &bridge,
                 uri,
@@ -212,23 +218,40 @@ impl DiagnosticService {
                 legacy_vue2,
                 &virtual_ts_options,
             ) {
-                diagnostics.extend(
-                    collect_virtual_result_diagnostics(
-                        &bridge,
-                        uri,
-                        content.as_str(),
-                        cstr!("{}.inline_art_{variant_index}.ts", uri.path()).to_string(),
-                        inline_virtual,
+                let (variant_diagnostics, dependencies) = collect_virtual_result_diagnostics(
+                    &bridge,
+                    uri,
+                    content.as_str(),
+                    cstr!(
+                        "{}.inline_art_{variant_index}.ts",
+                        uri.to_file_path()
+                            .map_err(|_| CollectFailure::Request(
+                                CorsaBridgeError::CommunicationError("invalid file URI".into())
+                            ))?
+                            .display()
                     )
-                    .await
-                    .map_err(|error| classify(&bridge, error))?,
-                );
+                    .to_string(),
+                    inline_virtual,
+                    VariantProjectContext {
+                        options: document_options,
+                        overlays: &overlays,
+                        virtual_ts_options: &virtual_ts_options,
+                    },
+                )
+                .await
+                .map_err(|error| classify(&bridge, error))?;
+                diagnostics.extend(variant_diagnostics);
+                resolved_dependencies.extend(dependencies);
             }
         }
+
+        state.record_typecheck_dependencies(uri, revision, &resolved_dependencies);
 
         // One authored problem inside the shared script context is reported by
         // every variant document that includes it, so the per-document dedup
         // has to be repeated across the whole set.
+        template_instance::apply(&content, &mut diagnostics);
+        template_directives::apply(&content, &mut diagnostics);
         Ok(deduplicate_diagnostics(diagnostics))
     }
 }
@@ -252,48 +275,6 @@ fn typecheck_timed_out_hint() -> Diagnostic {
             .to_string(),
         ..Default::default()
     }
-}
-
-async fn sync_art_vue_dependencies(
-    bridge: &std::sync::Arc<vize_canon::CorsaBridge>,
-    dependencies: &[std::path::PathBuf],
-    options: CorsaVueVirtualDocumentOptions,
-) {
-    for dependency in dependencies {
-        let Ok(content) = std::fs::read_to_string(dependency) else {
-            continue;
-        };
-        if bridge
-            .open_vue_virtual_document(dependency, &content, options)
-            .await
-            .is_ok()
-        {
-            continue;
-        }
-
-        let Some(fallback_uri) = vue_virtual_uri(dependency) else {
-            continue;
-        };
-        if let Err(error) = bridge
-            .open_or_update_virtual_document(
-                fallback_uri.as_str(),
-                "const component: any = undefined;\nexport default component;\n",
-            )
-            .await
-        {
-            tracing::debug!(
-                "failed to sync Art Vue dependency fallback {}: {}",
-                fallback_uri,
-                error
-            );
-        }
-    }
-}
-
-fn vue_virtual_uri(source_path: &Path) -> Option<String> {
-    let virtual_path =
-        source_path.with_file_name(cstr!("{}.ts", source_path.file_name()?.to_string_lossy()));
-    Url::from_file_path(virtual_path).ok().map(Into::into)
 }
 
 #[cfg(test)]

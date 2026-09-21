@@ -1,5 +1,10 @@
 //! Type definitions for virtual TypeScript generation.
 
+mod checks;
+#[cfg(feature = "native")]
+pub(crate) use checks::ResolveStyleClassNames;
+pub(crate) use checks::VirtualTsCheckOptions;
+
 use std::ops::Range;
 use vize_carton::{FxHashSet, String, config::VueVersion, cstr};
 
@@ -206,35 +211,6 @@ pub(crate) fn is_safe_ts_lib_reference(lib: &str) -> bool {
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct VirtualTsCheckOptions {
-    pub(crate) check_props: bool,
-    pub(crate) check_template_bindings: bool,
-    pub(crate) check_emits: bool,
-    pub(crate) check_unknown_props: bool,
-}
-
-impl VirtualTsCheckOptions {
-    pub(crate) fn any_enabled(self) -> bool {
-        self.check_props || self.check_template_bindings || self.check_emits
-    }
-
-    pub(crate) fn check_event_handlers(self) -> bool {
-        self.check_emits || self.check_template_bindings
-    }
-}
-
-impl Default for VirtualTsCheckOptions {
-    fn default() -> Self {
-        Self {
-            check_props: true,
-            check_template_bindings: true,
-            check_emits: true,
-            check_unknown_props: true,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct VirtualTsGenerationOptions<'a> {
     pub(crate) check_options: VirtualTsCheckOptions,
@@ -252,6 +228,8 @@ pub(crate) struct VirtualTsGenerationOptions<'a> {
     /// Public-facing component symbol used by Content Mapper hover responses.
     /// `None` preserves the internal default export used by batch projections.
     pub(crate) component_name: Option<&'a str>,
+    /// Authored file stem used for implicit recursive component resolution.
+    pub(crate) self_component_name: Option<&'a str>,
     /// Preserve symbol links from component listeners to authored emit keys.
     pub(crate) preserve_event_navigation: bool,
     /// Legacy Vue 2.7 / Nuxt 2 (implies `options_api` plus Nuxt 2 globals).
@@ -281,6 +259,9 @@ pub(crate) struct VirtualTsGenerationOptions<'a> {
     /// `<script setup>`. Split-script analysis joins the two blocks with one
     /// newline, while the authored closing/opening tags occupy more bytes.
     pub(crate) split_script_setup_offsets: Option<(usize, usize)>,
+    /// End offsets of script blocks with parse errors. Prevent the next block
+    /// or generated helpers from becoming part of an unfinished expression.
+    pub(crate) script_syntax_boundaries: &'a [usize],
     pub(crate) experimental_strict_slot_children: bool,
 }
 
@@ -294,24 +275,30 @@ impl VirtualTsGenerationOptions<'_> {
         (script_offset as usize).saturating_add(offset)
     }
 
-    /// Whether the authored default export survives into the emitted component.
-    ///
-    /// It does only when a plain `<script>` actually declared `__default__` and
-    /// no `<script setup>` sits beside it. A default export paired with
-    /// `<script setup>` carries just the options `<script setup>` cannot express
-    /// (`inheritAttrs`, `name`, helper re-exports, ...), so it is an options
-    /// fragment rather than the component. Intersecting that fragment into
-    /// `__vize_component__` costs the export its usable construct-signature
-    /// inference, and consumers reading the component's emits off it lose every
-    /// listener's contextual type (`TS7006` on
-    /// `popup(MkAutocomplete, props, { done: res => ... })` in Misskey).
-    pub(crate) fn preserves_authored_component(
+    /// A normal-script component contributes its public instance; beside
+    /// setup, an object default contributes options only. Both still retain
+    /// the authored value so a non-object default keeps its exact type.
+    pub(crate) fn authored_default(
         self,
         declared_default_alias: bool,
         has_script_setup: bool,
-    ) -> bool {
-        self.preserve_authored_component && declared_default_alias && !has_script_setup
+    ) -> AuthoredDefaultKind {
+        match (
+            self.preserve_authored_component && declared_default_alias,
+            has_script_setup,
+        ) {
+            (false, _) => AuthoredDefaultKind::None,
+            (true, true) => AuthoredDefaultKind::Options,
+            (true, false) => AuthoredDefaultKind::Component,
+        }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AuthoredDefaultKind {
+    None,
+    Options,
+    Component,
 }
 
 /// Default plugin globals.
@@ -322,21 +309,8 @@ fn default_plugin_globals() -> Vec<TemplateGlobal> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::emit_lib_reference_directives;
-    use vize_carton::String;
-
-    #[test]
-    fn virtual_ts_lib_references_are_pluggable() {
-        let mut output = String::default();
-        emit_lib_reference_directives(&mut output, &["es2021", "webworker", "bad\" />"]);
-
-        assert_eq!(
-            output.as_str(),
-            "/// <reference lib=\"es2021\" />\n/// <reference lib=\"webworker\" />\n"
-        );
-    }
-}
+#[path = "types_tests.rs"]
+mod tests;
 
 /// Output of virtual TypeScript generation.
 #[derive(Debug)]

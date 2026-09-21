@@ -1,54 +1,33 @@
-use vize_carton::{String, is_native_tag};
-use vize_croquis::Croquis;
+use vize_carton::{String, camelize, capitalize, cstr, is_native_tag};
 use vize_relief::{ElementNode, ExpressionNode, IfNode, PropNode, RootNode, TemplateChildNode};
 
 enum FallthroughRootTarget {
-    Native(String),
-    Component,
+    Native(FallthroughRoot),
+    /// A component root, by its authored tag. Whether that tag resolves to a
+    /// setup binding (and so to a typed fallthrough surface) is decided when
+    /// the type is rendered, not while walking the template.
+    Component(FallthroughRoot),
 }
 
-pub(super) fn fallthrough_props_type_ref(
-    summary: &Croquis,
-    template_ast: Option<&RootNode<'_>>,
-    legacy_vue2: bool,
-) -> Option<String> {
-    if legacy_vue2 {
-        return None;
-    }
-    let Some(template_ast) = template_ast else {
-        return Some(String::from("Record<string, unknown>"));
-    };
-    if summary.template_info.inherit_attrs_disabled {
-        return explicit_attrs_targets(template_ast).map(|targets| targets_type_ref(&targets));
-    }
-
-    let targets = explicit_attrs_targets(template_ast)
-        .or_else(|| possible_single_root_targets(template_ast))?;
-    Some(targets_type_ref(&targets))
+/// The element the fallthrough attributes land on.
+struct FallthroughRoot {
+    tag: String,
+    /// Template-relative start of the element, the identity Croquis gives
+    /// its component usage.
+    start: u32,
+    /// Prop names the element binds itself (camelized, listeners as `onX`).
+    /// Under `checkRequiredFallthroughAttributes` these are the root's
+    /// required props the parent is not asked to provide.
+    authored_keys: Vec<String>,
 }
 
-fn targets_type_ref(targets: &[FallthroughRootTarget]) -> String {
-    if targets
-        .iter()
-        .any(|target| matches!(target, FallthroughRootTarget::Component))
-    {
-        return String::from("Record<string, unknown>");
-    }
-
-    let mut ty = String::default();
-    for (index, target) in targets.iter().enumerate() {
-        let FallthroughRootTarget::Native(tag) = target else {
-            unreachable!("component roots returned open fallthrough props above");
-        };
-        if index > 0 {
-            ty.push_str(" & ");
-        }
-        ty.push_str("Partial<__VizeNativeElement<");
-        push_ts_string_literal(&mut ty, tag.as_str());
-        ty.push_str(">>");
-    }
-    ty
-}
+mod forwarded;
+mod types;
+pub(super) use forwarded::ForwardedRoots;
+pub(crate) use types::fallthrough_component_root_starts;
+pub(super) use types::{
+    FallthroughComponentScope, fallthrough_attrs_type_ref, fallthrough_props_type_ref,
+};
 
 fn explicit_attrs_targets(root: &RootNode<'_>) -> Option<Vec<FallthroughRootTarget>> {
     let mut targets = Vec::new();
@@ -100,11 +79,45 @@ fn collect_explicit_attrs_targets_from_child(
 }
 
 fn element_fallthrough_target(element: &ElementNode<'_>) -> FallthroughRootTarget {
+    let root = FallthroughRoot {
+        tag: String::from(element.tag),
+        start: element.loc.span.start,
+        authored_keys: authored_prop_keys(element),
+    };
     if is_native_tag(element.tag) {
-        FallthroughRootTarget::Native(String::from(element.tag))
+        FallthroughRootTarget::Native(root)
     } else {
-        FallthroughRootTarget::Component
+        FallthroughRootTarget::Component(root)
     }
+}
+
+/// The statically named props and listeners an element binds, as the keys
+/// the rendered component's props type uses for them.
+fn authored_prop_keys(element: &ElementNode<'_>) -> Vec<String> {
+    let mut keys = Vec::new();
+    for prop in element.props.iter() {
+        let key = match prop {
+            PropNode::Attribute(attribute) => String::from(camelize(attribute.name).as_str()),
+            PropNode::Directive(directive) => {
+                let static_arg = directive.arg.as_ref().and_then(|arg| match arg {
+                    ExpressionNode::Simple(simple) if simple.is_static => Some(simple.content),
+                    _ => None,
+                });
+                match (directive.name, static_arg) {
+                    ("bind", Some(arg)) => String::from(camelize(arg).as_str()),
+                    ("on", Some(arg)) => {
+                        String::from(cstr!("on{}", capitalize(&camelize(arg))).as_str())
+                    }
+                    ("model", arg) => String::from(camelize(arg.unwrap_or("modelValue")).as_str()),
+                    _ => continue,
+                }
+            }
+        };
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    keys
 }
 
 fn element_binds_attrs_explicitly(element: &ElementNode<'_>, source: &str) -> bool {
@@ -216,10 +229,10 @@ fn possible_raw_if_chain_tags(children: &[&TemplateChildNode<'_>]) -> Option<Vec
 fn native_target_tags(targets: Vec<FallthroughRootTarget>) -> Option<Vec<String>> {
     let mut tags = Vec::new();
     for target in targets {
-        let FallthroughRootTarget::Native(tag) = target else {
+        let FallthroughRootTarget::Native(root) = target else {
             return None;
         };
-        tags.push(tag);
+        tags.push(root.tag);
     }
     Some(tags)
 }

@@ -3,6 +3,21 @@ use oxc_parser::Parser as OxcParser;
 use oxc_span::SourceType;
 use vize_carton::{String, ToCompactString, profile};
 
+pub(crate) fn is_typescript_lang(lang: &str) -> bool {
+    matches!(lang, "ts" | "tsx" | "mts" | "cts")
+}
+
+/// Whether every authored script has native TypeScript syntax diagnostics,
+/// independently of the JavaScript `checkJs` mapping gate.
+pub fn supports_native_script_syntax(descriptor: &vize_atelier_sfc::SfcDescriptor<'_>) -> bool {
+    let blocks = [descriptor.script.as_ref(), descriptor.script_setup.as_ref()];
+    blocks.iter().any(Option::is_some)
+        && blocks
+            .into_iter()
+            .flatten()
+            .all(|block| block.lang.as_deref().is_some_and(is_typescript_lang))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ScriptParseDiagnostic {
     pub message: String,
@@ -52,8 +67,8 @@ pub(crate) fn collect_script_parse_diagnostics(
 /// `<script lang="tsx">` / `<script lang="jsx">` must parse with JSX enabled so
 /// embedded JSX (a Vue JSX/TSX render function in a `.vue` script block) is
 /// accepted rather than reported as a spurious parse error — which would
-/// otherwise collapse the whole SFC to the typed fallback stub and silently drop
-/// type-checking of the script body (#1498). Every other `lang` (the absent /
+/// otherwise report false syntax errors on the script body (#1498).
+/// Every other `lang` (the absent /
 /// empty / `ts` / `js` / unknown case) keeps the prior plain-TypeScript dialect
 /// unchanged, so an accidental `<` in a non-JSX script still surfaces as an
 /// error and existing SFCs parse byte-identically.

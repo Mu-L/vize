@@ -10,6 +10,7 @@ mod declaration_path;
 mod error;
 mod executor;
 mod import_rewriter;
+pub(crate) use import_rewriter::declaration_module_path;
 pub(crate) mod import_rewriter_alias;
 #[cfg(test)]
 mod import_rewriter_authored_vue_ts_tests;
@@ -46,10 +47,11 @@ pub use virtual_project::{
     CONTENT_MAPPER_SFC_PARSE_ERROR_CODE, CONTENT_MAPPER_VIRTUAL_EXTENSION, ContentMapperDiagnostic,
     ContentMapperDiagnosticDirective, ContentMapperDiagnosticDirectives, ContentMapperSemanticLink,
     ContentMapperSpan, ContentMapperTransform, ContentMapperTransformOptions,
-    ContentMapperUnusedExpectDiagnostic, OriginalPosition, PACKAGE_REACHABILITY_BUDGET_REVISION,
-    PackageRouteReachability, ReachabilityOutcome, ReachabilityWork, TsconfigOwnershipCache,
-    TsconfigOwnershipOptions, TsconfigSourceKind, VirtualFile, VirtualProject,
-    VueDocumentVirtualTs, VueDocumentVirtualTsOptions, external_mirror_original_path,
+    ContentMapperUnusedExpectDiagnostic, JsxDocumentVirtualTs, OriginalPosition,
+    PACKAGE_REACHABILITY_BUDGET_REVISION, PackageRouteReachability, ReachabilityOutcome,
+    ReachabilityWork, TsconfigOwnershipCache, TsconfigOwnershipOptions, TsconfigSourceKind,
+    VirtualFile, VirtualProject, VueDocumentVirtualTs, VueDocumentVirtualTsOptions,
+    external_mirror_original_path, generate_jsx_document_virtual_ts,
     generate_vue_content_mapper_transform, generate_vue_content_mapper_transform_with_options,
     generate_vue_document_virtual_ts, generate_vue_document_virtual_ts_with_options,
     is_vue_runtime_support_specifier, project_virtual_lock_paths, project_virtual_root,

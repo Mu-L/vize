@@ -14,6 +14,7 @@ pub(super) fn build(
     source_path: &Path,
     content: &str,
     overlays: &FxHashMap<PathBuf, &str>,
+    requested_sources: &[(PathBuf, &str)],
     resolver: &mut crate::PackageRouteResolver,
     options: crate::corsa_bridge::vue_document::CorsaVueVirtualDocumentOptions,
     environment: crate::corsa_bridge::vue_document::CorsaProjectEnvironment<'_>,
@@ -48,6 +49,7 @@ pub(super) fn build(
     project.set_virtual_ts_options(environment.virtual_ts_options.clone());
     project.set_options_api(options.options_api);
     project.set_legacy_vue2(options.legacy_vue2);
+    project.set_jsx_typecheck(options.jsx_typecheck);
     project.set_experimental_patterned_template(options.experimental_patterned_template);
     project.set_dialect(options.dialect);
     if let Some(tsconfig) = configured_tsconfig {
@@ -55,7 +57,7 @@ pub(super) fn build(
     } else {
         project.use_effective_tsconfig_for_source(source_path);
     }
-    let namespace_identity = super::cache::editor_namespace_identity(
+    let namespace_identity = super::namespace::editor_namespace_identity(
         options,
         environment.virtual_ts_options,
         Some(&root),
@@ -63,6 +65,16 @@ pub(super) fn build(
     );
     project.scope_editor_namespace(environment.editor_session.root()?, namespace_identity);
     project.set_session_script_registration(true);
+    project.set_editor_document_options(
+        crate::batch::virtual_project::VueDocumentVirtualTsOptions {
+            options_api: options.options_api,
+            legacy_vue2: options.legacy_vue2,
+            experimental_patterned_template: options.experimental_patterned_template,
+            preserve_event_navigation: options.preserve_event_navigation,
+            dialect: options.dialect,
+            preserve_missing_vue_diagnostics: true,
+        },
+    );
     // The native editor queries this one importer. Reachable declarations must
     // be mirrored so user `paths` and relative declaration barrels resolve from
     // the session-private root, but they must stay inferred modules rather than
@@ -79,6 +91,33 @@ pub(super) fn build(
     project
         .register_path_with_content(source_path, content)
         .map_err(bridge_error)?;
+    // An overlay edit invalidates generated contexts, not live membership.
+    // Rebuild previously registered open sources in the same project revision
+    // before stale contexts are pruned. Otherwise querying a dependency would
+    // delete its still-open importer and recreate it on the next query.
+    let live_sources = environment
+        .editor_session
+        .cache()
+        .project_source_paths(project.virtual_root());
+    for path in live_sources {
+        if path != source_path
+            && let Some(source) = overlays.get(&path)
+        {
+            project
+                .register_path_with_content(&path, source)
+                .map_err(bridge_error)?;
+        }
+    }
+    for (path, source) in requested_sources {
+        let path = vize_carton::path::canonicalize_non_verbatim(path);
+        if path == source_path {
+            continue;
+        }
+        let source = overlays.get(&path).copied().unwrap_or(source);
+        project
+            .register_path_with_content(&path, source)
+            .map_err(bridge_error)?;
+    }
     let virtual_file = project.find_by_original(source_path).ok_or_else(|| {
         CorsaBridgeError::CommunicationError(vize_carton::cstr!(
             "Canon did not retain registered host {}",
@@ -175,7 +214,10 @@ pub(super) fn build(
     project.finalize_package_routes().map_err(bridge_error)?;
     route_inputs.sort();
     route_inputs.dedup();
-    let mirror = (!aliases.is_empty() || !package_routes.is_empty()).then_some(project);
+    // A host must retain one session-private identity as dependencies appear
+    // and disappear. Switching back to the authored path would leave live
+    // native overlays in the previous project after a rename or deletion.
+    let mirror = Some(project);
 
     Ok(AliasContext {
         project_root: root,

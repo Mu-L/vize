@@ -23,18 +23,21 @@ mod slot_outlet_spread;
 mod template_ref_unwrap;
 mod unused_refs;
 mod vif_chain;
+fn template_context(options: &VirtualTsOptions, dialect: VueVersion) -> vize_carton::String {
+    generate_template_context(options, dialect, false, false, (None, None))
+}
 fn assert_virtual_ts_snapshot(name: &str, value: &str) {
     insta::with_settings!({ snapshot_path => "../../snapshots" }, {
         insta::assert_snapshot!(name, value);
     });
 }
 #[test]
-fn test_vue_setup_helpers_are_actual_functions() {
+fn test_vue_setup_helpers_use_runtime_macro_types() {
     assert_virtual_ts_snapshot("virtual_ts_vue_setup_helpers", VUE_SETUP_HELPERS);
 }
 #[test]
 fn test_vue_template_context() {
-    let ctx = generate_template_context(&VirtualTsOptions::default(), VueVersion::V3, false);
+    let ctx = template_context(&VirtualTsOptions::default(), VueVersion::V3);
     assert_virtual_ts_snapshot("virtual_ts_vue_template_context", ctx.as_str());
 }
 
@@ -42,7 +45,7 @@ fn test_vue_template_context() {
 fn test_vue_template_context_v3_default_is_unchanged() {
     // The default Vue 3 dialect must emit the exact same context as the
     // dialect-unaware default — no Vue 2-only members leak into Vue 3.
-    let v3 = generate_template_context(&VirtualTsOptions::default(), VueVersion::V3, false);
+    let v3 = template_context(&VirtualTsOptions::default(), VueVersion::V3);
     assert!(!v3.contains("$listeners"));
     assert!(!v3.contains("$children"));
     assert!(!v3.contains("$scopedSlots"));
@@ -55,7 +58,7 @@ fn test_vue_template_context_v2_dialect_adds_vue2_members() {
     // A Vue 2 dialect augments the template context with Vue 2-only public
     // instance members so legacy templates ($listeners, $children, the
     // $on/$off/$once emitter, $set/$delete, $createElement, ...) type-check.
-    let v2 = generate_template_context(&VirtualTsOptions::default(), VueVersion::V2, false);
+    let v2 = template_context(&VirtualTsOptions::default(), VueVersion::V2);
     assert!(!v2.contains("import('vue').ComponentPublicInstance"));
     for member in [
         "$listeners",
@@ -79,11 +82,11 @@ fn test_vue_template_context_v2_dialect_adds_vue2_members() {
         );
     }
     // Vue 2.7 shares the same template-instance shape.
-    let v2_7 = generate_template_context(&VirtualTsOptions::default(), VueVersion::V2_7, false);
+    let v2_7 = template_context(&VirtualTsOptions::default(), VueVersion::V2_7);
     assert!(v2_7.contains("const $listeners = undefined as any;"));
 
     // Vue 3 must NOT contain any of these (byte-identical to before).
-    let v3 = generate_template_context(&VirtualTsOptions::default(), VueVersion::V3, false);
+    let v3 = template_context(&VirtualTsOptions::default(), VueVersion::V3);
     assert!(!v3.contains("$listeners"));
     assert!(!v3.contains("$createElement"));
 }
@@ -106,7 +109,7 @@ fn test_vue_template_context_with_globals() {
         ],
         ..Default::default()
     };
-    let ctx = generate_template_context(&options, VueVersion::V3, false);
+    let ctx = template_context(&options, VueVersion::V3);
     assert_virtual_ts_snapshot("virtual_ts_vue_template_context_with_globals", ctx.as_str());
 }
 
@@ -796,7 +799,7 @@ fn test_define_expose_is_part_of_component_instance() {
         output.code
     );
     assert!(
-        output.code.contains("type __VizeComponentInstance = {\n  $props: Props;\n  readonly __vizeRawProps?: Props;\n  $emit: __VizePublicEmit<Emits>;\n  $slots: __VizePublicSlots<Slots>;\n} & __VizeComponentPublicBase & __VizeShallowUnwrapRef<Exposed>;"),
+        output.code.contains("type __VizeComponentInstance = {\n  $props: Props;\n  readonly __vizeRawProps?: Props;\n  $emit: __VizePublicEmit<Emits>;\n  $slots: __VizePublicSlots<__VizeSlots>;\n} & __VizeComponentPublicBase & __VizeShallowUnwrapRef<Exposed>;"),
         "component instance should include exposed bindings:\n{}",
         output.code
     );
@@ -1326,7 +1329,7 @@ fn test_inline_arrow_event_handler_is_called_with_event() {
     assert!(
         output
             .code
-            .contains("((payload) => console.log(payload))($event);"),
+            .contains("((payload) => console.log(payload))(__vize_handler_event);"),
         "inline arrow handler should be invoked with the event:\n{}",
         output.code
     );
@@ -1340,16 +1343,12 @@ fn test_inline_arrow_event_handler_is_called_with_event() {
 }
 
 #[test]
-fn test_inline_arrow_event_handler_body_can_reference_dollar_event() {
+fn test_inline_arrow_event_handler_preserves_a_free_dollar_event_reference() {
     use vize_croquis::{Analyzer, AnalyzerOptions};
 
-    // Repro for #2224: when a user writes an inline arrow handler whose body
-    // references `$event` (e.g. mixing the explicit callback parameter with the
-    // implicit Vue event alias), the generated TS must declare `$event` in the
-    // scope that wraps the inline-callback invocation. Without this inner wrap,
-    // the user's reference to `$event` inside the arrow body can be reported as
-    // `TS2552: Cannot find name '$event'` in nested-scope refactors of the
-    // virtual TS, so pin the binding immediately around the user's callback.
+    // A root callback owns its declared parameters. A free `$event` belongs
+    // to the authored lexical scope, so native TypeScript must diagnose it
+    // when the author did not declare it (the implicit alias is inline-only).
     let script = r#"function handleInput(_a: Event, _b: Event) { void _a; void _b; }
 "#;
     let template = r#"<input @input="(e) => handleInput($event, e)" />"#;
@@ -1366,10 +1365,9 @@ fn test_inline_arrow_event_handler_body_can_reference_dollar_event() {
 
     assert!(
         output.code.contains(
-            "(($event: InputEvent) => { ((e) => handleInput($event, e))($event); })($event);"
+            "((__vize_handler_event: InputEvent) => { ((e) => handleInput($event, e))(__vize_handler_event); })(__vize_event);"
         ),
-        "inline arrow handler invocation must be wrapped in a closure that \
-         re-declares `$event` (#2224):\n{}",
+        "the native callback parameter must not shadow the authored free `$event`:\n{}",
         output.code
     );
 }
@@ -1947,11 +1945,11 @@ function handleTest(value1: string, value2: number) {
 
     let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
 
-    // The listener type expands to the full emit argument tuple (and falls back
-    // to variadic arguments when the emit stays unresolved).
+    // The listener type expands to the full emit argument tuple (variadic when
+    // unresolved) and returns what the child's declared listener prop returns.
     assert!(
         output.code.contains(
-            "type __Test_8_test_listener = unknown[] extends __Test_8_test_args ? ((...args: any[]) => any) : ((...args: __Test_8_test_args) => any);"
+            "type __Test_8_test_listener = unknown[] extends __Test_8_test_args ? ((...args: any[]) => any) : ((...args: __Test_8_test_args) => __Test_8_test_return);"
         ),
         "component event listener must expand to the full emit argument tuple:\n{}",
         output.code
@@ -2037,8 +2035,8 @@ fn test_native_event_handler_keeps_single_event_parameter() {
     let output = generate_virtual_ts(&summary, Some(script), Some(&root), 0);
 
     assert!(
-        output.code.contains("(($event: PointerEvent) => {"),
-        "native event handler must keep the single $event parameter:\n{}",
+        output.code.contains("((__vize_event: PointerEvent) => {"),
+        "native method reference must receive one privately named event parameter:\n{}",
         output.code
     );
     assert!(

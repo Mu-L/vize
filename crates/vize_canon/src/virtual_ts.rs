@@ -27,6 +27,7 @@ mod interface_extends_tests;
 mod legacy_vue2_vuetify_tests;
 mod macro_type_mappings;
 pub mod mapping;
+mod model_types;
 mod pattern_diagnostics;
 mod props;
 #[cfg(test)]
@@ -41,6 +42,7 @@ mod strict_template_global_fallback_tests;
 mod strict_template_globals_tests;
 #[cfg(test)]
 mod strict_template_scope_tests;
+mod template_binding_access;
 #[cfg(test)]
 mod tests;
 mod type_dependencies;
@@ -53,12 +55,12 @@ pub use generator::{
     generate_virtual_ts, generate_virtual_ts_with_offsets,
     generate_virtual_ts_with_offsets_legacy_vue2, generate_virtual_ts_with_offsets_options_api,
 };
-#[cfg(feature = "native")]
-pub(crate) use helpers::to_safe_identifier;
 pub use helpers::{
     DECLARATION_HELPERS_DTS, SHARED_PREAMBLE_DTS, SHARED_PREAMBLE_FILE_NAME, VUE_SETUP_HELPERS,
     VUE_TYPE_HELPERS,
 };
+#[cfg(feature = "native")]
+pub(crate) use helpers::{push_ts_string_literal, to_safe_identifier};
 pub use pattern_diagnostics::is_unreachable_pattern_diagnostic;
 pub use semantic_links::{VizeSemanticLink, VizeSemanticLinkKind};
 #[cfg(feature = "native")]
@@ -105,8 +107,11 @@ type __VizeJsxSfcComponentProps<I> = I extends { $props: infer P } ? I extends {
 type __VizeJsxComponentProps<C> = C extends abstract new (...args: any[]) => infer I ? __VizeJsxNormalizeProps<__VizeJsxSfcComponentProps<I>> : C extends (props: infer P, ...args: any[]) => any ? __VizeJsxNormalizeProps<__VizeJsxCanonicalRawProps<P> & __VizeJsxFallthroughAttrs<P>> : any;\n\
 type __VizeJsxSlotPayload<C, N extends string> = C extends abstract new (...args: any[]) => infer I ? I extends { $slots: infer S } ? N extends keyof S ? NonNullable<S[N]> extends (props: infer P, ...args: any[]) => any ? P : any : any : any : any;\n\
 declare function __vize_jsx_component_spread__<O>(value: O): __VizeJsxCanonicalRawProps<Omit<O, 'key' | 'ref'>>;\n\
-declare function __vize_jsx_component__<C>(component: C, props: __VizeJsxComponentProps<C>): any;\n\
+type __VizeJsxComponentCall<C> = C extends abstract new (...args: any[]) => any ? (props: __VizeJsxComponentProps<C>) => any : C extends (...args: any[]) => any ? C : (props: __VizeJsxComponentProps<C>) => any;\n\
+declare function __vize_jsx_component__<C>(component: C): __VizeJsxComponentCall<C>;\n\
 declare function __vize_jsx_component_slot__<C, N extends string>(component: C, name: N, render: (payload: __VizeJsxSlotPayload<C, N>) => unknown): any;\n";
+#[cfg(feature = "native")]
+pub(crate) use types::ResolveStyleClassNames;
 #[cfg(any(test, feature = "native"))]
 pub(crate) use types::VirtualTsCheckOptions;
 pub(crate) use types::VirtualTsGenerationOptions;

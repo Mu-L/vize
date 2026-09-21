@@ -7,16 +7,14 @@ use std::ops::Range;
 
 mod dom_events;
 mod preamble;
+pub(crate) mod setup_macros;
 mod vue2_members;
 
 pub(crate) use dom_events::{get_dom_event_type, is_known_dom_event_name};
 pub use preamble::{
-    DECLARATION_HELPERS_DTS, SHARED_PREAMBLE_DTS, SHARED_PREAMBLE_FILE_NAME, VUE_SETUP_HELPERS,
-    VUE_TYPE_HELPERS,
+    DECLARATION_HELPERS_DTS, SHARED_PREAMBLE_DTS, SHARED_PREAMBLE_FILE_NAME, VUE_TYPE_HELPERS,
 };
-pub(crate) use preamble::{
-    EMIT_OVERLOAD_HELPERS, EMIT_PROPS_HELPER, SETUP_SCOPE_HELPER_NAMES, VUE_SETUP_HELPERS_HOISTED,
-};
+pub(crate) use preamble::{EMIT_OVERLOAD_HELPERS, EMIT_PROPS_HELPER, SETUP_SCOPE_HELPER_NAMES};
 use vue2_members::VUE2_INSTANCE_MEMBERS;
 pub(crate) use vue2_members::is_vue2_instance_member;
 
@@ -28,10 +26,15 @@ use vize_carton::{String, append};
 ///
 /// Uses Vue's `ComponentPublicInstance` for Vue 3. In legacy Vue 2 mode, emits
 /// a structural fallback because Vue 2.6 does not export that Vue 3 helper type.
+///
+/// `refs_type` is the type of the component's own `$refs`, when the template's
+/// ref registry types it (`inferTemplateDollarRefs`).
 pub(crate) fn generate_template_context(
     options: &VirtualTsOptions,
     dialect: VueVersion,
     legacy_vue2: bool,
+    has_own_slots: bool,
+    (attrs_type, refs_type): (Option<&str>, Option<&str>),
 ) -> String {
     let mut ctx = String::default();
 
@@ -56,9 +59,25 @@ pub(crate) fn generate_template_context(
     }
 
     // Core Vue globals (always present on ComponentPublicInstance)
-    ctx.push_str("    const $attrs = __ctx.$attrs;\n");
-    ctx.push_str("    const $slots = __ctx.$slots;\n");
-    ctx.push_str("    const $refs = __ctx.$refs;\n");
+    if let Some(attrs_type) = attrs_type {
+        append!(
+            ctx,
+            "    const $attrs = undefined as unknown as {attrs_type};\n"
+        );
+    } else {
+        ctx.push_str("    const $attrs = __ctx.$attrs;\n");
+    }
+    if !has_own_slots {
+        ctx.push_str("    const $slots = __ctx.$slots;\n");
+    }
+    if let Some(refs_type) = refs_type {
+        append!(
+            ctx,
+            "    const $refs = undefined as unknown as {refs_type};\n"
+        );
+    } else {
+        ctx.push_str("    const $refs = __ctx.$refs;\n");
+    }
     ctx.push_str("    const $emit = __ctx.$emit;\n");
 
     // Vue 2-only instance members (absent from Vue 3's ComponentPublicInstance).
@@ -302,3 +321,5 @@ pub(crate) fn is_reserved_identifier(s: &str) -> bool {
             | "of"
     )
 }
+
+pub use setup_macros::VUE_SETUP_HELPERS;

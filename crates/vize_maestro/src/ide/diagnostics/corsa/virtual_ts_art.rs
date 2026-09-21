@@ -5,17 +5,13 @@
 //! variant happened to be default and leave every other variant's expressions
 //! outside the checker entirely (#4015).
 
-use std::path::PathBuf;
-
 use tower_lsp::lsp_types::Url;
 use vize_canon::virtual_ts::{VirtualTsOptions, generate_virtual_ts_with_offsets};
 use vize_croquis::{Drawer, DrawerOptions};
 use vize_s0::cstr;
 
 use super::super::{DiagnosticService, VirtualTsResult};
-use super::virtual_ts::rewrite_vue_imports;
 use super::virtual_ts_art_bindings::add_art_target_component_bindings;
-use super::virtual_ts_art_imports::collect_art_vue_dependency_paths;
 
 /// One art variant projected into its own typed virtual TypeScript document.
 pub(in crate::ide::diagnostics) struct ArtVariantVirtualTs {
@@ -26,7 +22,6 @@ pub(in crate::ide::diagnostics) struct ArtVariantVirtualTs {
 
 pub(in crate::ide::diagnostics) struct ArtVirtualTsResult {
     pub(in crate::ide::diagnostics) variants: Vec<ArtVariantVirtualTs>,
-    pub(in crate::ide::diagnostics) vue_dependencies: Vec<PathBuf>,
 }
 
 /// Virtual document identity for one art variant.
@@ -39,10 +34,14 @@ pub(in crate::ide::diagnostics) fn art_variant_virtual_name(
     uri: &Url,
     variant_index: usize,
 ) -> String {
+    let path = uri
+        .to_file_path()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| uri.path().to_owned());
     if variant_index == 0 {
-        cstr!("{}.ts", uri.path()).to_string()
+        cstr!("{path}.ts").to_string()
     } else {
-        cstr!("{}.art_variant_{variant_index}.ts", uri.path()).to_string()
+        cstr!("{path}.art_variant_{variant_index}.ts").to_string()
     }
 }
 
@@ -50,7 +49,6 @@ pub(in crate::ide::diagnostics) fn art_variant_virtual_name(
 struct ArtScriptContext {
     script: String,
     script_offset: u32,
-    sfc_script_start_line: u32,
 }
 
 impl DiagnosticService {
@@ -91,7 +89,6 @@ impl DiagnosticService {
         let script = art_script_context(&descriptor);
 
         let mut variants = Vec::new();
-        let mut vue_dependencies: Vec<PathBuf> = Vec::new();
         for (variant_index, variant) in art_desc.variants.iter().enumerate() {
             let Some(template_offset) = borrowed_offset(content, variant.template) else {
                 continue;
@@ -101,18 +98,12 @@ impl DiagnosticService {
             }
 
             let generated = Self::generate_art_variant_virtual_ts(
-                uri,
                 &script,
                 variant.template,
                 template_offset,
                 target_component.as_ref(),
                 base_options,
             );
-            for dependency in generated.vue_dependencies {
-                if !vue_dependencies.contains(&dependency) {
-                    vue_dependencies.push(dependency);
-                }
-            }
             variants.push(ArtVariantVirtualTs {
                 variant_index,
                 virtual_result: generated.virtual_result,
@@ -123,14 +114,10 @@ impl DiagnosticService {
             return None;
         }
 
-        Some(ArtVirtualTsResult {
-            variants,
-            vue_dependencies,
-        })
+        Some(ArtVirtualTsResult { variants })
     }
 
     fn generate_art_variant_virtual_ts(
-        uri: &Url,
         script: &ArtScriptContext,
         template_content: &str,
         template_offset: u32,
@@ -161,35 +148,13 @@ impl DiagnosticService {
         );
         let code = output.code;
         let semantic_links = output.semantic_links;
-        let line_mappings = Self::parse_vize_map_comments(&code);
-        let vue_dependencies = collect_art_vue_dependency_paths(uri, &code);
-        let (rewritten_code, import_source_map) = rewrite_vue_imports(&code);
 
         ArtVariantGeneration {
-            vue_dependencies,
             virtual_result: VirtualTsResult {
-                code: rewritten_code,
+                code: code.to_string(),
                 source_mappings: output.mappings,
-                semantic_links: super::semantic_links_after_import_rewrite(
-                    semantic_links,
-                    &import_source_map,
-                ),
-                import_source_map,
-                user_code_start_line: code
-                    .lines()
-                    .enumerate()
-                    .find(|(_, line)| line.contains("// User setup code"))
-                    .map(|(i, _)| i as u32 + 1)
-                    .unwrap_or(0),
-                sfc_script_start_line: script.sfc_script_start_line,
-                template_scope_start_line: code
-                    .lines()
-                    .enumerate()
-                    .find(|(_, line)| line.contains("Template Scope"))
-                    .map(|(i, _)| i as u32)
-                    .unwrap_or(u32::MAX),
-                line_mappings,
-                skipped_import_lines: Self::count_import_lines(script_content),
+                semantic_links,
+                import_source_map: Default::default(),
             },
         }
     }
@@ -197,54 +162,49 @@ impl DiagnosticService {
 
 struct ArtVariantGeneration {
     virtual_result: VirtualTsResult,
-    vue_dependencies: Vec<PathBuf>,
 }
 
 /// Project the authored `<script setup>` (or classic `<script>`) into the
 /// module-level context every variant document is generated against.
 fn art_script_context(descriptor: &vize_atelier_sfc::SfcDescriptor<'_>) -> ArtScriptContext {
-    let (script, script_offset, sfc_script_start_line) =
-        if let Some(script_setup) = descriptor.script_setup.as_ref() {
-            let isolate = !script_setup
-                .attrs
-                .get("isolate")
-                .is_some_and(|value| value.as_ref().eq_ignore_ascii_case("false"));
-            let parts = crate::virtual_code::analyze_art_script_setup(
-                script_setup.content.as_ref(),
-                script_setup.loc.start,
-                isolate,
-            );
-            let kept = parts
-                .shared_imports
-                .iter()
-                .chain(parts.isolated_body.iter())
-                .map(|chunk| {
-                    (
-                        chunk.source_start - script_setup.loc.start,
-                        chunk.source_end - script_setup.loc.start,
-                    )
-                })
-                .collect::<Vec<_>>();
+    let (script, script_offset) = if let Some(script_setup) = descriptor.script_setup.as_ref() {
+        let isolate = !script_setup
+            .attrs
+            .get("isolate")
+            .is_some_and(|value| value.as_ref().eq_ignore_ascii_case("false"));
+        let parts = crate::virtual_code::analyze_art_script_setup(
+            script_setup.content.as_ref(),
+            script_setup.loc.start,
+            isolate,
+        );
+        let kept = parts
+            .shared_imports
+            .iter()
+            .chain(parts.isolated_body.iter())
+            .map(|chunk| {
+                (
+                    chunk.source_start - script_setup.loc.start,
+                    chunk.source_end - script_setup.loc.start,
+                )
+            })
+            .collect::<Vec<_>>();
 
-            (
-                blank_dropped_statements(script_setup.content.as_ref(), &kept),
-                script_setup.loc.start as u32,
-                script_setup.loc.start_line as u32,
-            )
-        } else if let Some(classic) = descriptor.script.as_ref() {
-            (
-                classic.content.as_ref().to_owned(),
-                classic.loc.start as u32,
-                classic.loc.start_line as u32,
-            )
-        } else {
-            (String::new(), 0, 1)
-        };
+        (
+            blank_dropped_statements(script_setup.content.as_ref(), &kept),
+            script_setup.loc.start as u32,
+        )
+    } else if let Some(classic) = descriptor.script.as_ref() {
+        (
+            classic.content.as_ref().to_owned(),
+            classic.loc.start as u32,
+        )
+    } else {
+        (String::new(), 0)
+    };
 
     ArtScriptContext {
         script,
         script_offset,
-        sfc_script_start_line,
     }
 }
 

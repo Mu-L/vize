@@ -2,8 +2,8 @@
 
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{
-    IdentifierReference, ImportDeclarationSpecifier, ImportOrExportKind, Statement, TSTypeName,
-    TSTypeQueryExprName, TSTypeReference,
+    IdentifierReference, ImportDeclarationSpecifier, ImportOrExportKind, Program, Statement,
+    TSEnumDeclaration, TSTypeName, TSTypeQueryExprName, TSTypeReference,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
@@ -93,9 +93,10 @@ pub(super) fn collect_imported_names<'a>(
         .collect()
 }
 
-pub(super) fn collect_type_only_imported_names(
+fn collect_type_only_imported_names(
     summary: &Croquis,
     script_content: Option<&str>,
+    usage: &IdentifierUsage,
 ) -> FxHashSet<CompactString> {
     let Some(script) = script_content else {
         return FxHashSet::default();
@@ -105,7 +106,6 @@ pub(super) fn collect_type_only_imported_names(
         return FxHashSet::default();
     }
 
-    let usage = collect_identifier_usage(script);
     import_names
         .into_iter()
         .filter(|name| usage.type_refs.contains(name) && !usage.value_refs.contains(name))
@@ -115,10 +115,10 @@ pub(super) fn collect_type_only_imported_names(
 pub(super) fn collect_setup_binding_anchor_names<'a>(
     summary: &'a Croquis,
     script_content: Option<&str>,
+    usage: &IdentifierUsage,
     template_referenced_names: Option<&FxHashSet<String>>,
 ) -> Vec<&'a str> {
-    let type_only_imported_names = collect_type_only_imported_names(summary, script_content);
-    let const_enum_names = script_content.map(super::script_module::collect_const_enum_names);
+    let type_only_imported_names = collect_type_only_imported_names(summary, script_content, usage);
     let mut template_value_names: FxHashSet<&str> = summary
         .used_components
         .iter()
@@ -134,11 +134,7 @@ pub(super) fn collect_setup_binding_anchor_names<'a>(
             .bindings
             .keys()
             .map(|name| name.as_str())
-            .filter(|name| {
-                names
-                    .iter()
-                    .any(|template_name| template_name.as_str() == *name)
-            })
+            .filter(|name| names.contains(*name))
             .collect()
     } else {
         summary
@@ -149,11 +145,8 @@ pub(super) fn collect_setup_binding_anchor_names<'a>(
             .collect()
     };
     binding_names.retain(|name| {
-        const_enum_names
-            .as_ref()
-            .is_none_or(|names| !contains_compact_name(names, name))
-            && (!contains_compact_name(&type_only_imported_names, name)
-                || template_value_names.contains(name))
+        !usage.const_enums.contains(*name)
+            && (!type_only_imported_names.contains(*name) || template_value_names.contains(name))
     });
     binding_names.sort_unstable();
     binding_names
@@ -176,18 +169,23 @@ fn collect_value_import_binding_names(summary: &Croquis, script: &str) -> FxHash
         .collect()
 }
 
-fn contains_compact_name(names: &FxHashSet<CompactString>, name: &str) -> bool {
-    names.iter().any(|candidate| candidate.as_str() == name)
-}
-
 #[derive(Default)]
-struct IdentifierUsage {
+pub(super) struct IdentifierUsage {
     type_refs: FxHashSet<CompactString>,
     value_refs: FxHashSet<CompactString>,
+    const_enums: FxHashSet<CompactString>,
     type_depth: u32,
 }
 
 impl<'a> Visit<'a> for IdentifierUsage {
+    fn visit_ts_enum_declaration(&mut self, declaration: &TSEnumDeclaration<'a>) {
+        if declaration.r#const {
+            self.const_enums
+                .insert(CompactString::new(declaration.id.name.as_str()));
+        }
+        walk::walk_ts_enum_declaration(self, declaration);
+    }
+
     fn visit_identifier_reference(&mut self, ident: &IdentifierReference<'a>) {
         if self.type_depth == 0 {
             self.value_refs
@@ -208,11 +206,9 @@ impl<'a> Visit<'a> for IdentifierUsage {
     }
 }
 
-fn collect_identifier_usage(script: &str) -> IdentifierUsage {
-    let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, script, SourceType::ts()).parse();
+pub(super) fn collect_identifier_usage(program: &Program<'_>) -> IdentifierUsage {
     let mut usage = IdentifierUsage::default();
-    usage.visit_program(&parsed.program);
+    usage.visit_program(program);
     usage
 }
 

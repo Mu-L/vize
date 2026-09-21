@@ -21,6 +21,10 @@ pub(crate) struct TemplateValueChecks<'a> {
     pub(crate) native_props: &'a NativePropBindings,
     pub(crate) directive_values: &'a DirectiveValueBindings,
     pub(crate) component_ref_callbacks: &'a ComponentRefCallbackBindings,
+    /// The template text the tables were collected from, for the few
+    /// mappings that need bytes an expression record does not carry (a
+    /// dynamic argument's directive prefix).
+    pub(crate) template_source: Option<&'a str>,
 }
 
 /// Owning form of [`TemplateValueChecks`], collected once per file.
@@ -47,6 +51,7 @@ impl TemplateValueCheckTables {
             directive_values: collect_directive_value_bindings(
                 options.template_ast,
                 &summary.bindings,
+                (options.has_default_alias, options.check_options.vapor),
                 options.check_options.check_template_bindings && !legacy_vue2,
             ),
             component_ref_callbacks: collect_component_ref_callback_bindings(
@@ -56,11 +61,15 @@ impl TemplateValueCheckTables {
         }
     }
 
-    pub(crate) fn as_checks(&self) -> TemplateValueChecks<'_> {
+    pub(crate) fn as_checks<'a>(
+        &'a self,
+        template_source: Option<&'a str>,
+    ) -> TemplateValueChecks<'a> {
         TemplateValueChecks {
             native_props: &self.native_props,
             directive_values: &self.directive_values,
             component_ref_callbacks: &self.component_ref_callbacks,
+            template_source,
         }
     }
 }

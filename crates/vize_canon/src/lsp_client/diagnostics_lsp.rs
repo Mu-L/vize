@@ -2,10 +2,12 @@ use crate::file_uri::path_to_file_uri;
 use corsa::runtime::block_on;
 use corsa_lsp::LspClient;
 use lsp_types::{
-    ClientCapabilities, DiagnosticClientCapabilities, DiagnosticWorkspaceClientCapabilities,
-    DidChangeWatchedFilesClientCapabilities, DocumentDiagnosticReportResult, InitializeParams,
-    InitializedParams, TextDocumentClientCapabilities, Uri, WorkDoneProgressParams,
-    WorkspaceClientCapabilities, WorkspaceFolder,
+    ClientCapabilities, CompletionClientCapabilities, CompletionItemCapability,
+    DiagnosticClientCapabilities, DiagnosticWorkspaceClientCapabilities,
+    DidChangeWatchedFilesClientCapabilities, DocumentDiagnosticReportResult,
+    HoverClientCapabilities, InitializeParams, InitializedParams, MarkupKind,
+    SignatureHelpClientCapabilities, SignatureInformationSettings, TextDocumentClientCapabilities,
+    Uri, WorkDoneProgressParams, WorkspaceClientCapabilities, WorkspaceFolder,
 };
 use serde_json::Value;
 use std::{path::Path, str::FromStr};
@@ -53,6 +55,24 @@ fn initialize_lsp_params(
         .map_err(|error| cstr!("Failed to build Corsa LSP root URI: {error}"))?;
     let capabilities = ClientCapabilities {
         text_document: Some(TextDocumentClientCapabilities {
+            hover: Some(HoverClientCapabilities {
+                content_format: Some(vec![MarkupKind::Markdown, MarkupKind::PlainText]),
+                ..Default::default()
+            }),
+            completion: Some(CompletionClientCapabilities {
+                completion_item: Some(CompletionItemCapability {
+                    documentation_format: Some(vec![MarkupKind::Markdown, MarkupKind::PlainText]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            signature_help: Some(SignatureHelpClientCapabilities {
+                signature_information: Some(SignatureInformationSettings {
+                    documentation_format: Some(vec![MarkupKind::Markdown, MarkupKind::PlainText]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
             diagnostic: Some(DiagnosticClientCapabilities {
                 dynamic_registration: Some(false),
                 related_document_support: Some(true),
@@ -81,6 +101,14 @@ fn initialize_lsp_params(
             name: workspace_name.to_owned(),
         }]),
         capabilities,
+        // Canon already resolves the authored workspace's installed types.
+        // Its private mirror must not launch npm to acquire unrelated ambient
+        // packages and make diagnostics depend on background downloads.
+        initialization_options: Some(serde_json::json!({
+            "userPreferences": {
+                "tsserver": { "automaticTypeAcquisition": { "enabled": false } }
+            }
+        })),
         work_done_progress_params: WorkDoneProgressParams::default(),
         ..Default::default()
     })
@@ -117,6 +145,31 @@ pub(super) fn request_lsp_document_diagnostic_ack(
     client: &LspClient,
     uri: &Uri,
 ) -> Result<(), String> {
+    block_on(request_lsp_document_diagnostic_ack_async(client, uri))
+}
+
+pub(super) fn request_lsp_document_diagnostic_acks(
+    client: &LspClient,
+    uris: &[Uri],
+) -> Result<(), String> {
+    use futures::{StreamExt, TryStreamExt};
+    // Bound in-flight requests below the transport queue capacity. Every
+    // changed document still needs an acknowledgement before native queries.
+    block_on(
+        futures::stream::iter(
+            uris.iter()
+                .map(|uri| request_lsp_document_diagnostic_ack_async(client, uri)),
+        )
+        .buffer_unordered(16)
+        .try_collect::<Vec<_>>(),
+    )
+    .map(|_| ())
+}
+
+async fn request_lsp_document_diagnostic_ack_async(
+    client: &LspClient,
+    uri: &Uri,
+) -> Result<(), String> {
     struct RawDocumentDiagnosticAckRequest;
 
     impl lsp_types::request::Request for RawDocumentDiagnosticAckRequest {
@@ -125,15 +178,15 @@ pub(super) fn request_lsp_document_diagnostic_ack(
         const METHOD: &'static str = "textDocument/diagnostic";
     }
 
-    block_on(
-        client.request::<RawDocumentDiagnosticAckRequest>(serde_json::json!({
+    client
+        .request::<RawDocumentDiagnosticAckRequest>(serde_json::json!({
             "textDocument": {
                 "uri": uri,
             }
-        })),
-    )
-    .map(|_| ())
-    .map_err(|error| cstr!("{error}"))
+        }))
+        .await
+        .map(|_| ())
+        .map_err(|error| cstr!("{error}"))
 }
 
 #[cfg(all(test, feature = "native", unix))]

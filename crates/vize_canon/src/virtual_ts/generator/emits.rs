@@ -1,7 +1,6 @@
 use vize_carton::{FxHashSet, String, append, cstr};
 use vize_croquis::Croquis;
 
-use super::generics::module_alias_generic_suffix;
 use super::setup_scope::macro_type_requires_setup_scope;
 use crate::virtual_ts::{
     helpers::{EMIT_OVERLOAD_HELPERS, EMIT_PROPS_HELPER, push_ts_string_literal},
@@ -14,70 +13,11 @@ mod authored_events;
 use authored_events::emit_authored_event_map;
 
 /// Inner type of a macro's `<...>` type-argument text.
-fn inner_type_of(type_args: &str) -> &str {
+pub(super) fn inner_type_of(type_args: &str) -> &str {
     type_args
         .strip_prefix('<')
         .and_then(|s| s.strip_suffix('>'))
         .unwrap_or(type_args)
-}
-
-/// Emit the module-scope `export type Slots` alias. When the slots type from
-/// `defineSlots` references an SFC generic parameter, the alias re-declares
-/// the parameters (with safe defaults) so declaration emit resolves them
-/// (#3065).
-/// Returns whether the alias re-declared the SFC's type parameters, so the
-/// generic component constructor can instantiate it instead of falling back to
-/// the declared defaults (#3354).
-pub(super) fn emit_slots_type(
-    ts: &mut String,
-    summary: &Croquis,
-    generic_injection: Option<&(String, Vec<String>)>,
-) -> bool {
-    let slots_type_args = summary
-        .macros
-        .define_slots()
-        .and_then(|m| m.type_args.as_ref());
-    if let Some(type_args) = slots_type_args {
-        let inner_type = inner_type_of(type_args);
-        let suffix = module_alias_generic_suffix(generic_injection, inner_type);
-        append!(*ts, "export type Slots{suffix} = {inner_type};\n");
-        !suffix.is_empty()
-    } else {
-        ts.push_str("export type Slots = {};\n");
-        false
-    }
-}
-
-/// Emit the module-scope `export type Exposed` alias (for `InstanceType` and
-/// `useTemplateRef`); returns whether the component exposes anything. A typed
-/// `defineExpose` referencing an SFC generic parameter re-declares the
-/// parameters just like `Slots` (#3065).
-///
-/// The second flag reports whether the alias re-declared those parameters, so
-/// the generic component constructor can instantiate it (#3354).
-pub(super) fn emit_exposed_type(
-    ts: &mut String,
-    summary: &Croquis,
-    generic_injection: Option<&(String, Vec<String>)>,
-) -> (bool, bool) {
-    let Some(expose) = summary.macros.define_expose() else {
-        return (false, false);
-    };
-    if let Some(ref type_args) = expose.type_args {
-        let inner_type = inner_type_of(type_args);
-        let suffix = module_alias_generic_suffix(generic_injection, inner_type);
-        append!(*ts, "export type Exposed{suffix} = {inner_type};\n");
-        (true, !suffix.is_empty())
-    } else if expose.runtime_args.is_some() {
-        // Runtime args are returned from __setup() to keep them in scope.
-        // Use Awaited<ReturnType<...>> to handle both sync and async setup.
-        ts.push_str(
-            "export type Exposed = Awaited<ReturnType<typeof __setup>>[\"__vize_exposed\"];\n",
-        );
-        (true, false)
-    } else {
-        (false, false)
-    }
 }
 
 pub(super) struct EmitsInfo {
@@ -116,12 +56,13 @@ impl EmitsInfo {
         &self,
         generic_decl: &str,
         generic_names: &str,
+        props_type: &str,
     ) -> String {
         let mut field = String::default();
         if self.has_emits_for_props && self.has_generic_emits {
             append!(
                 field,
-                "__vizeResolveEmitProps?: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => __EmitProps<Emits<{generic_names}>>;"
+                "__vizeResolveEmitProps?: <{generic_decl}>(props: Partial<{props_type}<{generic_names}>> & Record<string, unknown>) => __EmitProps<Emits<{generic_names}>>;"
             );
         }
         if !self.generic_event_map_decl.is_empty() {
@@ -130,7 +71,7 @@ impl EmitsInfo {
             }
             append!(
                 field,
-                "__vizeResolveEvents?: <{generic_decl}>(props: Partial<Props<{generic_names}>> & Record<string, unknown>) => __VizeAuthoredEventMap<{generic_names}>;"
+                "__vizeResolveEvents?: <{generic_decl}>(props: Partial<{props_type}<{generic_names}>> & Record<string, unknown>) => __VizeAuthoredEventMap<{generic_names}>;"
             );
         }
         field
@@ -146,10 +87,13 @@ impl EmitsInfo {
 /// model with a default, and an untyped model keep the bare payload. The base
 /// is parenthesized so a function-typed model does not absorb the union into
 /// its return type.
-fn model_update_payload(model: &vize_croquis::macros::ModelDefinition) -> String {
-    let base = model.model_type.as_deref().unwrap_or("unknown");
+fn model_update_payload(
+    summary: &Croquis,
+    model: &vize_croquis::macros::ModelDefinition,
+) -> String {
+    let base = crate::virtual_ts::model_types::model_value_type(summary, model);
     if model.required || model.default_value.is_some() || base == "unknown" || base == "any" {
-        String::from(base)
+        base
     } else {
         cstr!("({base}) | undefined")
     }
@@ -209,16 +153,16 @@ pub(super) fn emit_emits_type(
             if has_model_emits {
                 append!(
                     *ts,
-                    "export type Emits{emits_generic_suffix} = {inner_type} & {{\n"
+                    "export type Emits{emits_generic_suffix} = __EmitFn<{inner_type}> & __EmitFn<{{\n"
                 );
                 for model in models {
                     let name = model.name.as_str();
-                    let payload = model_update_payload(model);
+                    let payload = model_update_payload(summary, model);
                     ts.push_str("  ");
                     push_model_update_event_literal(ts, name);
                     append!(*ts, ": [value: {payload}];\n");
                 }
-                ts.push_str("};\n");
+                ts.push_str("}>;\n");
             } else {
                 append!(
                     *ts,
@@ -232,7 +176,7 @@ pub(super) fn emit_emits_type(
             );
             for model in models {
                 let name = model.name.as_str();
-                let payload = model_update_payload(model);
+                let payload = model_update_payload(summary, model);
                 ts.push_str(" & ((event: ");
                 push_model_update_event_literal(ts, name);
                 append!(*ts, ", value: {payload}) => void)");
@@ -253,7 +197,7 @@ pub(super) fn emit_emits_type(
                 if emitted_names.contains(event_name.as_str()) {
                     continue;
                 }
-                let payload = model_update_payload(model);
+                let payload = model_update_payload(summary, model);
                 ts.push_str("  ");
                 push_ts_string_literal(ts, event_name.as_str());
                 append!(*ts, ": [value: {payload}];\n");
@@ -279,7 +223,6 @@ pub(super) fn emit_emits_type(
             ts,
             summary,
             &mut mappings,
-            !emits_already_defined,
             emits_generic_decl.as_deref().filter(|_| !has_runtime_emits),
             generic_event_map_names.as_str(),
         );
@@ -298,8 +241,9 @@ pub(super) fn emit_emit_props_helper(
     ts: &mut String,
     info: &EmitsInfo,
     hoist_shared_preamble: bool,
+    event_inference: bool,
 ) {
-    if !info.has_emits_for_props {
+    if !info.has_emits_for_props && !event_inference {
         return;
     }
     if !hoist_shared_preamble {
@@ -307,6 +251,9 @@ pub(super) fn emit_emit_props_helper(
     }
     ts.push_str(EMIT_PROPS_HELPER);
     ts.push('\n');
+    if !info.has_emits_for_props {
+        return;
+    }
     if info.has_runtime_emits {
         if info.preserve_event_navigation {
             ts.push_str("type __VizeStaticEventMap = __EmitOptions<Awaited<ReturnType<typeof __setup>>[\"__vize_emit_options\"]>;\n");

@@ -20,13 +20,15 @@ mod css_modules;
 mod script_build;
 pub(super) use super::paths::source_type_for_path;
 pub(super) use context::{ScriptBuildContext, VirtualBuildContext};
-pub(super) use css_modules::virtual_ts_options_for_descriptor;
+pub(super) use css_modules::{
+    css_module_block_type, style_scoped_class_names, virtual_ts_options_for_descriptor,
+};
 pub(super) use script_build::build_script_registered_file;
 
 use super::VirtualFile;
 use super::diagnostics::collect_sfc_block_ranges;
 use super::javascript_sfc::descriptor_is_unchecked_javascript;
-pub(super) use super::javascript_sfc::descriptor_uses_jsx_script;
+pub(super) use super::javascript_sfc::{descriptor_uses_jsx_script, prepare_script_blocks};
 use super::jsx_build::build_jsx_registered_file;
 use super::passthrough::collect_passthrough_modules;
 use super::vue_codegen::{GeneratedVueFile, VueCodegenOptions, generate_vue_virtual_ts};
@@ -42,6 +44,7 @@ pub(super) struct RegisteredFile {
     /// mapping without a disk re-read. Stored on the project, not the public
     /// `VirtualFile`.
     pub(super) original_content: CompactString,
+    pub(super) pre_rewrite_code: Option<CompactString>,
     pub(super) passthrough_files: Vec<(PathBuf, PathBuf)>,
     pub(super) diagnostics: Vec<Diagnostic>,
     /// SFC whose script block is JavaScript: TypeScript diagnostics on it are
@@ -99,9 +102,8 @@ pub(super) fn build_vue_registered_file(
         )
         .map_err(|error| CorsaError::SfcParse(error.message.to_compact_string()))
     )?;
+    let descriptor = prepare_script_blocks(descriptor);
 
-    let effective_options =
-        virtual_ts_options_for_descriptor(context.virtual_ts_options, &descriptor);
     let use_tsx_virtual = descriptor_uses_jsx_script(&descriptor);
     let source_type = if use_tsx_virtual {
         SourceType::tsx()
@@ -114,7 +116,7 @@ pub(super) fn build_vue_registered_file(
             path,
             content,
             &descriptor,
-            &effective_options,
+            context.virtual_ts_options,
             VueCodegenOptions {
                 check_options: context.virtual_ts_check_options,
                 preserve_unused_diagnostics: context.preserve_unused_diagnostics,
@@ -122,9 +124,11 @@ pub(super) fn build_vue_registered_file(
                 // Batch check/declaration codegen must keep the authored
                 // default export so Options API instance members survive
                 // `InstanceType<typeof Component>` (#4010).
-                preserve_authored_component: true,
+                preserve_authored_component: context.editor_document_options.is_none(),
                 component_name: None,
-                preserve_event_navigation: false,
+                preserve_event_navigation: context
+                    .editor_document_options
+                    .is_some_and(|options| options.preserve_event_navigation),
                 legacy_vue2: context.legacy_vue2,
                 dialect: context.dialect,
                 template_syntax: context.template_syntax,
@@ -155,8 +159,12 @@ pub(super) fn build_vue_registered_file(
                 source_type,
                 (context.project_root, context.virtual_root),
                 path.parent(),
-                context.mirrorable_project_files,
-                context.alias_rewrite_policy,
+                crate::batch::import_rewriter::VirtualProjectRewriteOptions {
+                    preserve_relative_declarations: context.preserve_relative_declarations,
+                    mirrorable_project_files: context.mirrorable_project_files,
+                    alias_rewrite_policy: context.alias_rewrite_policy,
+                    module_resolver: None,
+                },
             )
     );
     let source_map = CompositeSourceMap::new_vue(
@@ -193,6 +201,8 @@ pub(super) fn build_vue_registered_file(
         },
         extra_virtual_files,
         original_content: content.to_compact_string(),
+        pre_rewrite_code: (context.editor_document_options.is_some() || context.jsx_typecheck)
+            .then_some(code),
         passthrough_files: collect_passthrough_modules(
             path,
             content,
@@ -235,11 +245,12 @@ pub(super) fn mirrored_virtual_path(
     virtual_root: &Path,
     path: &Path,
 ) -> CorsaResult<PathBuf> {
-    if let Ok(relative) = path.strip_prefix(project_root) {
+    let canonical = vize_carton::path::canonicalize_non_verbatim(path);
+    if let Ok(relative) = canonical.strip_prefix(project_root) {
         return Ok(virtual_root.join(relative));
     }
     // Out-of-root files land in the external escape subtree (#3887).
-    super::external_mirror::external_mirror_path(virtual_root, path)
+    super::external_mirror::external_mirror_path(virtual_root, &canonical)
 }
 
 fn build_tsx_vue_import_shim(

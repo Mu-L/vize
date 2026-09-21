@@ -10,6 +10,7 @@
 //! equivalent call — see [`crate::virtual_ts::expressions::generate_slot_host_binding`]
 //! — and annotates the slot function from its result.
 
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use vize_carton::FxHashSet;
 use vize_carton::String;
 use vize_carton::append;
@@ -26,9 +27,10 @@ use crate::virtual_ts::types::{VirtualTsOptions, VizeMapping};
 
 use super::children::generate_child_scopes;
 use super::context::{ScopeGenContext, VForPropsContext};
+use super::explicit_generics::ExplicitGenerics;
 use crate::virtual_ts::component_reference::component_binding_reference;
 
-use super::emit::{emit_slot_function_open, slot_props_type};
+use super::emit::emit_slot_function_open;
 use super::slot_outlet_props::generate_scope_slot_outlet_checks;
 
 mod payload;
@@ -41,12 +43,13 @@ struct SlotPayloadContext<'a> {
     summary: &'a Croquis,
     options: &'a VirtualTsOptions,
     syntactic_type_only_imported_names: &'a FxHashSet<vize_carton::CompactString>,
-    template_prop_names: &'a FxHashSet<String>,
+    template_binding_access: &'a TemplateBindingAccess,
     source_context: ComponentPropSource<'a>,
     /// Name prefix of the emitted host binding. The two emitters share a block
     /// scope, so each needs its own or the second would redeclare the first.
     binding_prefix: &'a str,
     indent: &'a str,
+    explicit_generics: &'a ExplicitGenerics,
 }
 
 /// Emit the host binding when the slot sits on a resolvable child, and return
@@ -60,48 +63,56 @@ fn slot_payload_type(
     let summary = ctx.summary;
     let name_is_static = summary.scopes.is_v_slot_name_static(scope.id);
     let Some(component) = data.component.as_deref() else {
-        return slot_props_type(
-            summary,
-            ctx.options,
-            ctx.syntactic_type_only_imported_names,
-            None,
-            data.name.as_str(),
-            name_is_static,
-        );
+        return "any".into();
     };
-    let Some(usage) = find_slot_host(summary, scope, component) else {
-        return slot_props_type(
-            summary,
-            ctx.options,
-            ctx.syntactic_type_only_imported_names,
-            Some(component),
-            data.name.as_str(),
-            name_is_static,
-        );
-    };
-    let component_ref = component_binding_reference(
+    let host = find_slot_host(summary, scope, component);
+    let resolved = component_binding_reference(
         summary,
         ctx.options,
         ctx.syntactic_type_only_imported_names,
         component,
     );
+    let component_ref = match host {
+        Some(usage) => ctx.explicit_generics.usage_reference(usage.start, resolved),
+        None => resolved,
+    };
     let binding = cstr!("{}{}", ctx.binding_prefix, scope.id.as_u32());
-    generate_slot_host_binding(
-        ts,
-        usage,
-        binding.as_str(),
-        component_ref.as_str(),
-        ctx.template_prop_names,
-        ctx.source_context,
-        ctx.indent,
-    );
+    if let Some(usage) = host {
+        generate_slot_host_binding(
+            ts,
+            usage,
+            binding.as_str(),
+            component_ref.as_str(),
+            ctx.template_binding_access,
+            ctx.source_context,
+            ctx.indent,
+        );
+    } else {
+        append!(
+            *ts,
+            "{}const {binding} = undefined as unknown as __VizeSlotHostSlots<typeof {component_ref}>;\n",
+            ctx.indent
+        );
+    }
+
     if name_is_static {
         cstr!(
             "__VizeSlotPayload<typeof {binding}, \"{}\">",
             data.name.as_str()
         )
     } else {
-        cstr!("__VizeAnySlotPayload<typeof {binding}>")
+        let name_binding = cstr!("{binding}_name");
+        let name = crate::virtual_ts::expressions::rewrite_reserved_template_binding(
+            data.name.as_str(),
+            ctx.template_binding_access,
+        )
+        .unwrap_or_else(|| data.name.clone());
+        append!(
+            *ts,
+            "{}const {name_binding} = {{ name: ({name}) }} as const;\n",
+            ctx.indent
+        );
+        cstr!("__VizeSlotPayload<typeof {binding}, typeof {name_binding}.name>")
     }
 }
 
@@ -126,7 +137,7 @@ pub(super) fn generate_v_slot_scope(
             summary: ctx.summary,
             options: ctx.virtual_ts_options,
             syntactic_type_only_imported_names: ctx.syntactic_type_only_imported_names,
-            template_prop_names: ctx.template_prop_names,
+            template_binding_access: ctx.template_binding_access,
             source_context: ComponentPropSource::new(
                 ctx.template_source,
                 ctx.template_offset,
@@ -134,21 +145,30 @@ pub(super) fn generate_v_slot_scope(
             ),
             binding_prefix: "__vize_slot_host_",
             indent,
+            explicit_generics: ctx.explicit_generics,
         },
         scope,
         data,
     );
     let function_gen_start = ts.len();
+    let capture_slots = ctx.slot_outlets.captures_scope(ctx.summary, scope.id);
+    let function_name = if capture_slots {
+        cstr!("__vize_slot_scope_{scope_id}")
+    } else {
+        cstr!("_slot_{safe_slot_name}_{scope_id}")
+    };
     emit_slot_function_open(
         ts,
         indent,
-        cstr!("_slot_{safe_slot_name}_{scope_id}").as_str(),
+        function_name.as_str(),
         props_pattern.as_str(),
         &props_type,
+        capture_slots,
     );
     map_slot_props_pattern(
         mappings,
         scope,
+        ctx.summary.scopes.v_slot_pattern_offset(scope.id),
         ctx.template_offset,
         props_pattern.as_str(),
         function_gen_start,
@@ -171,7 +191,7 @@ pub(super) fn generate_v_slot_scope(
             ts,
             mappings,
             exprs,
-            ctx.template_prop_names,
+            ctx.template_binding_access,
             &ExpressionListEmitContext::new(
                 ctx.skipped_expression_ranges,
                 ctx.template_offset,
@@ -187,6 +207,10 @@ pub(super) fn generate_v_slot_scope(
         "canon.virtual_ts.child_scopes",
         generate_child_scopes(ts, mappings, ctx, scope_id, inner_indent)
     );
+    if capture_slots {
+        ctx.slot_outlets
+            .emit_result(ts, ctx.summary, Some(scope.id), inner_indent);
+    }
 
     ts.push_str(indent);
     ts.push_str("};\n");
@@ -216,10 +240,11 @@ pub(super) fn generate_v_slot_props_scope(
             summary: ctx.summary,
             options: ctx.options,
             syntactic_type_only_imported_names: ctx.syntactic_type_only_imported_names,
-            template_prop_names: ctx.template_prop_names,
+            template_binding_access: ctx.template_binding_access,
             source_context: ctx.source_context,
             binding_prefix: "__vize_slot_props_host_",
             indent,
+            explicit_generics: ctx.explicit_generics,
         },
         scope,
         data,
@@ -231,10 +256,12 @@ pub(super) fn generate_v_slot_props_scope(
         cstr!("_slot_props_{safe_slot_name}_{scope_id}").as_str(),
         props_pattern.as_str(),
         &props_type,
+        false,
     );
     map_slot_props_pattern(
         mappings,
         scope,
+        ctx.summary.scopes.v_slot_pattern_offset(scope.id),
         ctx.source_context.offset,
         props_pattern.as_str(),
         function_gen_start,
@@ -265,12 +292,26 @@ fn slot_props_pattern(data: &VSlotScopeData, scope_id: u32) -> String {
 fn map_slot_props_pattern(
     mappings: &mut Vec<VizeMapping>,
     scope: &Scope,
+    pattern_offset: Option<u32>,
     template_offset: u32,
     props_pattern: &str,
     function_gen_start: usize,
     ts: &str,
 ) {
     let function_text = &ts[function_gen_start..];
+    // TypeScript anchors missing destructured properties on the property key,
+    // not the renamed local binding. Preserve the complete authored pattern.
+    if let Some(source_start) = pattern_offset
+        && let Some(relative) = function_text.find(props_pattern)
+    {
+        let start = function_gen_start + relative;
+        let source_start = (template_offset + source_start) as usize;
+        mappings.push(VizeMapping {
+            gen_range: start..start + props_pattern.len(),
+            src_range: source_start..source_start + props_pattern.len(),
+            sub_spans: Vec::new(),
+        });
+    }
     for (prop_name, binding) in scope.bindings() {
         if super::emit::pattern_identifier_offset(props_pattern, prop_name).is_none() {
             continue;

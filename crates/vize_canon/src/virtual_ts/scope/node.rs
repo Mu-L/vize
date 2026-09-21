@@ -29,6 +29,7 @@ pub(super) fn generate_scope_node(
             super::patterns::generate_expression_match(ts, mappings, ctx, scope, indent)
         }
         ScopeData::VFor(data) => {
+            let capture_slots = ctx.slot_outlets.captures_scope(ctx.summary, scope.id);
             // Re-emit parent `v-if` around v-for source so TypeScript keeps narrowing (#1511).
             let enclosing_guard: Option<String> = ctx
                 .expressions_by_scope
@@ -58,10 +59,13 @@ pub(super) fn generate_scope_node(
                 ctx.summary.scopes.v_for_source_offset(scope.id),
                 &loop_indent,
                 scope,
-                ctx.template_prop_names,
+                ctx.template_binding_access,
+                capture_slots,
             );
             // Recheck positive terms for callback-captured object-property narrowing.
-            let callback_guard = enclosing_guard.and_then(callback_vif_guard);
+            let callback_guard = enclosing_guard
+                .filter(|_| capture_slots)
+                .and_then(callback_vif_guard);
             let callback_indent = if let Some(guard) = callback_guard.as_deref() {
                 append_ignored_vif_guard_open(
                     ts,
@@ -92,7 +96,7 @@ pub(super) fn generate_scope_node(
                     ts,
                     mappings,
                     exprs,
-                    ctx.template_prop_names,
+                    ctx.template_binding_access,
                     &ExpressionListEmitContext::new(
                         ctx.skipped_expression_ranges,
                         ctx.template_offset,
@@ -108,14 +112,22 @@ pub(super) fn generate_scope_node(
                 "canon.virtual_ts.child_scopes",
                 generate_child_scopes(ts, mappings, ctx, scope_id, &callback_indent)
             );
+            if capture_slots {
+                ctx.slot_outlets
+                    .emit_result(ts, ctx.summary, Some(scope.id), &callback_indent);
+            }
 
             if callback_guard.is_some() {
                 append!(*ts, "{vfor_inner_indent}}}\n");
             }
 
             ts.push_str(&loop_indent);
-            ts.push_str("});\n");
+            ts.push_str("}\n");
+            if capture_slots {
+                append!(*ts, "{loop_indent}return [];\n{loop_indent}}})();\n");
+            }
 
+            append!(*ts, "{loop_indent}}}\n");
             if enclosing_guard.is_some() {
                 append!(*ts, "{indent}}}\n");
             }
@@ -154,7 +166,7 @@ pub(super) fn generate_scope_contents(
             ts,
             mappings,
             exprs,
-            ctx.template_prop_names,
+            ctx.template_binding_access,
             &ExpressionListEmitContext::new(
                 ctx.skipped_expression_ranges,
                 ctx.template_offset,

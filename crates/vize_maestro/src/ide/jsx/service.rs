@@ -24,18 +24,18 @@
 use std::sync::Arc;
 
 use tower_lsp::lsp_types::{
-    CompletionResponse, Diagnostic, DiagnosticSeverity, GotoDefinitionResponse, Hover, Location,
-    Position, Range, SignatureHelp, Url,
+    CompletionResponse, GotoDefinitionResponse, Hover, Location, Position, Range, SignatureHelp,
+    Url,
 };
-use vize_atelier_jsx::JsxLang;
 use vize_canon::{CorsaBridge, LspLocation};
 use vize_s0::cstr;
 
-use super::position::{source_offset_to_virtual_position, virtual_range_to_source};
-use super::virtual_ts::{JsxVirtualTs, generate_jsx_virtual_ts};
+use super::position::{
+    source_cursor_to_virtual_position, source_offset_to_virtual_position, virtual_range_to_source,
+};
+use super::virtual_ts::JsxVirtualTs;
 use crate::ide::IdeContext;
 use crate::ide::completion::CompletionService;
-use crate::ide::diagnostics::sources;
 use crate::ide::hover::HoverService;
 
 /// Type-aware JSX/TSX LSP service.
@@ -53,12 +53,6 @@ impl JsxService {
         cstr!("{}.jsx.ts", uri.path())
     }
 
-    /// Lower the current document to its plain virtual TypeScript.
-    pub(super) fn virtual_ts(ctx: &IdeContext<'_>) -> Option<JsxVirtualTs> {
-        let lang = JsxLang::from_path(ctx.uri.path());
-        generate_jsx_virtual_ts(&ctx.content, lang)
-    }
-
     /// Generate the virtual TS, forward-map the editor cursor into it, and open
     /// the (shared) virtual document on the bridge. Returns everything a
     /// position-based request needs: the virtual TS, the opened virtual-doc URI,
@@ -74,10 +68,8 @@ impl JsxService {
         if !bridge.is_initialized() {
             return None;
         }
-        let virtual_ts = Self::virtual_ts(ctx)?;
-        let (line, character) =
-            source_offset_to_virtual_position(&virtual_ts.code, &virtual_ts.mappings, ctx.offset)?;
-        let uri = super::service_project::open_virtual_project(ctx, bridge, &virtual_ts).await?;
+        let (virtual_ts, uri) = super::service_project::open_virtual_project(ctx, bridge).await?;
+        let (line, character) = source_offset_to_virtual_position(&virtual_ts, ctx.offset)?;
         Some((virtual_ts, uri, line, character))
     }
 
@@ -106,16 +98,13 @@ impl JsxService {
         corsa_bridge: Option<Arc<CorsaBridge>>,
     ) -> Option<CompletionResponse> {
         let bridge = corsa_bridge?;
-        let (_virtual_ts, uri, line, character) = Self::prepare_request(ctx, &bridge).await?;
-
-        let items = bridge.completion(&uri, line, character).await.ok()?;
+        let (projection, uri) = super::service_project::open_virtual_project(ctx, &bridge).await?;
+        let (line, character) = source_cursor_to_virtual_position(&projection, ctx.offset)?;
+        let items =
+            CompletionService::request_resolvable(ctx, &bridge, &uri, line, character).await;
         if items.is_empty() {
             return None;
         }
-        let items = items
-            .into_iter()
-            .map(CompletionService::convert_lsp_completion)
-            .collect();
         Some(CompletionResponse::Array(items))
     }
 
@@ -170,81 +159,6 @@ impl JsxService {
             1 => Some(GotoDefinitionResponse::Scalar(mapped.into_iter().next()?)),
             _ => Some(GotoDefinitionResponse::Array(mapped)),
         }
-    }
-
-    /// Type diagnostics surfaced from JSX virtual TS through Corsa. Diagnostics
-    /// outside authored mappings (such as the ambient preamble) are dropped.
-    pub async fn diagnostics(
-        ctx: &IdeContext<'_>,
-        corsa_bridge: Option<Arc<CorsaBridge>>,
-    ) -> Vec<Diagnostic> {
-        let Some(bridge) = corsa_bridge else {
-            return vec![];
-        };
-        if !bridge.is_initialized() {
-            return vec![];
-        }
-        let Some(virtual_ts) = Self::virtual_ts(ctx) else {
-            return vec![];
-        };
-
-        let Some(uri) =
-            super::service_project::open_virtual_project(ctx, &bridge, &virtual_ts).await
-        else {
-            return vec![];
-        };
-
-        let Ok(corsa_diags) = bridge.get_diagnostics(&uri).await else {
-            return vec![];
-        };
-
-        corsa_diags
-            .into_iter()
-            .filter_map(|diag| {
-                // Skip "declared but never used" noise on the synthesized sink
-                // helper and any other internal `__vize_` symbol.
-                let is_unused = diag.message.contains("is declared but")
-                    && (diag.message.contains("never read") || diag.message.contains("never used"));
-                if is_unused && diag.message.contains("'__vize") {
-                    return None;
-                }
-
-                let (start_line, end_line, start_char, end_char) = virtual_range_to_source(
-                    &virtual_ts.code,
-                    &ctx.content,
-                    &virtual_ts.mappings,
-                    diag.range.start.line,
-                    diag.range.start.character,
-                    diag.range.end.line,
-                    diag.range.end.character,
-                )?;
-
-                Some(Diagnostic {
-                    range: Range {
-                        start: Position {
-                            line: start_line,
-                            character: start_char,
-                        },
-                        end: Position {
-                            line: end_line,
-                            character: end_char,
-                        },
-                    },
-                    severity: diag.severity.map(|s| match s {
-                        1 => DiagnosticSeverity::ERROR,
-                        2 => DiagnosticSeverity::WARNING,
-                        3 => DiagnosticSeverity::INFORMATION,
-                        _ => DiagnosticSeverity::HINT,
-                    }),
-                    code: diag
-                        .code
-                        .map(crate::ide::diagnostics::corsa::corsa_diagnostic_code),
-                    source: Some(sources::TYPE_CHECKER.to_string()),
-                    message: diag.message,
-                    ..Default::default()
-                })
-            })
-            .collect()
     }
 
     /// Map a Corsa definition location back onto the source.
@@ -302,9 +216,8 @@ impl JsxService {
         range: Range,
     ) -> Option<Range> {
         let (start_line, end_line, start_char, end_char) = virtual_range_to_source(
-            &virtual_ts.code,
+            virtual_ts,
             source,
-            &virtual_ts.mappings,
             range.start.line,
             range.start.character,
             range.end.line,

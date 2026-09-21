@@ -38,6 +38,15 @@ pub(super) async fn open_canonical_virtual_document_with_overlays_strict(
     bridge: &CorsaBridge,
     overlays: &[(PathBuf, &str)],
 ) -> Result<Option<CanonicalVirtualDocument>, CorsaBridgeError> {
+    open_canonical_virtual_document_with_sources_strict(ctx, bridge, overlays, &[]).await
+}
+
+pub(super) async fn open_canonical_virtual_document_with_sources_strict(
+    ctx: &IdeContext<'_>,
+    bridge: &CorsaBridge,
+    overlays: &[(PathBuf, &str)],
+    requested_sources: &[(PathBuf, &str)],
+) -> Result<Option<CanonicalVirtualDocument>, CorsaBridgeError> {
     if !ctx.uri.path().ends_with(".vue") || ctx.uri.path().ends_with(".art.vue") {
         return Ok(None);
     }
@@ -47,18 +56,20 @@ pub(super) async fn open_canonical_virtual_document_with_overlays_strict(
     };
     let virtual_ts_options = ctx.state.virtual_ts_options();
     let opened = bridge
-        .open_vue_virtual_document_with_borrowed_overlays_and_options(
+        .open_vue_virtual_workspace_document(
             &source_path,
             &ctx.content,
             CorsaVueVirtualDocumentOptions {
                 options_api: ctx.state.options_api_enabled(),
                 legacy_vue2: ctx.state.legacy_vue2_enabled(),
+                jsx_typecheck: ctx.state.jsx_typecheck_enabled(),
                 experimental_patterned_template: ctx.state.patterned_template_enabled(),
                 preserve_event_navigation: true,
                 dialect: ctx.state.type_checker_vue_version(),
             },
             overlays,
             &virtual_ts_options,
+            requested_sources,
         )
         .await?;
 
@@ -79,11 +90,6 @@ pub(super) async fn open_canonical_virtual_document_with_overlays_strict(
                         &dependency.import_source_map,
                     ),
                     import_source_map: dependency.import_source_map,
-                    user_code_start_line: 0,
-                    sfc_script_start_line: 0,
-                    template_scope_start_line: 0,
-                    line_mappings: Vec::new(),
-                    skipped_import_lines: 0,
                 },
             })
         })
@@ -109,11 +115,6 @@ pub(super) async fn open_canonical_virtual_document_with_overlays_strict(
                         &materialized.import_source_map,
                     ),
                     import_source_map: materialized.import_source_map,
-                    user_code_start_line: 0,
-                    sfc_script_start_line: 0,
-                    template_scope_start_line: 0,
-                    line_mappings: Vec::new(),
-                    skipped_import_lines: 0,
                 },
                 mapping_kind: materialized.mapping_kind,
             })
@@ -131,11 +132,6 @@ pub(super) async fn open_canonical_virtual_document_with_overlays_strict(
                 &opened.import_source_map,
             ),
             import_source_map: opened.import_source_map,
-            user_code_start_line: 0,
-            sfc_script_start_line: 0,
-            template_scope_start_line: 0,
-            line_mappings: Vec::new(),
-            skipped_import_lines: 0,
         },
         dependencies,
         materialized_sources,
@@ -154,5 +150,43 @@ fn authored_uri(ctx: &IdeContext<'_>, source_path: &std::path::Path) -> Option<U
                 .ok()
                 .is_some_and(|path| vize_s0::path::canonicalize_non_verbatim(&path) == source_path)
         })
+        .or_else(|| {
+            let root = ctx.state.get_workspace_root()?;
+            let physical_root = vize_s0::path::canonicalize_non_verbatim(&root);
+            let relative = source_path.strip_prefix(physical_root).ok()?;
+            Url::from_file_path(root.join(relative)).ok()
+        })
         .or_else(|| Url::from_file_path(source_path).ok())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closed_sources_keep_the_workspace_uri_and_open_sources_keep_the_editor_uri() {
+        let root = tempfile::tempdir().unwrap();
+        let physical = root.path().join("physical");
+        let logical = root.path().join("workspace");
+        std::fs::create_dir(&physical).unwrap();
+        std::os::unix::fs::symlink(&physical, &logical).unwrap();
+        let path = physical.join("shared.ts");
+        std::fs::write(&path, "export const value = 1").unwrap();
+        let state = crate::server::ServerState::new();
+        state.set_workspace_root(logical.clone());
+        let uri = Url::from_file_path(logical.join("App.vue")).unwrap();
+        let ctx = IdeContext::with_content(&state, &uri, 0, "<template />".into());
+        assert_eq!(
+            authored_uri(&ctx, &path),
+            Some(Url::from_file_path(logical.join("shared.ts")).unwrap())
+        );
+        let opened_uri = Url::from_file_path(&path).unwrap();
+        state.documents.open(
+            opened_uri.clone(),
+            "export const value = 2".into(),
+            1,
+            "typescript".into(),
+        );
+        assert_eq!(authored_uri(&ctx, &path), Some(opened_uri));
+    }
 }

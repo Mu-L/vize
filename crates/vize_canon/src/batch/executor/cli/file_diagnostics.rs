@@ -1,6 +1,6 @@
 use super::super::diagnostics::{
-    DiagnosticMapper, relative_module_resolves_on_disk, should_skip_diagnostic,
-    should_skip_original_diagnostic,
+    DiagnosticMapper, should_skip_diagnostic, should_skip_original_diagnostic,
+    template_instance::template_instance_diagnostic,
 };
 use super::{normalize_cli_path, project_diagnostics};
 use crate::batch::{Diagnostic, VirtualProject};
@@ -50,22 +50,23 @@ pub(super) fn parse_cli_diagnostic_line(
         return None;
     }
 
-    // Suppress false `TS2307` for existing siblings outside an explicit subset.
-    if code == Some(2307) && relative_module_resolves_on_disk(message, &original.path) {
-        return None;
-    }
+    let severity = if mapper.is_unreachable_pattern(&virtual_path, line, column, code) {
+        2
+    } else {
+        severity
+    };
+    let (code, message) = match template_instance_diagnostic(code, &original, message) {
+        Some((code, message)) => (Some(code), message),
+        None => (code, message.into()),
+    };
 
     Some(Diagnostic {
-        message: mapper.devirtualized_module_message(&original, message.into()),
+        message: mapper.devirtualized_module_message(&original, message),
         line: original.line,
         column: original.column,
         file: original.path,
         code,
-        severity: if mapper.is_unreachable_pattern(&virtual_path, line, column, code) {
-            2
-        } else {
-            severity
-        },
+        severity,
         block_type: original.block_type,
     })
 }

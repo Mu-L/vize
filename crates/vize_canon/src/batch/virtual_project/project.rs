@@ -77,6 +77,8 @@ impl VirtualProject {
             incremental_link_topology_dirty: false,
             options_api: false,
             session_scripts: false,
+            editor_document_options: None,
+            pre_rewrite_code: FxHashMap::default(),
             legacy_vue2: false,
             jsx_typecheck: false,
             dialect: vize_carton::config::VueVersion::default(),
@@ -130,8 +132,9 @@ impl VirtualProject {
                 experimental_in_tag_comments: self.experimental_in_tag_comments,
                 experimental_patterned_template: self.experimental_patterned_template,
                 experimental_strict_slot_children: self.experimental_strict_slot_children,
-                hoist_shared_preamble: true,
-                preserve_relative_declarations: package_route_path,
+                hoist_shared_preamble: self.editor_document_options.is_none(),
+                editor_document_options: self.editor_document_options,
+                preserve_relative_declarations: package_route_path || self.session_scripts,
                 preserve_declaration_spelling: self.session_scripts,
                 mirrorable_project_files: None,
                 rewriter: &self.rewriter,
@@ -192,8 +195,9 @@ impl VirtualProject {
             experimental_in_tag_comments: self.experimental_in_tag_comments,
             experimental_patterned_template: self.experimental_patterned_template,
             experimental_strict_slot_children: self.experimental_strict_slot_children,
-            hoist_shared_preamble: true,
-            preserve_relative_declarations: false,
+            hoist_shared_preamble: self.editor_document_options.is_none(),
+            editor_document_options: self.editor_document_options,
+            preserve_relative_declarations: self.session_scripts,
             preserve_declaration_spelling: self.session_scripts,
             mirrorable_project_files: Some(&mirrorable_project_files),
             rewriter: &self.rewriter,
@@ -212,7 +216,8 @@ impl VirtualProject {
             .map(|&path| {
                 let content = profile!("canon.file.read", std::fs::read_to_string(path))?;
                 let mut context = build_context;
-                context.preserve_relative_declarations = package_paths.contains(path);
+                context.preserve_relative_declarations =
+                    package_paths.contains(path) || self.session_scripts;
                 build_registered_file(path, &content, context)
             })
             .collect();
@@ -243,8 +248,10 @@ impl VirtualProject {
                 experimental_in_tag_comments: self.experimental_in_tag_comments,
                 experimental_patterned_template: self.experimental_patterned_template,
                 experimental_strict_slot_children: self.experimental_strict_slot_children,
-                hoist_shared_preamble: true,
-                preserve_relative_declarations: self.is_package_route_path(path),
+                hoist_shared_preamble: self.editor_document_options.is_none(),
+                editor_document_options: self.editor_document_options,
+                preserve_relative_declarations: self.is_package_route_path(path)
+                    || self.session_scripts,
                 preserve_declaration_spelling: self.session_scripts,
                 mirrorable_project_files: None,
                 rewriter: &self.rewriter,
@@ -284,7 +291,8 @@ impl VirtualProject {
             ScriptBuildContext {
                 roots: (&self.project_root, &self.virtual_root),
                 rewriter: &self.rewriter,
-                preserve_relative_declarations: self.is_package_route_path(path),
+                preserve_relative_declarations: self.is_package_route_path(path)
+                    || self.session_scripts,
                 preserve_declaration_spelling: self.session_scripts,
                 mirrorable_project_files: None,
                 alias_rewrite_policy: Some(self.alias_rewrite_policy()),

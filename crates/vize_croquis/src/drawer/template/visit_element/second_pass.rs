@@ -1,3 +1,4 @@
+use super::dynamic_component_alias::dynamic_component_alias;
 use crate::croquis::{TemplateExpression, TemplateExpressionKind};
 use crate::drawer::Drawer;
 use crate::drawer::helpers::is_builtin_directive;
@@ -177,7 +178,11 @@ impl Drawer {
             let loc = arg.loc();
             self.croquis.template_expressions.push(TemplateExpression {
                 content: CompactString::new(expression_content(arg, &self.template_source)),
-                kind: TemplateExpressionKind::DynamicDirectiveArgument,
+                kind: if dir.name == "on" {
+                    TemplateExpressionKind::DynamicEventArgument
+                } else {
+                    TemplateExpressionKind::DynamicDirectiveArgument
+                },
                 start: loc.span.start,
                 end: loc.span.end,
                 scope_id: self.croquis.scopes.current_id(),
@@ -221,8 +226,16 @@ impl Drawer {
             if !is_bind_is_directive(dir) {
                 return None;
             }
-            let target = expression_identifier(dir.exp.as_ref()?, &self.template_source)?;
-            dynamic_component_target_is_known(self, target.as_str()).then_some(target)
+            let exp = dir.exp.as_ref()?;
+            if let Some(target) = expression_identifier(exp, &self.template_source) {
+                return dynamic_component_target_is_known(self, target.as_str()).then_some(target);
+            }
+            // Any other `:is` expression (a conditional, a lookup, a call) is
+            // a component in its own right. It is aliased for checking only at
+            // the template root, where the alias cannot capture loop or slot
+            // bindings that would be out of scope where it is declared.
+            self.in_template_root_scope()
+                .then(|| CompactString::new(dynamic_component_alias(el.loc.span.start)))
         })
     }
 }

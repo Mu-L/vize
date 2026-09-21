@@ -12,6 +12,8 @@ fn test_strict_template_context_keeps_router_but_not_unknown_plugin_globals() {
         },
         VueVersion::V3,
         false,
+        false,
+        (None, None),
     );
 
     assert!(ctx.contains("type __VizeStrictPublicInstanceGlobals = {"));
@@ -188,7 +190,7 @@ fn test_strict_template_unknown_refs_read_context_without_shadowing_auto_imports
     assert!(
         output
             .code
-            .contains("var currentUser: __U<__R_currentUser> = undefined as any;"),
+            .contains("var currentUser: __UN<__R_currentUser> = undefined as any;"),
         "{}",
         output.code
     );

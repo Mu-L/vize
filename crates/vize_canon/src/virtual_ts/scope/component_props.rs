@@ -2,6 +2,8 @@
 //! v-for/v-slot closure scopes.
 
 mod closure_scopes;
+mod duplicate_listeners;
+use duplicate_listeners::append_duplicate_listener_checks;
 
 pub(super) use closure_scopes::generate_closure_component_props_recursive;
 pub(super) use closure_scopes::recurse_child_closure_scopes;
@@ -21,7 +23,7 @@ use super::component_prop_navigation;
 use super::component_slots::{
     ComponentSlotCheckMeta, append_component_slot_check_helpers, generate_component_slot_checks,
 };
-use super::context::{ComponentPropsContext, GlobalComponentCheck, VForPropsContext};
+use super::context::{ComponentBindingCheck, ComponentPropsContext, VForPropsContext};
 use super::empty_component_props::{generate_empty_root_checks, is_empty_props_usage};
 use super::vif_guard::common_vif_guard_prefix_for_guards_outside_v_for;
 
@@ -63,11 +65,14 @@ pub(super) fn generate_component_props(
     append_component_slot_check_helpers(ts, ctx.experimental_strict_slot_children);
 
     for &(idx, usage) in checkable_usages {
-        let component_ref = component_binding_reference(
-            summary,
-            ctx.options,
-            ctx.syntactic_type_only_imported_names,
-            usage.name.as_str(),
+        let component_ref = ctx.explicit_generics.usage_reference(
+            usage.start,
+            component_binding_reference(
+                summary,
+                ctx.options,
+                ctx.syntactic_type_only_imported_names,
+                usage.name.as_str(),
+            ),
         );
         let component_type_name = to_safe_identifier_fragment(usage.name.as_str());
 
@@ -88,9 +93,11 @@ pub(super) fn generate_component_props(
             component_type_name.as_str(),
             component_ref.as_str(),
             idx,
+            ctx.relaxed_required_usage_starts.contains(&usage.start),
         );
 
         append_per_prop_aliases(ts, usage, component_type_name.as_str(), idx);
+        append_duplicate_listener_checks(ts, mappings, ctx, usage);
     }
 
     component_prop_navigation::emit_references(ts, mappings, semantic_links, ctx, checkable_usages);
@@ -162,27 +169,31 @@ pub(super) fn generate_component_props(
         if is_empty_props_usage(usage) {
             continue;
         }
-        let component_ref = component_binding_reference(
-            summary,
-            ctx.options,
-            ctx.syntactic_type_only_imported_names,
-            usage.name.as_str(),
+        let component_ref = ctx.explicit_generics.usage_reference(
+            usage.start,
+            component_binding_reference(
+                summary,
+                ctx.options,
+                ctx.syntactic_type_only_imported_names,
+                usage.name.as_str(),
+            ),
         );
         profile!("canon.virtual_ts.component_prop_checks", {
             let mut check_context = ComponentPropCheckContext::new(
                 ts,
                 mappings,
-                ctx.template_prop_names,
+                ctx.template_binding_access,
                 ctx.source_context(),
                 "  ",
-            );
+            )
+            .strict_v_model(ctx.strict_v_model);
             generate_component_prop_checks(&mut check_context, usage, idx, component_ref.as_str())
         });
         profile!("canon.virtual_ts.component_slot_checks", {
             let mut check_context = ComponentPropCheckContext::new(
                 ts,
                 mappings,
-                ctx.template_prop_names,
+                ctx.template_binding_access,
                 ctx.source_context(),
                 "  ",
             );
@@ -210,11 +221,14 @@ pub(super) fn generate_component_props(
             components_by_scope: &components_by_scope,
             children_map: ctx.children_map,
             vfor_enclosing_guards: &vfor_enclosing_guards,
-            template_prop_names: ctx.template_prop_names,
+            template_binding_access: ctx.template_binding_access,
             syntactic_type_only_imported_names: ctx.syntactic_type_only_imported_names,
             source_context: ctx.source_context(),
             preserve_event_navigation: ctx.preserve_event_navigation,
+            check_unknown_events: ctx.check_unknown_events,
+            strict_v_model: ctx.strict_v_model,
             experimental_strict_slot_children: ctx.experimental_strict_slot_children,
+            explicit_generics: ctx.explicit_generics,
         };
         profile!(
             "canon.virtual_ts.closure_component_props",
@@ -241,7 +255,7 @@ pub(super) fn collect_checkable_usages<'a>(
                 ctx.summary,
                 usage,
                 &external_template_bindings,
-                ctx.check_unresolved_global_components,
+                ctx.component_binding_check,
                 ctx.legacy_vue2,
             )
         })
@@ -252,14 +266,15 @@ pub(super) fn component_usage_has_checkable_binding(
     summary: &Croquis,
     usage: &ComponentUsage,
     external_template_bindings: &FxHashSet<&str>,
-    check_unresolved_global_components: GlobalComponentCheck,
+    component_binding_check: ComponentBindingCheck<'_>,
     legacy_vue2: bool,
 ) -> bool {
     let name = usage.name.as_str();
     summary.bindings.bindings.contains_key(name)
         || (!legacy_vue2
             && (component_name_matches_external_template_binding(name, external_template_bindings)
-                || check_unresolved_global_components.allows(name)))
+                || component_binding_check.allows(name)
+                || vize_croquis::drawer::is_dynamic_component_alias(name)))
 }
 
 fn component_name_matches_external_template_binding(

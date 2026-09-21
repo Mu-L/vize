@@ -1,3 +1,5 @@
+mod exports;
+
 use vize_carton::{CompactString, FxHashSet, String, append, cstr, profile};
 use vize_croquis::Croquis;
 
@@ -59,6 +61,7 @@ pub(super) struct SetupPropsPlan {
     capture_options_api_default: bool,
     module_scope_declares_props: bool,
     uses_resolved_props: bool,
+    has_inferred_model_defaults: bool,
 }
 
 impl SetupPropsPlan {
@@ -92,6 +95,9 @@ impl SetupPropsPlan {
             || imported_props_would_collide;
         let defer = define_props_type_requires_setup_scope(summary);
         Self {
+            has_inferred_model_defaults: crate::virtual_ts::model_types::has_inferred_defaults(
+                summary,
+            ),
             defer,
             defer_options_api_props: options_api_props_are_deferred
                 && (!module_scope_declares_props || imported_props_would_collide),
@@ -156,10 +162,6 @@ impl SetupPropsPlan {
 
     pub(super) fn generic_fallback_component_props_type_ref(&self, generic_decl: &str) -> String {
         let props_type_ref = self.component_props_type_ref();
-        if props_type_ref != "Props" {
-            return props_type_ref.into();
-        }
-
         let args = generic_fallback_args(generic_decl);
         if args.is_empty() {
             props_type_ref.into()
@@ -171,10 +173,16 @@ impl SetupPropsPlan {
     pub(super) fn component_value_props_type_ref(
         &self,
         generic_component_params: Option<&(String, String)>,
-    ) -> String {
-        generic_component_params
-            .map(|(decl, _)| self.generic_fallback_component_props_type_ref(decl.as_str()))
-            .unwrap_or_else(|| self.component_props_type_ref().into())
+        legacy_vue2: bool,
+    ) -> Option<String> {
+        if legacy_vue2 {
+            return None;
+        }
+        Some(
+            generic_component_params
+                .map(|(decl, _)| self.generic_fallback_component_props_type_ref(decl.as_str()))
+                .unwrap_or_else(|| self.component_props_type_ref().into()),
+        )
     }
 
     pub(super) fn emit_component_props_field(
@@ -183,15 +191,20 @@ impl SetupPropsPlan {
         has_emits_for_props: bool,
         generic_decl: Option<&str>,
         legacy_input_aliases: bool,
+        jsx_slots: bool,
     ) {
         let props_type_ref = generic_decl
             .map(|decl| self.generic_fallback_component_props_type_ref(decl))
             .unwrap_or_else(|| self.component_props_type_ref().into());
-        let public_props_type_ref = if legacy_input_aliases {
+        let mut public_props_type_ref = if legacy_input_aliases {
             cstr!("__VizeComponentProps<{props_type_ref}>")
         } else {
             props_type_ref.clone()
         };
+        if jsx_slots {
+            public_props_type_ref =
+                cstr!("{public_props_type_ref} & __VizeJsxSlotProps<__VizeSlots>");
+        }
         if has_emits_for_props {
             append!(
                 ts,
@@ -256,51 +269,11 @@ impl SetupPropsPlan {
         );
     }
 
-    pub(super) fn emit_module_export(
-        &self,
-        ts: &mut String,
-        options_api_props: Option<&OptionsApiPropsSource>,
-    ) {
-        if self.defer {
-            if self.module_scope_declares_props {
-                // A `Props` already lives at module scope (hoisted, or restored
-                // by the setup type-export plan); emit an internal alias for the
-                // component instance to avoid a duplicate public declaration.
-                ts.push_str(
-                    "type __VizeResolvedProps = Awaited<ReturnType<typeof __setup>>[\"__vize_setup_props\"];\n\n",
-                );
-            } else {
-                // No `Props` exists at module scope (inline type args, or a
-                // private setup-scoped `Props`), so restore the public alias.
-                ts.push_str(
-                    "export type Props = Awaited<ReturnType<typeof __setup>>[\"__vize_setup_props\"];\n\n",
-                );
-            }
-        } else if self.defer_options_api_props {
-            let Some(source) =
-                options_api_props.filter(|source| source.deferred_object_source().is_some())
-            else {
-                return;
-            };
-            if self.module_scope_declares_props {
-                ts.push_str(
-                    "type __VizeResolvedProps = __VizeOptionsPropShape<Awaited<ReturnType<typeof __setup>>[\"__vize_options_props\"]>",
-                );
-            } else {
-                ts.push_str(
-                    "export type Props = __VizeOptionsPropShape<Awaited<ReturnType<typeof __setup>>[\"__vize_options_props\"]>",
-                );
-            }
-            append_default_props(ts, source);
-            ts.push_str(";\n\n");
-        }
-    }
-
     pub(super) fn generic_component_params(
         &self,
         generic_param: Option<&str>,
     ) -> Option<(String, String)> {
-        generic_param.filter(|_| !self.defer).map(|generic| {
+        generic_param.map(|generic| {
             (
                 add_generic_defaults(generic),
                 extract_generic_names(generic),

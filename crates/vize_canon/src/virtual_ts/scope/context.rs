@@ -1,5 +1,6 @@
 //! Shared parameter-bundling contexts for recursive scope generation.
 
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use vize_carton::CompactString;
 use vize_carton::FxHashMap;
 use vize_carton::FxHashSet;
@@ -10,6 +11,7 @@ use vize_croquis::{Croquis, EventHandlerScopeData, ScopeId, analysis::ComponentU
 use crate::virtual_ts::expressions::{ComponentPropSource, TemplateValueChecks};
 use crate::virtual_ts::types::{VirtualTsCheckOptions, VirtualTsOptions};
 
+use super::explicit_generics::ExplicitGenerics;
 use super::slot_outlet_props::SlotOutletChecks;
 
 #[derive(Clone, Copy)]
@@ -25,11 +27,33 @@ impl GlobalComponentCheck {
             Self::None => false,
             Self::All => true,
             // Authored PascalCase tags are already safe TypeScript references.
-            Self::PascalCase => name
-                .as_bytes()
-                .first()
-                .is_some_and(|first| first.is_ascii_uppercase()),
+            Self::PascalCase => {
+                vize_croquis::builtins::is_runtime_builtin_component(name)
+                    || name
+                        .as_bytes()
+                        .first()
+                        .is_some_and(|first| first.is_ascii_uppercase())
+            }
         }
+    }
+}
+
+/// Components with a generated value binding, including the implicit SFC self.
+#[derive(Clone, Copy)]
+pub(crate) struct ComponentBindingCheck<'a> {
+    pub(crate) globals: GlobalComponentCheck,
+    /// Normalized PascalCase filename stem.
+    pub(crate) self_component_name: Option<&'a str>,
+}
+
+impl ComponentBindingCheck<'_> {
+    pub(crate) fn is_self(self, name: &str) -> bool {
+        self.self_component_name
+            .is_some_and(|own| own == vize_carton::capitalize(&vize_carton::camelize(name)))
+    }
+
+    pub(crate) fn allows(self, name: &str) -> bool {
+        self.globals.allows(name) || self.is_self(name)
     }
 }
 
@@ -41,7 +65,7 @@ pub(crate) struct ScopeGenContext<'a, 'template> {
     pub(crate) skipped_expression_ranges: &'a FxHashSet<(u32, u32)>,
     pub(crate) children_map: &'a FxHashMap<u32, Vec<ScopeId>>,
     pub(crate) slot_outlets: &'a SlotOutletChecks,
-    pub(crate) template_prop_names: &'a FxHashSet<String>,
+    pub(crate) template_binding_access: &'a TemplateBindingAccess,
     pub(crate) syntactic_type_only_imported_names: &'a FxHashSet<CompactString>,
     pub(crate) checks: TemplateValueChecks<'a>,
     pub(crate) template_ast: Option<&'a vize_relief::RootNode<'template>>,
@@ -49,6 +73,7 @@ pub(crate) struct ScopeGenContext<'a, 'template> {
     pub(crate) template_offset: u32,
     pub(crate) check_options: VirtualTsCheckOptions,
     pub(crate) legacy_vue2: bool,
+    pub(crate) explicit_generics: &'a ExplicitGenerics,
 }
 
 pub(crate) struct ScopeGenerationOptions<'a, 'template> {
@@ -59,7 +84,7 @@ pub(crate) struct ScopeGenerationOptions<'a, 'template> {
     pub(crate) setup_spread_bindings: &'a [String],
     pub(crate) syntactic_type_only_imported_names: &'a FxHashSet<CompactString>,
     pub(crate) template_ast: Option<&'a vize_relief::RootNode<'template>>,
-    pub(crate) check_unresolved_global_components: GlobalComponentCheck,
+    pub(crate) component_binding_check: ComponentBindingCheck<'a>,
     pub(crate) legacy_vue2: bool,
     /// Options API generation declares `__default__`; template names outside
     /// the known bindings then resolve on the public instance (#3888).
@@ -76,6 +101,12 @@ pub(crate) struct ScopeGenerationOptions<'a, 'template> {
     /// public-instance property access.
     pub(crate) script_content: Option<&'a str>,
     pub(crate) experimental_strict_slot_children: bool,
+    /// Template-relative starts of the component roots a generic component
+    /// forwards to. Non-empty, the template scope returns what they forward.
+    pub(crate) forwarded_root_starts: &'a [u32],
+    /// Template-relative starts of the component refs the template
+    /// instantiates. Non-empty, the template scope returns their instances.
+    pub(crate) instantiated_ref_starts: &'a [u32],
 }
 
 /// Context for recursive component prop checks inside v-for scopes.
@@ -86,11 +117,14 @@ pub(crate) struct VForPropsContext<'a, 'template> {
     pub(crate) components_by_scope: &'a FxHashMap<u32, Vec<(usize, &'a ComponentUsage)>>,
     pub(crate) children_map: &'a FxHashMap<u32, Vec<ScopeId>>,
     pub(crate) vfor_enclosing_guards: &'a FxHashMap<u32, String>,
-    pub(crate) template_prop_names: &'a FxHashSet<String>,
+    pub(crate) template_binding_access: &'a TemplateBindingAccess,
     pub(crate) syntactic_type_only_imported_names: &'a FxHashSet<CompactString>,
     pub(crate) source_context: ComponentPropSource<'a>,
     pub(crate) preserve_event_navigation: bool,
+    pub(crate) check_unknown_events: bool,
+    pub(crate) strict_v_model: bool,
     pub(crate) experimental_strict_slot_children: bool,
+    pub(crate) explicit_generics: &'a ExplicitGenerics,
 }
 
 pub(super) struct EventHandlerExprContext<'a> {
@@ -112,7 +146,12 @@ pub(super) struct EventHandlerExprContext<'a> {
     /// vue-tsc anchors a wrongly-shaped handler (#3462). `None` when the
     /// directive text cannot be read back from the template.
     pub(super) event_name_src_range: Option<std::ops::Range<usize>>,
-    pub(super) template_prop_names: &'a FxHashSet<String>,
+    /// The closure's value is checked against the listener type, so a lone
+    /// expression statement is returned from it: `@click="count++"` yields
+    /// the expression's type where `@click="(() => 1);"` yields `void`,
+    /// exactly as an authored inline handler does under `vue-tsc`.
+    pub(super) return_single_expression: bool,
+    pub(super) template_binding_access: &'a TemplateBindingAccess,
     pub(super) template_offset: u32,
     pub(super) indent: &'a str,
 }
@@ -123,15 +162,24 @@ pub(super) struct ComponentPropsContext<'a, 'template> {
     pub(super) template_source: Option<&'a str>,
     pub(super) children_map: &'a FxHashMap<u32, Vec<ScopeId>>,
     pub(super) vfor_enclosing_guards: &'a FxHashMap<u32, String>,
-    pub(super) template_prop_names: &'a FxHashSet<String>,
+    pub(super) template_binding_access: &'a TemplateBindingAccess,
     pub(super) syntactic_type_only_imported_names: &'a FxHashSet<CompactString>,
     pub(super) template_offset: u32,
     pub(super) options: &'a VirtualTsOptions,
     pub(super) preserve_event_navigation: bool,
-    pub(super) check_unresolved_global_components: GlobalComponentCheck,
+    pub(super) check_unknown_events: bool,
+    pub(super) strict_v_model: bool,
+    pub(super) component_binding_check: ComponentBindingCheck<'a>,
     pub(super) legacy_vue2: bool,
     pub(super) check_unknown_props: bool,
     pub(super) experimental_strict_slot_children: bool,
+    /// Starts of the component usages that are this component's fallthrough
+    /// roots under `checkRequiredFallthroughAttributes`: their required props
+    /// become the parent's to supply, so the usage itself stops reporting them
+    /// as missing.
+    pub(super) relaxed_required_usage_starts: &'a FxHashSet<u32>,
+    /// `@vue-generic` usages and the instantiated binding each resolves through.
+    pub(super) explicit_generics: &'a ExplicitGenerics,
 }
 
 impl<'a> ComponentPropsContext<'a, '_> {

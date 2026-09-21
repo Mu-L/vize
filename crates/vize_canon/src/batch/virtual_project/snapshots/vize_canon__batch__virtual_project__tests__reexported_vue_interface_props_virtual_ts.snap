@@ -78,6 +78,7 @@ function __setup() {
   type __VizeIsGeneratedComponent<C> = C extends { readonly __vizeComponentMarker: true } ? true : false;
   type __VizeHasFallthroughProps<C> = __VizeIsGeneratedComponent<C> extends true ? C extends { readonly __vizeHasFallthroughProps: true } ? true : false : false;
   type __VizeFallthroughProps<C> = __VizeHasFallthroughProps<C> extends true ? C extends { readonly __vizeFallthroughProps?: infer __F } ? __VizeIsAny<__F> extends true ? {} : NonNullable<__F> : {} : {};
+  type __VizeRequiredFallthroughProps<C, __F = __VizeFallthroughProps<C>, __K = __VizeRequiredKeys<__F>> = [__K] extends [never] ? {} : { [K in keyof __F as K extends __K ? K : never]: __F[K] };
   type __VizeVueVNodeProps = import('vue').VNodeProps;
   type __VizeVueAllowedComponentProps = import('vue').AllowedComponentProps;
   type __VizeVueComponentCustomProps = import('vue').ComponentCustomProps;
@@ -86,9 +87,9 @@ function __setup() {
   type __VizeAttrCamel<S extends string> = S extends `${infer __H}-${infer __T}` ? `${__H}${Capitalize<__VizeAttrCamel<__T>>}` : S;
   type __VizeNativeAttrNames = { [K in keyof __VizeNativeElements & string]: keyof __VizeNativeElements[K] }[keyof __VizeNativeElements & string] & string;
   type __VizeGlobalHtmlAttrs = __VizeIsAny<__VizeNativeElements> extends true ? {} : { [K in __VizeNativeAttrNames as K | __VizeAttrCamel<K>]?: unknown } & { [K in `data${string}`]?: unknown };
-  type __VizeComponentCheckTail<C> = __VizeIsGeneratedComponent<C> extends true ? __VizePublicComponentAttrs & __VizeGlobalHtmlAttrs & __VizeAllowedFallthroughAttrs<C> : Record<string, unknown>;
+  type __VizeComponentCheckTail<C> = __VizeIsGeneratedComponent<C> extends true ? __VizePublicComponentAttrs & __VizeGlobalHtmlAttrs & __VizeAllowedFallthroughAttrs<C> : __VizePublicComponentAttrs & __VizeGlobalHtmlAttrs;
   type __VizeComponentCheckProps<P, T> = { readonly [K in keyof P]: P[K] } & T;
-  type __VizePublicProps<C> = C extends { new (): { $props: infer __P } } ? __P : C extends (props: infer __P) => any ? __P : {};
+  type __VizePublicProps<C> = C extends { new (...args: any[]): { $props: infer __P } } ? __P : C extends (props: infer __P, ...args: any[]) => any ? __P : {};
   type __VizeInstanceRawProps<C> = C extends { new (): { readonly __vizeRawProps?: infer __P } } ? __VizeIsAny<__P> extends true ? __VizePublicProps<C> : __P : __VizePublicProps<C>;
   type __VizeStaticRawProps<C> = C extends { readonly __vizeRawProps?: infer __P } ? __VizeIsAny<__P> extends true ? __VizePublicProps<C> : __P : __VizePublicProps<C>;
   type __VizeHasInstanceRawProps<C> = __VizeIsGeneratedComponent<C> extends true ? C extends { new (): { readonly __vizeRawProps?: infer __P } } ? __VizeIsAny<__P> extends true ? false : true : false : false;
@@ -105,7 +106,7 @@ function __setup() {
   // @vize-map: component -> 258:302
   type __Child_Props_0 = typeof Child extends { __vizeCheck: infer __F } ? (__VizeIsAny<__F> extends true ? __VizeComponentRawProps<typeof Child> : Record<string, unknown>) : __VizeComponentRawProps<typeof Child>;
   type __Child_Component_0 = typeof Child;
-  type __Child_CheckProps_0 = __Child_Props_0 & __VizeEmitListeners<__Child_Component_0>;
+  type __Child_CheckProps_0 = __Child_Props_0 & __VizeEmitListeners<__Child_Component_0> & __VizeRequiredFallthroughProps<__Child_Component_0>;
   type __Child_CheckTail_0 = __VizeComponentCheckTail<__Child_Component_0>;
   type __Child_ValueProps_0 = __Child_Props_0 & __VizeEmitListeners<__Child_Component_0> & __VizePublicComponentAttrs;
   type __Child_FallthroughValue_0<K extends PropertyKey> = __VizeFallthroughValue<__Child_Component_0, K>;
@@ -115,6 +116,7 @@ function __setup() {
 
   // Component template navigation references
   void Child;
+  const { } = undefined as unknown as __Child_Props_0;
   const __vize_props_nav_0 = undefined as unknown as __Child_Props_0 & Record<string, unknown>;
   void __vize_props_nav_0.as;
   void __vize_props_nav_0.asChild;
@@ -140,20 +142,24 @@ function __setup() {
   // Reference setup bindings (used in template/CSS v-bind)
   void Child; void as; void asChild; void props;
   })();
+
+  // Compiler-macro results contribute to the component signature
+  void props;
 }
 
 // Invoke setup to verify types
 __setup();
 
 export type Emits = {};
-export type Slots = {};
+type __VizeSlots = {};
+export type { __VizeSlots as Slots };
 
 // ========== Default Export ==========
 type __VizeComponentInstance = {
   $props: Props;
   readonly __vizeRawProps?: Props;
   $emit: __VizePublicEmit<Emits>;
-  $slots: __VizePublicSlots<Slots>;
+  $slots: __VizePublicSlots<__VizeSlots>;
 } & __VizeComponentPublicBase;
 type __VizeComponentConstructor = new <__VizeAuthoredProps = unknown>(props?: __VizeAuthoredProps & __VizeComponentInput<Props, {}, __VizeAuthoredProps>, ...args: any[]) => __VizeUsePublicInstance<__VizeAuthoredProps> extends true ? __VizeComponentInstance : Omit<__VizeComponentInstance, '$props'> & {
 $props: __VizeAuthoredKeyWitness<__VizeAuthoredProps> & __VizeComponentInputProps<Props, {}> & __VizeComponentInputGuard<Props, {}, __VizeAuthoredProps>;

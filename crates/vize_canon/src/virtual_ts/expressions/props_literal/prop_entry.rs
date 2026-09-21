@@ -2,12 +2,14 @@ use super::close_named_group;
 use crate::virtual_ts::expressions::component_props::{
     ComponentPropSource, merged_class_binding_value,
 };
+use crate::virtual_ts::expressions::map_rewritten_template_binding;
 use crate::virtual_ts::expressions::prop_sources::{
     append_prop_value, generated_prop_value, prop_name_source_range, prop_value_source_range,
 };
 use crate::virtual_ts::helpers::to_camel_case;
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use crate::virtual_ts::types::{VizeMapping, VizeSubSpan};
-use vize_carton::{FxHashSet, String, append};
+use vize_carton::{String, append};
 use vize_croquis::croquis::PassedProp;
 
 #[allow(clippy::too_many_arguments)]
@@ -15,7 +17,7 @@ pub(super) fn append_prop_entry(
     ts: &mut String,
     mappings: &mut Vec<VizeMapping>,
     prop: &PassedProp,
-    template_prop_names: &FxHashSet<String>,
+    template_binding_access: &TemplateBindingAccess,
     source_context: ComponentPropSource<'_>,
     expr_indent: &str,
     merge_class_bindings: bool,
@@ -32,14 +34,17 @@ pub(super) fn append_prop_entry(
         *emitted_merged_class = true;
         merged_class_binding_value(class_bindings)
     } else {
-        generated_prop_value(prop, template_prop_names)
+        generated_prop_value(prop, template_binding_access)
     };
     let Some(mut generated_value) = generated_value else {
         return;
     };
     let inline_callback = crate::virtual_ts::scope::is_inline_callback_prop(prop);
     if inline_callback {
-        generated_value = String::from("undefined as any");
+        // The authored callback is checked against its resolved type separately.
+        // `never` also satisfies a declared `never` prop; `any` would produce a
+        // second diagnostic about this synthetic value at the same attribute.
+        generated_value = String::from("undefined as never");
     }
 
     let (prop_src_start, prop_src_end) = if merge_class_bindings && prop.name.as_str() == "class" {
@@ -89,19 +94,15 @@ pub(super) fn append_prop_entry(
 
     let sub_spans = match merge_class_bindings && prop.name.as_str() == "class" {
         true => Vec::new(),
-        false if inline_callback => {
-            prop_name_source_range(source_context, prop).map_or_else(Vec::new, |src_range| {
-                vec![VizeSubSpan {
-                    gen_range: entry_gen_start..key_gen_end,
-                    src_range,
-                }]
-            })
-        }
+        false if inline_callback => prop_name_source_range(source_context, prop)
+            .map_or_else(Vec::new, |src_range| {
+                key_sub_spans(entry_gen_start..key_gen_end, src_range)
+            }),
         false => entry_sub_spans(
             source_context,
             prop,
             entry_gen_start..key_gen_end,
-            value_gen_range,
+            value_gen_range.clone(),
         ),
     };
     mappings.push(VizeMapping {
@@ -109,6 +110,22 @@ pub(super) fn append_prop_entry(
         src_range: prop_src_start..prop_src_end,
         sub_spans,
     });
+    if !template_binding_access.is_empty()
+        && prop.is_dynamic
+        && !inline_callback
+        && !merge_class_bindings
+        && let Some(value) = prop.value.as_ref()
+        && let Some(source) = prop_value_source_range(source_context, prop)
+    {
+        map_rewritten_template_binding(
+            ts,
+            mappings,
+            value_gen_range.start,
+            source.start,
+            value.as_str(),
+            template_binding_access,
+        );
+    }
 }
 
 fn entry_sub_spans(
@@ -123,14 +140,28 @@ fn entry_sub_spans(
     let Some(value_src_range) = prop_value_source_range(source_context, prop) else {
         return Vec::new();
     };
+    let mut spans = key_sub_spans(key_gen_range, name_src_range);
+    spans.push(VizeSubSpan {
+        gen_range: value_gen_range,
+        src_range: value_src_range,
+    });
+    spans
+}
+
+fn key_sub_spans(
+    generated: std::ops::Range<usize>,
+    source: std::ops::Range<usize>,
+) -> Vec<VizeSubSpan> {
     vec![
+        // TypeScript rename targets the literal contents, whereas diagnostics
+        // can cover its quotes too. Both ranges own the same authored prop.
         VizeSubSpan {
-            gen_range: key_gen_range,
-            src_range: name_src_range,
+            gen_range: generated.start + 1..generated.end - 1,
+            src_range: source.clone(),
         },
         VizeSubSpan {
-            gen_range: value_gen_range,
-            src_range: value_src_range,
+            gen_range: generated,
+            src_range: source,
         },
     ]
 }

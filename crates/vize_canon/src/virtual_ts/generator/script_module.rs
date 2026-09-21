@@ -4,12 +4,12 @@ mod namespace_hoist;
 mod navigation;
 mod plain_exports;
 
+use super::imports::{IdentifierUsage, collect_identifier_usage};
 use oxc_allocator::Allocator;
-use oxc_ast::ast::{Declaration, Statement, TSEnumDeclaration};
-use oxc_ast_visit::Visit;
-use oxc_parser::Parser;
+use oxc_ast::ast::{Declaration, Statement};
 use oxc_span::{GetSpan, SourceType};
 use vize_carton::{CompactString, FxHashSet, String as VizeString};
+use vize_croquis::script_parser::parse_program_for_analysis;
 
 pub(super) use namespace_hoist::NamespaceHoistPlan;
 pub(super) use navigation::mapped_binding_range;
@@ -18,20 +18,79 @@ pub(super) use plain_exports::{
     emit_setup_invocation_and_exports_with_mappings as emit_exports, push_setup_return_fields,
 };
 
-pub(super) fn collect_line_module_spans(script: &str) -> Vec<(u32, u32)> {
+#[derive(Default)]
+pub(super) struct ScriptModulePlan {
+    pub(super) spans: Vec<(u32, u32)>,
+    pub(super) exported_types: FxHashSet<CompactString>,
+    pub(super) identifier_usage: IdentifierUsage,
+}
+
+impl ScriptModulePlan {
+    pub(super) fn module_spans(
+        &self,
+        summary: &vize_croquis::Croquis,
+        namespace_hoist: &NamespaceHoistPlan,
+    ) -> Vec<(u32, u32)> {
+        summary
+            .import_statements
+            .iter()
+            .map(|import| (import.start, import.end))
+            .chain(self.spans.iter().copied())
+            .chain(namespace_hoist.spans().iter().copied())
+            .chain(
+                summary
+                    .re_exports
+                    .iter()
+                    .map(|export| (export.start, export.end)),
+            )
+            .collect()
+    }
+}
+
+pub(super) fn collect_script_module_plan(script: &str) -> ScriptModulePlan {
     let mut spans = Vec::new();
+    let mut exported_types = FxHashSet::default();
     let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, script, SourceType::ts().with_module(true)).parse();
+    let parsed = parse_program_for_analysis(&allocator, script, SourceType::ts().with_module(true));
     let parsed = if parsed.panicked {
-        Parser::new(&allocator, script, SourceType::tsx().with_module(true)).parse()
+        parse_program_for_analysis(&allocator, script, SourceType::tsx().with_module(true))
     } else {
         parsed
     };
     if parsed.panicked {
-        return spans;
+        return ScriptModulePlan::default();
     }
 
     for statement in &parsed.program.body {
+        if let Statement::ExportNamedDeclaration(export) = statement {
+            exported_types.extend(
+                export
+                    .specifiers
+                    .iter()
+                    .map(|specifier| CompactString::from(specifier.exported.name().as_str())),
+            );
+            let declared = export
+                .declaration
+                .as_ref()
+                .and_then(|declaration| match declaration {
+                    Declaration::TSTypeAliasDeclaration(declaration) => {
+                        Some(declaration.id.name.as_str())
+                    }
+                    Declaration::TSInterfaceDeclaration(declaration) => {
+                        Some(declaration.id.name.as_str())
+                    }
+                    Declaration::TSEnumDeclaration(declaration) => {
+                        Some(declaration.id.name.as_str())
+                    }
+                    Declaration::ClassDeclaration(declaration) => {
+                        declaration.id.as_ref().map(|id| id.name.as_str())
+                    }
+                    _ => None,
+                });
+            if let Some(name) = declared {
+                exported_types.insert(name.into());
+            }
+        }
         match statement {
             Statement::ImportDeclaration(_)
             | Statement::ExportAllDeclaration(_)
@@ -46,7 +105,11 @@ pub(super) fn collect_line_module_spans(script: &str) -> Vec<(u32, u32)> {
             _ => {}
         }
     }
-    include_leading_ts_directive_comments(script, spans)
+    ScriptModulePlan {
+        spans: include_leading_ts_directive_comments(script, spans),
+        exported_types,
+        identifier_usage: collect_identifier_usage(&parsed.program),
+    }
 }
 
 pub(super) fn collect_named_value_export_starts(script: &str) -> Vec<u32> {
@@ -54,9 +117,9 @@ pub(super) fn collect_named_value_export_starts(script: &str) -> Vec<u32> {
         return Vec::new();
     }
     let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, script, SourceType::ts().with_module(true)).parse();
+    let parsed = parse_program_for_analysis(&allocator, script, SourceType::ts().with_module(true));
     let parsed = if parsed.panicked || !parsed.diagnostics.is_empty() {
-        Parser::new(&allocator, script, SourceType::tsx().with_module(true)).parse()
+        parse_program_for_analysis(&allocator, script, SourceType::tsx().with_module(true))
     } else {
         parsed
     };
@@ -107,31 +170,6 @@ pub(super) fn emit_import_meta_polyfill(ts: &mut VizeString, script: &str) -> bo
         ts.push_str("  const __import_meta: any = {};\n");
     }
     uses_import_meta
-}
-
-pub(super) fn collect_const_enum_names(script: &str) -> FxHashSet<CompactString> {
-    let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, script, SourceType::ts()).parse();
-    if parsed.panicked {
-        return FxHashSet::default();
-    }
-
-    let mut collector = ConstEnumNames::default();
-    collector.visit_program(&parsed.program);
-    collector.names
-}
-
-#[derive(Default)]
-struct ConstEnumNames {
-    names: FxHashSet<CompactString>,
-}
-
-impl<'a> Visit<'a> for ConstEnumNames {
-    fn visit_ts_enum_declaration(&mut self, decl: &TSEnumDeclaration<'a>) {
-        if decl.r#const {
-            self.names.insert(CompactString::new(decl.id.name.as_str()));
-        }
-    }
 }
 
 fn declaration_has_runtime_value(declaration: &Declaration<'_>) -> bool {
@@ -195,13 +233,13 @@ fn contains_ts_suppression_directive(comment: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        collect_line_module_spans, collect_named_value_export_starts, strip_named_value_exports,
+        collect_named_value_export_starts, collect_script_module_plan, strip_named_value_exports,
     };
 
     #[test]
     fn collect_import_span_includes_adjacent_ts_ignore_comment_group() {
         let script = "const before = 1;\n// FIXME: types\n// @ts-ignore\nimport Chart from \"chart.js/auto/auto\";\nconst after = 2;\n";
-        let spans = collect_line_module_spans(script);
+        let spans = collect_script_module_plan(script).spans;
 
         assert_eq!(spans.len(), 1);
         assert_eq!(
@@ -213,7 +251,7 @@ mod tests {
     #[test]
     fn collect_import_span_leaves_regular_comments_in_script_body() {
         let script = "// import note\nimport Chart from \"chart.js/auto/auto\";\n";
-        let spans = collect_line_module_spans(script);
+        let spans = collect_script_module_plan(script).spans;
 
         assert_eq!(spans.len(), 1);
         assert_eq!(

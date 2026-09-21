@@ -58,6 +58,7 @@ pub(super) fn build_jsx_registered_file(
         },
         extra_virtual_files: Vec::new(),
         original_content: content.to_compact_string(),
+        pre_rewrite_code: Some(code),
         passthrough_files: collect_passthrough_modules(
             path,
             content,

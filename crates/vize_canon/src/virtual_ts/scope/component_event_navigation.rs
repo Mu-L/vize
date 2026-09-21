@@ -1,3 +1,4 @@
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use std::ops::Range;
 
 use vize_carton::{FxHashSet, String, append, cstr};
@@ -5,8 +6,8 @@ use vize_croquis::croquis::{ComponentUsage, EventListener};
 use vize_croquis::{Croquis, ScopeKind};
 
 use crate::virtual_ts::{
-    component_reference::component_binding_reference, expressions::rewrite_reserved_template_prop,
-    helpers::to_camel_case, types::VizeMapping,
+    component_reference::component_binding_reference,
+    expressions::rewrite_reserved_template_binding, helpers::to_camel_case, types::VizeMapping,
 };
 
 use super::component_navigation::{is_ts_identifier, push_ts_single_quoted_literal};
@@ -23,8 +24,9 @@ pub(super) fn emit_event_references(
     let navigation_ctx = EventNavigationContext {
         template_source: ctx.template_source,
         template_offset: ctx.template_offset,
-        template_prop_names: ctx.template_prop_names,
+        template_binding_access: ctx.template_binding_access,
         preserve_event_navigation: ctx.preserve_event_navigation,
+        check_unknown_events: ctx.check_unknown_events,
     };
     for &(idx, usage) in checkable_usages {
         if is_closure_scoped(ctx.summary, usage) {
@@ -58,8 +60,9 @@ pub(super) fn emit_scoped_event_references(
     let navigation_ctx = EventNavigationContext {
         template_source: ctx.source_context.template,
         template_offset: ctx.source_context.offset,
-        template_prop_names: ctx.template_prop_names,
+        template_binding_access: ctx.template_binding_access,
         preserve_event_navigation: ctx.preserve_event_navigation,
+        check_unknown_events: ctx.check_unknown_events,
     };
     for &(idx, usage) in usages {
         let component_ref = component_binding_reference(
@@ -83,8 +86,9 @@ pub(super) fn emit_scoped_event_references(
 struct EventNavigationContext<'a> {
     template_source: Option<&'a str>,
     template_offset: u32,
-    template_prop_names: &'a FxHashSet<String>,
+    template_binding_access: &'a TemplateBindingAccess,
     preserve_event_navigation: bool,
+    check_unknown_events: bool,
 }
 
 fn is_closure_scoped(summary: &Croquis, usage: &ComponentUsage) -> bool {
@@ -103,6 +107,9 @@ fn emit_usage_event_references(
     component_ref: &str,
     indent: &str,
 ) {
+    if ctx.check_unknown_events {
+        emit_event_name_checks(ts, mappings, ctx, idx, usage, component_ref, indent);
+    }
     let resolved_events = cstr!("__vize_events_resolved_{idx}");
     let direct_events_ref = cstr!("__vize_events_nav_{idx}");
     let kebab_events_ref = cstr!("__vize_kebab_events_nav_{idx}");
@@ -114,7 +121,7 @@ fn emit_usage_event_references(
     let mut emitted_model_completion_ref = false;
     let mut emitted_resolved_events = false;
     let guard = usage.vif_guard.as_ref().map(|guard| {
-        rewrite_reserved_template_prop(guard.as_str(), ctx.template_prop_names)
+        rewrite_reserved_template_binding(guard.as_str(), ctx.template_binding_access)
             .unwrap_or_else(|| guard.clone())
     });
     let guarded_indent = guard.as_ref().map(|_| cstr!("{indent}  "));
@@ -152,7 +159,7 @@ fn emit_usage_event_references(
             if !emitted_model_completion_ref {
                 append!(
                     *ts,
-                    "{event_indent}const {model_completion_ref} = {resolved_events};\n"
+                    "{event_indent}const {model_completion_ref}: typeof {resolved_events} & Record<string, unknown> = {resolved_events};\n"
                 );
                 emitted_model_completion_ref = true;
             }
@@ -176,7 +183,7 @@ fn emit_usage_event_references(
             if ctx.preserve_event_navigation {
                 append!(
                     *ts,
-                    "{event_indent}const {events_ref} = {resolved_events};\n"
+                    "{event_indent}const {events_ref}: typeof {resolved_events} & Record<string, unknown> = {resolved_events};\n"
                 );
             } else {
                 append!(
@@ -223,6 +230,50 @@ fn emit_usage_event_references(
     }
 }
 
+fn emit_event_name_checks(
+    ts: &mut String,
+    mappings: &mut Vec<VizeMapping>,
+    ctx: &EventNavigationContext<'_>,
+    idx: usize,
+    usage: &ComponentUsage,
+    component_ref: &str,
+    indent: &str,
+) {
+    if !usage.events.iter().any(|event| !event.name_is_dynamic) {
+        return;
+    }
+    // Handler values are checked separately. Use the canonical event map so
+    // raw emits, listener props and kebab aliases all share the same names.
+    append!(
+        *ts,
+        "{indent}const __vize_event_keys_{idx}: {{ [K in keyof __VizeComponentEvents<typeof {component_ref}> & string as `on${{Capitalize<__VizeComponentAttrCamel<K>>}}`]?: unknown }} = {{\n"
+    );
+    let mut emitted_names = FxHashSet::default();
+    for event in &usage.events {
+        let Some(source_range) = event_navigation_source_range(ctx, event) else {
+            continue;
+        };
+        let name = cstr!(
+            "on{}",
+            vize_carton::capitalize(&vize_carton::camelize(event.name.as_str()))
+        );
+        if !emitted_names.insert(name.clone()) {
+            continue;
+        }
+        append!(*ts, "{indent}  ");
+        let start = ts.len();
+        crate::virtual_ts::helpers::push_ts_string_literal(ts, name.as_str());
+        let end = ts.len();
+        ts.push_str(": undefined as never,\n");
+        mappings.push(VizeMapping {
+            gen_range: start..end,
+            src_range: source_range,
+            sub_spans: Vec::new(),
+        });
+    }
+    append!(*ts, "{indent}}};\n{indent}void __vize_event_keys_{idx};\n");
+}
+
 fn emit_resolved_events(
     ts: &mut String,
     ctx: &EventNavigationContext<'_>,
@@ -240,7 +291,7 @@ fn emit_resolved_events(
         if prop.name_is_dynamic || prop.name.as_str() == "key" || prop.name.as_str() == "ref" {
             continue;
         }
-        let Some(value) = generated_prop_value(prop, ctx.template_prop_names) else {
+        let Some(value) = generated_prop_value(prop, ctx.template_binding_access) else {
             continue;
         };
         let name = to_camel_case(prop.name.as_str());

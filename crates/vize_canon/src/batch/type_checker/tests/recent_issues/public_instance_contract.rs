@@ -121,12 +121,14 @@ import Generic from './Generic.vue'
 const publicRef = useTemplateRef<InstanceType<typeof Public>>('public')
 const callableRef = useTemplateRef<InstanceType<typeof Callable>>('callable')
 const runtimeObjectRef = useTemplateRef<InstanceType<typeof RuntimeObject>>('runtime-object')
-const genericRef = useTemplateRef<InstanceType<typeof Generic>>('generic')
+type GenericExposed = Parameters<NonNullable<ReturnType<typeof Generic>['__ctx']>['expose']>[0]
+const genericRef = useTemplateRef<GenericExposed>('generic')
 
 publicRef.value?.$emit('select', 'ok')
 callableRef.value?.$emit('commit', 'ok')
 runtimeObjectRef.value?.$emit('save', 'ok')
-genericRef.value?.$emit('pick', 'ok')
+const current: string | undefined = genericRef.value?.current()
+void current
 publicRef.value?.close(true)
 
 // @ts-expect-error template-ref record emit payload stays exact
@@ -135,8 +137,8 @@ publicRef.value?.$emit('select', 1)
 callableRef.value?.$emit('commit', 1)
 // @ts-expect-error template-ref runtime payload stays exact
 runtimeObjectRef.value?.$emit('save', 1)
-// @ts-expect-error template-ref generic payload stays exact
-genericRef.value?.$emit('pick', 1)
+// @ts-expect-error generic exposes do not acquire a public-instance $emit
+genericRef.value?.$emit('pick', 'ok')
 // @ts-expect-error template-ref exposed member stays exact
 publicRef.value?.close('yes')
 </script>
@@ -292,7 +294,7 @@ fn public_instance_contract_survives_source_and_declaration_consumers() {
         public_dts.contains(
             "type __VizeComponentConstructor = new <__VizeAuthoredProps = unknown>(props?: __VizeAuthoredProps & __VizeComponentInput<Props, __EmitProps<Emits>, __VizeAuthoredProps>, ...args: any[])"
         ) && public_dts.contains(
-            "declare const __vize_component__: {\n    __vizeEmitProps?: __VizeStaticEmitProps;\n    readonly __vizeRawProps?: Props;\n    readonly __vizeSlots?: Partial<Slots>;\n} & __VizeComponentConstructor & __VizeVueComponentOptions;"
+            "declare const __vize_component__: {\n    __vizeEmitProps?: __VizeStaticEmitProps;\n    readonly __vizeRawProps?: Props;\n    readonly __vizeSlots?: Partial<__VizeSlots>;\n} & __VizeComponentConstructor & __VizeVueComponentOptions;"
         )
             && !public_dts.contains("__VizeComponentInputConstructor")
             && !public_dts.contains("__VizeComponentPublicConstructor"),
@@ -301,7 +303,7 @@ fn public_instance_contract_survives_source_and_declaration_consumers() {
     assert!(
         public_dts.contains("$props: Props & __EmitProps<Emits>;")
             && public_dts.contains("$emit: __VizePublicEmit<Emits>;")
-            && public_dts.contains("$slots: __VizePublicSlots<Slots>;")
+            && public_dts.contains("$slots: __VizePublicSlots<__VizeSlots>;")
             && public_dts.contains("} & __VizeComponentPublicBase &"),
         "emitted public instance must own props/emits and adapt the Vue base:\n{public_dts}"
     );

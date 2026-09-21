@@ -10,6 +10,7 @@ use super::common::{
     fill_define_art_tags, object_bool_property, object_expression_source_property, object_property,
     object_string_property, object_u32_property,
 };
+use super::props_type::runtime_prop_type_from_ts_type;
 
 pub fn process_call_expression(
     result: &mut ScriptParseResult,
@@ -93,6 +94,11 @@ pub fn process_call_expression(
                     }
                 })
                 .unwrap_or("modelValue");
+            // The prop a model declares is camelized, as every Vue prop is:
+            // `defineModel('g-g')` is read as `$props.gG` and updated through
+            // `update:gG`.
+            let model_name = vize_carton::camelize(model_name);
+            let model_name = model_name.as_str();
             let declaration = call
                 .arguments
                 .first()
@@ -138,8 +144,9 @@ pub fn process_call_expression(
                     )
                 })
                 .unwrap_or((false, None));
-            let model_type = explicit_model_type
-                .or_else(|| options_arg.and_then(runtime_model_type_from_options_arg));
+            let model_type = explicit_model_type.or_else(|| {
+                options_arg.and_then(|arg| runtime_model_type_from_options_arg(arg, source))
+            });
 
             result.macros.add_model_with_declaration(
                 ModelDefinition {
@@ -166,15 +173,15 @@ pub fn process_call_expression(
             }
         }
 
-        MacroKind::DefineOptions
-            if call
-                .arguments
-                .first()
-                .and_then(argument_object)
-                .and_then(|options| object_bool_property(options, "inheritAttrs"))
-                == Some(false) =>
-        {
-            result.inherit_attrs_disabled = true;
+        MacroKind::DefineOptions => {
+            if let Some(options) = call.arguments.first().and_then(argument_object) {
+                result
+                    .macros
+                    .set_define_options_name(object_string_property(options, "name"));
+                if object_bool_property(options, "inheritAttrs") == Some(false) {
+                    result.inherit_attrs_disabled = true;
+                }
+            }
         }
 
         MacroKind::Custom if callee_name == DEFINE_ART => {
@@ -189,40 +196,30 @@ pub fn process_call_expression(
     Some(macro_kind)
 }
 
-fn runtime_model_type_from_options_arg(arg: &Argument<'_>) -> Option<CompactString> {
+fn runtime_model_type_from_options_arg(arg: &Argument<'_>, source: &str) -> Option<CompactString> {
     let options = argument_object(arg)?;
     let type_expression = object_property(options, "type")?;
-    runtime_model_type_from_root_expression(type_expression)
+    runtime_model_type_from_expression(type_expression, source)
 }
 
-fn runtime_model_type_from_root_expression(expression: &Expression<'_>) -> Option<CompactString> {
-    match expression {
-        Expression::ArrayExpression(array) => runtime_model_type_from_array(array),
-        Expression::ParenthesizedExpression(parenthesized) => {
-            runtime_model_type_from_root_expression(&parenthesized.expression)
-        }
-        Expression::TSAsExpression(ts_as) => {
-            runtime_model_type_from_root_expression(&ts_as.expression)
-        }
-        Expression::TSSatisfiesExpression(ts_satisfies) => {
-            runtime_model_type_from_root_expression(&ts_satisfies.expression)
-        }
-        _ => runtime_model_type_from_expression(expression),
-    }
-}
-
-fn runtime_model_type_from_expression(expression: &Expression<'_>) -> Option<CompactString> {
+fn runtime_model_type_from_expression(
+    expression: &Expression<'_>,
+    source: &str,
+) -> Option<CompactString> {
     match expression {
         Expression::Identifier(identifier) => {
             runtime_constructor_model_type(identifier.name.as_str()).map(CompactString::new)
         }
-        Expression::ArrayExpression(array) => runtime_model_type_from_array(array),
+        Expression::ArrayExpression(array) => runtime_model_type_from_array(array, source),
         Expression::ParenthesizedExpression(parenthesized) => {
-            runtime_model_type_from_expression(&parenthesized.expression)
+            runtime_model_type_from_expression(&parenthesized.expression, source)
         }
-        Expression::TSAsExpression(ts_as) => runtime_model_type_from_expression(&ts_as.expression),
+        Expression::TSAsExpression(ts_as) => {
+            runtime_prop_type_from_ts_type(&ts_as.type_annotation, source)
+                .or_else(|| runtime_model_type_from_expression(&ts_as.expression, source))
+        }
         Expression::TSSatisfiesExpression(ts_satisfies) => {
-            runtime_model_type_from_expression(&ts_satisfies.expression)
+            runtime_model_type_from_expression(&ts_satisfies.expression, source)
         }
         _ => None,
     }
@@ -230,6 +227,7 @@ fn runtime_model_type_from_expression(expression: &Expression<'_>) -> Option<Com
 
 fn runtime_model_type_from_array(
     array: &oxc_ast::ast::ArrayExpression<'_>,
+    source: &str,
 ) -> Option<CompactString> {
     let mut types = Vec::new();
     for element in &array.elements {
@@ -238,7 +236,7 @@ fn runtime_model_type_from_array(
         };
         let model_type = match expression {
             Expression::NullLiteral(_) => Some(CompactString::new("null")),
-            _ => runtime_model_type_from_expression(expression),
+            _ => runtime_model_type_from_expression(expression, source),
         };
         let Some(model_type) = model_type else {
             continue;

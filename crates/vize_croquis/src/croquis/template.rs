@@ -138,7 +138,7 @@ pub enum TemplateExpressionKind {
     VShow,
     /// v-model: v-model="value"
     VModel,
-    /// Runtime directive argument: `:[name]`, `@[name]`, or `#[name]`.
+    /// Runtime property or slot argument: `:[name]` or `#[name]`.
     DynamicDirectiveArgument,
     /// Custom (non-builtin) directive value: `v-focus="expr"`.
     ///
@@ -147,6 +147,8 @@ pub enum TemplateExpressionKind {
     /// undefined-identifier detection, so `v-focus="'nope'"` was silent where
     /// `vue-tsc` reports `TS2322` against `Directive<El, Value>`.
     CustomDirective,
+    /// Runtime listener name: `@[name]`; null disables the listener.
+    DynamicEventArgument,
 }
 
 impl TemplateExpressionKind {
@@ -161,6 +163,7 @@ impl TemplateExpressionKind {
             Self::VShow => "VShow",
             Self::VModel => "VModel",
             Self::DynamicDirectiveArgument => "DynamicDirectiveArgument",
+            Self::DynamicEventArgument => "DynamicEventArgument",
             Self::CustomDirective => "CustomDirective",
         }
     }

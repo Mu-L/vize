@@ -16,10 +16,12 @@ use super::{
 };
 
 #[derive(Clone, Copy)]
-struct VirtualProjectRewriteOptions<'a> {
-    preserve_relative_declarations: bool,
-    mirrorable_project_files: Option<&'a FxHashSet<PathBuf>>,
-    alias_rewrite_policy: Option<&'a VirtualAliasRewritePolicy>,
+pub(in crate::batch) struct VirtualProjectRewriteOptions<'a> {
+    pub(in crate::batch) preserve_relative_declarations: bool,
+    pub(in crate::batch) mirrorable_project_files: Option<&'a FxHashSet<PathBuf>>,
+    pub(in crate::batch) alias_rewrite_policy: Option<&'a VirtualAliasRewritePolicy>,
+    pub(in crate::batch) module_resolver:
+        Option<crate::batch::import_rewriter_alias::AliasSpecifierResolver<'a>>,
 }
 
 impl ImportRewriter {
@@ -29,9 +31,14 @@ impl ImportRewriter {
         source_type: SourceType,
         roots: (&Path, &Path),
         source_dir: Option<&Path>,
-        mirrorable_project_files: Option<&FxHashSet<PathBuf>>,
-        alias_rewrite_policy: Option<&VirtualAliasRewritePolicy>,
+        options: VirtualProjectRewriteOptions<'_>,
     ) -> RewriteResult {
+        let VirtualProjectRewriteOptions {
+            preserve_relative_declarations,
+            mirrorable_project_files,
+            alias_rewrite_policy,
+            module_resolver,
+        } = options;
         let project_root = roots.0.to_string_lossy();
         let relative_candidate =
             source_dir.is_some() && source_may_contain_relative_specifier(source);
@@ -41,6 +48,7 @@ impl ImportRewriter {
             && !source.contains(project_root.as_ref())
             && !relative_candidate
             && !alias_candidate
+            && options.module_resolver.is_none()
         {
             return RewriteResult {
                 code: source.to_compact_string(),
@@ -48,7 +56,10 @@ impl ImportRewriter {
             };
         }
 
-        self.rewrite_with(source, source_type, |path, _| {
+        self.rewrite_with(source, source_type, |path, mode| {
+            if let Some(rewritten) = module_resolver.and_then(|resolve| resolve(path, mode)) {
+                return Some(rewritten.into());
+            }
             self.rewrite_module_specifier_with_missing_vue_policy_and_alias_policy(
                 path,
                 source_dir,
@@ -56,6 +67,14 @@ impl ImportRewriter {
                 true,
                 alias_rewrite_policy,
             )
+            .or_else(|| {
+                (!preserve_relative_declarations)
+                    .then(|| {
+                        source_dir
+                            .and_then(|dir| rewrite_relative_dts_specifier(path, dir, roots.0))
+                    })
+                    .flatten()
+            })
             .or_else(|| source_dir.and_then(|dir| rewrite_relative_vue_specifier(path, dir)))
             .or_else(|| {
                 alias_rewrite_policy
@@ -85,6 +104,7 @@ impl ImportRewriter {
                 preserve_relative_declarations: false,
                 mirrorable_project_files: None,
                 alias_rewrite_policy: None,
+                module_resolver: None,
             },
         )
     }
@@ -106,6 +126,7 @@ impl ImportRewriter {
                 preserve_relative_declarations: true,
                 mirrorable_project_files: None,
                 alias_rewrite_policy,
+                module_resolver: None,
             },
         )
     }
@@ -128,11 +149,12 @@ impl ImportRewriter {
                 preserve_relative_declarations: false,
                 mirrorable_project_files,
                 alias_rewrite_policy,
+                module_resolver: None,
             },
         )
     }
 
-    fn rewrite_for_virtual_project_with_policy(
+    pub(in crate::batch) fn rewrite_for_virtual_project_with_policy(
         &self,
         source: &str,
         source_type: SourceType,
@@ -149,6 +171,7 @@ impl ImportRewriter {
             && !source.contains(project_root.as_ref())
             && !dts_candidate
             && !alias_candidate
+            && options.module_resolver.is_none()
         {
             return RewriteResult {
                 code: source.to_compact_string(),
@@ -156,7 +179,13 @@ impl ImportRewriter {
             };
         }
 
-        self.rewrite_with(source, source_type, |path, _| {
+        self.rewrite_with(source, source_type, |path, mode| {
+            if let Some(rewritten) = options
+                .module_resolver
+                .and_then(|resolve| resolve(path, mode))
+            {
+                return Some(rewritten.into());
+            }
             self.rewrite_virtual_project_specifier(
                 path,
                 roots,

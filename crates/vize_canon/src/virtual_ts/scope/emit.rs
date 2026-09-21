@@ -1,55 +1,16 @@
 //! Shared text-emission helpers for v-for loops and v-slot prop types.
 
+use crate::virtual_ts::template_binding_access::TemplateBindingAccess;
 use oxc_syntax::identifier::is_identifier_part;
+use vize_carton::String;
 use vize_carton::append;
 use vize_carton::cstr;
-use vize_carton::{FxHashSet, String};
-use vize_croquis::{Croquis, Scope, ScopeData};
+use vize_croquis::{Scope, ScopeData};
 
-use crate::virtual_ts::component_reference::component_binding_reference;
-use crate::virtual_ts::expressions::rewrite_reserved_template_prop;
-use crate::virtual_ts::types::{VirtualTsOptions, VizeMapping};
-
-/// Type annotation for a `v-slot` scope's props. When the slot is on a child
-/// component (`component` is `Some`), the props are inferred from that child's
-/// `$slots[name]` parameter (its `defineSlots`), so misuse raises a real
-/// diagnostic (#764). Dynamic slot names are matched against the union of all
-/// declared slot function props, matching Vue's runtime lookup without
-/// treating the expression text as a static slot key. Otherwise — and whenever
-/// the child has no typed slot — it falls back to `any` so untyped or built-in
-/// slot hosts never produce a false positive.
-pub(super) fn slot_props_type(
-    summary: &Croquis,
-    options: &VirtualTsOptions,
-    syntactic_type_only_imported_names: &FxHashSet<vize_carton::CompactString>,
-    component: Option<&str>,
-    slot_name: &str,
-    slot_name_is_static: bool,
-) -> String {
-    match component {
-        Some(component) => {
-            let component_ref = component_binding_reference(
-                summary,
-                options,
-                syntactic_type_only_imported_names,
-                component,
-            );
-            if slot_name_is_static {
-                cstr!(
-                    "typeof {component_ref} extends {{ readonly __vizeSlots?: infer __S }} ? (\"{slot_name}\" extends keyof NonNullable<__S> ? (NonNullable<NonNullable<__S>[\"{slot_name}\"]> extends (props: infer __P, ...args: any[]) => any ? __P : any) : any) : (typeof {component_ref} extends {{ new (): {{ $slots: infer __S }} }} ? (\"{slot_name}\" extends keyof __S ? (NonNullable<__S[\"{slot_name}\"]> extends (props: infer __P, ...args: any[]) => any ? __P : any) : any) : any)"
-                )
-            } else {
-                // The Vize marker is `Partial<Slots>` because parents may omit
-                // slots. Strip that mapped optionality before unioning payloads
-                // so a provided dynamic slot never acquires `undefined` props.
-                cstr!(
-                    "typeof {component_ref} extends {{ readonly __vizeSlots?: infer __S }} ? ({{ [__K in keyof NonNullable<__S>]-?: NonNullable<NonNullable<__S>[__K]> extends (props: infer __P, ...args: any[]) => any ? __P : never }}[keyof NonNullable<__S>] extends infer __P ? ([__P] extends [never] ? any : __P) : any) : (typeof {component_ref} extends {{ new (): {{ $slots: infer __S }} }} ? ({{ [__K in keyof __S]-?: NonNullable<__S[__K]> extends (props: infer __P, ...args: any[]) => any ? __P : never }}[keyof __S] extends infer __P ? ([__P] extends [never] ? any : __P) : any) : any)"
-                )
-            }
-        }
-        None => "any".into(),
-    }
-}
+use crate::virtual_ts::expressions::{
+    map_rewritten_template_binding, rewrite_reserved_template_binding,
+};
+use crate::virtual_ts::types::VizeMapping;
 
 /// Split a `v-slot` props expression that carries its own TypeScript
 /// annotation (`#item="{ element }: { element: Tag }"`) into the binding
@@ -101,12 +62,15 @@ pub(super) fn emit_slot_function_open(
     function_name: &str,
     props_pattern: &str,
     props_type: &String,
+    capture: bool,
 ) {
+    let declaration = if capture {
+        cstr!("var {function_name} = function")
+    } else {
+        cstr!("void function {function_name}")
+    };
     if let Some((pattern, annotation)) = split_slot_pattern_annotation(props_pattern) {
-        append!(
-            *ts,
-            "{indent}void function {function_name}({pattern}: {annotation}) {{\n"
-        );
+        append!(*ts, "{indent}{declaration}({pattern}: {annotation}) {{\n");
         append!(
             *ts,
             "{indent}  const __slot_annotation_check: {annotation} = undefined as unknown as ({props_type});\n{indent}  void __slot_annotation_check;\n"
@@ -114,7 +78,7 @@ pub(super) fn emit_slot_function_open(
     } else {
         append!(
             *ts,
-            "{indent}void function {function_name}({props_pattern}: {props_type}) {{\n"
+            "{indent}{declaration}({props_pattern}: {props_type}) {{\n"
         );
     }
 }
@@ -138,15 +102,16 @@ pub(super) fn append_v_for_comment(
 }
 
 /// Emit the opening of a v-for scope as
-/// `__vForList(source).forEach(([value, key, index]) => {`.
+/// a source capture followed by `for (const [value, key, index] of source) {`.
 ///
-/// The overloaded `__vForList` helper types the destructured tuple from the
+/// The `__vForList` helper types the destructured tuple from the
 /// source kind: arrays/iterables/numbers/strings keep a numeric `key`, while an
 /// object source yields `value: T[keyof T]` and `key: keyof T` (matching
 /// vue-tsc) instead of the old array-only `(source).forEach` assumption that
 /// mis-typed objects and raised spurious TS2339/TS2537. The source expression is
 /// rewritten through the template-prop bridge so a source such as `messages`
 /// resolves to `__props.messages`; all other authored syntax stays verbatim.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn emit_v_for_loop_open(
     ts: &mut String,
     mappings: &mut Vec<VizeMapping>,
@@ -154,17 +119,30 @@ pub(super) fn emit_v_for_loop_open(
     source_offset: Option<u32>,
     indent: &str,
     scope: &Scope,
-    template_prop_names: &FxHashSet<String>,
+    template_binding_access: &TemplateBindingAccess,
+    capture: bool,
 ) {
     // The scope is authoritative for both the loop shape and the alias
     // declaration offsets, so the v-for data is read from it directly.
     let ScopeData::VFor(data) = scope.data() else {
         return;
     };
-    append!(*ts, "{indent}__vForList(");
+    // Loop bindings are in the TDZ while a for-of RHS is evaluated. Vue
+    // evaluates the source in the parent scope, so capture it before entering
+    // the loop. A block also isolates repeated projections of this scope.
+    append!(*ts, "{indent}{{\n");
+    if capture {
+        append!(
+            *ts,
+            "{indent}var __vize_slot_scope_{} = (() => {{\n",
+            scope.id.as_u32()
+        );
+    }
+    let source_name = cstr!("__vize_v_for_source_{}", scope.id.as_u32());
+    append!(*ts, "{indent}const {source_name} = __vForList(");
     let source_gen_start = ts.len();
     let rewritten_source =
-        rewrite_reserved_template_prop(data.source.as_str(), template_prop_names);
+        rewrite_reserved_template_binding(data.source.as_str(), template_binding_access);
     ts.push_str(
         rewritten_source
             .as_ref()
@@ -178,8 +156,17 @@ pub(super) fn emit_v_for_loop_open(
             src_range: source_start..(source_start + data.source.len()),
             sub_spans: Vec::new(),
         });
+        map_rewritten_template_binding(
+            ts,
+            mappings,
+            source_gen_start,
+            source_start,
+            data.source.as_str(),
+            template_binding_access,
+        );
     }
-    append!(*ts, ").forEach(([");
+    ts.push_str(");\n");
+    append!(*ts, "{indent}for (const [");
     // The alias pattern is emitted verbatim, so each binding identifier sits at
     // the same relative offset in the generated pattern as in the authored one.
     // Mapping it to the binding's declaration offset makes hover, definition
@@ -211,7 +198,7 @@ pub(super) fn emit_v_for_loop_open(
         map_alias(mappings, scope, template_offset, index, ts.len());
         ts.push_str(index);
     }
-    ts.push_str("]) => {\n");
+    append!(*ts, "] of {source_name}) {{\n");
 }
 
 /// The byte offset at which `name` is declared inside the authored alias

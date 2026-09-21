@@ -8,7 +8,6 @@ use oxc_ast::{AstKind, ast::Statement};
 use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::{GetSpan, SourceType, Span};
-use oxc_syntax::reference::ReferenceFlags;
 use vize_croquis::{Croquis, ScopeData, ScopeKind};
 
 use super::super::script_module::include_leading_ts_directive_comments;
@@ -22,20 +21,23 @@ pub(super) fn extend_module_spans(
     let Some(script) = script.filter(|source| source.contains("declare")) else {
         return AmbientProjection::default();
     };
-    if summary.scopes.iter().any(|scope| {
-        matches!(scope.kind, ScopeKind::NonScriptSetup)
-            || matches!(scope.data(), ScopeData::ScriptSetup(data) if data.generic.is_some())
-    }) || !summary
+    let has_setup = summary
         .scopes
         .iter()
-        .any(|scope| matches!(scope.kind, ScopeKind::ScriptSetup))
-    {
+        .any(|scope| matches!(scope.kind, ScopeKind::ScriptSetup));
+    if summary.scopes.iter().any(|scope| {
+        (has_setup && matches!(scope.kind, ScopeKind::NonScriptSetup))
+            || matches!(scope.data(), ScopeData::ScriptSetup(data) if data.generic.is_some())
+    }) {
         return AmbientProjection::default();
     }
 
     let allocator = Allocator::default();
     let parsed = Parser::new(&allocator, script, SourceType::ts()).parse();
-    if parsed.panicked || !parsed.diagnostics.is_empty() {
+    // Recoverable parser errors still leave an authored declaration AST. Keep
+    // its lexical ownership so an invalid ambient initializer gets TS1039,
+    // without also inventing TS1184 by placing `declare` inside setup().
+    if parsed.panicked {
         return AmbientProjection::default();
     }
     let comments: Vec<Span> = parsed
@@ -49,15 +51,21 @@ pub(super) fn extend_module_spans(
         .body
         .iter()
         .filter_map(|statement| {
-            let ambient = match statement {
-                Statement::VariableDeclaration(declaration) => declaration.declare,
-                Statement::FunctionDeclaration(declaration) => declaration.declare,
-                Statement::ClassDeclaration(declaration) => declaration.declare,
-                _ => false,
+            // A module augmentation is already a module statement. It is a
+            // candidate only for its captures: `typeof` a setup value inside
+            // `declare module 'vue' { … }` must be evaluated in setup scope.
+            let (ambient, hoisted) = match statement {
+                Statement::VariableDeclaration(declaration) => (declaration.declare, false),
+                Statement::FunctionDeclaration(declaration) => (declaration.declare, false),
+                Statement::ClassDeclaration(declaration) => (declaration.declare, false),
+                Statement::TSModuleDeclaration(declaration) => (declaration.declare, true),
+                _ => (false, false),
             };
             let span = statement.span();
-            (ambient && !covered(module_spans, span) && relocatable_line(script, span, &comments))
-                .then_some(span)
+            (ambient
+                && (hoisted || !covered(module_spans, span))
+                && relocatable_line(script, span, &comments))
+            .then_some(span)
         })
         .collect();
     if candidates.is_empty() {
@@ -179,14 +187,13 @@ pub(super) fn extend_module_spans(
             }
         }
     }
-    // Unresolved type-only references are resolved by the project's ambient
-    // declarations in either scope. Value queries can capture setup helpers.
+    // An unresolved authored name resolves through the same project globals in
+    // either scope, including value queries and computed keys such as
+    // `typeof document` and `[Symbol.iterator]`. Only helpers introduced by our
+    // setup projection have a different lexical home.
     for reference_id in scoping.root_unresolved_references_ids().flatten() {
         let reference = scoping.get_reference(reference_id);
-        let flags = reference.flags() - ReferenceFlags::Namespace;
-        if flags.is_type_only()
-            && !SETUP_SCOPE_HELPER_NAMES.contains(&semantic.reference_name(reference))
-        {
+        if !SETUP_SCOPE_HELPER_NAMES.contains(&semantic.reference_name(reference)) {
             continue;
         }
         if let Some(index) = containing(&candidates, semantic.reference_span(reference)) {
