@@ -50,6 +50,72 @@ fn nominal_declarations_keep_module_identity_without_a_namespace() {
 }
 
 #[test]
+fn callable_declarations_and_overloads_keep_identity_without_a_namespace() {
+    let script = "const seed = 1;\nfunction helper(value: number): number { return value + seed }\nexport function build(value: number): number;\nexport function build(value: string): string;\nexport function build(value: number | string) { return typeof value === 'number' ? helper(value) : value }\n";
+    assert_eq!(
+        hoisted_text(script),
+        vec![
+            "function helper(value: number): number { return value + seed }",
+            "export function build(value: number): number;",
+            "export function build(value: string): string;",
+            "export function build(value: number | string) { return typeof value === 'number' ? helper(value) : value }",
+        ]
+    );
+    let plan = plan(script);
+    let mut exports = vec![export("build", PlainScriptExportKind::Value)];
+    plan.reconcile_exports(&mut exports);
+    assert!(exports.is_empty());
+    let mut fields = Vec::new();
+    plan.push_captured_return_fields(&exports, &mut fields);
+    assert_eq!(fields, vec![CompactString::new("seed")]);
+}
+
+#[test]
+fn callable_declarations_keep_their_leading_diagnostic_directives() {
+    let script = "const seed = 1;\n// @ts-expect-error authored return mismatch\nexport function bad(): number { return 'bad' }\n";
+    assert_eq!(
+        hoisted_text(script),
+        vec![
+            "// @ts-expect-error authored return mismatch\nexport function bad(): number { return 'bad' }"
+        ]
+    );
+}
+
+#[test]
+fn relocated_declarations_keep_leading_documentation_but_not_trailing_comments() {
+    let script = "const seed = 1; /** Not documentation. */\nfunction helper() { return seed }\n/** First overload. */\nexport function build(value: number): number;\n/**\n * Implementation.\n */\nexport function build(value: number) { return helper() + value }\n/** Class documentation. */ export class C {}\n";
+    assert_eq!(
+        hoisted_text(script),
+        vec![
+            "function helper() { return seed }",
+            "/** First overload. */\nexport function build(value: number): number;",
+            "/**\n * Implementation.\n */\nexport function build(value: number) { return helper() + value }",
+            "/** Class documentation. */ export class C {}",
+        ]
+    );
+}
+
+#[test]
+fn documentation_and_diagnostic_directives_move_together() {
+    let script = "const seed = 1;\r\n// @ts-expect-error authored return mismatch\r\n/** Return the greeting. */\r\nexport function bad(): number { return 'bad' }\r\n";
+    assert_eq!(
+        hoisted_text(script),
+        vec![
+            "// @ts-expect-error authored return mismatch\r\n/** Return the greeting. */\r\nexport function bad(): number { return 'bad' }"
+        ]
+    );
+}
+
+#[test]
+fn a_same_line_trailing_jsdoc_is_not_promoted_to_leading_documentation() {
+    let script = "const seed = 1; /** Not documentation. */ function helper() { return seed }";
+    assert_eq!(
+        hoisted_text(script),
+        vec!["function helper() { return seed }"]
+    );
+}
+
+#[test]
 fn a_merge_partner_is_hoisted_and_dropped_from_the_export_bridge() {
     let script = "export function f() {}\nexport namespace f {\n  export const v = 1;\n}\nexport const other = 2;\n";
 
