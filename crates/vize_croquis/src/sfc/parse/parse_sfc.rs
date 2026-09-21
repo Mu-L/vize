@@ -37,6 +37,25 @@ pub fn parse_sfc<'a>(
     source: &'a str,
     options: SfcParseOptions,
 ) -> Result<SfcDescriptor<'a>, SfcError> {
+    split_sfc(source, options, true)
+}
+
+/// [`parse_sfc`] without the per-style `v-bind()` scan: the descriptor is
+/// identical except that `css_vars` stays empty.
+///
+/// For block-level readers that never compile styles (Musea's Art files).
+pub fn parse_sfc_without_css_vars<'a>(
+    source: &'a str,
+    options: SfcParseOptions,
+) -> Result<SfcDescriptor<'a>, SfcError> {
+    split_sfc(source, options, false)
+}
+
+fn split_sfc<'a>(
+    source: &'a str,
+    options: SfcParseOptions,
+    collect_css_vars: bool,
+) -> Result<SfcDescriptor<'a>, SfcError> {
     let mut descriptor = SfcDescriptor {
         filename: Cow::Owned(options.filename.into()),
         source: Cow::Borrowed(source),
@@ -194,7 +213,12 @@ pub fn parse_sfc<'a>(
                         None
                     };
 
-                    for css_var in crate::sfc::extract_css_vars(&content) {
+                    let css_vars = if collect_css_vars {
+                        crate::sfc::extract_css_vars(&content)
+                    } else {
+                        Vec::new()
+                    };
+                    for css_var in css_vars {
                         if !descriptor
                             .css_vars
                             .iter()

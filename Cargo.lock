@@ -4451,15 +4451,15 @@ name = "vize_musea"
 version = "0.425.1"
 dependencies = [
  "criterion",
+ "davinci_harness",
  "insta",
  "memchr",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
- "vize_atelier_sfc",
  "vize_carton",
  "vize_croquis",
- "vize_relief",
+ "vize_s1",
 ]
 
 [[package]]
