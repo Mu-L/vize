@@ -1,6 +1,6 @@
 {
   "name": "@vizejs/state",
-  "version": "0.425.0",
+  "version": "0.425.1",
   "description": "Typed SSR state-management foundations for Vize applications",
   "keywords": [
     "ssr",
