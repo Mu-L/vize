@@ -35,14 +35,15 @@ def referenceTests (program : Program) (rows : List Operand) (script : Json) : E
     ("duplicate condition", rows ++ [condition]),
     ("foreign branch region", mutate 1 "condition" (fun row => { row with region := some 4 })),
     ("missing branch region", mutate 1 "condition" (fun row => { row with region := some 99 })),
-    ("compound condition", mutate 1 "condition" (fun row => { row with text := "ready && other" })),
+    ("loose-equality condition", mutate 1 "condition" (fun row => { row with text := "ready == other" })),
     ("literal condition", mutate 1 "condition" (fun row => { row with kind := "literal" })),
     ("sole else branch", mutate 1 "condition" (fun row => { row with kind := "absent", text := "" })),
     ("missing slot name", rows.filter (fun row => row.op != 4)),
     ("duplicate slot name", rows ++ [slot]),
     ("dynamic slot", mutate 4 "name" (fun row => { row with kind := "js" })),
     ("empty slot name", mutate 4 "name" (fun row => { row with text := "" })),
-    ("slot props", rows ++ [{ slot with role := "attribute", name := some "title" }]),
+    ("duplicate slot props", rows ++ [{ slot with role := "attribute", name := some "title" },
+      { slot with role := "attribute", name := some "title" }]),
     ("missing text value", rows.filter (fun row => row.op != 6 || row.role != "value")),
     ("duplicate text value", rows ++ [value]),
     ("wrong text target", mutate 6 "value" (fun row => { row with target := some 2 })),
@@ -63,10 +64,14 @@ def referenceTests (program : Program) (rows : List Operand) (script : Json) : E
       [{ id := 6, parent := some 1, owner := some 4, span := slot.span }] })
   ] do
     expectError label (Behavior.run damaged rows script)
+  -- Conditions follow JavaScript truthiness, exactly like both mounted runtimes.
+  for (truthyValue, same) in [("\"false\"", "true"), ("null", "false"), ("1", "true"), ("\"\"", "false")] do
+    let run := fun (ready : String) => do
+      Behavior.run program rows (script.setObjVal! "context"
+        (<- Json.parse s!"\{\"ready\":{ready},\"fallback\":\"x\"}"))
+    if (<- run truthyValue) != (<- run same) then
+      throw s!"condition {truthyValue} must render like {same}"
   for context in [
-    "{\"ready\":\"false\",\"fallback\":\"x\"}",
-    "{\"ready\":null,\"fallback\":\"x\"}",
-    "{\"ready\":1,\"fallback\":\"x\"}",
     "{\"ready\":true,\"fallback\":{}}",
     "{\"ready\":true,\"fallback\":[]}",
     "{\"ready\":true,\"fallback\":1.5}",
@@ -176,8 +181,16 @@ def branchTests (program : Program) (rows : List Operand) : Except String Unit :
   ] do
     expectError "else before final region"
       (Observation.validate program (rows.filter (fun row => row.op != 1) ++ conditions))
+  for (context, expected) in [
+    ("{\"ready\":0,\"other\":\"false\"}", some 6),
+    ("{\"ready\":\"\",\"other\":[]}", some 6),
+    ("{\"ready\":null,\"other\":0}", some 7),
+    ("{\"ready\":{},\"other\":0}", some 2)
+  ] do
+    expectValue "JavaScript truthiness" expected
+      (Observation.selectedBranch branches (<- Json.parse context) 1)
   expectError "unsupported reached condition"
-    (Observation.selectedBranch branches (<- Json.parse "{\"ready\":false,\"other\":\"false\"}") 1)
+    (Observation.selectedBranch branches (<- Json.parse "{\"ready\":false}") 1)
 
 def activationTests (program : Program) (rows : List Operand) : Except String Unit := do
   let context := Json.mkObj [("ready", .bool true), ("fallback", .str "fallback")]

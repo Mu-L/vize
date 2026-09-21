@@ -9,14 +9,14 @@
 - [x] P3-1 `vize_impeto` crate + phase validator
 - [x] P3-2 Reactivity lattice fact group v1
 - [x] P3-3 S2→S3 lowering + shared partition
-- [ ] P3-4 Lean reference semantics + differential runner
+- [x] P3-4 Lean reference semantics + differential runner
 - [x] P3-5 Impeto op reference doc (before optional passes)
 - [ ] P3-6 Vapor backend on S3
 - [x] P3-7 VDOM patch flags from lattice facts _(owner-keyed table and hydrated DOM corpus gate; see [record](./phase-3-records/p3-7.md))_
 - [ ] P3-8 SSR thin path
 - [ ] P3-9 S4 structured emitter + universal source maps _(slice 1 pins TS-31 source-map budgets before emitter migration; see [record](./phase-3-records/p3-9.md))_
 - [ ] P3-10 Try-measure-commit extraction _(slice 1 pins optimization budgets before extraction; see [record](./phase-3-records/p3-10.md))_
-- [ ] P3-11 IVM oracle
+- [x] P3-11 IVM oracle
 - [ ] P3-12 Behavioral (sprout) runner incl. IME scripts
 - [ ] P3-13 Optimization remarks + corpus remarks-diff
 - [x] P3-14 `folio-reduce` _(`vize reduce`; see [record](./phase-3-records/p3-14.md))_
@@ -79,8 +79,13 @@ Rust-owned S3 values into independent Lean semantics and compares the same full
 JSON observations against both mounted Vue runtimes, including patches, clicks
 and unmount. _Control/slot slice 2026-09-18:_ both Rust-lowered template fixtures
 now share full stateful observations, including boolean condition changes and
-absent-slot fallback `v-text` updates. Supplied slots, native model semantics
-and general iteration remain open; this does not close P3-4.
+absent-slot fallback `v-text` updates. _Model slice 2026-09-22:_ native
+`v-model` (IME, `.lazy`/`.trim`/`.number`, checkbox/radio/select) shares
+twelve full reference observations with both mounted runtimes. _Closed
+2026-09-22:_ supplied slots (static text or displayed slot props, including in
+branches and keyed loops) now share eight full observations too. The mounted
+runner and the Lean reference use one contract across the fixture ladder, the
+TS-29 matrix and the model/slot references (see the record).
 
 **P3-5 Op reference doc.** `davinci-road/plan/impeto-ops.md`: every op's
 meaning under both interpretations, written **before any optional pass
@@ -192,8 +197,12 @@ expressions (TS-29). _Accept:_ suite green over matrix fixtures.
 
 _Array-loop slice 2026-09-20:_ the [P3-11 record](./phase-3-records/p3-11.md)
 adds independent scoped array execution and retained-identity reconciliation,
-with full mounted VDOM/Vapor observations. General iteration, mixed non-linear
-expressions and scheduling/linearity evidence remain open.
+with full mounted VDOM/Vapor observations. _Closed 2026-09-21:_ a generated
+32-case matrix covers keyed and positional arrays, objects and ranges; per-item
+and guard toggles; and non-linear expressions evaluated by an independent Lean
+JavaScript subset. It runs through the proved update machine and both mounted
+runtimes. The only divergence is an exactly pinned upstream `runtime-vapor`
+unkeyed-object key-alias defect.
 
 **P3-12 Behavioral runner.** Sprout-style: mount compiled VDOM + Vapor
 against scripted prop/interaction traces in a headless DOM; **IME composition

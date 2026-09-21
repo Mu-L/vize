@@ -10,3 +10,10 @@ import Impeto.Schedule
 import Impeto.ScheduleLaws
 import Impeto.ScheduleFixture
 import Impeto.IncrementalLaws
+import Impeto.Expression
+import Impeto.ExpressionTests
+import Impeto.IvmMatrix
+import Impeto.Model
+import Impeto.ModelBehavior
+import Impeto.ModelTests
+import Impeto.SlotTests
