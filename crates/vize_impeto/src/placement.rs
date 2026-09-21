@@ -25,7 +25,7 @@
 
 mod annotate;
 pub(crate) mod facts;
-mod folio;
+pub(crate) mod folio;
 mod kind;
 mod record;
 
@@ -33,6 +33,16 @@ pub use annotate::annotate;
 pub use folio::{FolioPlacement, S3PlacementFolio};
 pub use kind::{Placement, PlacementSet};
 pub use record::PlacementRecord;
+
+use vize_davinci::pass::{Fusability, PassDesc, PassKind, Preserved};
+
+/// [`annotate`] as a pass: optional, whole-program, and graph-preserving.
+pub const ANNOTATE: PassDesc = PassDesc::new(
+    "annotate-placements",
+    PassKind::Optional,
+    Fusability::Barrier,
+    Preserved::ALL,
+);
 
 const _: () = assert!(!core::mem::needs_drop::<PlacementRecord>());
 const _: () = assert!(core::mem::size_of::<Placement>() == 1);
