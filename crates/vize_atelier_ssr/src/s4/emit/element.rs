@@ -8,28 +8,17 @@ use vize_s1_to_s2::TransformContent;
 use vize_s2::op as s2;
 
 use super::{Emitter, Flags, Result, attrs, fallthrough, model, plan_source};
+use crate::s4::LegacyReason;
 use crate::s4::string_plan::{
     SsrSegmentSource as Source, SsrStringPayloadKind, SsrStringSegment,
     SsrStringSegmentKind as Kind,
 };
-use crate::s4::{AdmissionFailure, LegacyReason};
 
 /// Elements whose content model or runtime helpers are outside the plan
-/// emitter: raw-text / RCDATA parents and `<template>`.
-const REFUSED_TAGS: &[&str] = &[
-    "template",
-    "slot",
-    "component",
-    "script",
-    "style",
-    "title",
-    "xmp",
-    "iframe",
-    "noembed",
-    "noframes",
-    "noscript",
-    "plaintext",
-];
+/// emitter: the raw-text parents both parsers special-case (`textarea`
+/// renders through its own content rule), and the outlet / dynamic
+/// component tags, which never lower to plain elements.
+const REFUSED_TAGS: &[&str] = &["slot", "component", "script", "style", "title"];
 
 /// What renders between the start and end tags.
 enum Content<'r, 'a> {
@@ -56,15 +45,8 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
             return Err(LegacyReason::Element.into());
         }
         self.pos += 1;
-        let attached_len = element.attributes.len() + element.bindings.len();
-        let end = self.pos + attached_len;
-        let attached = self
-            .segments
-            .get(self.pos..end)
-            .ok_or(AdmissionFailure::Invalid(
-                "string plan lost attached element segments",
-            ))?;
-        self.pos = end;
+        let attached = self.take_attached(element.attributes.len() + element.bindings.len())?;
+        let attached = attached.as_slice();
         attrs::admit(attached, open.fact, tag)?;
         let content = content(attached, tag);
 
@@ -147,23 +129,8 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
     /// Consume a child list the legacy walker never renders (the element's
     /// directive owns its content), keeping the plan balanced.
     fn skip_children(&mut self) -> Result<()> {
-        let mut depth = 0usize;
-        while let Some(segment) = self.segments.get(self.pos) {
-            match segment.kind {
-                Kind::OpenElement | Kind::If | Kind::Branch | Kind::For => depth += 1,
-                Kind::CloseElement | Kind::CloseIf | Kind::CloseBranch | Kind::CloseFor => {
-                    if depth == 0 {
-                        return Ok(());
-                    }
-                    depth -= 1;
-                }
-                _ => {}
-            }
-            self.pos += 1;
-        }
-        Err(AdmissionFailure::Invalid(
-            "string plan element is not closed",
-        ))
+        self.pos = self.region_end(self.pos)?;
+        Ok(())
     }
 }
 

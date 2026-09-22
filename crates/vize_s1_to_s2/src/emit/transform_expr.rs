@@ -7,7 +7,7 @@
 //! same byte-proven `process_expression` port the DOM lane uses and returns
 //! the rewritten text unconsumed ([`prefix::Site::Raw`]).
 
-use vize_s0::String;
+use vize_s0::{String, cstr};
 use vize_s2::expr::ExprRef;
 
 use super::js::RawJs;
@@ -110,6 +110,77 @@ impl<'b> TransformExpressions<'b> {
                 used_unref: prefixed.used_unref,
             })
             .map_err(|_| TransformRefusal::InvalidExpression)
+    }
+
+    /// The transform's `process_inline_handler` over a `v-on` value: prefixed,
+    /// and wrapped as `$event => (...)` unless it is a function or a callable
+    /// reference.
+    pub fn handler(
+        &mut self,
+        expr: &ExprRef<'_>,
+        content: TransformContent,
+    ) -> Result<TransformedExpr, TransformRefusal> {
+        let (source, js) = match expr {
+            ExprRef::Js(js) => (js.source, Some(*js)),
+            ExprRef::Opaque(opaque) => (opaque.source, None),
+            ExprRef::Foreign(_) | ExprRef::Filter(_) => {
+                return Err(TransformRefusal::ExpressionKind);
+            }
+        };
+        let content = match content {
+            TransformContent::Padded => prefix::node_content(self.source, source, expr.span()),
+            TransformContent::Decoded => {
+                prefix::node_content_decoded(self.source, source, expr.span())
+            }
+        };
+        prefix::prefix_inline_handler(&mut self.scope, &content, js)
+            .map(|prefixed| TransformedExpr {
+                text: prefixed.text,
+                used_unref: prefixed.used_unref,
+            })
+            .map_err(|_| TransformRefusal::InvalidExpression)
+    }
+
+    /// The transform's component `v-model` expansion: the
+    /// `$event => ((value) = $event)` update handler is spelled over the
+    /// authored value and then processed whole as a `v-on` value, so
+    /// TypeScript erasure reprints the arrow when the value carries type
+    /// syntax.
+    pub fn model_update(
+        &mut self,
+        expr: &ExprRef<'_>,
+        content: TransformContent,
+    ) -> Result<TransformedExpr, TransformRefusal> {
+        let source = match expr {
+            ExprRef::Js(js) => js.source,
+            ExprRef::Opaque(opaque) => opaque.source,
+            ExprRef::Foreign(_) | ExprRef::Filter(_) => {
+                return Err(TransformRefusal::ExpressionKind);
+            }
+        };
+        let value = match content {
+            TransformContent::Padded => prefix::node_content(self.source, source, expr.span()),
+            TransformContent::Decoded => {
+                prefix::node_content_decoded(self.source, source, expr.span())
+            }
+        };
+        let handler = cstr!("$event => (({}) = $event)", value.text.as_str());
+        let content = prefix::Content {
+            text: RawJs::Borrowed(&handler),
+            offset: None,
+        };
+        prefix::prefix_inline_handler(&mut self.scope, &content, None)
+            .map(|prefixed| TransformedExpr {
+                text: prefixed.text,
+                used_unref: prefixed.used_unref,
+            })
+            .map_err(|_| TransformRefusal::InvalidExpression)
+    }
+
+    /// Whether processed handler text is a function or a callable reference.
+    #[must_use]
+    pub fn handler_is_callable(text: &str) -> bool {
+        prefix::handler_text_is_callable(text)
     }
 
     /// Enter a `v-for` scope: the aliases stop being prefixed.

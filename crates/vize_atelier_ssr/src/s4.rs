@@ -112,10 +112,18 @@ const ADMITTED_RULES: &[&str] = &[
     "lower.vue-show",
     "lower.vue-html",
     "lower.vue-text",
+    "lower.component",
+    "lower.slot",
+    "lower.slot-content",
+    "lower.vue-directive",
+    "lower.vue-once",
+    "lower.vue-memo",
+    "lower.vue-cloak",
     "normalize.bind.same-name",
     "condense.whitespace",
     "condense.drop-whitespace",
     "drop.comment",
+    "drop.branch-gap",
 ];
 
 /// Lower `source` through S1->S2->S3, build the SSR string plan from the
@@ -191,10 +199,9 @@ fn lower_and_emit(
         return SsrS4Selection::Legacy(LegacyReason::Options);
     }
     if !s2.diagnostics.is_empty()
-        || s2
-            .provenance
-            .iter()
-            .any(|record| !ADMITTED_RULES.contains(&record.rule.as_str()))
+        || s2.provenance.iter().any(|record| {
+            !ADMITTED_RULES.contains(&record.rule.as_str()) || drops_directive(record)
+        })
     {
         return SsrS4Selection::Legacy(LegacyReason::SurfaceSemantics);
     }
@@ -220,6 +227,8 @@ fn lower_and_emit(
     let facts = emit::PlanFacts {
         texts: &s2.texts,
         for_wrappers: &s2.for_wrappers,
+        wrappers: &s2.wrappers,
+        if_facts: &s2.if_facts,
     };
     match emit::emit_plan(&mut ctx, &lowered.plan, &facts, &mut exprs) {
         Ok(()) => SsrS4Selection::Emitted(ctx.finish_render()),
@@ -228,6 +237,18 @@ fn lower_and_emit(
             "Davinci S4 string-plan emitter rejected SSR artifact: {message}"
         )]),
     }
+}
+
+/// The legacy parser keeps `@vize:` directive comments with `comments` off
+/// and its SSR walker renders them, while S2 drops every comment.
+fn drops_directive(record: &vize_s2::provenance::ProvenanceRecord) -> bool {
+    if !matches!(record.rule.as_str(), "drop.comment" | "drop.branch-gap") {
+        return false;
+    }
+    let text = record.before.as_str();
+    let text = text.strip_prefix("<!--").unwrap_or(text);
+    let text = text.strip_suffix("-->").unwrap_or(text);
+    vize_s0::directive::parse_vize_directive(text, 1, 0).is_some()
 }
 
 /// Options under which S1 and S2 see the same template the SSR parser sees.

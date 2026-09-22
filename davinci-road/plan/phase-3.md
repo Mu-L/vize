@@ -167,8 +167,28 @@ _Fourth slice 2026-09-21:_ `v-if` chains, `v-for` loops, `v-show`, `v-html`,
 segments, legacy fragment and fallthrough rules, `v-for` scope strips).
 _Fifth slice 2026-09-21:_ the feature-gated SSR corpus gate compares both
 emitters on every SFC template (smoke sweep of the checkout in CI: 717
-compared, 274 plan-emitted, 0 divergences). Components, slots, custom
-directives, a canonical Real Project Matrix run, and the legacy walker
+compared, 274 plan-emitted, 0 divergences).
+_Sixth slice 2026-09-22:_ components without slot content, `<Teleport>`,
+`<Suspense>`, transparent built-ins, and `<slot>` outlets emit from the plan
+(checkout smoke: 494 of 717 plan-emitted, 0 divergences).
+_Seventh slice 2026-09-22:_ component slot content emits the static slots
+object with push-form slot functions and their VNode fallback (checkout
+smoke: 523 of 717 plan-emitted; vendor sample: 1,034 of 1,279; 0
+divergences).
+_Eighth slice 2026-09-22:_ `<component :is>`, component `v-model`
+arguments and modifiers, and whitespace/comment gaps between `v-if` branches
+emit from the plan (checkout smoke: 643 of 717; vendor sample: 1,207 of
+1,279; 0 divergences).
+_Ninth slice 2026-09-22:_ `createSlots` shapes (conditional, looped, and
+dynamically named slot templates) emit from the plan, and every traversal
+ladder fixture now skips the legacy SSR codegen walk (checkout smoke: 650 of
+717; vendor sample: 1,242 of 1,279; 0 divergences).
+_Tenth slice 2026-09-22:_ plain `<template>` and the non-raw-text legacy
+content tags (`iframe`, `noscript`, ...) emit from the plan (checkout smoke:
+663 of 717, 0 divergences). Element directives stay refused pending a
+decision: the legacy lane renders them through an unbound `_directives`
+(see the record). That fix, `@vize:` directive comments, element bind
+modifiers, a canonical Real Project Matrix run, and the legacy walker
 deletion remain before P3-8 closes.
 
 **P3-9 S4 emitter + source maps.** Structured span-carrying emission document

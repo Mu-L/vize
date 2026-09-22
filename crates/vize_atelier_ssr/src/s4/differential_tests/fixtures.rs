@@ -147,21 +147,42 @@ pub(super) const ADMITTED: &[(&str, &str)] = &[
         "<ul><li>a</li><li :class=\"c\">{{ b }}</li></ul>",
     ),
     ("unicode", "<p title=\"日本\">こんにちは {{ name }} 🎉</p>"),
+    ("template-plain", "<template><div>a</div></template>"),
+    (
+        "template-nested",
+        "<div><template lang=\"x\"><b :title=\"t\">{{ v }}</b></template></div>",
+    ),
+    (
+        "iframe",
+        "<div><iframe :src=\"u\" frameborder=\"0\" allow=\"x\"></iframe></div>",
+    ),
+    (
+        "iframe-content",
+        "<div><iframe><p>fallback {{ f }}</p></iframe><noscript><img src=\"a.png\"></noscript></div>",
+    ),
+    (
+        "legacy-content-tags",
+        "<div><noembed>x</noembed><noframes>y</noframes><xmp>a &lt; b</xmp></div>",
+    ),
 ];
 
 /// Templates the selector must keep on the legacy walker in this slice.
 pub(super) const REFUSED: &[(&str, &str)] = &[
-    ("component", r#"<Foo :a="b">x</Foo>"#),
     (
-        "slot-outlet",
-        r#"<div><slot name="a" :x="y">fb</slot></div>"#,
+        "dynamic-slot-name-expression",
+        r#"<Foo><template #[names[0]]>x</template></Foo>"#,
     ),
+    (
+        "nested-slot-carrier",
+        r#"<Foo><div v-if="a"><template #a>x</template></div></Foo>"#,
+    ),
+    ("slot-dynamic-prop-key", r#"<div><slot :[k]="v" /></div>"#),
+    ("slot-name-twice", r#"<div><slot name :name="n" /></div>"#),
     ("custom-directive", r#"<div v-focus="x"></div>"#),
     ("v-once", r#"<div v-once>{{ a }}</div>"#),
     ("v-cloak", r#"<div v-cloak>{{ a }}</div>"#),
     ("v-model-argument", r#"<input v-model:foo="msg">"#),
     ("v-model-div", r#"<div v-model="msg"></div>"#),
-    ("template", "<template><div>a</div></template>"),
     ("dynamic-arg", r#"<div><p :[key]="val"></p></div>"#),
     (
         "bind-modifier",
@@ -174,10 +195,9 @@ pub(super) const REFUSED: &[(&str, &str)] = &[
     ("style", "<div><style>.a > b { }</style></div>"),
     ("whitespace-entities", "<p>a&#10;&#32; b</p>"),
     (
-        "v-if-component-branch",
-        r#"<Foo v-if="a" /><p v-else>b</p>"#,
+        "component-model-dynamic-arg",
+        r#"<div><Foo v-model:[prop]="value" /></div>"#,
     ),
-    ("v-for-slot", r#"<div><slot v-for="n in 3" :n="n" /></div>"#),
 ];
 
 /// TypeScript-only expressions: owned under `is_ts`, refused without it
@@ -194,5 +214,9 @@ pub(super) const ADMITTED_TS: &[(&str, &str)] = &[
     (
         "root-ts",
         r#"<div :title="<string>x" :data-y="fn<T>(y)">{{ z as any }}</div>"#,
+    ),
+    (
+        "component-model-ts",
+        r#"<Bar v-model="(m as any)" /><Foo><Bar v-model=" (n as number) " /></Foo>"#,
     ),
 ];
