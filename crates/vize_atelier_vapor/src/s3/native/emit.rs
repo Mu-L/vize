@@ -18,7 +18,7 @@ use vize_atelier_core::{RootNode, SimpleExpressionNode, SourceLocation};
 use vize_carton::{Allocator, Box, String, Vec, ensure_sufficient_stack};
 
 use super::{Content, Expr, NativeArtifact};
-use crate::ir::{BlockIRNode, ChildRefIRNode, IREffect, OperationNode, RootIRNode};
+use crate::ir::{BlockIRNode, ChildRefIRNode, IREffect, NextRefIRNode, OperationNode, RootIRNode};
 
 pub(super) fn emit<'a>(
     artifact: NativeArtifact<'a>,
@@ -84,9 +84,19 @@ impl<'a> Emitter<'a, '_> {
     /// `transform_children` order: a pure text run becomes one text node,
     /// otherwise every child is instantiated or created in turn.
     fn block(&mut self, children: &[usize]) -> BlockIRNode<'a> {
+        self.block_with(children, true)
+    }
+
+    /// A branch or loop body. The retained lane transforms a `<template>`
+    /// carrier's children one by one, so its text parts are never combined.
+    fn body(&mut self, children: &[usize]) -> BlockIRNode<'a> {
+        self.block_with(children, false)
+    }
+
+    fn block_with(&mut self, children: &[usize], combine: bool) -> BlockIRNode<'a> {
         ensure_sufficient_stack(|| {
             let mut block = BlockIRNode::new(self.allocator);
-            if self.combined_text(children, &mut block) {
+            if combine && self.combined_text(children, &mut block) {
                 return block;
             }
             for &child in children {
@@ -131,6 +141,17 @@ impl<'a> Emitter<'a, '_> {
                 parent_id,
                 offset,
             }));
+        child_id
+    }
+
+    /// A sibling reached `offset` positions after an already referenced one.
+    fn next(&mut self, prev_id: usize, offset: usize, block: &mut BlockIRNode<'a>) -> usize {
+        let child_id = self.id();
+        block.operation.push(OperationNode::NextRef(NextRefIRNode {
+            child_id,
+            prev_id,
+            offset,
+        }));
         child_id
     }
 

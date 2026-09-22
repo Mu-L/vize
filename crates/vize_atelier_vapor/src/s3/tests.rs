@@ -182,15 +182,15 @@ fn generic_graph_verification_does_not_imply_backend_admission() {
 fn unsupported_source_semantics_have_explicit_legacy_routes() {
     let allocator = Allocator::new();
     for source in [
-        "<component :is=\"view\" />",
-        "<template v-if=\"ok\"><div></div><div></div></template>",
+        "<component is=\"view\" />",
+        "<template v-if=\"ok\" :key=\"k\"><div></div><div></div></template>",
         "<div v-for=\"x in (xs as any)\"></div>",
         "<div>{{ one as number }}</div>",
         "<div v-pre>{{ literal }}</div>",
         "<div v-once></div>",
-        "<input v-model=\"text\" />",
-        "<input v-model.lazy=\"text\" />",
-        "<input type=\"checkbox\" v-model=\"checked\" />",
+        "<input v-model=\"items[i]\" />",
+        "<input v-model.foo=\"text\" />",
+        "<MyComp v-model=\"checked\" />",
         "<div v-cloak></div>",
         "<div :[key]=\"value\"></div>",
         "<div ref=\"node\"></div>",
@@ -201,7 +201,7 @@ fn unsupported_source_semantics_have_explicit_legacy_routes() {
         "<table><tr><td>{{ value }}</td></tr></table>",
         "<div>&#10; text</div>",
         "<div title=\"&quot;\"></div>",
-        "<Comp v-slot=\"p\">{{ p }}</Comp>",
+        "<Comp v-slot=\"{ p: q }\">{{ q }}</Comp>",
         "<Teleport to=\"body\"><div></div></Teleport>",
         "<div v-bind=\"props\"></div>",
         "<pre> text </pre>",
@@ -305,4 +305,8 @@ mod control;
 
 mod attributes;
 mod components;
+mod elements;
+mod models;
 mod parser_agreement;
+mod slots;
+mod templates;

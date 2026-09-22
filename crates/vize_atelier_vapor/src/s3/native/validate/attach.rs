@@ -45,8 +45,40 @@ pub(super) fn bindings<'a>(
             ));
         }
         let fresh = names.insert((index, binding.kind, binding.name));
+        // Slot content binds to its `<template>` or to its component (only
+        // the default slot there); the structure is checked once attached.
+        if binding.kind == BindingKind::Slot {
+            let admitted = match nodes[index].content {
+                Content::Element {
+                    tag: "template", ..
+                } => true,
+                Content::Component { .. } => binding.name == "default",
+                _ => false,
+            };
+            if !admitted
+                || nodes[index]
+                    .bindings
+                    .iter()
+                    .any(|b| b.kind == BindingKind::Slot)
+            {
+                return Err(LegacyReason::Component.into());
+            }
+            nodes[index].bindings.push(binding);
+            continue;
+        }
         match &mut nodes[index].content {
             Content::Element { .. } => {}
+            // A `<component>` takes its `:is` once; everything else is a prop.
+            Content::Component {
+                tag: "component",
+                is,
+                ..
+            } if binding.kind == BindingKind::Prop && binding.name == "is" => {
+                if is.replace(binding.value).is_some() {
+                    return Err(LegacyReason::Component.into());
+                }
+                continue;
+            }
             Content::Component { props, .. } => {
                 prop(props, binding, position, fresh, true)?;
                 continue;
@@ -67,10 +99,16 @@ pub(super) fn bindings<'a>(
                 return Err(LegacyReason::Binding.into());
             }
         }
+        if binding.kind == BindingKind::Prop && binding.name == "is" {
+            return Err(LegacyReason::Binding.into());
+        }
         if binding.kind == BindingKind::Prop && binding.name == "key" {
             // Only the body element of an element-carried loop owns a key.
             let owner = parents[index].map(|parent| &mut nodes[parent].content);
-            let Some(Content::For(owner)) = owner else {
+            // A `<template v-for>` keys the loop on its wrapper.
+            let Some(Content::For(owner)) =
+                owner.filter(|owner| !matches!(owner, Content::For(looped) if looped.template))
+            else {
                 return Err(LegacyReason::Binding.into());
             };
             owner.key_prop = Some(binding.value);
@@ -85,6 +123,14 @@ pub(super) fn bindings<'a>(
         nodes[index].bindings.push(binding);
     }
     for node in nodes.iter_mut() {
+        if let Content::Component {
+            tag: "component",
+            is: None,
+            ..
+        } = node.content
+        {
+            return Err(LegacyReason::Component.into());
+        }
         if let Content::Component { props, .. } | Content::Outlet { props, .. } = &mut node.content
         {
             props.sort_by_key(|prop| prop.position);

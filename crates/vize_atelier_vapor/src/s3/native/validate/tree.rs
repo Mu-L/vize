@@ -30,12 +30,15 @@ pub(super) fn assemble(
         if children.iter().any(|child| *child <= index) {
             return Err(LegacyReason::Structure.into());
         }
-        // Branches and loop bodies render one element in this slice. Template
-        // fragments, text roots and directly nested control flow stay legacy.
-        let body = match children.as_slice() {
-            [child] if matches!(nodes[*child].content, Content::Element { .. }) => Some(*child),
-            _ => None,
-        };
+        for child in &children {
+            parents[*child] = Some(index);
+        }
+        // A body is its carrier element, or the non-empty fragment a
+        // `<template>` carrier unwrapped (text and nested control flow too).
+        let element = matches!(
+            children.as_slice(),
+            [child] if matches!(nodes[*child].content, Content::Element { .. })
+        );
         match &mut nodes[index].content {
             Content::Element { tag, .. } => {
                 if std::mem::replace(&mut owned[index], true)
@@ -51,13 +54,19 @@ pub(super) fn assemble(
                     .ok_or(AdmissionFailure::Invalid(
                         "branch region lacks its condition",
                     ))?;
-                branch.root = Some(body.ok_or(LegacyReason::ControlFlow)?);
+                if children.is_empty() {
+                    return Err(LegacyReason::ControlFlow.into());
+                }
+                branch.roots = children;
+                continue;
             }
-            Content::For(_) => {
+            Content::For(body) => {
                 if std::mem::replace(&mut owned[index], true) {
                     return Err(AdmissionFailure::Invalid("loop owns several bodies"));
                 }
-                body.ok_or(LegacyReason::ControlFlow)?;
+                if !(element || body.template && !children.is_empty()) {
+                    return Err(LegacyReason::ControlFlow.into());
+                }
             }
             // Slot content and fallbacks are fragments rendered by their own block.
             Content::Component { .. } | Content::Outlet { .. } => {
@@ -67,12 +76,7 @@ pub(super) fn assemble(
             }
             Content::Text { .. } => return Err(LegacyReason::Structure.into()),
         }
-        for child in &children {
-            parents[*child] = Some(index);
-        }
-        if !matches!(nodes[index].content, Content::If { .. }) {
-            nodes[index].children = children;
-        }
+        nodes[index].children = children;
     }
     for (node, owned) in nodes.iter().zip(owned) {
         match &node.content {
@@ -84,7 +88,7 @@ pub(super) fn assemble(
             Content::For(_) if !owned => {
                 return Err(AdmissionFailure::Invalid("loop lacks its body"));
             }
-            Content::If { branches } if branches.iter().any(|branch| branch.root.is_none()) => {
+            Content::If { branches } if branches.iter().any(|branch| branch.roots.is_empty()) => {
                 return Err(AdmissionFailure::Invalid("branch lacks its region"));
             }
             _ => {}
@@ -97,41 +101,90 @@ pub(super) fn assemble(
 /// parser's 4096-element flattening limit (which it reports).
 const MAX_DEPTH: u32 = 1024;
 
-/// HTML tree construction closes an earlier button or list item instead of
-/// nesting a new one. The legacy parser reads authored markup, so the guard
-/// follows authored nesting, not template strings: any open button counts,
-/// and an open list item counts until a list or a component bounds its scope.
-/// Branches and loops are transparent. Parents precede their children.
+/// Open elements whose authored descendants HTML tree construction repairs.
+const BUTTON: u8 = 1;
+const ITEM: u8 = 2;
+const PARAGRAPH: u8 = 4;
+const ANCHOR: u8 = 8;
+const FORM: u8 = 16;
+
+/// Start tags that close an open `<p>` in button scope.
+fn closes_paragraph(tag: &str) -> bool {
+    matches!(
+        tag,
+        "address"
+            | "article"
+            | "aside"
+            | "blockquote"
+            | "div"
+            | "dl"
+            | "fieldset"
+            | "footer"
+            | "form"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "header"
+            | "hr"
+            | "main"
+            | "nav"
+            | "ol"
+            | "p"
+            | "pre"
+            | "section"
+            | "table"
+            | "ul"
+    )
+}
+
+/// HTML tree construction closes an open button, anchor or form-nested form
+/// instead of nesting a new one, closes a list item before another in list
+/// item scope, and closes a paragraph before a block in button scope. The
+/// legacy parser reads authored markup, so the guard follows authored
+/// nesting, not template strings; components and outlets bound the scoped
+/// cases, and branches and loops are transparent. Parents precede children.
 pub(super) fn check_nesting(nodes: &[Node<'_>], parents: &[Option<usize>]) -> Result<()> {
-    let mut open = std::vec![(false, false, 0_u32); nodes.len()];
+    let mut open = std::vec![(0_u8, 0_u32); nodes.len()];
     for (index, node) in nodes.iter().enumerate() {
-        let inherited = parents[index].map_or((false, false, 0), |parent| {
-            let (button, item, depth) = open[parent];
-            let scoped = !matches!(
-                nodes[parent].content,
+        let (mut flags, depth) = parents[index].map_or((0, 0), |parent| open[parent]);
+        if let Some(parent) = parents[index] {
+            match nodes[parent].content {
                 Content::Element {
-                    tag: "ul" | "ol",
-                    ..
-                } | Content::Component { .. }
-                    | Content::Outlet { .. }
-            );
-            (button, item && scoped, depth)
-        });
-        let (button, item) = match node.content {
-            Content::Element { tag: "button", .. } => (true, false),
-            Content::Element { tag: "li", .. } => (false, true),
-            _ => (false, false),
+                    tag: "ul" | "ol", ..
+                } => flags &= !ITEM,
+                Content::Element { tag: "button", .. } => flags &= !PARAGRAPH,
+                Content::Component { .. } | Content::Outlet { .. } => {
+                    flags &= !(ITEM | PARAGRAPH);
+                }
+                _ => {}
+            }
+        }
+        let tag = match node.content {
+            Content::Element { tag, .. } => tag,
+            _ => "",
         };
-        // Branches and loops ride on their body element's tag.
-        let element = matches!(
-            node.content,
-            Content::Element { .. } | Content::Component { .. } | Content::Outlet { .. }
-        );
-        let depth = inherited.2 + u32::from(element);
-        if inherited.0 && button || inherited.1 && item || depth > MAX_DEPTH {
+        let own = match tag {
+            "button" => BUTTON,
+            "li" => ITEM,
+            "p" => PARAGRAPH,
+            "a" => ANCHOR,
+            "form" => FORM,
+            _ => 0,
+        };
+        // Every non-text node counts: a `<template>` carrier is an element
+        // for the legacy parser, and double-counting an element carrier only
+        // lowers the bound.
+        let depth = depth + u32::from(!matches!(node.content, Content::Text { .. }));
+        if flags & own & (BUTTON | ITEM | ANCHOR | FORM) != 0
+            || flags & PARAGRAPH != 0 && closes_paragraph(tag)
+            || depth > MAX_DEPTH
+        {
             return Err(LegacyReason::Structure.into());
         }
-        open[index] = (inherited.0 || button, inherited.1 || item, depth);
+        open[index] = (flags | own, depth);
     }
     Ok(())
 }

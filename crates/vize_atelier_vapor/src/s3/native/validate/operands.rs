@@ -23,10 +23,14 @@ pub(super) fn element<'a>(values: &[Operand<'a>]) -> Result<Content<'a>> {
         // elements (tables, raw text, select, templates, namespaces) require a
         // separate contract before their child indexes can be materialized.
         // List items are admitted with the same nesting guard as buttons.
+        // A `<template>` is admitted only as slot content (checked once its
+        // slot binding attaches), and never carries attributes.
         || !matches!(tag.value.text,
             "div" | "span" | "main" | "section" | "article" | "header" | "footer"
             | "nav" | "aside" | "button" | "strong" | "em" | "b" | "i" | "small"
-            | "label" | "input" | "img" | "br" | "hr" | "ul" | "ol" | "li")
+            | "label" | "input" | "img" | "br" | "hr" | "ul" | "ol" | "li" | "template"
+            | "p" | "a" | "form" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6")
+        || tag.value.text == "template" && values.len() != 2
     {
         return Err(LegacyReason::Element.into());
     }
@@ -69,6 +73,11 @@ pub(super) fn binding<'a>(
     retained: &Retained<'_, 'a>,
 ) -> Result<(OpId, Binding<'a>)> {
     let binding = one(values, Role::BindingKind)?;
+    if (kind, binding.value.kind, binding.value.text)
+        == (OpKind::SetProp, ValueKind::Literal, "model")
+    {
+        return super::model::model(values);
+    }
     // Generic ops carry several families (SetProp is also model/sync, a
     // Directive op also once/memo/cloak/custom). Select the family first.
     let family = match (kind, binding.value.kind, binding.value.text) {
@@ -126,14 +135,14 @@ fn named<'a>(
         }
         modifiers.push(value.value.text);
     }
-    // `key` is admitted only as a loop key; its owner is checked once the
-    // region tree is known.
+    // `key` is admitted only as a loop key and `is` only on `<component>`;
+    // their owners are checked once the region tree is known.
     if values.len() != 3 + modifiers.len()
         || name.value.kind != ValueKind::Literal
         || if event {
             !event_name(name.value.text)
         } else {
-            name.value.text != "key" && !attribute_name(name.value.text)
+            !matches!(name.value.text, "key" | "is") && !attribute_name(name.value.text)
         }
     {
         return Err(LegacyReason::Binding.into());

@@ -5,8 +5,10 @@
 mod attach;
 mod component;
 mod control;
+mod model;
 mod operands;
 mod order;
+mod slots;
 mod tree;
 
 use std::borrow::Cow;
@@ -17,7 +19,7 @@ use vize_s3::{
 };
 
 use super::{Content, NativeArtifact, Node};
-use crate::s3::{AdmissionFailure, LegacyReason, retained::Retained};
+use crate::s3::{AdmissionFailure, LegacyReason, retained::Retained, templates::TemplateLoop};
 
 pub(in crate::s3) use operands::reference;
 
@@ -29,6 +31,7 @@ type Slots = [Option<(usize, RegionId)>];
 pub(super) fn admit<'a>(
     program: &Program<'a>,
     retained: &Retained<'_, 'a>,
+    loops: &[TemplateLoop<'a>],
 ) -> Result<NativeArtifact<'a>> {
     if program.phase != Phase::Built {
         return Err(LegacyReason::Operation.into());
@@ -62,12 +65,22 @@ pub(super) fn admit<'a>(
             OpKind::SetText if values.iter().all(|value| value.role == Role::Text) => {
                 operands::text(values, retained)?
             }
+            // Slot content shares the outlet op kind; it binds to its template or
+            // component like any other binding.
             OpKind::SetProp
             | OpKind::SetEvent
             | OpKind::SetText
             | OpKind::SetHtml
-            | OpKind::Directive => {
-                let (target, binding) = operands::binding(values, op.kind, retained)?;
+            | OpKind::Directive
+            | OpKind::SlotOutlet
+                if op.kind != OpKind::SlotOutlet
+                    || values.iter().any(|value| value.role == Role::BindingKind) =>
+            {
+                let (target, binding) = if op.kind == OpKind::SlotOutlet {
+                    slots::slot(values)?
+                } else {
+                    operands::binding(values, op.kind, retained)?
+                };
                 if op.effect.is_none() {
                     return Err(AdmissionFailure::Invalid(
                         "binding lacks its dynamic partition",
@@ -83,12 +96,14 @@ pub(super) fn admit<'a>(
                 continue;
             }
             OpKind::If => control::branches(values, retained)?,
-            OpKind::For => control::for_loop(values, retained)?,
-            OpKind::CreateComponent => component::component(values)?,
-            // Slot-content bindings (named or scoped slots) share the op kind.
-            OpKind::SlotOutlet if values.iter().any(|value| value.role == Role::BindingKind) => {
-                return Err(LegacyReason::Component.into());
+            OpKind::For => {
+                let carrier = loops
+                    .iter()
+                    .find(|(id, _)| *id == op.id)
+                    .map(|(_, key)| *key);
+                control::for_loop(values, retained, carrier)?
             }
+            OpKind::CreateComponent => component::component(values)?,
             OpKind::SlotOutlet => component::outlet(values)?,
             _ => return Err(LegacyReason::Operation.into()),
         };
@@ -128,6 +143,8 @@ pub(super) fn admit<'a>(
     order::check(program, edges)?;
     let parents = tree::assemble(program, &mut nodes, &slots, &mut regions)?;
     attach::bindings(&mut nodes, &slots, &parents, bindings)?;
+    slots::check(&nodes, &parents)?;
+    model::check(&nodes)?;
     tree::check_nesting(&nodes, &parents)?;
     // The root fragment may hold several nodes, text included.
     let roots = std::mem::take(&mut regions[RegionId::ROOT.index() as usize]);
