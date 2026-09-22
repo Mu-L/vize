@@ -55,7 +55,12 @@ impl Emitter<'_> {
         let mut classes: StdVec<(Lit, bool, Span)> = StdVec::new();
         let mut entries: StdVec<Entry<'_>> = StdVec::new();
         let mut names: StdVec<&str> = StdVec::new();
+        // How many entries precede the first authored `class` source.
+        let mut class_at = None;
         for part in &tag.parts {
+            if class_at.is_none() {
+                class_at = first_class_offset(part).map(|offset| entries.len() + offset);
+            }
             match part {
                 PugTagPart::Class(token) => {
                     classes.push((
@@ -95,6 +100,11 @@ impl Emitter<'_> {
                         };
                         let key = attr.key();
                         let span = self.span(&attr.name);
+                        // Synthesized bytes map to the whole `name=value`.
+                        let whole = attr
+                            .value
+                            .as_ref()
+                            .map_or(span, |value| Span::new(span.start, self.span(value).end));
                         if key != "class" {
                             if names.contains(&key) {
                                 let message =
@@ -121,7 +131,7 @@ impl Emitter<'_> {
                         };
                         let escaped = !attr.unescaped();
                         if key == "class" {
-                            classes.push((value, escaped, span));
+                            classes.push((value, escaped, whole));
                             continue;
                         }
                         // A bare attribute takes pug's runtime path,
@@ -149,14 +159,23 @@ impl Emitter<'_> {
                             value,
                             body,
                             escaped,
-                            span,
+                            span: whole,
                         });
                     }
                 }
             }
         }
+        // pug hoists the merged class attribute to the front; the
+        // authored-order rendering keeps it where it was written.
+        let split = match self.rendering {
+            super::PugRendering::Pug => 0,
+            super::PugRendering::AuthoredOrder => class_at.unwrap_or(0).min(entries.len()),
+        };
+        for entry in &entries[..split] {
+            self.attribute(entry);
+        }
         self.classes(&classes);
-        for entry in &entries {
+        for entry in &entries[split..] {
             self.attribute(entry);
         }
     }
@@ -211,7 +230,7 @@ impl Emitter<'_> {
         match entry.key_span {
             Some(span) => {
                 self.html.push_str(&entry.key);
-                self.map.push(entry.key.len(), span.start, span.end);
+                self.map.push_verbatim(entry.key.len(), span.start);
             }
             None => self.synth(&entry.key, entry.span),
         }
@@ -221,12 +240,31 @@ impl Emitter<'_> {
             match entry.body {
                 Some((body, span)) if body == text.as_str() => {
                     self.html.push_str(body);
-                    self.map.push(body.len(), span.start, span.end);
+                    self.map.push_verbatim(body.len(), span.start);
                 }
                 _ => self.synth(&text, entry.span),
             }
             self.synth("\"", entry.span);
         }
+    }
+}
+
+/// Within one head part, how many entries precede its first `class`
+/// source (`None` when the part has none). On a template that derives
+/// without errors every non-class attribute becomes an entry.
+fn first_class_offset(part: &PugTagPart<'_>) -> Option<usize> {
+    match part {
+        PugTagPart::Class(_) => Some(0),
+        PugTagPart::Attrs(group) => {
+            let keys = group.items.iter().filter_map(|item| match item {
+                PugAttrItem::Attr(attr) => Some(attr.key()),
+                PugAttrItem::Unexpected(_) => None,
+            });
+            keys.clone()
+                .any(|key| key == "class")
+                .then(|| keys.take_while(|key| *key != "class").count())
+        }
+        PugTagPart::Id(_) | PugTagPart::AndAttributes(_) => None,
     }
 }
 

@@ -28,11 +28,13 @@ pub(super) struct Emitter<'t> {
     pub(super) map: PugSourceMap,
     pub(super) diagnostics: StdVec<Diagnostic>,
     compiled_tag: bool,
+    pub(super) rendering: super::PugRendering,
 }
 
 impl<'t> Emitter<'t> {
-    pub(super) fn new(tree: &PugTree<'t>) -> Self {
+    pub(super) fn new(tree: &PugTree<'t>, rendering: super::PugRendering) -> Self {
         Self {
+            rendering,
             source: tree.source,
             html: String::with_capacity(tree.source.len()),
             map: PugSourceMap::default(),
@@ -54,14 +56,14 @@ impl<'t> Emitter<'t> {
     pub(super) fn verbatim(&mut self, token: &Token<'_>) {
         let span = self.span(token);
         self.html.push_str(token.text);
-        self.map.push(token.text.len(), span.start, span.end);
+        self.map.push_verbatim(token.text.len(), span.start);
     }
 
     /// Emit bytes pug synthesizes for the construct at `span`.
     pub(super) fn synth(&mut self, text: &str, span: Span) {
         self.html.push_str(text);
         self.map
-            .push(text.len(), span.start, span.end.max(span.start));
+            .push_synth(text.len(), span.start, span.end.max(span.start));
     }
 
     pub(super) fn error(&mut self, span: Span, message: String) {
