@@ -70,7 +70,7 @@ Each ID links to its contract; the box is checked only in the PR that satisfies 
 - [ ] [P5-1b](./phase-5-tasks.md#p5-1b--ambient-key-manifests) Ambient key manifests — lane A · startable now
 - [ ] [P5-2](./phase-5-tasks.md#p5-2--per-sfc-summary) Per-SFC summary — lane B · gated on P4-2
 - [ ] [P5-3](./phase-5-tasks.md#p5-3--global-summary) Global summary — lane B · gated on P4-3b
-- [ ] [P5-4a](./phase-5-tasks.md#p5-4a--salsa-resident-database-skeleton) Salsa resident database skeleton — lane C · startable now
+- [x] [P5-4a](./phase-5-tasks.md#p5-4a--salsa-resident-database-skeleton) Salsa resident database skeleton — lane C · startable now
 - [ ] [P5-4b](./phase-5-tasks.md#p5-4b--summary-firewalls-durability-and-memory-bounds) Summary firewalls, durability and memory bounds — lane C · startable now (behind P5-2)
 - [ ] [P5-5](./phase-5-tasks.md#p5-5--snapshot-tree-under-salsa) Snapshot tree under salsa — lane C · startable now
 - [ ] [P5-6a](./phase-5-tasks.md#p5-6a--maestro-hover-completion-and-definition-wave) Maestro hover, completion and definition wave — lane D · startable now
@@ -78,7 +78,7 @@ Each ID links to its contract; the box is checked only in the PR that satisfies 
 - [ ] [P5-6c](./phase-5-tasks.md#p5-6c--maestro-remaining-wave-and-string-passing-retired) Maestro remaining wave and string passing retired — lane D · gated on P4-10a
 - [ ] [P5-7](./phase-5-tasks-later.md#p5-7--block-level-projection-reuse) Block-level projection reuse — lane E · gated on P4-5c
 - [ ] [P5-8](./phase-5-tasks-later.md#p5-8--corsa-session-reuse) Corsa session reuse — lane F · startable now
-- [ ] [P5-9](./phase-5-tasks-later.md#p5-9--incremental-equals-clean-in-ci) Incremental equals clean in CI — lane G · startable now
+- [x] [P5-9](./phase-5-tasks-later.md#p5-9--incremental-equals-clean-in-ci) Incremental equals clean in CI — lane G · startable now
 - [ ] [P5-10](./phase-5-tasks-later.md#p5-10--fault-tolerant-analysis) Fault-tolerant analysis — lane H · gated on P4-1a
 - [x] [P5-11a](./phase-5-tasks-later.md#p5-11a--resident-resource-baselines-and-methodology) Resident resource baselines and methodology — lane I · startable now
 - [ ] [P5-11b](./phase-5-tasks-later.md#p5-11b--resource-budgets-enforced) Resource budgets enforced — lane I · startable now (behind P5-6c)
