@@ -13,15 +13,17 @@
 
 **Steps:**
 
-- [ ] `crates/vize_davinci/src/diagnostic/tier.rs` and `diagnostic/witness.rs`; the existing `Diagnostic::new` stops accepting `Severity::Error`
-- [ ] Two `compile_fail` doctests: a heuristic rule declaring error severity, and an error diagnostic built without a witness (the provisional "canary rule that tries error-on-unknown fails to compile")
-- [ ] `davinci-road/plan/witness-exemptions.tsv` (producer, code, exempt count) with `tests/tooling/davinci-witness-exemptions.test.ts`: counts may only fall against the base revision, proven by an injected increase
+- [x] `crates/vize_davinci/src/diagnostic/tier.rs` and `diagnostic/witness.rs`; the existing `Diagnostic::new` stops accepting `Severity::Error`
+- [x] Two `compile_fail` doctests: a heuristic rule declaring error severity, and an error diagnostic built without a witness (the provisional "canary rule that tries error-on-unknown fails to compile")
+- [x] `davinci-road/plan/witness-exemptions.tsv` (producer, code, exempt count) with `tests/tooling/davinci-witness-exemptions.test.ts`: counts may only fall against the base revision, proven by an injected increase
 
 **Acceptance:** `cargo test -p vize_davinci` and `cargo test -p vize_davinci --doc` green with both `compile_fail` canaries; TS-24 builds; the exemption checker green and demonstrably failing on an injected increase; TS-1, TS-13.
 
 **Deps:** P4-1a.
 
 **Non-goals:** verifying witnesses (P4-6b); Patina adoption (P4-6c); rendering (P4-14a).
+
+**Landed 2026-09-22:** the witness law as types, both `compile_fail` canaries with passing twins, and a source-derived exemption inventory (5 `vize_s1_to_s2` rows) that only shrinks — see the [P4-6a record](./phase-4-records/p4-6a.md).
 
 ## P4-6b — Witness verifier
 
@@ -33,14 +35,16 @@
 
 **Steps:**
 
-- [ ] `crates/vize_davinci/src/witness.rs` + `witness/`; forged-witness fixtures (wrong group, wrong span, missing key) each committed with its exact `WitnessError`
-- [ ] Register the TS-36 command in [test-suites.md](./test-suites.md): `cargo test -p vize_davinci --test witness_verify` plus the TS-9 lint fixtures run in debug
+- [x] `crates/vize_davinci/src/witness.rs` + `witness/`; forged-witness fixtures (wrong group, wrong span, missing key) each committed with its exact `WitnessError`
+- [x] Register the TS-36 command in [test-suites.md](./test-suites.md): `cargo test -p vize_davinci --test witness_verify` plus the TS-9 lint fixtures run in debug
 
 **Acceptance:** every forged fixture rejected with the exact error, every valid witness verifies; zero unverifiable witnesses across TS-9; TS-1, TS-13.
 
 **Deps:** P4-6a, P4-1a.
 
 **Non-goals:** producing witnesses for rules (P4-6c, P4-8a…P4-8c); the "why" rendering (P4-14c).
+
+**Landed 2026-09-22:** `vize_davinci::witness` with the TS-36 lane — nine forged-witness fixtures each rejected with its exact `WitnessError`, the valid witness verified, and the debug/CI audit (release ZST); TS-9 carries no chains yet, so its zero is vacuous until the P4-8 waves — see the [P4-6b record](./phase-4-records/p4-6b.md).
 
 ## P4-6c — Patina on the unified channel
 

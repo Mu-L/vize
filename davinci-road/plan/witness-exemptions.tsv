@@ -1,0 +1,7 @@
+producer	code	exempt
+vize_extension_host	guest-error	1
+vize_s1_to_s2	lowering	1
+vize_s1_to_s2	missing-end-tag	1
+vize_s1_to_s2	surface-syntax	1
+vize_s1_to_s2	v-model	1
+vize_s1_to_s2	v-slot	1
