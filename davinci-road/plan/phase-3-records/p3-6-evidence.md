@@ -106,3 +106,18 @@ those crates are shared and unchanged here. Allocation counts of the
 base on every fixture (small 134→116, medium 739→642, large 1507→1507,
 stress-deep 1058→879, stress-interp 3530→2729, stress-wide 435→113); the
 committed budgets predate both and are not gated in CI.
+
+The object binding slice (2026-09-22, same interleaving): `spreads`
+1.146/1.146 (15.44 vs 13.47 μs min). The lanes emit different programs there:
+the native lane builds upstream's merged sources, the retained lane separate
+setters and no component `v-on` object. On the same run `templates` measured
+1.046/1.048 and `control_flow` 1.110/1.114.
+
+Dense ids in the generic verifier now resolve by index; a table that is not
+dense still scans, so every verdict is unchanged. `rebuild_source` reserves
+the exact length of a rebuilt compound text. Native admission and emission
+keep the payload and their tables in the output arena, and
+`davinci_vapor_native_budget` pins native allocation calls for the seven
+`vapor_native_pair` fixtures at 79, 84, 112, 121, 156, 114 and 174. The
+linear verifier lookups in the single-parse profile above are that earlier
+measurement, not the current dense path.

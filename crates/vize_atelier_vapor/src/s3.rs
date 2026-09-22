@@ -132,14 +132,22 @@ pub(crate) fn lower_source_for_vapor<'a>(
                 !record.rule.starts_with("lower.")
                     && !record.rule.starts_with("condense.")
                     && record.rule != "drop.comment"
+                    && record.rule != "drop.branch-gap"
                     // HTML content CDATA is a legacy parser diagnostic.
                     || record.rule == "lower.cdata-text"
+                    // Whitespace between `v-if` branches is dropped as the
+                    // retained lane drops it; a comment there moves the
+                    // surrounding whitespace differently per lane.
+                    || record.rule == "drop.branch-gap"
+                        && (source.as_bytes())
+                            .get(record.span.start as usize..)
+                            .is_none_or(|rest| rest.starts_with(b"<!--"))
             })
         {
             return VaporS3BridgeStatus::Legacy(LegacyReason::SurfaceSemantics);
         }
         let mut s3 = vize_s2_to_s3::lower(allocator, &s2.root);
-        if markup::legacy_diagnosed(source, &s3.program) {
+        if markup::legacy_diagnosed(allocator, source, &s3.program) {
             return VaporS3BridgeStatus::Legacy(LegacyReason::SurfaceSemantics);
         }
         let mut retained = retained::Retained::collect(allocator, &s2.root);

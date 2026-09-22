@@ -5,55 +5,57 @@ mod emit;
 pub(super) mod validate;
 
 use vize_atelier_core::JsExpression;
-use vize_carton::Allocator;
+use vize_carton::{Allocator, Vec};
 use vize_s2_to_s3::Lowered;
 
 use super::{AdmissionFailure, retained::Retained};
 
 #[derive(Debug)]
 pub(super) struct NativeArtifact<'a> {
-    nodes: std::vec::Vec<Node<'a>>,
+    nodes: Vec<'a, Node<'a>>,
     /// The template root fragment, in authored order.
-    roots: std::vec::Vec<usize>,
+    roots: Vec<'a, usize>,
 }
 
 #[derive(Debug)]
 struct Node<'a> {
     content: Content<'a>,
-    children: std::vec::Vec<usize>,
-    bindings: std::vec::Vec<Binding<'a>>,
+    children: Vec<'a, usize>,
+    bindings: Vec<'a, Binding<'a>>,
 }
 
 #[derive(Debug)]
 enum Content<'a> {
     Element {
         tag: &'a str,
-        attributes: std::vec::Vec<(&'a str, Option<&'a str>)>,
+        /// Static attributes with their authored positions.
+        attributes: Vec<'a, (&'a str, Option<&'a str>, u32)>,
     },
     Text {
-        parts: std::vec::Vec<TextPart<'a>>,
+        parts: Vec<'a, TextPart<'a>>,
         dynamic: bool,
     },
     /// Authored branch order; each branch body is its own block.
-    If { branches: std::vec::Vec<Branch<'a>> },
+    If { branches: Vec<'a, Branch<'a>> },
     /// One loop; `children` is its body (one element, or a template fragment).
     For(Loop<'a>),
     /// A resolved component; `children` is its slot content. `is` is the
     /// `:is` expression of a `<component>`, which is created dynamically.
     Component {
         tag: &'a str,
-        props: std::vec::Vec<Prop<'a>>,
+        props: Vec<'a, Prop<'a>>,
         is: Option<Expr<'a>>,
     },
     /// A `<slot>` outlet; `children` is its fallback content.
     Outlet {
         name: &'a str,
-        props: std::vec::Vec<Prop<'a>>,
+        props: Vec<'a, Prop<'a>>,
     },
 }
 
 /// One component or outlet prop in authored order. Static attributes carry a
 /// literal (or no value), bindings an expression, listeners a handler key.
+/// A `v-bind`/`v-on` object is the `$` source key (`handler` for `v-on`).
 #[derive(Debug, Clone, Copy)]
 struct Prop<'a> {
     key: &'a str,
@@ -69,7 +71,7 @@ struct Branch<'a> {
     condition: Option<Expr<'a>>,
     region: vize_s3::op::RegionId,
     /// The branch body in authored order: one element, or a template fragment.
-    roots: std::vec::Vec<usize>,
+    roots: Vec<'a, usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -111,9 +113,11 @@ struct Binding<'a> {
     /// Prop or event name; empty for the unnamed element directives.
     name: &'a str,
     value: Expr<'a>,
-    modifiers: std::vec::Vec<&'a str>,
+    modifiers: Vec<'a, &'a str>,
     /// A static `class` merged ahead of this dynamic `:class`.
     merge: Option<&'a str>,
+    /// Authored position, which orders an element's spread sources.
+    position: u32,
 }
 
 /// The binding families the native projection emits.
@@ -130,6 +134,10 @@ enum BindingKind {
     /// Slot content on a `<template #name>` or its component: `name` is the
     /// slot name, `value` the parameter pattern (empty when there is none).
     Slot,
+    /// `v-bind="object"`: the element's props merge in authored order.
+    Spread,
+    /// `v-on="object"`: listeners bound from an object.
+    Handlers,
 }
 
 impl<'a> NativeArtifact<'a> {
