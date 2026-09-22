@@ -10,7 +10,12 @@ import {
 } from "vue";
 import type { WasmModule } from "../../wasm/index";
 import { negotiateSpolveroFeed } from "../../wasm/types/spolvero";
-import { ladderStepTimings, negotiateProfileExport } from "../../wasm/types/profile";
+import {
+  ladderStepTimings,
+  ladderWalkTimings,
+  negotiateProfileExport,
+  type ProfileExport,
+} from "../../wasm/types/profile";
 import type { InspectorDiff } from "../../wasm/types/inspector";
 import { DAVINCI_PRESET } from "../../shared/presets/davinci";
 import type { EditorHighlight } from "../../shared/MonacoEditor.vue";
@@ -33,8 +38,8 @@ import { graphLineKinds, partitionKinds } from "./partition";
 
 export type StageId = RungId | "s4";
 export type OutputTarget = "dom" | "vapor" | "ssr";
-/** What the stage body shows: the page, its diff to the previous page, or remarks. */
-export type PageView = "page" | "diff" | "remarks";
+/** What the stage body shows: the page, its diff, the remarks, or the flame view. */
+export type PageView = "page" | "diff" | "remarks" | "flame";
 
 const FILENAME = "Component.vue";
 
@@ -55,6 +60,15 @@ export function useDavinciLadder(getCompiler: () => WasmModule | null) {
   const ladderTime = ref<number | null>(null);
   /** Why step timings are missing, when the profile did not negotiate. */
   const profileNote = ref<string | null>(null);
+  /** This run's profile export, and a pinned earlier run to compare against. */
+  const profile = shallowRef<ProfileExport | null>(null);
+  const baseline = shallowRef<ProfileExport | null>(null);
+  function pinBaseline() {
+    baseline.value = profile.value;
+  }
+  function clearBaseline() {
+    baseline.value = null;
+  }
 
   const stage = ref<StageId>("s2");
   const pageKeys = ref<Partial<Record<RungId, string>>>({});
@@ -83,13 +97,14 @@ export function useDavinciLadder(getCompiler: () => WasmModule | null) {
     if (!shown || shown.kind !== "impeto" || !partition) return new Map<number, string>();
     return graphLineKinds(shown.text, partitionKinds(partition.text));
   });
-  /** The page this one is compared against: the previous page of its stage. */
+  /** The page this one is compared against: the previous tree page of its stage. */
   const previousPage = computed(() => {
     const current = rung.value;
     const shown = page.value;
     if (!current || !shown || shown.kind !== "disegno") return null;
-    const index = current.pages.indexOf(shown);
-    return index > 0 ? current.pages[index - 1] : null;
+    const trees = current.pages.filter((p) => p.kind === "disegno");
+    const index = trees.indexOf(shown);
+    return index > 0 ? trees[index - 1] : null;
   });
   const diff = computed<InspectorDiff | null>(() => {
     const before = previousPage.value;
@@ -185,10 +200,16 @@ export function useDavinciLadder(getCompiler: () => WasmModule | null) {
       const sfc = compiler.compileSfc(source.value, options);
       const start = sfc.descriptor.template?.loc.start;
       templateStart.value = start === undefined ? 0 : templateStartInSfc(source.value, start);
-      const profile = negotiateProfileExport(analysis.spolveroProfile);
-      profileNote.value = profile.ok ? null : profile.error;
-      const timings = profile.ok ? ladderStepTimings(profile.profile) : new Map<string, number>();
-      ladder.value = buildLadder(negotiated.feed, FILENAME, timings);
+      const timed = negotiateProfileExport(analysis.spolveroProfile);
+      profileNote.value = timed.ok ? null : timed.error;
+      profile.value = timed.ok ? timed.profile : null;
+      const none = new Map<string, number>();
+      ladder.value = buildLadder(
+        negotiated.feed,
+        FILENAME,
+        timed.ok ? ladderStepTimings(timed.profile) : none,
+        timed.ok ? ladderWalkTimings(timed.profile) : none,
+      );
       error.value = null;
       const compiled = await compileCodeOutputs({
         compiler,
@@ -246,6 +267,10 @@ export function useDavinciLadder(getCompiler: () => WasmModule | null) {
     outputs,
     ladderTime,
     profileNote,
+    profile,
+    baseline,
+    pinBaseline,
+    clearBaseline,
     stage,
     rung,
     page,

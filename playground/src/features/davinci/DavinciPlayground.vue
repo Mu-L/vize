@@ -12,6 +12,7 @@ import FolioView from "./FolioView.vue";
 import OutputView from "./OutputView.vue";
 import FolioDiffView from "./FolioDiffView.vue";
 import RemarksPanel from "./RemarksPanel.vue";
+import FlameView from "./FlameView.vue";
 import type { TimelineStep } from "./ladder";
 import { useDavinciLadder, type StageId } from "./useDavinciLadder";
 import { stepKeyAction } from "./keys";
@@ -29,6 +30,10 @@ const {
   outputs,
   ladderTime,
   profileNote,
+  profile,
+  baseline,
+  pinBaseline,
+  clearBaseline,
   stage,
   rung,
   page,
@@ -56,7 +61,7 @@ const showTabs = computed(
   () => rung.value !== null && (rung.value.pages.length > 1 || rung.value.id !== "s1"),
 );
 
-function toggleView(view: "diff" | "remarks") {
+function toggleView(view: "diff" | "remarks" | "flame") {
   pageView.value = pageView.value === view ? "page" : view;
 }
 
@@ -71,6 +76,13 @@ watch(example, loadExample);
 
 function selectStep(step: TimelineStep) {
   selectPage(step.rung, step.key);
+}
+
+/** A flame frame opens its stage, or the step page its stage/pass names. */
+function selectFrame([stageName, pass]: string[]) {
+  const step = ladder.value?.timeline.find((s) => s.key === `${stageName}/${pass}`);
+  if (step) selectStep(step);
+  else if (ladder.value?.rungs.some((r) => r.id === stageName)) selectStage(stageName as StageId);
 }
 
 // Presenter keys: 1-4 jump to a stage, arrows walk the pass timeline.
@@ -125,7 +137,12 @@ function snippet(text: string): string {
       <div v-if="error" class="davinci-message error" role="alert">{{ error }}</div>
       <template v-else-if="ladder">
         <StageRail :rungs="ladder.rungs" :selected="stage" @select="selectStage" />
-        <PassTimeline :steps="ladder.timeline" :current="page?.key ?? null" @select="selectStep" />
+        <PassTimeline
+          :steps="ladder.timeline"
+          :walks="ladder.walks"
+          :current="page?.key ?? null"
+          @select="selectStep"
+        />
 
         <div v-if="showTabs && rung" class="davinci-subtabs" role="tablist" aria-label="Pages">
           <button
@@ -157,11 +174,27 @@ function snippet(text: string): string {
           >
             Remarks <span class="davinci-count">{{ remarks.length }}</span>
           </button>
+          <button
+            type="button"
+            :class="['davinci-subtab', { active: pageView === 'flame' }]"
+            :aria-pressed="pageView === 'flame'"
+            @click="toggleView('flame')"
+          >
+            Flame
+          </button>
         </div>
 
         <div class="davinci-body">
           <OutputView v-if="stage === 's4'" v-model:target="outputTarget" :outputs :theme />
           <RemarksPanel v-else-if="pageView === 'remarks'" :remarks @locate="locateRemark" />
+          <FlameView
+            v-else-if="pageView === 'flame'"
+            :profile
+            :baseline
+            @select="selectFrame"
+            @pin="pinBaseline"
+            @unpin="clearBaseline"
+          />
           <FolioDiffView
             v-else-if="pageView === 'diff' && diff && previousPage && page"
             :diff
