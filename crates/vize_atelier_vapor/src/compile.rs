@@ -47,6 +47,10 @@ pub struct VaporCompilerOptions {
     pub experimental_in_tag_comments: bool,
     /// Enable experimental `v-match` / `v-when` patterned template desugaring.
     pub experimental_patterned_template: bool,
+    /// Davinci A/B and baseline instrumentation: always select the retained
+    /// (pre-S3) lane. Not a user option; production callers leave it unset.
+    #[doc(hidden)]
+    pub davinci_retained_lane: bool,
 }
 
 /// Experimental Vapor compiler options kept separate from
@@ -127,20 +131,54 @@ fn compile_vapor_inner_with_stack<'a>(
     experimental_options: VaporCompilerExperimentalOptions,
     scope_id: Option<&str>,
 ) -> (VaporCompileResult, std::vec::Vec<CompilerError>) {
-    // Parse
-    let parser_opts = ParserOptions {
-        is_void_tag: vize_carton::is_void_tag,
-        is_native_tag: Some(vize_carton::is_native_tag),
-        custom_renderer: options.custom_renderer,
-        experimental_in_tag_comments: options.experimental_in_tag_comments,
-        is_pre_tag: |tag| tag == "pre",
-        get_namespace,
-        ..ParserOptions::default()
-    };
+    // The native lane parses the source through S1 itself. It admits only
+    // sources the legacy parser reports nothing for (S1 keeps the tokenizer's
+    // codes and S2 refuses every recovery rule; `s3/tests/parser_agreement.rs`
+    // pins this over the fixture corpus and its malformed variants), so an
+    // admitted source never builds the legacy tree it would discard.
+    let s3_bridge_status = s3::lower_source_for_vapor(
+        allocator,
+        source,
+        VaporS3BridgeOptions {
+            ssr: options.ssr,
+            custom_renderer: options.custom_renderer,
+            experimental_in_tag_comments: options.experimental_in_tag_comments,
+            experimental_patterned_template: options.experimental_patterned_template,
+            template_syntax,
+            has_custom_elements: !custom_elements.is_empty(),
+            // Without prefixing, the retained lane keeps expression text as
+            // authored and binding metadata only steers the shared generator.
+            prefixed_binding_metadata: options.binding_metadata.is_some()
+                && options.prefix_identifiers,
+            retained_lane: options.davinci_retained_lane,
+            inline: options.inline,
+        },
+    );
+    if let VaporS3BridgeStatus::Accepted(artifact) = s3_bridge_status {
+        debug_assert!(
+            parse_with_options_custom_elements_and_template_syntax(
+                allocator,
+                source,
+                parser_options(&options),
+                custom_elements,
+                template_syntax,
+            )
+            .1
+            .is_empty(),
+            "the native Vapor lane admitted a source the legacy parser diagnoses"
+        );
+        s3::record_accepted();
+        let ir = artifact.into_ir(allocator, source, scope_id);
+        return (
+            generate(&ir, &options, &experimental_options, Vec::new()),
+            std::vec::Vec::new(),
+        );
+    }
+
     let (mut root, errors) = parse_with_options_custom_elements_and_template_syntax(
         allocator,
         source,
-        parser_opts,
+        parser_options(&options),
         custom_elements.clone(),
         template_syntax,
     );
@@ -159,32 +197,16 @@ fn compile_vapor_inner_with_stack<'a>(
         );
     }
 
+    // A diagnosed source keeps the legacy lane whatever the bridge concluded.
     let s3_bridge_status = if parser_diagnostics.is_empty() {
-        s3::lower_source_for_vapor(
-            allocator,
-            source,
-            VaporS3BridgeOptions {
-                ssr: options.ssr,
-                custom_renderer: options.custom_renderer,
-                experimental_in_tag_comments: options.experimental_in_tag_comments,
-                experimental_patterned_template: options.experimental_patterned_template,
-                template_syntax,
-                has_custom_elements: !custom_elements.is_empty(),
-                has_binding_metadata: options.binding_metadata.is_some(),
-                inline: options.inline,
-            },
-        )
+        s3_bridge_status
     } else {
         VaporS3BridgeStatus::Legacy(s3::LegacyReason::SurfaceSemantics)
     };
     s3::record_selection(&s3_bridge_status);
     match s3_bridge_status {
-        VaporS3BridgeStatus::Accepted(artifact) => {
-            let ir = artifact.into_ir(allocator, source, scope_id);
-            return (
-                generate(&ir, &options, &experimental_options, Vec::new()),
-                parser_diagnostics,
-            );
+        VaporS3BridgeStatus::Accepted(_) => {
+            unreachable!("admitted sources return before the legacy parse")
         }
         VaporS3BridgeStatus::Rejected(error_messages) => {
             return (
@@ -272,6 +294,19 @@ fn generate(
         templates: result.templates,
         map: result.map,
         error_messages,
+    }
+}
+
+/// The legacy parser's configuration for a Vapor compile.
+pub(crate) fn parser_options(options: &VaporCompilerOptions) -> ParserOptions {
+    ParserOptions {
+        is_void_tag: vize_carton::is_void_tag,
+        is_native_tag: Some(vize_carton::is_native_tag),
+        custom_renderer: options.custom_renderer,
+        experimental_in_tag_comments: options.experimental_in_tag_comments,
+        is_pre_tag: |tag| tag == "pre",
+        get_namespace,
+        ..ParserOptions::default()
     }
 }
 

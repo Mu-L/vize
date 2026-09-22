@@ -119,6 +119,19 @@ and element-carried keyed/unkeyed loops with identifier aliases, nested inside
 admitted elements or at the root. Template wrappers, destructuring and nested
 bodies count as `legacy.control_flow`. Mounted identity traces fixed a shared
 fast-removal defect in both lanes; fixture parity holds at 116/117.
+_Expression slice 2026-09-22:_ compound props, text, handlers, conditions,
+sources and keys consume S2's retained ASTs (moved, not reparsed); `v-show`,
+`v-html`, `v-text`, static-class merging and unprefixed binding metadata (the
+SFC path) are native, with zero legacy walks and reparses.
+_Component slice 2026-09-22:_ ordinary components with props, listeners and
+default slots, `<slot>` outlets with fallbacks, and root fragments/text are
+native; mounted traces register child components per backend and lane. Named
+and scoped slots, dynamic and built-in components stay `legacy.component`.
+_Single parse 2026-09-22:_ admitted sources skip the legacy parser; markup it
+diagnoses (CDATA, self-closed or implicitly closed elements, empty modifiers)
+stays legacy, checked over fixture prefixes and deletions. With dense admission
+tables the native route is 13% faster than the retained lane on expressions
+and 3% on components, 7–9% slower on text, events and control flow.
 
 **P3-7 VDOM patch flags from facts.** `patch_flag.rs` inference replaced by
 lattice-fact consumption; flags become explicit S3 decisions (or S2→S4

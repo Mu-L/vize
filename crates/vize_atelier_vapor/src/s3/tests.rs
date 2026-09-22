@@ -1,5 +1,6 @@
 use super::{
     LegacyReason, VaporS3BridgeOptions, VaporS3BridgeStatus, admit, lower_source_for_vapor,
+    retained::Retained,
 };
 use vize_atelier_core::TemplateSyntaxMode;
 use vize_carton::Allocator;
@@ -16,7 +17,8 @@ pub(super) fn options() -> VaporS3BridgeOptions {
         experimental_patterned_template: false,
         template_syntax: TemplateSyntaxMode::Standard,
         has_custom_elements: false,
-        has_binding_metadata: false,
+        prefixed_binding_metadata: false,
+        retained_lane: false,
         inline: false,
     }
 }
@@ -83,7 +85,7 @@ fn graph_payload_mutations_change_generated_behavior() {
             operand.value.text = "submit";
         }
     }
-    let code = generated(admit(s3), &allocator);
+    let code = generated(admit(s3, &Retained::new(&allocator)), &allocator);
     for value in ["changed", "_ctx.message", "_ctx.submit(e)"] {
         assert!(code.contains(value), "{code}");
     }
@@ -104,7 +106,10 @@ fn corrupt_graph_and_partition_are_rejected_instead_of_falling_back() {
             _ => s3.partition.ops[0].kind = vize_s2_to_s3::PartitionKind::Dynamic,
         }
         assert!(
-            matches!(admit(s3), VaporS3BridgeStatus::Rejected(_)),
+            matches!(
+                admit(s3, &Retained::new(&allocator)),
+                VaporS3BridgeStatus::Rejected(_)
+            ),
             "mutation {mutation}"
         );
     }
@@ -115,7 +120,10 @@ fn generic_graph_verification_does_not_imply_backend_admission() {
     let allocator = Allocator::new();
     let mut reordered = lowered(&allocator);
     reordered.program.edges.reverse();
-    assert!(matches!(admit(reordered), VaporS3BridgeStatus::Accepted(_)));
+    assert!(matches!(
+        admit(reordered, &Retained::new(&allocator)),
+        VaporS3BridgeStatus::Accepted(_)
+    ));
     for mutation in 0..6 {
         let mut s3 = lowered(&allocator);
         match mutation {
@@ -155,7 +163,7 @@ fn generic_graph_verification_does_not_imply_backend_admission() {
             }
         }
         assert!(vize_s3::verify::verify(&s3.program).is_empty());
-        let status = admit(s3);
+        let status = admit(s3, &Retained::new(&allocator));
         if matches!(mutation, 0 | 1 | 3 | 5) {
             assert!(
                 matches!(status, VaporS3BridgeStatus::Rejected(_)),
@@ -174,29 +182,32 @@ fn generic_graph_verification_does_not_imply_backend_admission() {
 fn unsupported_source_semantics_have_explicit_legacy_routes() {
     let allocator = Allocator::new();
     for source in [
-        "<Comp />",
-        "<template v-if=\"ok\"><div /><div /></template>",
-        "<div v-for=\"x in xs.items()\" />",
-        "<div>{{ one + two }}</div>",
+        "<component :is=\"view\" />",
+        "<template v-if=\"ok\"><div></div><div></div></template>",
+        "<div v-for=\"x in (xs as any)\"></div>",
+        "<div>{{ one as number }}</div>",
         "<div v-pre>{{ literal }}</div>",
-        "<div v-show=\"ok\" />",
+        "<div v-once></div>",
         "<input v-model=\"text\" />",
         "<input v-model.lazy=\"text\" />",
         "<input type=\"checkbox\" v-model=\"checked\" />",
-        "<div v-text=\"name\" />",
-        "<div :[key]=\"value\" />",
-        "<div ref=\"node\" />",
-        "<div :class=\"classes\" class=\"base\" />",
-        "<div @click=\"save()\" />",
-        "<button @click=\"$event\" />",
+        "<div v-cloak></div>",
+        "<div :[key]=\"value\"></div>",
+        "<div ref=\"node\"></div>",
+        "<div :style=\"s\" style=\"color: red\"></div>",
+        "<div @click=\"a++; b++\"></div>",
+        "<button @click=\"$event\"></button>",
         "<svg><circle /></svg>",
         "<table><tr><td>{{ value }}</td></tr></table>",
         "<div>&#10; text</div>",
-        "<div title=\"&quot;\" />",
-        "{{ value }}",
-        "<div /><div />",
-        "<div v-bind=\"props\" />",
+        "<div title=\"&quot;\"></div>",
+        "<Comp v-slot=\"p\">{{ p }}</Comp>",
+        "<Teleport to=\"body\"><div></div></Teleport>",
+        "<div v-bind=\"props\"></div>",
         "<pre> text </pre>",
+        // The legacy parser reports invalid self-closing HTML elements.
+        "<div />",
+        "<span v-if=\"ok\" />",
     ] {
         assert!(
             matches!(
@@ -211,18 +222,31 @@ fn unsupported_source_semantics_have_explicit_legacy_routes() {
             &allocator,
             SOURCE,
             VaporS3BridgeOptions {
-                has_binding_metadata: true,
+                prefixed_binding_metadata: true,
                 ..options()
             }
         ),
         VaporS3BridgeStatus::Legacy(LegacyReason::Options)
+    ));
+    // Baselines and A/B runs select the retained lane explicitly; the selection
+    // is counted separately from unsupported options.
+    assert!(matches!(
+        lower_source_for_vapor(
+            &allocator,
+            SOURCE,
+            VaporS3BridgeOptions {
+                retained_lane: true,
+                ..options()
+            }
+        ),
+        VaporS3BridgeStatus::Legacy(LegacyReason::Selected)
     ));
 }
 
 #[test]
 fn native_event_families_are_admitted() {
     let allocator = Allocator::new();
-    let source = "<div @focus=\"save\" @change.once=\"save\" @custom-event.capture=\"save\" />";
+    let source = "<div @focus=\"save\" @change.once=\"save\" @custom-event.capture=\"save\"></div>";
     let status = lower_source_for_vapor(&allocator, source, options());
     assert!(
         matches!(status, VaporS3BridgeStatus::Accepted(_)),
@@ -235,7 +259,7 @@ fn native_event_families_are_admitted() {
         "keydown.enter.stop",
         "click.once.capture.passive",
     ] {
-        let source = vize_carton::cstr!("<div @{directive}=\"save\" />");
+        let source = vize_carton::cstr!("<div @{directive}=\"save\"></div>");
         let status = lower_source_for_vapor(&allocator, &source, options());
         assert!(
             matches!(status, VaporS3BridgeStatus::Accepted(_)),
@@ -272,9 +296,13 @@ fn empty_static_text_cannot_shift_materialized_child_addresses() {
     // Empty HTML text produces no DOM node. Counting it as a child would make
     // the following dynamic span address the wrong browser node.
     assert!(matches!(
-        admit(s3),
+        admit(s3, &Retained::new(&allocator)),
         VaporS3BridgeStatus::Legacy(LegacyReason::ExpressionOrEncoding)
     ));
 }
 
 mod control;
+
+mod attributes;
+mod components;
+mod parser_agreement;

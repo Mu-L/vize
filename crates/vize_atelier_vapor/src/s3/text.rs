@@ -4,12 +4,13 @@
 use vize_carton::{Allocator, FxHashMap};
 use vize_s3::operand::{OperandRole, OperandValue, ValueKind};
 
-use super::{AdmissionFailure, LegacyReason, native::validate::reference};
+use super::{AdmissionFailure, LegacyReason, native::validate::reference, retained::Retained};
 
 pub(super) fn capture<'a>(
     allocator: &'a Allocator,
     s2: &vize_s1_to_s2::Lowered<'_>,
     s3: &mut vize_s2_to_s3::Lowered<'a>,
+    retained: &mut Retained<'_, 'a>,
 ) -> Result<(), AdmissionFailure> {
     let facts: FxHashMap<_, _> = s2
         .provenance
@@ -64,12 +65,15 @@ pub(super) fn capture<'a>(
                 .parts
                 .windows(2)
                 .any(|pair| pair[0].span.end != pair[1].span.start)
-            || vize_s1_to_s2::lower::rebuild_source(&parts.parts) != value.text
+            || !rebuilds(&parts.parts, value.text)
         {
             return Err(AdmissionFailure::Invalid("compound text parts are stale"));
         }
         for part in &parts.parts {
-            if part.dynamic && !reference(&part.text) {
+            let text = allocator.alloc_str(&part.text);
+            // S2 never parsed compound parts; a non-reference part takes its
+            // single parse here, with S2's own admission rule.
+            if part.dynamic && !reference(text) && !retained.parse(text, part.span) {
                 return Err(LegacyReason::ExpressionOrEncoding.into());
             }
             operands.push(vize_s3::operand::Operand {
@@ -79,7 +83,7 @@ pub(super) fn capture<'a>(
                     } else {
                         ValueKind::Literal
                     },
-                    text: allocator.alloc_str(&part.text),
+                    text,
                     qualifier: "",
                     span: part.span,
                 },
@@ -89,6 +93,25 @@ pub(super) fn capture<'a>(
     }
     s3.program.operands = operands;
     Ok(())
+}
+
+/// `vize_s1_to_s2::lower::rebuild_source(parts) == text`, without building
+/// the rebuilt string.
+fn rebuilds(parts: &[vize_s1_to_s2::lower::TextPart], mut text: &str) -> bool {
+    for part in parts {
+        let rest = if part.dynamic {
+            text.strip_prefix("{{ ")
+                .and_then(|rest| rest.strip_prefix(part.text.as_str()))
+                .and_then(|rest| rest.strip_prefix(" }}"))
+        } else {
+            text.strip_prefix(part.text.as_str())
+        };
+        let Some(rest) = rest else {
+            return false;
+        };
+        text = rest;
+    }
+    text.is_empty()
 }
 
 #[cfg(test)]

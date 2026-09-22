@@ -6,17 +6,19 @@
 //! those keep the legacy lane rather than being re-derived from text here.
 
 use vize_atelier_core::steps::expression::is_template_global;
-use vize_carton::{FxHashMap, FxHashSet};
 use vize_s3::{
     op::{OpId, OpKind, Program, RegionId},
     operand::{Operand, OperandRole as Role, ValueKind},
 };
 
-use super::super::{Branch, Content, Loop};
-use super::{Result, operands::one, operands::reference};
-use crate::s3::{AdmissionFailure, LegacyReason};
+use super::super::{Branch, Content, Expr, Loop};
+use super::{Result, operands::js, operands::one};
+use crate::s3::{AdmissionFailure, LegacyReason, retained::Retained};
 
-pub(super) fn branches<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
+pub(super) fn branches<'a>(
+    values: &[Operand<'a>],
+    retained: &Retained<'_, 'a>,
+) -> Result<Content<'a>> {
     let mut branches: std::vec::Vec<Branch<'a>> = std::vec::Vec::with_capacity(values.len());
     for (position, value) in values.iter().enumerate() {
         let Some(region) = value.region else {
@@ -37,8 +39,7 @@ pub(super) fn branches<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
                     "unconditional branch is not trailing",
                 ));
             }
-            ValueKind::Js if reference(value.value.text) => Some(value.value.text.trim()),
-            _ => return Err(LegacyReason::ExpressionOrEncoding.into()),
+            _ => Some(js(retained, value)?),
         };
         branches.push(Branch {
             condition,
@@ -52,7 +53,10 @@ pub(super) fn branches<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
     Ok(Content::If { branches })
 }
 
-pub(super) fn for_loop<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
+pub(super) fn for_loop<'a>(
+    values: &[Operand<'a>],
+    retained: &Retained<'_, 'a>,
+) -> Result<Content<'a>> {
     if values.iter().any(|value| {
         !matches!(
             value.role,
@@ -63,14 +67,19 @@ pub(super) fn for_loop<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
     }) {
         return Err(AdmissionFailure::Invalid("invalid native loop operand"));
     }
-    let source = one(values, Role::ForSource)?.value;
+    let source = one(values, Role::ForSource)?;
     let value = one(values, Role::ForValue)?.value;
     let key = one(values, Role::ForKey)?.value;
     let index = one(values, Role::ForIndex)?.value;
-    let range = !source.text.is_empty() && source.text.bytes().all(|b| b.is_ascii_digit());
-    if source.kind != ValueKind::Js || !(reference(source.text) || range) {
-        return Err(LegacyReason::ExpressionOrEncoding.into());
-    }
+    let text = source.value.text;
+    let source = if source.value.kind == ValueKind::Js
+        && !text.is_empty()
+        && text.bytes().all(|b| b.is_ascii_digit())
+    {
+        Expr::plain(text)
+    } else {
+        js(retained, source)?
+    };
     let value = alias(value.kind, value.text)?.ok_or(LegacyReason::ControlFlow)?;
     let key = alias(key.kind, key.text)?;
     let index = alias(index.kind, index.text)?;
@@ -82,7 +91,7 @@ pub(super) fn for_loop<'a>(values: &[&Operand<'a>]) -> Result<Content<'a>> {
         return Err(LegacyReason::ControlFlow.into());
     }
     Ok(Content::For(Loop {
-        source: source.text.trim(),
+        source,
         value,
         key,
         index,
@@ -105,49 +114,53 @@ fn alias(kind: ValueKind, text: &str) -> Result<Option<&str>> {
     }
 }
 
-/// Regions inside a conditional branch or loop body. S2 to S3 partitions every
-/// op there as dynamic, so native payload classification must agree.
-pub(super) fn controlled_regions(
-    program: &Program<'_>,
-    kinds: &FxHashMap<OpId, OpKind>,
-) -> Result<FxHashSet<RegionId>> {
-    let meta: FxHashMap<_, _> = program
-        .regions
-        .iter()
-        .map(|region| (region.id, (region.parent, region.owner)))
-        .collect();
-    let mut memo: FxHashMap<RegionId, bool> = FxHashMap::default();
+/// Regions inside a conditional branch or loop body, by region index. S2 to
+/// S3 partitions every op there as dynamic, so native payload classification
+/// must agree. The verifier rejects duplicate ids, so ids below the region
+/// count index a dense table.
+pub(super) fn controlled_regions(program: &Program<'_>) -> Result<std::vec::Vec<bool>> {
+    let count = program.regions.len();
+    let mut meta = std::vec![(None, None); count];
+    for region in &program.regions {
+        *meta
+            .get_mut(region.id.index() as usize)
+            .ok_or(AdmissionFailure::Invalid("region ids are not dense"))? =
+            (region.parent, region.owner);
+    }
+    let mut memo: std::vec::Vec<Option<bool>> = std::vec![None; count];
     let mut path = std::vec::Vec::new();
     for region in &program.regions {
         path.clear();
-        let mut cursor = Some(region.id);
+        let mut cursor: Option<RegionId> = Some(region.id);
         let mut controlled = false;
         while let Some(id) = cursor {
-            if let Some(&known) = memo.get(&id) {
+            let slot = id.index() as usize;
+            let &(parent, owner) = meta
+                .get(slot)
+                .ok_or(AdmissionFailure::Invalid("region does not resolve"))?;
+            if let Some(known) = memo[slot] {
                 controlled = known;
                 break;
             }
-            let &(parent, owner) = meta
-                .get(&id)
-                .ok_or(AdmissionFailure::Invalid("region does not resolve"))?;
-            if path.len() > program.regions.len() {
+            if path.len() > count {
                 return Err(AdmissionFailure::Invalid("region parent cycle"));
             }
-            path.push(id);
-            if owner
-                .is_some_and(|owner| matches!(kinds.get(&owner), Some(OpKind::If | OpKind::For)))
-            {
+            path.push(slot);
+            // Slot content and outlet fallbacks are partitioned as dynamic too.
+            if owner.is_some_and(|owner: OpId| {
+                matches!(
+                    program.ops.get(owner.index() as usize).map(|op| op.kind),
+                    Some(OpKind::If | OpKind::For | OpKind::CreateComponent | OpKind::SlotOutlet)
+                )
+            }) {
                 controlled = true;
                 break;
             }
             cursor = parent;
         }
-        for id in &path {
-            memo.insert(*id, controlled);
+        for slot in &path {
+            memo[*slot] = Some(controlled);
         }
     }
-    Ok(memo
-        .into_iter()
-        .filter_map(|(id, controlled)| controlled.then_some(id))
-        .collect())
+    Ok(memo.into_iter().map(|known| known == Some(true)).collect())
 }

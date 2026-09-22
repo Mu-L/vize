@@ -3,7 +3,9 @@
 //! Acceptance carries the complete checked backend payload. Unsupported inputs
 //! select the retained legacy lane explicitly; corrupt invariants never emit.
 
+mod markup;
 mod native;
+mod retained;
 mod text;
 
 use vize_atelier_core::TemplateSyntaxMode;
@@ -22,7 +24,8 @@ pub(crate) struct VaporS3BridgeOptions {
     pub(crate) experimental_patterned_template: bool,
     pub(crate) template_syntax: TemplateSyntaxMode,
     pub(crate) has_custom_elements: bool,
-    pub(crate) has_binding_metadata: bool,
+    pub(crate) prefixed_binding_metadata: bool,
+    pub(crate) retained_lane: bool,
     pub(crate) inline: bool,
 }
 
@@ -37,6 +40,8 @@ pub(crate) enum LegacyReason {
     ExpressionOrEncoding,
     Structure,
     ControlFlow,
+    Component,
+    Selected,
 }
 
 impl LegacyReason {
@@ -50,6 +55,8 @@ impl LegacyReason {
             Self::ExpressionOrEncoding => "davinci.s3_vapor.legacy.expression_or_encoding",
             Self::Structure => "davinci.s3_vapor.legacy.structure",
             Self::ControlFlow => "davinci.s3_vapor.legacy.control_flow",
+            Self::Component => "davinci.s3_vapor.legacy.component",
+            Self::Selected => "davinci.s3_vapor.legacy.selected",
         }
     }
 }
@@ -99,10 +106,13 @@ pub(crate) fn lower_source_for_vapor<'a>(
         || options.experimental_patterned_template
         || options.template_syntax != TemplateSyntaxMode::Standard
         || options.has_custom_elements
-        || options.has_binding_metadata
+        || options.prefixed_binding_metadata
         || options.inline
     {
         return VaporS3BridgeStatus::Legacy(LegacyReason::Options);
+    }
+    if options.retained_lane {
+        return VaporS3BridgeStatus::Legacy(LegacyReason::Selected);
     }
     profile!("atelier.vapor.template.s3_bridge", {
         // Earlier-stage storage cannot accidentally become an emitter input.
@@ -121,6 +131,8 @@ pub(crate) fn lower_source_for_vapor<'a>(
                 !record.rule.starts_with("lower.")
                     && !record.rule.starts_with("condense.")
                     && record.rule != "drop.comment"
+                    // HTML content CDATA is a legacy parser diagnostic.
+                    || record.rule == "lower.cdata-text"
             })
         {
             return VaporS3BridgeStatus::Legacy(LegacyReason::SurfaceSemantics);
@@ -137,7 +149,11 @@ pub(crate) fn lower_source_for_vapor<'a>(
             return VaporS3BridgeStatus::Legacy(LegacyReason::ControlFlow);
         }
         let mut s3 = vize_s2_to_s3::lower(allocator, &s2.root);
-        if let Err(failure) = text::capture(allocator, &s2, &mut s3) {
+        if markup::legacy_diagnosed(source, &s3.program) {
+            return VaporS3BridgeStatus::Legacy(LegacyReason::SurfaceSemantics);
+        }
+        let mut retained = retained::Retained::collect(allocator, &s2.root);
+        if let Err(failure) = text::capture(allocator, &s2, &mut s3, &mut retained) {
             return match failure {
                 AdmissionFailure::Unsupported(reason) => VaporS3BridgeStatus::Legacy(reason),
                 AdmissionFailure::Invalid(message) => {
@@ -147,11 +163,11 @@ pub(crate) fn lower_source_for_vapor<'a>(
                 }
             };
         }
-        admit(s3)
+        admit(s3, &retained)
     })
 }
 
-fn admit(s3: Lowered<'_>) -> VaporS3BridgeStatus<'_> {
+fn admit<'a>(s3: Lowered<'a>, retained: &retained::Retained<'_, 'a>) -> VaporS3BridgeStatus<'a> {
     let violations = verify(&s3.program);
     if !violations.is_empty() {
         return VaporS3BridgeStatus::Rejected(
@@ -179,7 +195,7 @@ fn admit(s3: Lowered<'_>) -> VaporS3BridgeStatus<'_> {
             "Davinci S3 verifier rejected Vapor artifact: partition identity/classification mismatch",
         )]);
     }
-    match NativeArtifact::admit(&s3) {
+    match NativeArtifact::admit(&s3, retained) {
         Ok(artifact) => VaporS3BridgeStatus::Accepted(VaporS3Artifact(artifact)),
         Err(AdmissionFailure::Unsupported(reason)) => VaporS3BridgeStatus::Legacy(reason),
         Err(AdmissionFailure::Invalid(message)) => VaporS3BridgeStatus::Rejected(std::vec![cstr!(
@@ -189,16 +205,25 @@ fn admit(s3: Lowered<'_>) -> VaporS3BridgeStatus<'_> {
 }
 
 pub(crate) fn record_selection(status: &VaporS3BridgeStatus<'_>) {
-    let profiler = global_profiler();
-    if !profiler.is_enabled() {
-        return;
-    }
-    let counter = match status {
-        VaporS3BridgeStatus::Accepted(_) => "davinci.s3_vapor.accepted",
+    record(match status {
+        VaporS3BridgeStatus::Accepted(_) => ACCEPTED,
         VaporS3BridgeStatus::Legacy(reason) => reason.counter(),
         VaporS3BridgeStatus::Rejected(_) => "davinci.s3_vapor.rejected",
-    };
-    profiler.record_counter_enabled(counter, 1);
+    });
+}
+
+/// [`record_selection`] for an admitted artifact already moved into emission.
+pub(crate) fn record_accepted() {
+    record(ACCEPTED);
+}
+
+const ACCEPTED: &str = "davinci.s3_vapor.accepted";
+
+fn record(counter: &'static str) {
+    let profiler = global_profiler();
+    if profiler.is_enabled() {
+        profiler.record_counter_enabled(counter, 1);
+    }
 }
 
 #[cfg(test)]
