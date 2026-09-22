@@ -26,7 +26,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `ScopeKind`                    | type  | `scope`             |     9 |    65 |
 | `SlotUsage`                    | type  | `croquis::template` |     2 |     3 |
 | `Croquis.binding_spans`        | field | `croquis`           |     2 |     2 |
-| `Croquis.bindings`             | field | `croquis`           |     5 |     8 |
+| `Croquis.bindings`             | field | `croquis`           |     2 |     3 |
 | `Croquis.component_shape`      | field | `croquis`           |     1 |     1 |
 | `Croquis.component_usages`     | field | `croquis`           |     6 |     7 |
 | `Croquis.macros`               | field | `croquis`           |     7 |    14 |
@@ -39,7 +39,13 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 
 | item                          | files | sites |
 | ----------------------------- | ----: | ----: |
+| `Bindings`                    |     3 |     6 |
+| `BindingsTable`               |     2 |     2 |
 | `BlockLocation`               |     2 |     2 |
+| `CroquisFacts`                |     3 |     3 |
+| `Demand`                      |     3 |     6 |
+| `FactConsumer`                |     3 |     3 |
+| `FactGroup`                   |     3 |     3 |
 | `ReactiveKind`                |     5 |    41 |
 | `SfcDescriptor`               |     6 |    25 |
 | `SfcScriptBlock`              |     3 |     6 |
@@ -74,7 +80,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `SymbolId`                    |        0 |    5 |
 | `TemplateExpression`          |        0 |   15 |
 | `Croquis.binding_spans`       |        2 |    3 |
-| `Croquis.bindings`            |        8 |   14 |
+| `Croquis.bindings`            |        3 |    8 |
 | `Croquis.import_statements`   |        0 |    1 |
 | `Croquis.macros`              |       14 |   24 |
 | `Croquis.pattern_diagnostics` |        3 |    4 |

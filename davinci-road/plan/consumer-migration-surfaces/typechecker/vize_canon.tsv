@@ -266,7 +266,7 @@ typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_project/vue_c
 typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_specifier_message.rs	3	s0	S0	stage	vize_carton	compat	1
 typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_ts.rs	15	s0	S0	stage	vize_carton	compat	4
 typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_ts.rs	15	old_ast	old AST/parser	old	vize_armature	legacy	1
-typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_ts.rs	15	croquis	Croquis analysis	old	vize_croquis	legacy	1
+typechecker	Typechecker	source	crates/vize_canon/src/batch/virtual_ts.rs	15	croquis	Croquis analysis	old	vize_croquis	legacy	2
 typechecker	Typechecker	source	crates/vize_canon/src/checker/reporting.rs	12	s0	S0	stage	vize_carton	compat	2
 typechecker	Typechecker	source	crates/vize_canon/src/checker/runner.rs	12	s0	S0	stage	vize_carton	compat	1
 typechecker	Typechecker	source	crates/vize_canon/src/context.rs	6	s0	S0	stage	vize_carton	compat	2
@@ -363,7 +363,7 @@ typechecker	Typechecker	test/dev	crates/vize_canon/src/lsp_client/tests.rs	14	s0
 typechecker	Typechecker	source	crates/vize_canon/src/lsp_client/utils.rs	5	s0	S0	stage	vize_s0	preferred	1
 typechecker	Typechecker	source	crates/vize_canon/src/lsp_client/workspace_project.rs	6	s0	S0	stage	vize_s0	preferred	1
 typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	s0	S0	stage	vize_carton	compat	1
-typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	croquis	Croquis analysis	old	vize_croquis	legacy	1
+typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	croquis	Croquis analysis	old	vize_croquis	legacy	2
 typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	raw_oxc	raw OXC	raw	oxc_allocator	raw	2
 typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	raw_oxc	raw OXC	raw	oxc_ast	raw	1
 typechecker	Typechecker	source	crates/vize_canon/src/options_api_setup_spread.rs	1	raw_oxc	raw OXC	raw	oxc_parser	raw	1

@@ -8,6 +8,8 @@
 )]
 
 use super::source_offsets::{ScriptOffsetMapper, to_sfc_utf16_range};
+
+mod bindings;
 mod entry;
 mod input;
 mod spolvero;
@@ -98,24 +100,7 @@ pub(super) fn analyze_sfc_json_with_clock(
         .collect();
 
     // Convert binding metadata
-    let bindings: Vec<serde_json::Value> = summary
-        .bindings
-        .bindings
-        .iter()
-        .map(|(name, binding_type)| {
-            let (start, end) = summary
-                .binding_spans
-                .get(name)
-                .map(|(start, end)| script_offset_mapper.to_utf16_range(source, *start, *end))
-                .unwrap_or((0, 0));
-            serde_json::json!({
-                "name": name.as_str(),
-                "type": format!("{:?}", binding_type),
-                "start": start,
-                "end": end,
-            })
-        })
-        .collect();
+    let (bindings, is_setup) = bindings::bindings_json(&summary, source, script_offset_mapper);
 
     // Convert macros to JSON
     let macros: Vec<serde_json::Value> = summary
@@ -276,7 +261,7 @@ pub(super) fn analyze_sfc_json_with_clock(
     let result = serde_json::json!({
         "croquis": {
             "component_name": filename,
-            "is_setup": summary.bindings.is_script_setup,
+            "is_setup": is_setup,
             "scopes": scopes,
             "bindings": bindings,
             "macros": macros,

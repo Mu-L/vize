@@ -14,7 +14,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `AnalyzerOptions`              | type  | `analyzer`          |    42 |   156 |
 | `BindingMetadata`              | type  | `croquis`           |     2 |     5 |
 | `ComponentUsage`               | type  | `croquis::template` |    20 |    44 |
-| `Croquis`                      | type  | `croquis`           |    90 |   212 |
+| `Croquis`                      | type  | `croquis`           |    90 |   210 |
 | `EventHandlerScopeData`        | type  | `scope`             |     7 |     9 |
 | `EventListener`                | type  | `croquis::template` |     2 |     3 |
 | `MacroTracker`                 | type  | `macros`            |     1 |     1 |
@@ -35,7 +35,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `VForScopeData`                | type  | `scope`             |     1 |     4 |
 | `VSlotScopeData`               | type  | `scope`             |     1 |     4 |
 | `Croquis.binding_spans`        | field | `croquis`           |     6 |     9 |
-| `Croquis.bindings`             | field | `croquis`           |    26 |    45 |
+| `Croquis.bindings`             | field | `croquis`           |    24 |    41 |
 | `Croquis.component_usages`     | field | `croquis`           |    16 |    20 |
 | `Croquis.import_statements`    | field | `croquis`           |     4 |     5 |
 | `Croquis.invalid_exports`      | field | `croquis`           |     1 |     1 |
@@ -50,7 +50,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Croquis.template_info`        | field | `croquis`           |     2 |     4 |
 | `Croquis.type_exports`         | field | `croquis`           |    10 |    20 |
 | `Croquis.types`                | field | `croquis`           |     5 |     9 |
-| `Croquis.undefined_refs`       | field | `croquis`           |     6 |     7 |
+| `Croquis.undefined_refs`       | field | `croquis`           |     5 |     6 |
 | `Croquis.used_components`      | field | `croquis`           |     7 |     9 |
 
 ## Non-product `vize_croquis` imports
@@ -58,12 +58,17 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | item                           | files | sites |
 | ------------------------------ | ----: | ----: |
 | `BindingType`                  |    10 |    25 |
+| `Bindings`                     |     2 |     7 |
+| `CroquisFacts`                 |     2 |     2 |
 | `DEFINE_EMITS`                 |     1 |     1 |
 | `DEFINE_EXPOSE`                |     1 |     1 |
 | `DEFINE_MODEL`                 |     1 |     1 |
 | `DEFINE_PROPS`                 |     2 |     2 |
 | `DEFINE_SLOTS`                 |     1 |     1 |
+| `Demand`                       |     2 |     4 |
 | `EventHandlerExpression`       |     2 |     5 |
+| `FactConsumer`                 |     2 |     2 |
+| `FactTable`                    |     1 |     4 |
 | `MacroCall`                    |     1 |     1 |
 | `MacroKind`                    |     3 |     4 |
 | `ModelDefinition`              |     5 |     8 |
@@ -75,6 +80,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `SfcError`                     |     2 |     2 |
 | `SfcParseOptions`              |    13 |    19 |
 | `SfcTemplateBlock`             |     2 |     2 |
+| `UndefinedRefs`                |     1 |     3 |
 | `ViolationSeverity`            |     1 |     3 |
 | `WITH_DEFAULTS`                |     1 |     1 |
 | `classify_event_handler`       |     2 |     3 |
@@ -100,7 +106,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `BindingMetadata`         |        5 |    7 |
 | `COMPILER_MACRO_NAMES`    |        0 |    1 |
 | `ComponentUsage`          |       44 |   64 |
-| `Croquis`                 |      212 |  315 |
+| `Croquis`                 |      210 |  313 |
 | `Drawer`                  |        0 |    1 |
 | `EventHandlerScopeData`   |        9 |   16 |
 | `EventListener`           |        3 |    5 |
@@ -124,8 +130,8 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `TypeResolver`            |        0 |    5 |
 | `VForScopeData`           |        4 |    5 |
 | `VSlotScopeData`          |        4 |    5 |
-| `Croquis.bindings`        |       45 |   89 |
+| `Croquis.bindings`        |       41 |   85 |
 | `Croquis.macros`          |       75 |   76 |
 | `Croquis.scopes`          |       59 |   61 |
 | `Croquis.types`           |        9 |   17 |
-| `Croquis.undefined_refs`  |        7 |    8 |
+| `Croquis.undefined_refs`  |        6 |    7 |

@@ -12,13 +12,11 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | ----------------------------- | ----- | ------------ | ----: | ----: |
 | `Analyzer`                    | type  | `analyzer`   |     1 |     1 |
 | `AnalyzerOptions`             | type  | `analyzer`   |     1 |     1 |
-| `Croquis`                     | type  | `croquis`    |     2 |     2 |
+| `Croquis`                     | type  | `croquis`    |     3 |     3 |
 | `InvalidExportKind`           | type  | `croquis`    |     1 |     6 |
 | `ReactivityTracker`           | type  | `reactivity` |     1 |     1 |
 | `ScopeKind`                   | type  | `scope`      |     1 |     6 |
 | `TypeExportKind`              | type  | `croquis`    |     1 |     2 |
-| `Croquis.binding_spans`       | field | `croquis`    |     1 |     1 |
-| `Croquis.bindings`            | field | `croquis`    |     1 |     2 |
 | `Croquis.invalid_exports`     | field | `croquis`    |     1 |     2 |
 | `Croquis.macros`              | field | `croquis`    |     1 |     3 |
 | `Croquis.pattern_diagnostics` | field | `croquis`    |     2 |     3 |
@@ -32,6 +30,10 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 
 | item                                         | files | sites |
 | -------------------------------------------- | ----: | ----: |
+| `Bindings`                                   |     1 |     2 |
+| `CroquisFacts`                               |     1 |     1 |
+| `Demand`                                     |     1 |     2 |
+| `FactConsumer`                               |     1 |     1 |
 | `InjectPattern`                              |     1 |     8 |
 | `ProvideKey`                                 |     1 |     4 |
 | `SfcDescriptor`                              |     3 |     3 |
@@ -46,11 +48,11 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | ------------------- | -------: | ---: |
 | `Analyzer`          |        1 |    2 |
 | `BindingMetadata`   |        0 |    6 |
-| `Croquis`           |        2 |    5 |
+| `Croquis`           |        3 |    7 |
 | `ReactivityTracker` |        1 |    2 |
 | `Scope`             |        0 |    2 |
 | `ScopeId`           |        0 |    2 |
 | `Span`              |        0 |    3 |
 | `Symbol`            |        0 |    3 |
-| `Croquis.bindings`  |        2 |   14 |
+| `Croquis.bindings`  |        0 |   11 |
 | `Croquis.scopes`    |        3 |    8 |

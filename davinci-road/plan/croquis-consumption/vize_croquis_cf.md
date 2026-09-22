@@ -31,7 +31,6 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `build_effect_graph_from_script`       | type  | `effect_graph`      |     1 |     2 |
 | `build_effect_graph_from_script_setup` | type  | `effect_graph`      |     1 |     1 |
 | `build_effect_graph_from_sfc_scripts`  | type  | `effect_graph`      |     1 |     1 |
-| `Croquis.bindings`                     | field | `croquis`           |     2 |     2 |
 | `Croquis.component_usages`             | field | `croquis`           |    18 |    33 |
 | `Croquis.element_ids`                  | field | `croquis`           |     1 |     1 |
 | `Croquis.invalid_exports`              | field | `croquis`           |     1 |     2 |
@@ -50,7 +49,11 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 
 | item                        | files | sites |
 | --------------------------- | ----: | ----: |
+| `Bindings`                  |     3 |     4 |
+| `CroquisFacts`              |     2 |     2 |
+| `Demand`                    |     1 |     4 |
 | `EmitDefinition`            |     3 |     3 |
+| `FactConsumer`              |     1 |     2 |
 | `InjectEntry`               |     4 |     8 |
 | `InjectPattern`             |     4 |    21 |
 | `MacroKind`                 |     1 |     1 |
@@ -73,7 +76,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Analyzer`                             |       40 |   49 |
 | `AnalyzerOptions`                      |       19 |   56 |
 | `ComponentUsage`                       |       38 |   85 |
-| `Croquis`                              |      101 |  127 |
+| `Croquis`                              |      101 |  128 |
 | `EffectGraphScript`                    |        1 |    2 |
 | `EffectGraphSummary`                   |       20 |   32 |
 | `ElementIdKind`                        |        3 |    4 |
@@ -93,7 +96,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `build_effect_graph_from_script`       |        2 |    3 |
 | `build_effect_graph_from_script_setup` |        1 |    2 |
 | `build_effect_graph_from_sfc_scripts`  |        1 |    2 |
-| `Croquis.bindings`                     |        2 |   11 |
+| `Croquis.bindings`                     |        0 |    9 |
 | `Croquis.component_usages`             |       33 |   38 |
 | `Croquis.macros`                       |       25 |   27 |
 | `Croquis.provide_inject`               |       26 |   34 |
