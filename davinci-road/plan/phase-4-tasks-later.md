@@ -177,15 +177,17 @@
 
 **Steps:**
 
-- [ ] `crates/vize_s1_to_s2/src/pass/cfg.rs`: `Optional`/`Fusable`, `Preserved::ALL`; per component **own cyclomatic** = 1 + decisions (each `ui.if` branch beyond the first, plus one for an `ui.if` without `v-else`; each `ui.for`; each `&&`, `||`, `??` and `?:` in a retained expression AST; an `Opaque` expression adds 0 and is counted as unknown) and **own cognitive** (+1 per structure, + nesting depth for nested `ui.if`/`ui.for`/scoped-slot regions, +1 per run of like logical operators)
-- [ ] TS-34 naive evaluator over the same definition
-- [ ] Record the corpus distribution (p50/p90/p95/p99 of both metrics) with its command; pin the default thresholds at the recorded p95 (warn) in the spec
+- [x] `crates/vize_s1_to_s2/src/pass/cfg.rs`: `Optional`/`Fusable`, `Preserved::ALL`; per component **own cyclomatic** = 1 + decisions (each `ui.if` branch beyond the first, plus one for an `ui.if` without `v-else`; each `ui.for`; each `&&`, `||`, `??` and `?:` in a retained expression AST; an `Opaque` expression adds 0 and is counted as unknown) and **own cognitive** (+1 per structure, + nesting depth for nested `ui.if`/`ui.for`/scoped-slot regions, +1 per run of like logical operators)
+- [x] TS-34 naive evaluator over the same definition
+- [x] Record the corpus distribution (p50/p90/p95/p99 of both metrics) with its command; pin the default thresholds at the recorded p95 (warn) in the spec
 
 **Acceptance:** TS-34 agreement over the matrix plane and a corpus shard; TS-17 pass snapshot; TS-22 walk counts unchanged (the pass fuses); pass bench `allocs` recorded (TS-10); the distribution table reproduces from its recorded command.
 
 **Deps:** P4-1a.
 
 **Non-goals:** cross-file attribution and the rule (P4-9b); script-side complexity.
+
+**Landed 2026-09-22:** the [metric spec](./complexity-metrics.md) and the `template-complexity` pass, fused beside `hoist-static` and registered as the `TemplateComplexityGroup` fact group on P4-1a's API. TS-34 agrees exactly over the matrix plane, the CI shard and the full corpus (40,724 templates). Also landed: the TS-17 snapshots, the TS-10 probe (3 allocs), the TS-35 demand test, and the thresholds cyclomatic > 11 / cognitive > 16. See the [P4-9a record](./phase-4-records/p4-9a.md).
 
 ## P4-9b — Cross-file complexity rule and Doctor finding
 
@@ -197,11 +199,13 @@
 
 **Steps:**
 
-- [ ] Rule in lane G's own file `crates/vize_patina/src/rules/facts/max_template_complexity.rs`, registered by one line; Doctor and `crates/vize_curator/src/complexity.rs` render facts
-- [ ] Fixtures: a recursive component, a child shared by two parents, an aliased import
+- [x] Rule in lane G's own file `crates/vize_patina/src/rules/facts/max_template_complexity.rs`, registered by one line; Doctor and `crates/vize_curator/src/complexity.rs` render facts
+- [x] Fixtures: a recursive component, a child shared by two parents, an aliased import
 
 **Acceptance:** TS-9 rule fixtures exact; Doctor snapshot churn documented in the PR (analysis surface, charter #23); `grep -rn "logical_operator_count" crates` empty; TS-35; TS-12.
 
 **Deps:** P4-9a, P4-3b, P4-6a.
 
 **Non-goals:** error severity for complexity; project-wide bands beyond the existing report.
+
+**Progress 2026-09-22:** both steps landed. The `vue/max-template-complexity` rule judges own complexity. Rendered complexity counts each component in the render tree once (shared children once, recursion once). The Doctor hotspot fires at the rendered p95 (cyclomatic > 106 or cognitive > 139). The curator shows a per-component breakdown, and `ComplexityInput` is fed from the facts. Both consumers read the facts under declared demands (TS-35). The rule's `exact` contract is a P4-6c table row. Still open: the P4-3b dependency. See the [P4-9b record](./phase-4-records/p4-9b.md).
