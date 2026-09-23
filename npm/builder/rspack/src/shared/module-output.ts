@@ -1,4 +1,6 @@
 import { parseSync } from "oxc-parser";
+import { transformSync } from "oxc-transform";
+import type { MappedModule } from "./source-map.ts";
 
 const OUTPUT_PARSE_ID = "vize-rspack-output.tsx";
 const SFC_MAIN_NAME = "_sfc_main";
@@ -101,34 +103,75 @@ export function analyzeModuleOutput(code: string): ModuleOutputInfo {
   };
 }
 
-export function rewriteDefaultExportToSfcMain(code: string): string {
+/** Snapshot imported values, not live namespace objects, before a hot replacement. */
+export function hmrImportSnapshot(code: string): string | null {
+  // Analyze a type-erased copy only. Injecting references to a type-only import
+  // would otherwise turn it into a runtime dependency in the downstream SWC pass.
+  // The actual emitted code and its source map are left untouched.
+  const transformed = transformSync(OUTPUT_PARSE_ID, code, { target: "esnext", jsx: "preserve" });
+  if (transformed.errors.length) return null;
+  const program = parseProgram(transformed.code);
+  if (!program) return null;
+  const entries: string[] = [];
+  for (const statement of getProgramBody(program)) {
+    if (statement.type !== "ImportDeclaration") continue;
+    const source = isNode(statement.source) ? statement.source.value : null;
+    if (typeof source !== "string") return null;
+    // Vue helpers can change with the template. CSS has its own HMR boundary.
+    if (source === "vue" || source.includes("?vue&type=style&")) continue;
+    const specifiers = Array.isArray(statement.specifiers)
+      ? statement.specifiers.filter(isNode)
+      : [];
+    // Side-effect imports cannot be compared safely.
+    if (specifiers.length === 0) return null;
+    for (const specifier of specifiers) {
+      const local = isNode(specifier.local) ? getNodeName(specifier.local) : null;
+      if (!local) return null;
+      const key = JSON.stringify(`${source}:${local}`);
+      entries.push(
+        specifier.type === "ImportNamespaceSpecifier"
+          ? `...Object.keys(${local}).sort().map(key => [${key} + ':' + key, ${local}[key]])`
+          : `[${key}, ${local}]`,
+      );
+    }
+  }
+  return `[${entries.join(", ")}]`;
+}
+
+export function rewriteDefaultExportToSfcMain(module: MappedModule): void {
+  const code = module.code;
   const defaultExport = findDefaultExport(parseProgram(code));
   const exportStart = getNodeStart(defaultExport);
   const keywordEnd = defaultExport ? getExportDefaultKeywordEnd(code, defaultExport) : null;
   if (exportStart == null || keywordEnd == null) {
-    return code;
+    return;
   }
 
-  return `${code.slice(0, exportStart)}const ${SFC_MAIN_NAME} =${code.slice(keywordEnd)}`;
+  module.replace(exportStart, keywordEnd, `const ${SFC_MAIN_NAME} =`);
 }
 
 export function insertBeforeSfcMainDefaultExport(
-  code: string,
+  module: MappedModule,
   insertion: string,
   options: { normalizeSemicolon?: boolean } = {},
-): string {
+): void {
+  const code = module.code;
   const defaultExport = findDefaultExport(parseProgram(code));
   const declaration = isNode(defaultExport?.declaration) ? defaultExport.declaration : null;
   const exportStart = getNodeStart(defaultExport);
   const exportEnd = typeof defaultExport?.end === "number" ? defaultExport.end : null;
   if (!isIdentifierNamed(declaration, SFC_MAIN_NAME) || exportStart == null) {
-    return code;
+    return;
   }
 
-  if (options.normalizeSemicolon && exportEnd != null) {
-    const suffixStart = code[exportEnd] === ";" ? exportEnd + 1 : exportEnd;
-    return `${code.slice(0, exportStart)}${insertion}\nexport default ${SFC_MAIN_NAME};${code.slice(suffixStart)}`;
+  if (
+    options.normalizeSemicolon &&
+    exportEnd != null &&
+    code[exportEnd - 1] !== ";" &&
+    code[exportEnd] !== ";"
+  ) {
+    module.replace(exportEnd, exportEnd, ";");
   }
 
-  return `${code.slice(0, exportStart)}${insertion}\n${code.slice(exportStart)}`;
+  module.replace(exportStart, exportStart, `${insertion}\n`);
 }

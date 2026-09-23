@@ -65,20 +65,26 @@
     "check:fix": "vp check --fix src vite.config.ts",
     "fmt": "vp fmt --write src vite.config.ts",
     "test": "pnpm build && node --test src/*.test.ts src/**/*.test.ts",
+    "test:hmr": "pnpm build && node --test test/hmr.test.mjs",
     "test:update": "pnpm build && node --test --test-update-snapshots src/*.test.ts src/**/*.test.ts"
   },
   "dependencies": {
     "@vizejs/native": "workspace:*",
-    "oxc-parser": "catalog:oxc"
+    "diff": "8.0.4",
+    "oxc-parser": "catalog:oxc",
+    "oxc-transform": "catalog:oxc"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "0.3.31",
     "@rspack/core": "catalog:bundlers",
     "@tsdown/css": "catalog:content",
     "@types/node": "catalog:typescript",
+    "css-loader": "7.1.2",
     "tsdown": "catalog:vite-stack",
     "typescript": "catalog:typescript",
     "vite": "catalog:vite-stack",
-    "vite-plus": "catalog:vite-stack"
+    "vite-plus": "catalog:vite-stack",
+    "vue": "catalog:vue-stable"
   },
   "peerDependencies": {
     "@rspack/core": "^1.0.0 || ^2.0.0"

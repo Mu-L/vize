@@ -1,168 +1,7 @@
-/** Type definitions for @vizejs/rspack-plugin. */
+/** Public adapter types; native compiler types remain re-exported here. */
 
-// Native API Types
-
-export interface SfcCompileOptionsNapi {
-  filename?: string;
-  sourceMap?: boolean;
-  ssr?: boolean;
-  vapor?: boolean;
-  /** Template syntax compatibility mode */
-  templateSyntax?: "standard" | "strict" | "quirks";
-  experimentalInTagComments?: boolean;
-  experimentalPatternedTemplate?: boolean;
-  experimentalSelfComponent?: boolean;
-  experimentalStrictSlotChildren?: boolean;
-  experimentalServerScript?: boolean;
-  /** Preserve TypeScript in output when true */
-  isTs?: boolean;
-  /** Scope ID for scoped CSS (e.g., "data-v-abc123") */
-  scopeId?: string;
-}
-
-export interface StyleBlockNapi {
-  content: string;
-  src?: string;
-  lang?: string;
-  scoped: boolean;
-  module: boolean;
-  moduleName?: string;
-  index: number;
-}
-
-export interface SfcBlockAttributeNapi {
-  name: string;
-  value?: string;
-}
-
-export interface CustomBlockNapi {
-  blockType: string;
-  content: string;
-  src?: string;
-  attrs: SfcBlockAttributeNapi[];
-  index: number;
-}
-
-export interface MacroArtifact {
-  kind: string;
-  name: string;
-  source: string;
-  content: string;
-  moduleCode?: string;
-  start: number;
-  end: number;
-}
-
-export interface SfcCompileResultNapi {
-  code: string;
-  css?: string;
-  /** Source map JSON (when implemented) */
-  map?: string;
-  errors: string[];
-  warnings: string[];
-  hasScoped: boolean;
-  styles: StyleBlockNapi[];
-  customBlocks: CustomBlockNapi[];
-  macroArtifacts?: MacroArtifact[];
-}
-
-// JSX Compile API Types
-
-/** Options for the native `compileJsx`. */
-export interface JsxCompileOptionsNapi {
-  /** Source filename, used to infer the language when `lang` is omitted. */
-  filename?: string;
-  /** Source language: "jsx" or "tsx". Inferred from a `.tsx` filename. */
-  lang?: string;
-  /**
-   * Default output mode (`"vdom"` | `"vapor"`); mirrors `compiler.jsxMode` and
-   * wins over `vapor`. Per-component `"use vue:*"` directives still override it.
-   */
-  jsxMode?: "vdom" | "vapor";
-  /** JSX semantics; `"babel"` opts into @vue/babel-plugin-jsx compatibility. */
-  jsxCompat?: "native" | "babel";
-  /** Legacy default-mode toggle: `true` → Vapor, `false` (default) → VDOM. */
-  vapor?: boolean;
-  /** Emit a v3 source map for the generated render code (#1533). */
-  sourceMap?: boolean;
-}
-
-/** A JSX component's extracted `<style scoped>` block (#1495, #1533). */
-export interface JsxScopedStyleNapi {
-  /** Generated scope id, e.g. `data-v-1a2b3c4d`, already applied to the CSS. */
-  scopeId: string;
-  /** Scope-rewritten CSS, with the `data-v-<hash>` attribute applied. */
-  css: string;
-}
-
-/** Result of the native `compileJsx`. */
-export interface JsxCompileResultNapi {
-  /**
-   * Generated render code for the module: the deduplicated runtime-helper
-   * preamble followed by every component's render code (the helper imports are
-   * no longer dropped, #1533).
-   */
-  code: string;
-  /**
-   * v3 source map (JSON) for `code`, present only when `sourceMap` was requested
-   * and the module is a single component. `null`/absent otherwise (#1533).
-   */
-  map?: string;
-  /** Error-severity diagnostic messages. */
-  errors: string[];
-  /** Warning-severity diagnostic messages. */
-  warnings: string[];
-  /**
-   * Extracted `<style scoped>` blocks across the module's components, in source
-   * order (#1495). Empty when no component had a `<style scoped>`. Each entry's
-   * CSS is already scope-rewritten; the plugin emits it through the same style
-   * path SFC `<style>` blocks use (#1533).
-   */
-  scopedStyles: JsxScopedStyleNapi[];
-}
-
-// CSS Compile API Types
-
-export interface CssCompileTargets {
-  chrome?: number;
-  firefox?: number;
-  safari?: number;
-  edge?: number;
-  ios?: number;
-  android?: number;
-}
-
-export interface CssCompileOptions {
-  /** Filename for error reporting */
-  filename?: string;
-  /** Whether to apply scoped CSS transformation */
-  scoped?: boolean;
-  /**
-   * Scope ID for scoped CSS. Must be the full attribute (e.g., "data-v-abc123").
-   */
-  scopeId?: string;
-  /** Whether to generate source maps */
-  sourceMap?: boolean;
-  /** Whether to minify the output */
-  minify?: boolean;
-  /** Whether to enable custom media query resolution */
-  customMedia?: boolean;
-  /** Browser targets for autoprefixing */
-  targets?: CssCompileTargets;
-}
-
-export interface CssCompileResult {
-  /** Compiled CSS code */
-  code: string;
-  /** Source map (null until implemented) */
-  map?: string | null;
-  /** CSS variables found (v-bind() expressions) */
-  cssVars: string[];
-  /** Errors during compilation */
-  errors: string[];
-  /** Warnings during compilation */
-  warnings: string[];
-}
+import type { MacroArtifact, SfcCompileOptionsNapi } from "./native.ts";
+export type * from "./native.ts";
 
 // Style Block Types
 
@@ -219,6 +58,10 @@ export interface TemplateAssetUrl {
 
 export interface CompiledModule {
   code: string;
+  /** Browser-local guard against map-only SFC module replacements. */
+  hmr?: { source: string; canRerender: boolean };
+  /** Source map v3 JSON for the native module, before output assembly. */
+  map?: string;
   css?: string;
   errors: string[];
   warnings: string[];
@@ -238,8 +81,21 @@ export interface CompiledModule {
 
 // Loader Options Types
 
+/** Native options with loader-level aliases retained for existing configurations. */
+export type VizeSfcCompilerOptions = Omit<SfcCompileOptionsNapi, "ssr" | "vapor" | "sourceMap"> & {
+  /** @deprecated Use the SFC loader's top-level ssr option. */
+  ssr?: boolean;
+  /** @deprecated Use the SFC loader's top-level vapor option. */
+  vapor?: boolean;
+  /** @deprecated Use the SFC loader's top-level sourceMap option. */
+  sourceMap?: boolean;
+};
+
+/** Compatibility type; prefer VizeSfcLoaderOptions or VizeJsxLoaderOptions. */
 export interface VizeLoaderOptions {
-  /** Source maps @default true */
+  /** Override production output; otherwise follows loader mode / NODE_ENV. */
+  isProduction?: boolean;
+  /** Source maps; falls back to compilerOptions, then Rspack's loader context. */
   sourceMap?: boolean;
 
   /** SSR mode @default false */
@@ -248,14 +104,14 @@ export interface VizeLoaderOptions {
   /** Project root */
   root?: string;
 
-  /** Include filter */
+  /** @deprecated Use module.rules[].include. Retained as a loader passthrough filter. */
   include?: string | RegExp | (string | RegExp)[];
 
-  /** Exclude filter */
+  /** @deprecated Use module.rules[].exclude. Retained as a loader passthrough filter. */
   exclude?: string | RegExp | (string | RegExp)[];
 
   /** Low-level compiler options for @vizejs/native compileSfc */
-  compilerOptions?: SfcCompileOptionsNapi;
+  compilerOptions?: VizeSfcCompilerOptions;
 
   /** Custom element mode. true=all, RegExp=matched. @default /\.ce\.vue$/ */
   customElement?: boolean | RegExp;
@@ -274,7 +130,8 @@ export interface VizeLoaderOptions {
 
   /** CSS handling config */
   css?: {
-    /** Rspack native CSS, uses LightningCSS @default auto-detected */
+    /** With autoRules: false, override the plugin default for this SFC chain.
+     * With automatic rules, must match the plugin's resolved CSS mode. */
     native?: boolean;
   };
 
@@ -285,6 +142,15 @@ export interface VizeLoaderOptions {
   transformAssetUrls?: boolean | Record<string, string[]>;
 }
 
+/** Options accepted by the SFC loader. JSX compilation uses a separate loader. */
+export type VizeSfcLoaderOptions = Omit<VizeLoaderOptions, "jsxMode" | "jsxCompat">;
+
+/** Options accepted by the JSX/TSX loader. */
+export type VizeJsxLoaderOptions = Pick<
+  VizeLoaderOptions,
+  "sourceMap" | "vapor" | "jsxMode" | "jsxCompat" | "include" | "exclude"
+>;
+
 export interface VizeStyleLoaderOptions {
   /** Rspack native CSS mode @default false */
   native?: boolean;
@@ -293,40 +159,41 @@ export interface VizeStyleLoaderOptions {
 // Plugin Options Types
 
 export interface VizeRspackPluginOptions {
-  /** Include filter @default /\.vue$/ */
+  /** @deprecated Use rule.include. This legacy field only filters plugin watch logs. */
   include?: string | RegExp | (string | RegExp)[];
 
-  /** Exclude filter @default /node_modules/ */
+  /** @deprecated Use rule.exclude. This legacy field only filters plugin watch logs. */
   exclude?: string | RegExp | (string | RegExp)[];
 
-  /** Force production mode @default auto-detected */
+  /** @deprecated Use Rspack mode. Retained for plugin flags/logging only. */
   isProduction?: boolean;
 
-  /** SSR mode @default false */
+  /** @deprecated Use SFC loader ssr. This plugin field is not forwarded. */
   ssr?: boolean;
 
-  /** Source maps @default true (dev), false (prod) */
+  /** @deprecated Use loader sourceMap. This plugin field is not forwarded. */
   sourceMap?: boolean;
 
-  /** Vapor mode @default false */
+  /** @deprecated Use loader vapor. This plugin field only affects the legacy debug message. */
   vapor?: boolean;
 
-  /** Default JSX output mode for `.jsx`/`.tsx` without a `"use vue:*"` directive. @default "vdom" */
+  /** @deprecated Use JSX loader jsxMode. This plugin field is not forwarded. */
   jsxMode?: "vdom" | "vapor";
 
-  /** JSX semantics; `"babel"` opts into @vue/babel-plugin-jsx compatibility. */
+  /** @deprecated Use JSX loader jsxCompat. This plugin field is not forwarded. */
   jsxCompat?: "native" | "babel";
 
-  /** Root directory @default Rspack's root */
+  /** @deprecated Use loader root or Rspack context. This plugin field is not forwarded. */
   root?: string;
 
   /** CSS config */
   css?: {
-    /** Rspack native CSS, uses LightningCSS @default false */
+    /** Automatic CSS mode, or default for manual SFC rules. Auto-detected from
+     * the Rspack version and experiments.css when omitted. */
     native?: boolean;
   };
 
-  /** Compiler options */
+  /** @deprecated Use SFC loader compilerOptions. This plugin field is not forwarded. */
   compilerOptions?: SfcCompileOptionsNapi;
 
   /** Debug logging @default false */
