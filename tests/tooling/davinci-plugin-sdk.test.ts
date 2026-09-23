@@ -3,10 +3,13 @@
 // cost in the lint output, content-keyed results. Needs the native build
 // (`build:native:test`, which `test:scripts` runs first).
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { corpus, measure } from "./fixtures/davinci-plugin-sdk/bench.mjs";
 import { definePlugin, runProxy } from "./fixtures/davinci-plugin-sdk/sdk.mjs";
@@ -109,6 +112,136 @@ test("results are content-keyed by the plugin's own version and code", () => {
       [false, false],
     ],
   );
+});
+
+test("plugin results persist across Node processes under the manifest key", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "vize-plugin-cache-"));
+  const child = `
+    import { createRequire } from "node:module";
+    const native = createRequire(import.meta.url)(${JSON.stringify(path.join(root, "npm/native/index.js"))});
+    const { default: team } = await import(${JSON.stringify(pathToFileURL(path.join(root, "tests/tooling/fixtures/davinci-plugin-sdk/team-conventions.mjs")).href)});
+    const output = native.lintWithPlugins(${JSON.stringify(TODO_LIST)}, [team], {
+      filename: "TodoList.vue", cache: true, cacheDir: process.argv[1]
+    });
+    process.stdout.write(JSON.stringify({ diagnostics: output.diagnostics, plugin: {
+      contentKey: output.plugins[0].contentKey, cached: output.plugins[0].cached
+    }}));
+  `;
+  const run = () => {
+    const result = spawnSync(process.execPath, ["--input-type=module", "-e", child, dir], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  try {
+    const first = run();
+    const second = run();
+    assert.deepEqual(first.diagnostics, EXPECTED);
+    assert.deepEqual(second.diagnostics, EXPECTED);
+    assert.deepEqual(
+      [first.plugin.cached, second.plugin.cached, first.plugin.contentKey],
+      [false, true, second.plugin.contentKey],
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("captured plugin configuration invalidates a persisted result across processes", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "vize-plugin-config-cache-"));
+  const child = `
+    import { createRequire } from "node:module";
+    const native = createRequire(import.meta.url)(${JSON.stringify(path.join(root, "npm/native/index.js"))});
+    const { definePlugin } = await import(${JSON.stringify(pathToFileURL(path.join(root, "tests/tooling/fixtures/davinci-plugin-sdk/sdk.mjs")).href)});
+    const threshold = process.argv[2];
+    const plugin = definePlugin({
+      name: "captured-config", version: "1", visit: ["ui.element"], demands: [],
+      cacheInputs: [{ name: "threshold", value: threshold }],
+      rules: { check(ctx) { ctx.report(ctx.nodes[0], threshold); } }
+    });
+    const output = native.lintWithPlugins(${JSON.stringify(TODO_LIST)}, [plugin], {
+      filename: "TodoList.vue", cache: true, cacheDir: process.argv[1]
+    });
+    process.stdout.write(JSON.stringify({
+      fingerprint: plugin.fingerprint,
+      key: output.plugins[0].contentKey,
+      cached: output.plugins[0].cached,
+      messages: output.diagnostics.map((diagnostic) => diagnostic.message)
+    }));
+  `;
+  const run = (threshold: string) => {
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", child, dir, threshold],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  try {
+    const first = run("one");
+    const changed = run("two");
+    const hit = run("two");
+    assert.equal(first.fingerprint, changed.fingerprint);
+    assert.notEqual(first.key, changed.key);
+    assert.deepEqual(
+      [first.cached, changed.cached, hit.cached, changed.key, hit.key],
+      [false, false, true, hit.key, changed.key],
+    );
+    assert.deepEqual([first.messages, changed.messages, hit.messages], [["one"], ["two"], ["two"]]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cache opt-in refuses missing or duplicate ambient declarations", () => {
+  const plugin = {
+    name: "ambient-rule",
+    version: "1",
+    fingerprint: "same-code",
+    visit: ["ui.element"],
+    demands: [],
+    run: () => "[]",
+  };
+  assert.throws(() => lint(TODO_LIST, [plugin], { cache: true }), {
+    message: "ambient-rule: invalid cacheInputs (declare cacheInputs, even when it is empty)",
+  });
+  assert.throws(
+    () =>
+      lint(
+        TODO_LIST,
+        [
+          {
+            ...plugin,
+            cacheInputs: [
+              { name: "config", value: "one" },
+              { name: "config", value: "two" },
+            ],
+          },
+        ],
+        { cache: true },
+      ),
+    { message: "ambient-rule: invalid cacheInputs (input name `config` is duplicated)" },
+  );
+});
+
+test("declared demands independently invalidate plugin results", () => {
+  const plugin = {
+    name: "static-rule",
+    version: "1.0.0",
+    fingerprint: "same-code",
+    visit: ["ui.element"],
+    demands: [],
+    cacheInputs: [],
+    run: () => "[]",
+  };
+  const first = lint(TODO_LIST, [plugin], { cache: true });
+  const second = lint(TODO_LIST, [{ ...plugin, demands: ["templateScopes"] }], {
+    cache: true,
+  });
+  assert.deepEqual([first.plugins[0].cached, second.plugins[0].cached], [false, false]);
+  assert.notEqual(first.plugins[0].contentKey, second.plugins[0].contentKey);
 });
 
 test("demands are static: unknown groups refuse, undeclared reads throw", () => {

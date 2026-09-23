@@ -37,11 +37,23 @@ pub enum AmbientInput {
     FeatureFlags,
     /// The host platform (target triple).
     Platform,
+    /// The JS plugin and source file identities seen by a plugin result.
+    PluginIdentity,
+    /// The JS plugin's declared version.
+    PluginVersion,
+    /// The digest of the JS plugin's rule sources.
+    PluginCode,
+    /// The node kinds the JS plugin visits.
+    PluginVisits,
+    /// The fact groups the JS plugin demands.
+    PluginDemands,
+    /// Values of JS plugin configuration and ambient inputs declared by its author.
+    PluginInputs,
 }
 
 impl AmbientInput {
     /// Every ambient input, in manifest order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 13] = [
         Self::ProjectIdentity,
         Self::TsconfigContent,
         Self::ProjectConfig,
@@ -49,6 +61,12 @@ impl AmbientInput {
         Self::CorsaVersion,
         Self::FeatureFlags,
         Self::Platform,
+        Self::PluginIdentity,
+        Self::PluginVersion,
+        Self::PluginCode,
+        Self::PluginVisits,
+        Self::PluginDemands,
+        Self::PluginInputs,
     ];
 
     /// The stable spelling used in `key-manifests.md`.
@@ -62,6 +80,12 @@ impl AmbientInput {
             Self::CorsaVersion => "corsa-version",
             Self::FeatureFlags => "feature-flags",
             Self::Platform => "platform",
+            Self::PluginIdentity => "plugin-identity",
+            Self::PluginVersion => "plugin-version",
+            Self::PluginCode => "plugin-code",
+            Self::PluginVisits => "plugin-visits",
+            Self::PluginDemands => "plugin-demands",
+            Self::PluginInputs => "plugin-inputs",
         }
     }
 }
@@ -79,16 +103,19 @@ pub enum CachedArtifact {
     VirtualTsProjection,
     /// A Corsa `ProjectSession` reused across `vize check` runs (P5-8).
     CorsaSession,
+    /// A JS plugin's diagnostics for one source file (P5-13).
+    PluginResult,
 }
 
 impl CachedArtifact {
     /// Every cached artifact, in `key-manifests.md` order.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::SourceBlock,
         Self::SurfacePage,
         Self::SemanticPage,
         Self::VirtualTsProjection,
         Self::CorsaSession,
+        Self::PluginResult,
     ];
 
     /// The stable spelling used in `key-manifests.md`.
@@ -100,6 +127,7 @@ impl CachedArtifact {
             Self::SemanticPage => "s2.page",
             Self::VirtualTsProjection => "projection.virtual-ts",
             Self::CorsaSession => "corsa.session",
+            Self::PluginResult => "plugin.result",
         }
     }
 
@@ -115,6 +143,7 @@ impl CachedArtifact {
             Self::SemanticPage => &[Stage::Semantic],
             Self::VirtualTsProjection => &[Stage::Source, Stage::Semantic],
             Self::CorsaSession => &[],
+            Self::PluginResult => &[Stage::Source],
         }
     }
 
@@ -122,8 +151,9 @@ impl CachedArtifact {
     #[must_use]
     pub const fn inputs(self) -> &'static [AmbientInput] {
         use AmbientInput::{
-            CorsaVersion, FeatureFlags, Platform, ProjectConfig, ProjectIdentity, ToolchainVersion,
-            TsconfigContent,
+            CorsaVersion, FeatureFlags, Platform, PluginCode, PluginDemands, PluginIdentity,
+            PluginInputs, PluginVersion, PluginVisits, ProjectConfig, ProjectIdentity,
+            ToolchainVersion, TsconfigContent,
         };
         match self {
             Self::SourceBlock => &[ToolchainVersion],
@@ -142,6 +172,16 @@ impl CachedArtifact {
                 CorsaVersion,
                 FeatureFlags,
                 Platform,
+            ],
+            Self::PluginResult => &[
+                ToolchainVersion,
+                FeatureFlags,
+                PluginIdentity,
+                PluginVersion,
+                PluginCode,
+                PluginVisits,
+                PluginDemands,
+                PluginInputs,
             ],
         }
     }
