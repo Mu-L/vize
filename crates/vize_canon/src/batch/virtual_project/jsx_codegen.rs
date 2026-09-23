@@ -379,7 +379,7 @@ fn push_verbatim(
         return;
     }
     let gen_start = out.len();
-    out.push_str(&source[src_start..src_end]);
+    out.push_str(source.get(src_start..src_end).unwrap_or_default());
     let gen_end = out.len();
     mappings.push(VizeMapping {
         gen_range: gen_start..gen_end,

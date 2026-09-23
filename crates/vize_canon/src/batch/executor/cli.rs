@@ -18,6 +18,7 @@ mod output;
 mod patterns;
 mod project_diagnostics;
 mod shard_sizing;
+mod union_find;
 
 use checkers::{checker_count, rejects_checkers_flag};
 use diagnostic_paths::normalize_cli_path;
@@ -27,6 +28,7 @@ use import_resolution::resolve_virtual_import;
 use output::parse_cli_diagnostics;
 use output::parse_output_diagnostics;
 use shard_sizing::shard_count;
+use union_find::UnionFind;
 
 pub(super) fn check_with_cli(
     corsa_path: &Path,
@@ -250,7 +252,8 @@ fn partition_virtual_files(project: &VirtualProject, servers: usize) -> ShardPla
     let weight = |file_indices: &[usize]| -> usize {
         file_indices
             .iter()
-            .map(|&index| partitioned[index].content.len())
+            .filter_map(|&index| partitioned.get(index))
+            .map(|file| file.content.len())
             .sum()
     };
     let mut component_groups: Vec<Vec<usize>> = component_files.into_values().collect();
@@ -267,10 +270,9 @@ fn partition_virtual_files(project: &VirtualProject, servers: usize) -> ShardPla
     let servers = servers.min(component_groups.len());
     let mut bins: Vec<(usize, Vec<usize>)> = vec![(0, Vec::new()); servers];
     for group in component_groups {
-        let bin = bins
-            .iter_mut()
-            .min_by_key(|(bin_weight, _)| *bin_weight)
-            .expect("at least one shard bin");
+        let Some(bin) = bins.iter_mut().min_by_key(|(bin_weight, _)| *bin_weight) else {
+            return no_sharding;
+        };
         bin.0 += weight(&group);
         bin.1.extend(group);
     }
@@ -285,8 +287,10 @@ fn partition_virtual_files(project: &VirtualProject, servers: usize) -> ShardPla
     let mut owners = FxHashMap::default();
     for (shard_index, (_, file_indices)) in bins.into_iter().enumerate() {
         let mut include = shared.clone();
-        for file_index in file_indices {
-            let file = partitioned[file_index];
+        for file in file_indices
+            .into_iter()
+            .filter_map(|file_index| partitioned.get(file_index))
+        {
             include.push(file.virtual_path.as_path());
             owners.insert(file.original_path.clone(), shard_index);
         }
@@ -303,15 +307,20 @@ fn import_specifiers(content: &str) -> Vec<&str> {
     let mut specifiers = Vec::new();
     for token in ["from ", "import(", "import ", "require("] {
         for (at, _) in content.match_indices(token) {
-            let rest = content[at + token.len()..].trim_start();
-            let Some(quote) = rest.chars().next().filter(|ch| matches!(ch, '\'' | '"')) else {
+            let rest = content
+                .get(at + token.len()..)
+                .unwrap_or_default()
+                .trim_start();
+            let Some((quote, rest)) = ['\'', '"']
+                .into_iter()
+                .find_map(|quote| Some((quote, rest.strip_prefix(quote)?)))
+            else {
                 continue;
             };
-            let rest = &rest[1..];
-            let Some(end) = rest.find(quote) else {
+            let Some((specifier, _)) = rest.split_once(quote) else {
                 continue;
             };
-            specifiers.push(&rest[..end]);
+            specifiers.push(specifier);
         }
     }
     specifiers
@@ -329,40 +338,6 @@ fn normalize_join(base: &Path, specifier: &str) -> PathBuf {
         }
     }
     normalized
-}
-
-struct UnionFind {
-    parent: Vec<usize>,
-}
-
-impl UnionFind {
-    fn new(size: usize) -> Self {
-        Self {
-            parent: (0..size).collect(),
-        }
-    }
-
-    fn find(&mut self, node: usize) -> usize {
-        let mut root = node;
-        while self.parent[root] != root {
-            root = self.parent[root];
-        }
-        let mut current = node;
-        while self.parent[current] != root {
-            let next = self.parent[current];
-            self.parent[current] = root;
-            current = next;
-        }
-        root
-    }
-
-    fn union(&mut self, left: usize, right: usize) {
-        let left_root = self.find(left);
-        let right_root = self.find(right);
-        if left_root != right_root {
-            self.parent[right_root] = left_root;
-        }
-    }
 }
 
 fn is_vue_original(path: &Path) -> bool {
@@ -468,17 +443,16 @@ fn is_global_diagnostic_line(line: &str) -> bool {
         return false;
     };
     let digits = code.bytes().take_while(u8::is_ascii_digit).count();
-    digits > 0 && code[digits..].starts_with(':')
+    digits > 0 && code.get(digits..).is_some_and(|rest| rest.starts_with(':'))
 }
 
 fn is_cli_diagnostic_line(line: &str) -> bool {
     let Some((prefix, suffix)) = line.split_once("): ") else {
         return false;
     };
-    let Some(open) = prefix.rfind('(') else {
+    let Some((_, position)) = prefix.rsplit_once('(') else {
         return false;
     };
-    let position = &prefix[open + 1..];
     let Some((line, column)) = position.split_once(',') else {
         return false;
     };
