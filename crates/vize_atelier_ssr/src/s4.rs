@@ -7,6 +7,7 @@
 //! stale or inconsistent artifact is rejected rather than guessed around.
 
 mod bindings;
+mod croquis;
 mod emit;
 mod s2_input;
 mod select;
@@ -36,9 +37,8 @@ pub(crate) struct SsrS4Request<'o> {
 pub(crate) enum LegacyReason {
     /// The option surface is outside the S4 lane.
     Options,
-    /// A Croquis summary asks for script-aware expression rewrites the
-    /// shared transform door does not publish yet (production
-    /// `<script setup>` SFCs; the DOM S2 lane refuses them the same way).
+    /// A Croquis summary registers a component the binding metadata does
+    /// not, so the non-inline plan cannot reproduce the legacy transform.
     Croquis,
     /// S2 recorded diagnostics or a lowering rule the lane does not model.
     SurfaceSemantics,
@@ -131,6 +131,18 @@ const ADMITTED_RULES: &[&str] = &[
     "condense.drop-whitespace",
     "drop.comment",
     "drop.branch-gap",
+    "lower.comment",
+    // `v-model` and a custom directive on an outlet are error diagnostics
+    // and no binding. The legacy SSR walker ignores them and renders the
+    // outlet.
+    "error.v-model-on-slot",
+    "error.slot-directive",
+    // Attributes on an unwrapped `<template>` wrapper. The legacy SSR
+    // walker drops them with the wrapper.
+    "drop.template-attribute",
+    // `v-pre` freezes its subtree as text and drops the directive itself.
+    "drop.v-pre",
+    "lower.v-pre-text",
     // HTML table construction: a direct row under `<table>` gains a `tbody`,
     // and a direct cell under a row group gains a `tr`.
     "lower.table.implicit-tbody",
@@ -191,16 +203,23 @@ fn lower_and_emit(
         request.options,
         request.experimental,
         || {
-            if request.options.croquis.is_some() {
+            if let Some(summary) = request.options.croquis.as_deref()
+                && !croquis::projectable(summary, request.options.binding_metadata.as_ref())
+            {
                 return Err(LegacyReason::Croquis);
             }
             if !emission_supported(request) {
                 return Err(LegacyReason::Options);
             }
-            if !s2.diagnostics.is_empty()
-                || s2.provenance.iter().any(|record| {
-                    !ADMITTED_RULES.contains(&record.rule.as_str()) || drops_directive(record)
-                })
+            // An Error still means the lowering refused a shape. Info is a
+            // deferral the legacy SSR walker does not render, so it does not
+            // by itself keep the template on that walker.
+            if s2.diagnostics.iter().any(blocks_surface)
+                || s2
+                    .provenance
+                    .iter()
+                    .any(|record| !admitted_rule(record) || drops_directive(record))
+                || surface_gate::slot_v_pre_interpolates(source, &s2.root.ops)
             {
                 return Err(LegacyReason::SurfaceSemantics);
             }
@@ -214,8 +233,28 @@ fn lower_and_emit(
     )
 }
 
-/// The legacy parser keeps `@vize:` directive comments with `comments` off
-/// and its SSR walker renders them, while S2 drops every comment.
+/// Whether one S2 lowering rule is reproduced by the plan emitter.
+///
+/// `defer.slot-directive` is the Info recorded for a directive the legacy
+/// slot walker does not render. `v-pre` is the exception: it freezes the
+/// outlet fallback as text, which the plan still interpolates.
+fn admitted_rule(record: &vize_s2::provenance::ProvenanceRecord) -> bool {
+    record.rule.as_str() == "defer.slot-directive" || ADMITTED_RULES.contains(&record.rule.as_str())
+}
+
+/// The slot `v-model` and custom-directive errors note that the directive
+/// has no outlet op. The legacy SSR walker ignores them and renders the outlet.
+fn blocks_surface(diagnostic: &vize_davinci::diagnostic::Diagnostic) -> bool {
+    diagnostic.severity() != vize_davinci::diagnostic::Severity::Info
+        && !matches!(
+            diagnostic.message.as_str(),
+            "v-model is not supported on <slot> outlets."
+                | "Unexpected custom directive on <slot> outlet."
+        )
+}
+
+/// `@vize:` comments that still drop (`v-if` / `v-else` gaps) stay on the
+/// legacy walker. In-tree directive comments are `lower.comment`.
 fn drops_directive(record: &vize_s2::provenance::ProvenanceRecord) -> bool {
     if !matches!(record.rule.as_str(), "drop.comment" | "drop.branch-gap") {
         return false;
@@ -238,8 +277,8 @@ fn bridge_supported(request: &SsrS4Request<'_>) -> bool {
 
 /// Options whose expression and module semantics the plan emitter owns.
 /// Inline render closures, Vue 2 dialect sugar, and in-tag comments stay
-/// with the legacy walker, like the S2 DOM lane; a Croquis summary is its
-/// own reason ([`LegacyReason::Croquis`]) because it gates production reach.
+/// with the legacy walker. A Croquis summary the registration check cannot
+/// reproduce is [`LegacyReason::Croquis`], decided before this predicate.
 fn emission_supported(request: &SsrS4Request<'_>) -> bool {
     let options = request.options;
     !options.inline && options.dialect == VueVersion::V3 && !options.experimental_in_tag_comments
@@ -276,6 +315,8 @@ pub(super) fn record_bridge_counters(
     profiler.record_counter_enabled("davinci.s4_ssr.partition_facts", partition_facts);
     profiler.record_counter_enabled("davinci.s4_ssr.s2_diagnostics", diagnostics);
 }
+
+mod surface_gate;
 
 #[cfg(test)]
 mod differential_tests;

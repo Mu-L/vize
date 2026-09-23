@@ -4,7 +4,7 @@
 
 use vize_atelier_core::RuntimeHelper;
 use vize_s0::{String, ToCompactString, cstr};
-use vize_s1_to_s2::{TransformContent, decode_template_entities};
+use vize_s1_to_s2::{TransformContent, decode_ssr_static_text};
 use vize_s2::op as s2;
 
 use super::slots::Ranges;
@@ -79,6 +79,22 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
                     }
                 }
             }
+            (Kind::OpenElement, Source::Element(element))
+                if element.tag == "template"
+                    && element
+                        .bindings
+                        .iter()
+                        .any(|binding| matches!(binding, s2::BindingOp::SlotContent(_))) =>
+            {
+                // The walker renders no node for a slot `<template>`.
+                self.pos += 1;
+                let _attached =
+                    self.take_attached(element.attributes.len() + element.bindings.len())?;
+                out.extend(self.vnode_region()?);
+                self.close(Kind::CloseElement, |source| {
+                    matches!(source, Source::Element(closed) if core::ptr::eq(*closed, element))
+                })?;
+            }
             (Kind::OpenElement, Source::Element(element)) => {
                 let expression =
                     vize_s0::ensure_sufficient_stack(|| self.vnode_element(element, None))?;
@@ -101,6 +117,12 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
                 let expression = vize_s0::ensure_sufficient_stack(|| self.vnode_for(for_op))?;
                 out.push(expression);
             }
+            (Kind::Comment, Source::Comment(comment)) => {
+                self.pos += 1;
+                self.ctx.use_core_helper(RuntimeHelper::CreateComment);
+                let quoted = quoted_js_string(comment.content);
+                out.push(cstr!("_createCommentVNode({quoted})"));
+            }
             _ => return Err(LegacyReason::Operation.into()),
         }
         Ok(())
@@ -108,7 +130,7 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
 
     /// `_createTextVNode("...")`; empty text renders nothing.
     fn vnode_text(&mut self, content: &str) -> Result<Option<String>> {
-        let decoded = decode_template_entities(content);
+        let decoded = decode_ssr_static_text(content);
         text::admit_decoded(content, &decoded)?;
         if decoded.is_empty() {
             return Ok(None);
@@ -143,7 +165,7 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
                 let segment = self.segments[*only];
                 self.pos += 1;
                 let content = plan_source(&segment, SsrStringPayloadKind::Text)?;
-                let decoded = decode_template_entities(content);
+                let decoded = decode_ssr_static_text(content);
                 text::admit_decoded(content, &decoded)?;
                 quoted_js_string(&decoded)
             }

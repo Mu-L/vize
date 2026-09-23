@@ -20,6 +20,14 @@ import {
   tableProblems,
   vocabularyProblems,
 } from "./davinci-diagnostic-catalog-sources.ts";
+import {
+  canonProblems,
+  croquisProblems,
+  parseCanonCodes,
+  parseCroquisCodes,
+  parseS3Codes,
+  s3Problems,
+} from "./davinci-diagnostic-catalog-producers.ts";
 
 // TS-53 (davinci-road/plan/test-suites.md), catalog half: every word the
 // Davinci diagnostic renderer prints around producer text, and every
@@ -77,6 +85,40 @@ test("TS-53: every one of the 249 lint rules has a description in every locale",
   const rules = parseRules();
   assert.equal(rules.size, 249, "the parser reads every RuleMeta-family declaration");
   assert.deepEqual(ruleProblems(rules, legacyTranslations(), catalogEntries()), []);
+});
+
+test("TS-53: every Canon type-error code is catalogued in en, ja and zh", () => {
+  const canon = parseCanonCodes();
+  assert.equal(canon.variants.length, 22, "the parser reads the whole TypeErrorCode enum");
+  const legacy = legacyTranslations();
+  assert.deepEqual(canonProblems(canon, legacy), []);
+  const dropped = new Map(legacy);
+  dropped.delete("ts/2304.help");
+  assert.deepEqual(canonProblems(canon, dropped), [
+    "`ts/2304.help` has no en catalog text",
+    "`ts/2304.help` has no ja catalog text",
+    "`ts/2304.help` has no zh catalog text",
+  ]);
+});
+
+test("TS-53: every croquis cross-file code is catalogued in en, ja and zh", () => {
+  const codes = parseCroquisCodes();
+  assert.equal(codes.length, 60, "the parser reads every croquis code literal");
+  const entries = catalogEntries();
+  assert.deepEqual(croquisProblems(codes, entries), []);
+  const dropped = entries.filter(([key]) => key !== "vize:croquis/cf/unused-attrs.message");
+  assert.deepEqual(croquisProblems(codes, dropped), [
+    "`vize:croquis/cf/unused-attrs.message` is not catalogued",
+  ]);
+});
+
+test("TS-53: every S3 verifier code is catalogued in en, ja and zh", () => {
+  const codes = parseS3Codes();
+  assert.equal(codes.size, 10, "the parser reads every ViolationCode arm");
+  const entries = catalogEntries();
+  assert.deepEqual(s3Problems(codes, entries), []);
+  const dropped = entries.filter(([key]) => key !== "s3/S3V001.message");
+  assert.deepEqual(s3Problems(codes, dropped), ["`s3/S3V001.message` is not catalogued"]);
 });
 
 test("TS-53: the catalog check fails on a removed, emptied or drifted entry", () => {

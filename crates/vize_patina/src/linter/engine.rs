@@ -82,7 +82,7 @@ pub(crate) fn analyze_descriptor_for_lint(
     descriptor: &vize_atelier_sfc::SfcDescriptor<'_>,
     template_ast: Option<&RootNode<'_>>,
 ) -> Croquis {
-    analyze_sfc_descriptor(descriptor, template_ast, SfcCroquisOptions::for_lint())
+    analyze_sfc_descriptor(descriptor, template_ast, SfcCroquisOptions::lint_demand())
 }
 
 impl Linter {
@@ -334,8 +334,7 @@ impl Linter {
     /// [`Rule::jsx_needs_lowering`](crate::rule::Rule::jsx_needs_lowering) only
     /// partitions that walk so each rule runs once. A root the projection
     /// refuses keeps the lowered Relief document. Rules with no markup entry
-    /// point use that lowering as the legacy fallback. A directive with no JSX
-    /// analogue (e.g. `v-html`) never matches, the documented no-op.
+    /// point use that lowering as the legacy fallback.
     pub fn lint_jsx(
         &self,
         source: &str,
@@ -446,6 +445,7 @@ impl Linter {
             }
         }
 
+        self.lint_jsx_script(source, &mut result);
         result
     }
 

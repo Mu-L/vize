@@ -25,11 +25,31 @@ const message = ref('hello')
     assert!(docs.template.is_some());
     assert!(docs.script_setup.is_some());
     assert_eq!(docs.styles.len(), 1);
+    for document in docs.all() {
+        let published = vize_canon::virtual_ts::virtual_ts_document(
+            document.content.clone().into(),
+            document.source_map.spans(),
+        );
+        assert_eq!(published.as_str(), document.content.as_str());
+    }
 
-    // Check template virtual code
     let template = docs.template.unwrap();
-    assert!(!template.source_map.is_empty());
-    insta::assert_snapshot!(template.content.as_str());
+    assert!(
+        template
+            .content
+            .contains("Virtual TypeScript for Vue SFC Type Checking"),
+        "the editor template document is the checker document:\n{}",
+        template.content
+    );
+    let source_offset = source.rfind("{{ message }}").unwrap() + "{{ ".len();
+    let generated = template
+        .source_map
+        .to_generated(source_offset)
+        .expect("template message is mapped");
+    assert_eq!(
+        &template.content[generated..generated + "message".len()],
+        "message"
+    );
 }
 
 #[test]

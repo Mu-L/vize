@@ -237,18 +237,17 @@ pub(super) fn generate_component_props(
     }
 }
 
-pub(super) fn collect_checkable_usages<'a>(
-    ctx: &ComponentPropsContext<'a, '_>,
-) -> Vec<(usize, &'a ComponentUsage)> {
+pub(super) fn collect_checkable_usages(
+    ctx: &ComponentPropsContext<'_, '_>,
+) -> Vec<(usize, ComponentUsage)> {
     let external_template_bindings: FxHashSet<&str> = ctx
         .options
         .external_template_bindings
         .iter()
         .map(|name| name.as_str())
         .collect();
-    ctx.summary
-        .component_usages
-        .iter()
+    vize_croquis::facts::component_usage_list(ctx.summary)
+        .into_iter()
         .enumerate()
         .filter(|(_, usage)| {
             component_usage_has_checkable_binding(
@@ -270,7 +269,7 @@ pub(super) fn component_usage_has_checkable_binding(
     legacy_vue2: bool,
 ) -> bool {
     let name = usage.name.as_str();
-    summary.bindings.bindings.contains_key(name)
+    super::super::script_facts::contains_binding(summary, name)
         || (!legacy_vue2
             && (component_name_matches_external_template_binding(name, external_template_bindings)
                 || component_binding_check.allows(name)

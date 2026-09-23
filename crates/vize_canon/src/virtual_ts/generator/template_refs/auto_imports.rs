@@ -53,8 +53,8 @@ pub(super) fn collect(
         .auto_import_binding_names()
         .into_iter()
         .filter(|name| template_referenced_names.contains(name.as_str()))
-        .filter(|name| !summary.bindings.bindings.contains_key(name.as_str()))
-        .filter(|name| !summary.used_components.contains(name.as_str()))
+        .filter(|name| !crate::virtual_ts::script_facts::contains_binding(summary, name.as_str()))
+        .filter(|name| !vize_croquis::facts::used_component_contains(summary, name.as_str()))
         .filter(|name| !reserved.contains(name.as_str()))
         // An Options API `setup()` return spread infers its bindings from the
         // template, so it claims names `summary.bindings` never holds. It

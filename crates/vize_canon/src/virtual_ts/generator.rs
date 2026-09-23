@@ -4,7 +4,7 @@ mod component_constructors;
 mod component_export;
 mod component_public_types;
 mod emits;
-mod entry;
+pub(super) mod entry;
 mod fallthrough;
 mod file_directives;
 pub(super) mod generics;
@@ -75,7 +75,7 @@ use super::{
     },
 };
 use vize_carton::{FxHashMap, FxHashSet, String, append, config::VueVersion, cstr, profile};
-use vize_croquis::{Croquis, ScopeKind};
+use vize_croquis::{Croquis, ScopeKind, facts::component_usage_list};
 
 pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     summary: &Croquis,
@@ -314,7 +314,7 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     // imported by a plain `<script>` must not gain a second shadow.
     let needs_imported_names = !options.auto_import_stubs.is_empty()
         || !options.auto_import_bindings.is_empty()
-        || (global_components.enabled() && !summary.component_usages.is_empty());
+        || (global_components.enabled() && !component_usage_list(summary).is_empty());
     let imported_names: FxHashSet<&str> = if needs_imported_names {
         profile!(
             "canon.virtual_ts.extract_imported_names",
@@ -860,8 +860,8 @@ pub(crate) fn generate_virtual_ts_with_offsets_and_checks(
     );
     component_export::emit_component_default_export(&mut ts, generation_options.component_name);
 
-    VirtualTsOutput {
+    super::mapping::publish_virtual_ts(VirtualTsOutput {
         code: ts,
         mapping: super::mapping::ProjectionMapping::from_parts(mappings, semantic_links),
-    }
+    })
 }

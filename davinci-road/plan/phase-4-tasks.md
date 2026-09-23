@@ -84,7 +84,7 @@
 
 - [x] `vize_croquis` gains a `vize_davinci` dependency; groups implement `FactGroup`, keyed as written in the P4-2 schema doc (binding name / `SymbolId`; S2 `NodeId` re-keying waits for S2 to carry script scope)
 - [x] Declarative spec + naive evaluator in `crates/vize_croquis/src/facts/spec/` (the Polonius discipline); TS-34 compares it with production over the P2-15 matrix plane and a corpus shard (`VIZE_DAVINCI_FACT_CORPUS`, the two test-scripts submodules, skips counted)
-- [ ] Switch readers to `get::<Bindings>()` / `get::<UndefinedRefs>()` **except** `crates/vize_canon/src/virtual_ts/**` and `crates/vize_maestro/src/virtual_code/**` (lane C deletes those readers in P4-5c) **and the legacy compile lane** (`vize_atelier_core/src/lane/`, `vize_atelier_jsx`, the `vize_atelier_sfc` compiler), which reads the analysis it builds in the same pipeline as a fused attribute (semantic-engine.md #2): a demand there costs a table build per compile — measured 0.02–1.02 % of an SFC compile on the P0-2 ladder, a regression charter #22 refuses — and the lane retires with the legacy transform lane (charter #26); the struct fields stay as producer storage until then _(scope amended 2026-09-22, see the record)_. Still open: `vize_atelier_dom/src/compile/croquis_facts.rs` reads `Croquis.bindings` and is not in that lane or the record's classified files.
+- [ ] Switch readers to `get::<Bindings>()` / `get::<UndefinedRefs>()` **except** `crates/vize_canon/src/virtual_ts/**` and `crates/vize_maestro/src/virtual_code/**` (lane C deletes those readers in P4-5c) **and the legacy compile lane** (`vize_atelier_core/src/lane/`, `vize_atelier_jsx`, the `vize_atelier_sfc` compiler), which reads the analysis it builds in the same pipeline as a fused attribute (semantic-engine.md #2): a demand there costs a table build per compile — measured 0.02–1.02 % of an SFC compile on the P0-2 ladder, a regression charter #22 refuses — and the lane retires with the legacy transform lane (charter #26); the struct fields stay as producer storage until then _(scope amended 2026-09-22, see the record)_. The DOM reader `vize_atelier_dom/src/compile/croquis_facts.rs` demands `Bindings` (`dom/croquis-projection`). The legacy compile lane stays fused.
 - [x] Regenerate [croquis-consumption.md](./croquis-consumption.md) (`rust-script tools/commands/davinci/croquis-consumers.rs --write`)
 
 **Acceptance:** TS-34 exact agreement with scope proof (a zero-comparison run fails); TS-35 zero undeclared accesses in `cargo test --workspace` (debug); the regenerated matrix shows the two fields read only from lane-C paths, the legacy compile lane and producer-side writes, each remaining file classified in the record (amended with the step above); TS-9 lint/check fixtures, TS-40 digests and TS-11 compile/check/lint surfaces unchanged; TS-12 green.
@@ -93,7 +93,7 @@
 
 **Non-goals:** projection readers (P4-5c); the reactivity lattice (P4-3d); new diagnostics.
 
-**Slice 2 landed 2026-09-22:** both groups, TS-34 exact agreement on every plane (corpus shard 670 + 773 artifacts, zero divergences) and the six remaining analysis readers on a declared demand. The task stays open: `vize_atelier_dom/src/compile/croquis_facts.rs` still reads `Croquis.bindings` and is unclassified — see the [P4-3a record](./phase-4-records/p4-3a.md).
+**Slice 2 landed 2026-09-22:** both groups, TS-34 exact agreement on every plane (corpus shard 670 + 773 artifacts, zero divergences) and the six remaining analysis readers on a declared demand. The DOM projection demands `Bindings`. The task stays open for the legacy compile lane — see the [P4-3a record](./phase-4-records/p4-3a.md).
 
 ## P4-3b — Component-usage fact groups
 
@@ -105,9 +105,9 @@
 
 **Steps:**
 
-- [ ] Per-file group in `crates/vize_croquis/src/facts/components.rs`; project group in `crates/vize_croquis_cf/src/facts/render_tree.rs` resolving identities with the existing `rules/component_resolution.rs` logic moved behind the group
-- [ ] Edges are registration-order independent and **stale edges are removed on re-resolution**
-- [ ] TS-34 spec + naive evaluator; readers outside lane C switched; matrix regenerated
+- [x] Per-file group in `crates/vize_croquis/src/facts/components.rs`; project group in `crates/vize_croquis_cf/src/facts/render_tree.rs` resolving identities with the existing `rules/component_resolution.rs` logic moved behind the group
+- [x] Edges are registration-order independent and **stale edges are removed on re-resolution**
+- [x] TS-34 spec + naive evaluator; readers outside lane C switched; matrix regenerated
 
 **Acceptance:** TS-34 as in P4-3a; regression fixtures with exact diagnostic sets for aliased imports, re-exports, same-basename components in different directories, both child registration orders, and a stale edge after re-resolution; TS-35; cross-file lint snapshots unchanged; TS-12.
 
@@ -144,9 +144,9 @@
 
 **Steps:**
 
-- [ ] `crates/vize_croquis/src/facts/reactivity.rs` maps `ReactiveKind` sources onto the lattice's value axis; the only `vize_impeto` edit is one new constructor file (P3-6/P3-15 own the rest of that crate)
-- [ ] Readers of `Croquis.reactivity` / `ReactiveKind` outside lane C switched to the group
-- [ ] TS-34 spec over the lattice's join laws
+- [x] `crates/vize_croquis/src/facts/reactivity.rs` maps `ReactiveKind` sources onto the lattice's value axis; the only `vize_impeto` edit is one new constructor file (P3-6/P3-15 own the rest of that crate)
+- [x] Readers of `Croquis.reactivity` / `ReactiveKind` outside lane C switched to the group
+- [x] TS-34 spec over the lattice's join laws
 
 **Acceptance:** TS-34 agreement over the matrix plane and a corpus shard; P3-2's `[s3-reactivity-folio]` fixtures byte-identical (TS-16/TS-17); croquis_cf reactivity diagnostics unchanged (TS-9); TS-35; TS-12.
 
@@ -183,7 +183,7 @@
 
 **Steps:**
 
-- [ ] Groups + TS-34 specs; readers switched; matrix regenerated
+- [x] Groups + TS-34 specs; readers switched; matrix regenerated
 
 **Acceptance:** TS-34; TS-35; `vize lint` cross-file fixtures and Doctor snapshots unchanged; TS-12.
 
@@ -201,8 +201,8 @@
 
 **Steps:**
 
-- [ ] Evidence per product: TS-34 agreement plus a corpus-shard TS-38 scan for the provide/inject and race rules; verdicts in the task record
-- [ ] Demand-gated groups are not computed unless demanded — proved by an alloc-identical bench pair with and without the gated group registered
+- [x] Evidence per product: TS-34 agreement plus a corpus-shard TS-38 scan for the provide/inject and race rules; verdicts in the task record
+- [x] Demand-gated groups are not computed unless demanded — proved by an alloc-identical bench pair with and without the gated group registered
 
 **Acceptance:** TS-12 — the regenerated matrix's "no external consumers" section lists only demand-gated products, each naming its gate; the bench pair registered in `budgets.toml` with identical `allocs` (TS-10); `grep -rn "SfcCroquisOptions::for_lint\|DrawerOptions::for_compile" crates` empty; TS-9/TS-11 unchanged.
 

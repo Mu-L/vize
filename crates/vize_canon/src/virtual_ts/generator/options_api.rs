@@ -8,9 +8,10 @@ use oxc_ast::ast::{
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType};
 use vize_croquis::Croquis;
+use vize_croquis::facts::used_component_name_list;
 
 use super::options_api_support::is_safe_value_identifier;
-use vize_carton::{FxHashSet, String};
+use vize_carton::{CompactString, FxHashSet, String};
 
 mod variables;
 pub(super) use variables::generate_options_api_variables;
@@ -29,17 +30,13 @@ fn unresolved_extends_template_names(
         .iter()
         .map(|export| export.name.as_str())
         .collect();
-    let used_components: FxHashSet<&str> = summary
-        .used_components
-        .iter()
-        .map(|component| component.as_str())
-        .collect();
-    let mut names = summary
-        .undefined_refs
+    let used_components: FxHashSet<CompactString> =
+        used_component_name_list(summary).into_iter().collect();
+    let mut names = crate::virtual_ts::script_facts::undefined_refs(summary)
         .iter()
         .filter_map(|reference| {
             let name = reference.name.as_str();
-            if summary.bindings.bindings.contains_key(name)
+            if crate::virtual_ts::script_facts::contains_binding(summary, name)
                 || configured_globals.contains(name)
                 || type_export_names.contains(name)
                 || used_components.contains(name)
@@ -147,11 +144,11 @@ fn collect_unresolved_extends_expression_names(
     summary: &Croquis,
     configured_globals: &FxHashSet<&str>,
     type_export_names: &FxHashSet<&str>,
-    used_components: &FxHashSet<&str>,
+    used_components: &FxHashSet<CompactString>,
 ) {
     for identifier in vize_croquis::drawer::extract_identifiers_oxc(expression) {
         let name = identifier.as_str();
-        if summary.bindings.bindings.contains_key(name)
+        if crate::virtual_ts::script_facts::contains_binding(summary, name)
             || configured_globals.contains(name)
             || type_export_names.contains(name)
             || used_components.contains(name)

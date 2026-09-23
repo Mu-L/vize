@@ -26,7 +26,7 @@ pub(super) fn generate_inferred_emit_args(
     ts: &mut String,
     ctx: &EmitInferenceContext<'_>,
 ) -> Option<String> {
-    ctx.summary.binding_spans.get(ctx.component_ref)?;
+    super::super::super::script_facts::binding_span(ctx.summary, ctx.component_ref)?;
     let (usage_idx, usage) =
         find_component_usage_for_event(ctx.summary, ctx.component_name, ctx.data, ctx.scope)?;
     if !usage.props.iter().any(|prop| {
@@ -126,15 +126,14 @@ pub(super) fn generate_inferred_emit_args(
     Some(inferred_args)
 }
 
-pub(super) fn find_component_usage_for_event<'a>(
-    summary: &'a Croquis,
+pub(super) fn find_component_usage_for_event(
+    summary: &Croquis,
     component_name: &str,
     data: &EventHandlerScopeData,
     scope: &Scope,
-) -> Option<(usize, &'a ComponentUsage)> {
-    summary
-        .component_usages
-        .iter()
+) -> Option<(usize, ComponentUsage)> {
+    vize_croquis::facts::component_usage_list(summary)
+        .into_iter()
         .enumerate()
         .find(|(_, usage)| {
             usage.name.as_str() == component_name

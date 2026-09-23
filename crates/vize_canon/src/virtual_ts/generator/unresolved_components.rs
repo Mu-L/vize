@@ -20,7 +20,7 @@ pub(super) fn emit_unresolved_components(
     global_components: &GlobalComponentPlan,
     syntactic_type_only_imported_names: &FxHashSet<CompactString>,
 ) {
-    if summary.used_components.is_empty() {
+    if vize_croquis::facts::used_components_empty(summary) {
         return;
     }
 
@@ -30,11 +30,11 @@ pub(super) fn emit_unresolved_components(
         .map(|name| name.as_str())
         .collect();
     let mut has_unresolved = false;
-    for component in &summary.used_components {
+    for component in vize_croquis::facts::used_component_name_list(summary) {
         let name = component.as_str();
         // A dynamic `:is` alias is declared by the template scope itself.
         if vize_croquis::drawer::is_dynamic_component_alias(name)
-            || (summary.bindings.bindings.contains_key(name)
+            || (crate::virtual_ts::script_facts::contains_binding(summary, name)
                 && !contains_compact_name(syntactic_type_only_imported_names, name))
             || component_name_matches_external_template_binding(name, &external_template_bindings)
             || global_components.keeps_unresolved_binding(name)
@@ -54,7 +54,7 @@ pub(super) fn emit_unresolved_components(
     }
 
     ts.push_str("\n  // Mark used components as referenced\n");
-    for component in &summary.used_components {
+    for component in vize_croquis::facts::used_component_name_list(summary) {
         if vize_croquis::drawer::is_dynamic_component_alias(component.as_str()) {
             continue;
         }

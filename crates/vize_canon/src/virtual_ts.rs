@@ -33,6 +33,7 @@ mod props;
 #[cfg(test)]
 mod public_instance_guard_tests;
 mod scope;
+mod script_facts;
 mod semantic_links;
 #[cfg(test)]
 mod strict_template_global_enum_tests;
@@ -52,8 +53,9 @@ mod unknown_props_tests;
 
 pub(crate) use generator::generate_virtual_ts_with_offsets_and_checks;
 pub use generator::{
-    generate_virtual_ts, generate_virtual_ts_with_offsets,
-    generate_virtual_ts_with_offsets_legacy_vue2, generate_virtual_ts_with_offsets_options_api,
+    entry::generate_virtual_ts_with_split_offsets, generate_virtual_ts,
+    generate_virtual_ts_with_offsets, generate_virtual_ts_with_offsets_legacy_vue2,
+    generate_virtual_ts_with_offsets_options_api,
 };
 pub use helpers::{
     DECLARATION_HELPERS_DTS, SHARED_PREAMBLE_DTS, SHARED_PREAMBLE_FILE_NAME, VUE_SETUP_HELPERS,
@@ -63,7 +65,7 @@ pub use helpers::{
 pub(crate) use helpers::{push_ts_string_literal, to_safe_identifier};
 pub use mapping::{
     ProjectionFeatures, ProjectionMapping, ProjectionMeta, ProjectionRow, ProjectionSpanKind,
-    VizeMapping, VizeSubSpan,
+    VizeMapping, VizeSubSpan, virtual_ts_document,
 };
 pub use pattern_diagnostics::is_unreachable_pattern_diagnostic;
 pub use semantic_links::{VizeSemanticLink, VizeSemanticLinkKind};

@@ -180,19 +180,32 @@ pub(super) const ADMITTED: &[(&str, &str)] = &[
         "legacy-content-tags",
         "<div><noembed>x</noembed><noframes>y</noframes><xmp>a &lt; b</xmp></div>",
     ),
-];
-
-/// Templates the selector must keep on the legacy walker in this slice.
-pub(super) const REFUSED: &[(&str, &str)] = &[
+    ("v-model-argument", r#"<input v-model:foo="msg">"#),
     (
-        "dynamic-slot-name-expression",
-        r#"<Foo><template #[names[0]]>x</template></Foo>"#,
+        "model-scope",
+        "<form class=\"list\"><h1>Items</h1><input v-for=\"item in items\" :key=\"item\" v-model=\"item\"><input v-model:value=\"query\"></form>",
     ),
     (
-        "nested-slot-carrier",
-        r#"<Foo><div v-if="a"><template #a>x</template></div></Foo>"#,
+        "patterned-disabled",
+        "<template v-match=\"result\"><p v-when=\"{ kind: 'ok', data: [const first, ...const tail], ...const metadata } as success if (first > 0 && tail.length)\">{{ first }}</p><p v-when=\"('idle' | 'pending') as waiting\">{{ waiting }}</p><p v-when=\"Status.Error\">error</p><p v-when=\"{ kind: _, ... }\">known</p><p v-when='[1, \"two\", ...]'>tuple</p><p v-when=\"_\">empty</p></template><p :title=\"result.kind\">after pattern</p>",
     ),
-    ("slot-name-twice", r#"<div><slot name :name="n" /></div>"#),
+    ("v-model-div", r#"<div v-model="msg"></div>"#),
+    ("v-model-svg", r#"<svg v-model="msg"></svg>"#),
+    ("v-model-math", r#"<math v-model="msg"></math>"#),
+    ("v-model-template", r#"<template v-model="msg"></template>"#),
+    (
+        "v-model-nested",
+        r#"<section><div v-model="msg"></div></section>"#,
+    ),
+    ("v-pre-text", "<div v-pre>{{ not }} an interpolation</div>"),
+    (
+        "v-pre-whitespace",
+        "<pre>\n  a  b\n</pre><code v-pre class=\"font-code\">\n    {{ variable }}\n  </code>",
+    ),
+    (
+        "vize-directive-comment",
+        "<div><!-- @vize:forget pre-escaped --><p>y</p></div>",
+    ),
     (
         "directive-complex-arg",
         r#"<div><p v-focus:[a+b]="x"></p></div>"#,
@@ -201,17 +214,31 @@ pub(super) const REFUSED: &[(&str, &str)] = &[
         "dynamic-key-expression",
         r#"<div><p :[a+b]="val"></p></div>"#,
     ),
-    ("v-model-argument", r#"<input v-model:foo="msg">"#),
-    ("v-model-div", r#"<div v-model="msg"></div>"#),
+    ("slot-v-model", r#"<slot v-model="modelValue"></slot>"#),
+    ("slot-v-pre-empty", "<slot v-pre></slot>"),
+    ("template-attr-drop", r#"<template v-if="a" :foo />"#),
+    (
+        "suspense-default-template",
+        "<Suspense><template #default></template></Suspense>",
+    ),
+];
+
+/// Templates the selector must keep on the legacy walker in this slice.
+pub(super) const REFUSED: &[(&str, &str)] = &[
+    (
+        "nested-slot-carrier",
+        r#"<Foo><div v-if="a"><template #a>x</template></div></Foo>"#,
+    ),
+    ("slot-name-twice", r#"<div><slot name :name="n" /></div>"#),
+    (
+        "outlet-v-pre",
+        "<slot v-pre>{{ not }} an interpolation</slot>",
+    ),
     ("invalid-expression", "<div>{{ a &amp;&amp; b }}</div>"),
     ("invalid-bind", r#"<div :title="a +"></div>"#),
     ("script", "<div><script>var a = 1 < 2</script></div>"),
     ("style", "<div><style>.a > b { }</style></div>"),
     ("whitespace-entities", "<p>a&#10;&#32; b</p>"),
-    (
-        "component-model-dynamic-arg",
-        r#"<div><Foo v-model:[prop]="value" /></div>"#,
-    ),
 ];
 
 /// TypeScript-only expressions: owned under `is_ts`, refused without it

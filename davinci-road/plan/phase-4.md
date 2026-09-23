@@ -76,15 +76,15 @@ Each ID links to its contract; the box is checked only in the PR that satisfies 
 - [x] [P4-1b](./phase-4-tasks.md#p4-1b--fact-preservation-and-recompute-mode) Fact preservation and recompute mode — lane A · startable now
 - [x] [P4-2](./phase-4-tasks.md#p4-2--fact-group-alpha-beta-split) Fact-group alpha/beta split — lane A · startable now
 - [ ] [P4-3a](./phase-4-tasks.md#p4-3a--bindings-and-undefined-refs-fact-groups) Bindings and undefined-refs fact groups — lane B · startable now
-- [ ] [P4-3b](./phase-4-tasks.md#p4-3b--component-usage-fact-groups) Component-usage fact groups — lane B · startable now
+- [x] [P4-3b](./phase-4-tasks.md#p4-3b--component-usage-fact-groups) Component-usage fact groups — lane B · startable now
 - [ ] [P4-3c](./phase-4-tasks.md#p4-3c--unused-bindings-fact-group-and-lint-consumer) Unused-bindings fact group and lint consumer — lane B · startable now
-- [ ] [P4-3d](./phase-4-tasks.md#p4-3d--reactivity-merges-into-the-s3-lattice) Reactivity merges into the S3 lattice — lane B · startable now
+- [x] [P4-3d](./phase-4-tasks.md#p4-3d--reactivity-merges-into-the-s3-lattice) Reactivity merges into the S3 lattice — lane B · startable now
 - [ ] [P4-3e](./phase-4-tasks.md#p4-3e--effect-graph-fact-group) Effect-graph fact group — lane B · gated on P3-6
-- [ ] [P4-3f](./phase-4-tasks.md#p4-3f--provide-inject-and-race-fact-groups) Provide/inject and race fact groups — lane B · startable now
-- [ ] [P4-4a](./phase-4-tasks.md#p4-4a--orphan-verdicts-for-non-effect-products) Orphan verdicts for non-effect products — lane B · startable now
+- [x] [P4-3f](./phase-4-tasks.md#p4-3f--provide-inject-and-race-fact-groups) Provide/inject and race fact groups — lane B · startable now
+- [x] [P4-4a](./phase-4-tasks.md#p4-4a--orphan-verdicts-for-non-effect-products) Orphan verdicts for non-effect products — lane B · startable now
 - [ ] [P4-4b](./phase-4-tasks.md#p4-4b--effect-graph-verdict) Effect-graph verdict — lane B · gated on P3-6
 - [x] [P4-5a](./phase-4-tasks.md#p4-5a--one-mapping-model-and-one-diagnostic-post-pass) One mapping model and one diagnostic post-pass — lane C · startable now
-- [ ] [P4-5b](./phase-4-tasks.md#p4-5b--s2-projection-as-an-s4-target) S2 projection as an S4 target — lane C · gated on P3-9
+- [x] [P4-5b](./phase-4-tasks.md#p4-5b--s2-projection-as-an-s4-target) S2 projection as an S4 target — lane C · gated on P3-9
 - [ ] [P4-5c](./phase-4-tasks.md#p4-5c--consumers-switch-and-three-generators-deleted) Consumers switch and three generators deleted — lane C · startable now (behind P4-5b)
 - [x] [P4-6a](./phase-4-tasks-later.md#p4-6a--precision-tiers-and-the-error-witness-law-as-types) Precision tiers and the error-witness law as types — lane D · startable now
 - [x] [P4-6b](./phase-4-tasks-later.md#p4-6b--witness-verifier) Witness verifier — lane D · startable now
@@ -95,11 +95,11 @@ Each ID links to its contract; the box is checked only in the PR that satisfies 
 - [ ] [P4-8b](./phase-4-tasks-later.md#p4-8b--dialect-bound-rule-wave) Dialect-bound rule wave — lane F · startable now
 - [ ] [P4-8c](./phase-4-tasks-later.md#p4-8c--container-bound-wave-and-legacy-visitor-retirement) Container-bound wave and legacy visitor retirement — lane F · startable now
 - [x] [P4-9a](./phase-4-tasks-later.md#p4-9a--template-cfg-complexity-facts-and-metric-spec) Template CFG complexity facts and metric spec — lane G · startable now
-- [ ] [P4-9b](./phase-4-tasks-later.md#p4-9b--cross-file-complexity-rule-and-doctor-finding) Cross-file complexity rule and Doctor finding — lane G · startable now
+- [x] [P4-9b](./phase-4-tasks-later.md#p4-9b--cross-file-complexity-rule-and-doctor-finding) Cross-file complexity rule and Doctor finding — lane G · startable now
 - [x] [P4-10a](./phase-4-tasks-last.md#p4-10a--provider-contract-and-vue-router-provider) Provider contract and Vue Router provider — lane H · startable now
 - [ ] [P4-10b](./phase-4-tasks-last.md#p4-10b--nuxt-provider-and-projected-route-types) Nuxt provider and projected route types — lane H · startable now (behind P4-5b)
 - [x] [P4-11a](./phase-4-tasks-last.md#p4-11a--content-model-tables-and-exact-per-file-checker) Content-model tables and exact per-file checker — lane I · startable now
-- [ ] [P4-11b](./phase-4-tasks-last.md#p4-11b--composed-cross-component-conformance) Composed cross-component conformance — lane I · startable now
+- [x] [P4-11b](./phase-4-tasks-last.md#p4-11b--composed-cross-component-conformance) Composed cross-component conformance — lane I · startable now
 - [x] [P4-12a](./phase-4-tasks-last.md#p4-12a--style-specification) Style specification — lane J · startable now
 - [ ] [P4-12b](./phase-4-tasks-last.md#p4-12b--glyph-on-s1) Glyph on S1 — lane J · startable now
 - [ ] [P4-12c](./phase-4-tasks-last.md#p4-12c--pug-as-an-s1-dialect) Pug as an S1 dialect — lane K · startable now

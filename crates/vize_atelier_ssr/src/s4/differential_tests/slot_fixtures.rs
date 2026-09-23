@@ -25,6 +25,10 @@ pub(super) const ADMITTED: &[(&str, &str)] = &[
         r#"<List v-slot="{ row }"><span>{{ row.id }} {{ other }}</span></List>"#,
     ),
     (
+        "slot-self-with-named-template",
+        r#"<Layout #default="slotProps"><p>{{ slotProps.title }}</p><template #header><h1>Title</h1></template></Layout>"#,
+    ),
+    (
         "slot-kebab-name",
         r#"<Foo><template #row-item="props"><i>{{ props.x }}</i></template></Foo>"#,
     ),
@@ -172,4 +176,26 @@ pub(super) const ADMITTED: &[(&str, &str)] = &[
         "root-if-keyed",
         r#"<div v-if="a" :key="k" :id="i">x</div><Bar v-else :key="k2" :y="2" />"#,
     ),
+    ("outlet-v-html", r#"<slot v-html="rawHtml"></slot>"#),
+    ("outlet-v-text", r#"<slot v-text="textContent"></slot>"#),
+    ("outlet-v-cloak", "<slot v-cloak></slot>"),
+    (
+        "component-model-dynamic-arg",
+        r#"<div><Foo v-model:[prop]="value" /></div>"#,
+    ),
+    (
+        "dynamic-slot-name-expression",
+        r#"<Foo><template #[names[0]]>x</template></Foo>"#,
+    ),
+    (
+        "dynamic-slot-name-member",
+        r#"<Foo><template #[names.current]>x</template></Foo>"#,
+    ),
+    (
+        "dynamic-slot-name-template",
+        r#"<Foo><template #[`filter-cell-${col}`]>x</template></Foo>"#,
+    ),
+    ("outlet-v-show", r#"<slot v-show="shown">fallback</slot>"#),
+    ("outlet-v-once", "<slot v-once>fallback</slot>"),
+    ("outlet-v-memo", r#"<slot v-memo="[dep]">{{ dep }}</slot>"#),
 ];

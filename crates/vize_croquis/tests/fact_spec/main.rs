@@ -25,6 +25,7 @@ mod runner;
 use std::path::{Path, PathBuf};
 
 use runner::{Planes, collect_vue_files, run_source};
+use vize_croquis::facts::spec::reactivity;
 
 fn matrix_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/davinci-matrix")
@@ -63,6 +64,41 @@ fn the_committed_planes_agree_with_the_specs() {
     eprintln!("{}", matrix.scope_lines("matrix plane"));
     assert_census(&matrix, (90, 90, 0), (90, 90, 0), "matrix");
     assert!(matrix.bindings.divergences.is_empty() && matrix.undefined.divergences.is_empty());
+    for (label, plane) in [
+        ("battery", &battery.reactivity),
+        ("ladder", &ladder.reactivity),
+        ("matrix", &matrix.reactivity),
+    ] {
+        assert!(
+            plane.divergences.is_empty(),
+            "{label} reactivity diverged: {:?}",
+            plane.divergences
+        );
+    }
+    for (label, plane) in [
+        ("battery", &battery.provide),
+        ("ladder", &ladder.provide),
+        ("matrix", &matrix.provide),
+        ("battery-race", &battery.race),
+        ("ladder-race", &ladder.race),
+        ("matrix-race", &matrix.race),
+    ] {
+        assert!(
+            plane.divergences.is_empty(),
+            "{label} reactivity diverged: {:?}",
+            plane.divergences
+        );
+    }
+}
+
+#[test]
+fn the_lattice_join_matches_the_spec() {
+    let matrix = reactivity::join_matrix();
+    eprintln!("{}", matrix.scope_line("reactivity", "lattice matrix"));
+    matrix
+        .verdict("reactivity", "lattice matrix")
+        .unwrap_or_else(|message| panic!("{message}"));
+    reactivity::kind_table_agrees().unwrap_or_else(|message| panic!("{message}"));
 }
 
 #[test]
@@ -95,6 +131,9 @@ fn the_corpus_shard_agrees_with_the_specs() {
         let Ok(source) = std::fs::read_to_string(file) else {
             shard.bindings.skip("unreadable");
             shard.undefined.skip("unreadable");
+            shard.reactivity.skip("unreadable");
+            shard.provide.skip("unreadable");
+            shard.race.skip("unreadable");
             continue;
         };
         run_source(
@@ -105,6 +144,44 @@ fn the_corpus_shard_agrees_with_the_specs() {
     }
     eprintln!("{}", shard.scope_lines("corpus shard"));
     shard.assert_verdicts("corpus shard");
+    shard
+        .reactivity
+        .verdict("reactivity", "corpus shard")
+        .unwrap_or_else(|message| panic!("{message}"));
+    assert!(
+        shard.provide.divergences.is_empty(),
+        "provide-inject corpus diverged: {:?}",
+        shard.provide.divergences
+    );
+    // The committed shard's direct `provide()` / `inject()` calls sit outside
+    // the tracker's top-level script-setup shape, so that half compares no
+    // rows. `the_provide_inject_spec_agrees_on_a_drawn_sfc` is the comparison.
+    shard
+        .race
+        .verdict("race-conditions", "corpus shard")
+        .unwrap_or_else(|message| panic!("{message}"));
+}
+
+#[test]
+fn the_provide_inject_spec_agrees_on_a_drawn_sfc() {
+    let source = "\
+<script setup>
+const theme = ref('dark')
+provide('theme', theme)
+const color = inject('theme')
+</script>
+<template><p>{{ color }}</p></template>
+";
+    let mut planes = Planes::default();
+    run_source("provide.vue", source, &mut planes);
+    eprintln!(
+        "{}",
+        planes.provide.scope_line("provide-inject", "drawn sfc")
+    );
+    planes
+        .provide
+        .verdict("provide-inject", "drawn sfc")
+        .unwrap_or_else(|message| panic!("{message}"));
 }
 
 /// Bindings census is build-independent. `UndefinedRefs` is compared only

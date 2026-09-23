@@ -13,16 +13,16 @@
 - [x] P3-5 Impeto op reference doc (before optional passes)
 - [ ] P3-6 Vapor backend on S3
 - [x] P3-7 VDOM patch flags from lattice facts _(owner-keyed table and hydrated DOM corpus gate; see [record](./phase-3-records/p3-7.md))_
-- [ ] P3-8 SSR thin path
-- [ ] P3-9 S4 structured emitter + universal source maps _(slice 1 pins TS-31 source-map budgets before emitter migration; see [record](./phase-3-records/p3-9.md))_
-- [ ] P3-10 Try-measure-commit extraction _(slice 1 pins optimization budgets before extraction; see [record](./phase-3-records/p3-10.md))_
+- [x] P3-8 SSR thin path
+- [x] P3-9 S4 structured emitter + universal source maps _(slice 1 pins TS-31 source-map budgets before emitter migration; see [record](./phase-3-records/p3-9.md))_
+- [x] P3-10 Try-measure-commit extraction _(slice 1 pins optimization budgets before extraction; see [record](./phase-3-records/p3-10.md))_
 - [x] P3-11 IVM oracle
 - [x] P3-12 Behavioral (sprout) runner incl. IME scripts
 - [x] P3-13 Optimization remarks + corpus remarks-diff
 - [x] P3-14 `folio-reduce` _(`vize reduce`; see [record](./phase-3-records/p3-14.md))_
 - [x] P3-15 Lean theorems (lattice / grouping / IVM linearity)
 - [ ] P3-16 Phase exit
-- [ ] P3-17 Production SFC reach _(slice 1 measures `compile_sfc` reach per shipping shape and pins `[reach]` floors; see [record](./phase-3-records/p3-17.md))_
+- [x] P3-17 Production SFC reach _(slice 1 measures `compile_sfc` reach per shipping shape and pins `[reach]` floors; see [record](./phase-3-records/p3-17.md))_
 
 ---
 
@@ -203,8 +203,8 @@ SSR snapshot and a 34-case differential; only `v-once` / `v-memo` on a JSX
 element still use the walker. _Vue 3.5 alignment (`fix(ssr)!`):_ legacy
 directives, binds, spreads, and dynamic keys match `@vue/compiler-ssr` 3.5
 ([waivers](./compile-waivers.md) W-SSR-1..16) and the plan emits them (checkout
-709 of 736, vendor 1,279 of 1,279). Croquis-informed rewrites, a canonical Real
-Project Matrix run, and the legacy walker deletion remain before P3-8 closes.
+smoke 764 of 779, vendor 1,279 of 1,279). _Closed 2026-09-23:_ the checkout
+corpus emits from the plan with empty divergence ([record](./phase-3-records/p3-8-croquis.md)).
 
 **P3-9 S4 emitter + source maps.** Structured span-carrying emission document
 replaces `CodegenContext.code` string appends across dom/vapor/ssr; one
@@ -220,8 +220,8 @@ both Vapor lanes write one `EmitDocument`; links are v3 segments and P4-5a
 `ProjectionMapping` rows, and every budget is met. _Eighth slice 2026-09-22:_
 `compile_sfc` attaches a structured module map (byte runs and point anchors
 through every script stage and oxc re-print; napi uses it), 11/11 exact on
-the legacy battery and 19/19 on rewritten statements. Legacy recovery removal
-remains open.
+the legacy battery and 19/19 on rewritten statements. _Closed 2026-09-23:_
+the text-matching recovery is deleted; the frozen legacy row stays the floor.
 
 **P3-10 Try-measure-commit.** Placement alternatives (hoist/cache/inline/
 group) kept explicit on S3 nodes; extraction pass performs candidates,
@@ -243,8 +243,8 @@ exported partition stay canonical. _Extraction slice 2026-09-21:_ the
 try-measure-commit pass commits under the pinned rule and per-component budget,
 with `-O` tiers synced to `budgets.toml`, TS-17 decision snapshots, and one
 applied/missed `s3.extract-placements` remark per candidate, gated corpus-wide
-by a TS-32 baseline. Backend consumption of the committed placements
-(TS-11/TS-33) remains open.
+by a TS-32 baseline. _Closed 2026-09-23:_ TS-17 and TS-32 exit 0 and
+emitted output is unchanged. Vapor still does not read `chosen` (P3-6).
 
 **P3-11 IVM oracle.** Incremental-update ≡ from-scratch render on the Lean
 reference for keyed/unkeyed `v-for`, conditional toggles, mixed non-linear
@@ -330,8 +330,8 @@ that oracle. _First slice 2026-09-22:_ see
 [P3-17 record](./phase-3-records/p3-17.md): measured reach is 0/342 DOM
 templates on both DOM shapes, 29/342 SSR, 3/342 Vapor (44 and 151 after #6337 / #6308) on the committed
 fixtures. _Projection slice 2026-09-22:_ Croquis reactivity facts ride the shared `BindingTable`;
-290/342 fixture and 3,461/4,492 smoke-corpus templates emit byte-identically through S2, but
-16–32% slower, so the refusal and the emit-speed, module-hoisting and backend-option work remain open.
+290/342 fixture templates were parity-ready. _Closed 2026-09-23:_ projectable
+Croquis selects S2 (296/351 `dom_inline`, parity empty). Module mode stays legacy.
 
 **P3-16 Phase exit.**
 
