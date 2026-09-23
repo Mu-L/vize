@@ -69,6 +69,8 @@
 
 ## P5-3 — Global summary
 
+**Landed 2026-09-23** — full record: [phase-5-records/p5-3.md](./phase-5-records/p5-3.md).
+
 **Start gate:** gated on P4-3b — global components and provide/inject pairing are project fact groups.
 
 **Lane:** B
@@ -77,7 +79,7 @@
 
 **Steps:**
 
-- [ ] `crates/vize_davinci/src/summary/global.rs` over the P4-3b and P4-3f project groups
+- [x] `crates/vize_davinci/src/summary/global.rs` over the P4-3b and P4-3f project groups
 
 **Acceptance:** a scenario test: adding a global component invalidates exactly the files that resolve it, and nothing else (TS-46 accounting).
 
@@ -205,3 +207,5 @@
 **Deps:** P5-6b, P4-10a.
 
 **Non-goals:** new LSP features.
+
+**Landed 2026-09-23** — full record: [phase-5-records/p5-6c.md](./phase-5-records/p5-6c.md).

@@ -11,9 +11,12 @@ use vize_s0::{String, ToCompactString, profile};
 
 mod document;
 mod driver;
+mod expression_bindings;
 mod markers;
+mod options_prop_shape;
 mod parsing;
 mod reactivity_loss;
+mod relative_imports;
 mod rule_queries;
 mod script_options;
 mod source_path;

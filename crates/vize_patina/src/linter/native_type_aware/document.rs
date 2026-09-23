@@ -7,6 +7,7 @@ use vize_atelier_sfc::SfcDescriptor;
 use vize_atelier_sfc::croquis::{SfcCroquisOptions, analyze_sfc_descriptor};
 use vize_canon::virtual_ts::{
     ProjectionMapping, VirtualTsOptions, generate_virtual_ts_with_offsets,
+    generate_virtual_ts_with_offsets_options_api,
 };
 use vize_relief::RootNode;
 use vize_s0::String;
@@ -31,24 +32,68 @@ pub(super) fn project_type_aware<'a>(
     template: Option<&RootNode<'a>>,
     script_offset: u32,
     template_offset: u32,
+    filename: &str,
 ) -> TypeAwareDocument {
     // Lint analysis skips template expressions. The checker document needs
     // them so a probe can type the expression the author wrote.
     let mut options = SfcCroquisOptions::lint_demand();
     options.analyzer_options.collect_template_expressions = true;
     let analysis = analyze_sfc_descriptor(descriptor, template, options);
-    let output = generate_virtual_ts_with_offsets(
-        &analysis,
-        Some(script_content),
-        template,
-        script_offset,
-        template_offset,
-        &VirtualTsOptions::default(),
-    );
-    TypeAwareDocument {
+    let ts_options = VirtualTsOptions::default();
+    let output = if descriptor.script_setup.is_none() && descriptor.script.is_some() {
+        generate_virtual_ts_with_offsets_options_api(
+            &analysis,
+            Some(script_content),
+            template,
+            script_offset,
+            template_offset,
+            &ts_options,
+        )
+    } else {
+        generate_virtual_ts_with_offsets(
+            &analysis,
+            Some(script_content),
+            template,
+            script_offset,
+            template_offset,
+            &ts_options,
+        )
+    };
+    let mut document = TypeAwareDocument {
         content: output.code,
         mapping: output.mapping,
+    };
+    super::expression_bindings::hoist_type_imports(&mut document, script_content);
+    super::expression_bindings::bind_template_expressions(&mut document);
+    super::relative_imports::absolutize_relative_imports(&mut document, filename);
+    // An unresolved `Ref` is `any` to this check, and the stock alias then
+    // forces that prop through the boolean intersection. The alias text is
+    // pinned in Canon snapshots, so only this checker document changes.
+    keep_any_out_of_boolean_keys(&mut document);
+    document
+}
+
+const BOOLEAN_KEY_ALIAS: &str = "type __VizeBooleanKey<T, K extends keyof T = keyof T> = K extends any ? [Exclude<T[K], undefined>] extends [never] ? never : [Exclude<T[K], undefined>] extends [boolean] ? K : never : never;";
+const BOOLEAN_KEY_PATCHED: &str = "type __VizeBooleanKey<T, K extends keyof T = keyof T> = K extends any ? __VizeIsAny<Exclude<T[K], undefined>> extends true ? never : [Exclude<T[K], undefined>] extends [never] ? never : [Exclude<T[K], undefined>] extends [boolean] ? K : never : never;";
+
+fn keep_any_out_of_boolean_keys(document: &mut TypeAwareDocument) {
+    let mut text = std::string::String::from(document.content.as_str());
+    let mut found = Vec::new();
+    let mut search = 0usize;
+    while let Some(relative) = text[search..].find(BOOLEAN_KEY_ALIAS) {
+        let at = search + relative;
+        found.push(at);
+        search = at + BOOLEAN_KEY_ALIAS.len();
     }
+    for start in found.into_iter().rev() {
+        document.mapping.note_generated_replacement(
+            start,
+            BOOLEAN_KEY_ALIAS.len(),
+            BOOLEAN_KEY_PATCHED.len(),
+        );
+        text.replace_range(start..start + BOOLEAN_KEY_ALIAS.len(), BOOLEAN_KEY_PATCHED);
+    }
+    document.content = String::from(text.as_str());
 }
 
 #[cfg(test)]
@@ -72,13 +117,11 @@ mod tests {
             Some(&root),
             script.loc.start as u32,
             template.loc.start as u32,
+            "Fixture.vue",
         );
         let insert = marker_insert_offset(&document.content).expect("setup close");
-        assert!(
-            document.content[insert..].starts_with("}\n\n// Invoke setup to verify types\n"),
-            "{}",
-            &document.content[insert.saturating_sub(40)..]
-        );
+        let marker = "}\n\n// Invoke setup to verify types\n";
+        assert_eq!(&document.content[insert..insert + marker.len()], marker);
     }
 
     #[test]
@@ -97,6 +140,7 @@ mod tests {
             Some(&root),
             script.loc.start as u32,
             template.loc.start as u32,
+            "Fixture.vue",
         );
         let body = template.content.as_ref();
         let at = body.find("payload.title").expect("expression");
@@ -105,6 +149,33 @@ mod tests {
         assert!(
             document.generated_offset(source_offset).is_some(),
             "template expression was not projected"
+        );
+    }
+
+    #[test]
+    fn an_unresolved_ref_is_not_forced_through_the_boolean_key() {
+        let source = "<script setup lang=\"ts\">\nimport type { Ref } from 'vue'\nconst props = defineProps<{ count: Ref<number> }>()\n</script>\n";
+        let descriptor =
+            vize_atelier_sfc::parse_sfc(source, vize_atelier_sfc::SfcParseOptions::default())
+                .expect("sfc");
+        let script = descriptor.script_setup.as_ref().expect("script");
+        let document = project_type_aware(
+            &descriptor,
+            script.content.as_ref(),
+            None,
+            script.loc.start as u32,
+            0,
+            "Component.vue",
+        );
+        assert!(
+            document
+                .content
+                .contains("__VizeIsAny<Exclude<T[K], undefined>> extends true ? never")
+        );
+        assert!(
+            !document.content.contains(
+                "K extends any ? [Exclude<T[K], undefined>] extends [never] ? never : [Exclude<T[K], undefined>] extends [boolean] ? K : never : never;"
+            )
         );
     }
 }
