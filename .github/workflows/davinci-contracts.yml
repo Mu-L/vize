@@ -10,7 +10,6 @@ on:
   push:
     branches: [main, davinci]
     paths:
-      - "contracts/**"
       - "crates/vize_extension_host/**"
       - "crates/vize_extension_sdk/**"
       - "npm/extension-sdk/**"
@@ -21,7 +20,7 @@ on:
       - "crates/vize_s2/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - "davinci-road/plan/test-suites.md"
+      - "docs/davinci/plan/test-suites.md"
       - ".github/workflows/davinci-contracts.yml"
   workflow_dispatch:
 

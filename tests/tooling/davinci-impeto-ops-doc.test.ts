@@ -20,14 +20,14 @@ function rustMnemonics(): string[] {
 }
 
 function leanParserMnemonics(): string[] {
-  const syntax = readRepoFile("formal", "impeto", "Impeto", "Syntax.lean");
+  const syntax = readRepoFile("tests", "formal", "impeto", "Impeto", "Syntax.lean");
   return [...syntax.matchAll(/\| "(impeto\.[^"]+)" => some \.[A-Za-z]+/gu)].map(
     (match) => match[1],
   );
 }
 
 function tableRows(): Map<string, { vapor: string; vdom: string }> {
-  const doc = readRepoFile("davinci-road", "plan", "impeto-ops.md");
+  const doc = readRepoFile("docs/davinci", "plan", "impeto-ops.md");
   const rows = new Map<string, { vapor: string; vdom: string }>();
 
   for (const line of doc.split("\n")) {
@@ -48,7 +48,7 @@ function tableRows(): Map<string, { vapor: string; vdom: string }> {
 }
 
 function leanTraceLabels(functionName: "interpretVDom" | "interpretVapor"): string[] {
-  const semantics = readRepoFile("formal", "impeto", "Impeto", "Semantics.lean");
+  const semantics = readRepoFile("tests", "formal", "impeto", "Impeto", "Semantics.lean");
   const start = semantics.indexOf(`def ${functionName}`);
   assert.notEqual(start, -1, `${functionName} is missing`);
   const end = semantics.indexOf("\ndef ", start + 1);
@@ -78,12 +78,12 @@ test("P3-5 Impeto op reference records the executable Lean trace labels", () => 
 });
 
 test("P3-5 Impeto op reference is cross-linked from Folio docs and rustdoc", () => {
-  const folio = readRepoFile("davinci-road", "plan", "folio-format-impeto.md");
+  const folio = readRepoFile("docs/davinci", "plan", "folio-format-impeto.md");
   const lib = readRepoFile("crates", "vize_impeto", "src", "lib.rs");
-  const phase = readRepoFile("davinci-road", "plan", "phase-3.md");
+  const phase = readRepoFile("docs/davinci", "plan", "phase-3.md");
 
   assert.match(folio, /\[`impeto-ops\.md`\]\(\.\/impeto-ops\.md\)/u);
-  assert.match(lib, /\[`davinci-road\/plan\/impeto-ops\.md`\]/u);
+  assert.match(lib, /\[`docs\/davinci\/plan\/impeto-ops\.md`\]/u);
   assert.match(phase, /P3-5 Impeto op reference doc/u);
   assert.match(phase, /\[P3-5 record\]\(\.\/phase-3-records\/p3-5\.md\)/u);
 });

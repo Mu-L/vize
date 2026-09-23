@@ -9,15 +9,15 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const command = path.join(repoRoot, "tools/commands/davinci/consumer-migration-surfaces.rs");
 const legacyFiles = [
-  "legacy-tools/davinci/consumer-migration-surfaces.mjs",
-  "legacy-tools/davinci/lib/artifact-set.mjs",
-  "legacy-tools/davinci/lib/consumer-migration-render.mjs",
-  "legacy-tools/davinci/lib/consumer-migration-scan.mjs",
-  "legacy-tools/davinci/lib/consumer-migration-summary.mjs",
-  "legacy-tools/davinci/lib/markdown.mjs",
-  "legacy-tools/davinci/lib/ordering.mjs",
-  "legacy-tools/davinci/lib/paths.mjs",
-  "legacy-tools/davinci/lib/rust-source.mjs",
+  "tools/support/compat/davinci/consumer-migration-surfaces.mjs",
+  "tools/support/compat/davinci/lib/artifact-set.mjs",
+  "tools/support/compat/davinci/lib/consumer-migration-render.mjs",
+  "tools/support/compat/davinci/lib/consumer-migration-scan.mjs",
+  "tools/support/compat/davinci/lib/consumer-migration-summary.mjs",
+  "tools/support/compat/davinci/lib/markdown.mjs",
+  "tools/support/compat/davinci/lib/ordering.mjs",
+  "tools/support/compat/davinci/lib/paths.mjs",
+  "tools/support/compat/davinci/lib/rust-source.mjs",
 ];
 const scannedCrates = [
   "vize_atelier_core",
@@ -31,7 +31,7 @@ const scannedCrates = [
   "vize_glyph",
   "vize_maestro",
 ];
-const shardDir = "davinci-road/plan/consumer-migration-surfaces";
+const shardDir = "docs/davinci/plan/consumer-migration-surfaces";
 const coreShard = `${shardDir}/compiler/vize_atelier_core.tsv`;
 
 function writeFile(root, relPath, content) {
@@ -93,7 +93,7 @@ void test("consumer migration surface check fails on an injected stale artifact"
     assert.equal(stale.status, 1, `--check accepted stale artifacts:\n${stale.stdout}`);
     assert.match(
       stale.stderr,
-      /stale: davinci-road\/plan\/consumer-migration-surfaces\/compiler\/vize_atelier_core\.tsv drifted/,
+      /stale: docs\/davinci\/plan\/consumer-migration-surfaces\/compiler\/vize_atelier_core\.tsv drifted/,
     );
     assert.match(
       stale.stderr,
@@ -109,7 +109,7 @@ void test("consumer migration surface check fails on an injected stale artifact"
     assert.equal(stray.status, 1, `--check accepted a leftover shard:\n${stray.stdout}`);
     assert.match(
       stray.stderr,
-      /stale: davinci-road\/plan\/consumer-migration-surfaces\/compiler\/vize_removed_crate\.tsv is not produced by the generator/,
+      /stale: docs\/davinci\/plan\/consumer-migration-surfaces\/compiler\/vize_removed_crate\.tsv is not produced by the generator/,
     );
     assert.equal(runSurfaceCommand(scratch, "--write").status, 0);
     assert.equal(fs.existsSync(leftover), false);
@@ -120,7 +120,7 @@ void test("consumer migration surface check fails on an injected stale artifact"
     assert.equal(summary.status, 0, `${summary.stdout}${summary.stderr}`.trim());
     assert.match(summary.stdout, /\| Compiler +\| +1 \| +1 \| +0 \|/);
     const index = fs.readFileSync(
-      path.join(scratch, "davinci-road/plan/consumer-migration-surfaces.md"),
+      path.join(scratch, "docs/davinci/plan/consumer-migration-surfaces.md"),
       "utf8",
     );
     assert.equal(index.includes("## Consumer summary"), false);

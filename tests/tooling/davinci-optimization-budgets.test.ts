@@ -11,7 +11,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { parseTomlLite } from "../../legacy-tools/davinci/toml-lite.mjs";
+import { parseTomlLite } from "../../tools/support/compat/davinci/toml-lite.mjs";
 
 type OptimizationBudget = {
   tier: string;
@@ -24,7 +24,7 @@ type OptimizationBudget = {
 };
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const budgetsPath = path.join(repoRoot, "davinci-road", "plan", "budgets.toml");
+const budgetsPath = path.join(repoRoot, "docs/davinci", "plan", "budgets.toml");
 const budgetsText = fs.readFileSync(budgetsPath, "utf8");
 const budgets = parseTomlLite(budgetsText) as {
   optimization: Record<string, OptimizationBudget>;

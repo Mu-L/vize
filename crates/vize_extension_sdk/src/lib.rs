@@ -1,7 +1,7 @@
 //! The SDK for `vize:contracts` guests (Davinci phase 6, P6-2).
 //!
 //! **Experimental:** the contracts are `0.x` until GA; they move under the
-//! written policy in `davinci-road/contracts-compat-policy.md`, and this
+//! written policy in `docs/davinci/contracts-compat-policy.md`, and this
 //! crate's version moves with them.
 //!
 //! An input-dialect guest is a `wasm32-wasip2` component that depends on this
@@ -26,9 +26,9 @@
 //! vize_extension_sdk::export_input_dialect!(Dialect);
 //! ```
 //!
-//! The crate carries the WIT package (`wit/`, byte-equal to the repository's
-//! `contracts/wit/`), its bindings, the handshake constants the host
-//! negotiates, writers for the pages the host accepts ([`pages`]), and — with
+//! The crate owns the canonical WIT package (`wit/`) and released surfaces
+//! (`versions/`), its bindings, the handshake constants the host negotiates,
+//! writers for the pages the host accepts ([`pages`]), and — with
 //! the default `runtime` feature, on `wasm32` — what an import-free `no_std`
 //! guest must provide itself: a global allocator, `cabi_realloc`,
 //! `memcmp`/`bcmp` and a panic handler. The world imports no host function,
