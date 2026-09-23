@@ -9,9 +9,8 @@ use super::document::project_type_aware;
 use super::{
     LintResult, Linter, RULE_NO_FLOATING_PROMISES, RULE_NO_REACTIVITY_LOSS,
     RULE_NO_UNSAFE_TEMPLATE_BINDING, RULE_REQUIRE_TYPED_EMITS, RULE_REQUIRE_TYPED_PROPS,
-    has_promise_like_return, has_unsafe_template_type, push_warning,
-    should_warn_for_emit_validator, should_warn_for_prop_access, should_warn_for_reactivity_loss,
-    with_corsa_session,
+    has_promise_like_return, push_warning, should_warn_for_emit_validator,
+    should_warn_for_prop_access, should_warn_for_reactivity_loss, with_corsa_session,
 };
 use super::{
     markers::{QueryKind, push_promise_marker},
@@ -258,7 +257,7 @@ pub(super) fn lint_with_descriptor<'a>(
         with_corsa_session(linter, filename, |session| {
             profile!(
                 "patina.type_aware.corsa.open_virtual_project",
-                session.open_virtual_project(&virtual_ts.content)
+                session.open_virtual_project(&virtual_ts.content, filename)
             )?;
             for query in &macro_queries {
                 let probe = profile!(
