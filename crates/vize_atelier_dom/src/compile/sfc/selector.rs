@@ -1,9 +1,11 @@
 pub(super) fn s2_sfc_fast_path_supported_source(source: &str) -> bool {
-    !source_contains_non_void_native_self_closing_tag(source)
-        && !super::p_end::source_has_invalid_p_end_tag(source)
+    !source_contains_parser_recovery(source) && !super::p_end::source_has_invalid_p_end_tag(source)
 }
 
-fn source_contains_non_void_native_self_closing_tag(source: &str) -> bool {
+/// The SFC fast path skips the shipped parser, so it cannot return its HTML
+/// tree-construction notices. Route possible recovery cases through the
+/// shared parse path before S2 emission.
+fn source_contains_parser_recovery(source: &str) -> bool {
     let bytes = source.as_bytes();
     let mut tags = Vec::new();
     let mut index = 0;
@@ -18,7 +20,16 @@ fn source_contains_non_void_native_self_closing_tag(source: &str) -> bool {
             let closing_name_start = name_start + 1;
             let closing_name_end = scan_tag_name(bytes, closing_name_start);
             if closing_name_end > closing_name_start {
-                pop_closed_tag(&mut tags, &source[closing_name_start..closing_name_end]);
+                let closing_name = &source[closing_name_start..closing_name_end];
+                // The shipped HTML parser reports `</img>` (and other void
+                // end tags) as fatal. S2 cannot emit before that diagnostic.
+                if is_html_void_tag_name(closing_name)
+                    || (closing_name.bytes().any(|byte| byte.is_ascii_uppercase())
+                        && is_html_void_tag_name(&closing_name.to_ascii_lowercase()))
+                {
+                    return true;
+                }
+                pop_closed_tag(&mut tags, closing_name);
                 index = scan_tag_end(bytes, closing_name_end);
                 continue;
             }
@@ -39,6 +50,20 @@ fn source_contains_non_void_native_self_closing_tag(source: &str) -> bool {
         let namespace = tag_namespace(name, tags.last().copied());
         let tag_end = scan_tag_end(bytes, name_end);
         let self_closing = tag_closes_self_closing(bytes, name_end, tag_end);
+        let html_void_tag = namespace == SourceNamespace::Html
+            && (is_html_void_tag_name(name)
+                || (name.bytes().any(|byte| byte.is_ascii_uppercase())
+                    && is_html_void_tag_name(&name.to_ascii_lowercase())));
+        if namespace == SourceNamespace::Html
+            && (name.eq_ignore_ascii_case("a")
+                || name.eq_ignore_ascii_case("button")
+                || name.eq_ignore_ascii_case("form"))
+            && tags.iter().rev().any(|open| {
+                open.namespace == SourceNamespace::Html && open.name.eq_ignore_ascii_case(name)
+            })
+        {
+            return true;
+        }
         if namespace == SourceNamespace::Html
             && is_plain_native_html_tag_name(name)
             && !is_html_void_tag_name(name)
@@ -57,7 +82,7 @@ fn source_contains_non_void_native_self_closing_tag(source: &str) -> bool {
             return true;
         }
 
-        if !self_closing {
+        if !self_closing && !html_void_tag {
             tags.push(SourceOpenTag { name, namespace });
         }
 
@@ -65,6 +90,24 @@ fn source_contains_non_void_native_self_closing_tag(source: &str) -> bool {
     }
 
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::s2_sfc_fast_path_supported_source;
+
+    #[test]
+    fn html_void_element_does_not_keep_parent_open_after_close() {
+        for source in [
+            r#"<a><img src="x"></a><a>next</a>"#,
+            r#"<a><IMG src="x"></a><a>next</a>"#,
+        ] {
+            assert!(
+                s2_sfc_fast_path_supported_source(source),
+                "{source} should keep the direct S2 SFC fast path"
+            );
+        }
+    }
 }
 
 fn find_byte(bytes: &[u8], start: usize, needle: u8) -> Option<usize> {

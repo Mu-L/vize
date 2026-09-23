@@ -134,6 +134,49 @@ impl Buf {
         }
     }
 
+    pub(super) fn prefer_at_visit_before(&mut self, helper: Helper, visit: u32, before: Helper) {
+        if self.is_preferred(helper) {
+            return;
+        }
+        let at_visit = self
+            .preferred_visits
+            .iter()
+            .position(|seen| *seen >= visit)
+            .unwrap_or(self.preferred.len());
+        let at_before = self
+            .preferred
+            .iter()
+            .position(|seen| seen.bit() == before.bit())
+            .unwrap_or(self.preferred.len());
+        let at = at_visit.min(at_before);
+        self.preferred.insert(at, helper);
+        if self.track_visits {
+            self.preferred_visits.insert(at, visit);
+        }
+    }
+
+    pub(super) fn prefer_at_visit_after(&mut self, helper: Helper, visit: u32, after: Helper) {
+        if self.is_preferred(helper) {
+            return;
+        }
+        let at_visit = self
+            .preferred_visits
+            .iter()
+            .position(|seen| *seen >= visit)
+            .unwrap_or(self.preferred.len());
+        let at_after = self
+            .preferred
+            .iter()
+            .position(|seen| seen.bit() == after.bit())
+            .map(|position| position + 1)
+            .unwrap_or(at_visit);
+        let at = at_visit.max(at_after);
+        self.preferred.insert(at, helper);
+        if self.track_visits {
+            self.preferred_visits.insert(at, visit);
+        }
+    }
+
     pub(super) fn use_to_display_string(&mut self) {
         self.mark(Helper::ToDisplayString);
     }
