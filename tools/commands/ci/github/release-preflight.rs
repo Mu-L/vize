@@ -33,8 +33,7 @@ use std::{
 
 const REQUIRED_RELEASE_WORKFLOWS: &[&str] =
     &["Check", "Fuzz", "Miri", "Real Project Matrix", "Docs build"];
-const PARENT_EVIDENCE_REUSABLE_WORKFLOWS: &[&str] =
-    &["Check", "Fuzz", "Miri", "Real Project Matrix", "Docs build"];
+const PARENT_EVIDENCE_REUSABLE_WORKFLOWS: &[&str] = &["Fuzz", "Real Project Matrix"];
 const RELEASE_PACKAGE_ROOTS: &[&str] = &["editors", "npm"];
 const RELEASE_BLOCKING_LABELS: &[&str] = &["priority:p0", "priority:p1"];
 const FAILURE_DETAIL_GITHUB_TIMEOUTS: GitHubApiTimeouts = GitHubApiTimeouts {
@@ -309,6 +308,30 @@ fn create_release_gate_dispatch_plans(
         return Err("Release dispatch ref is required".to_string());
     }
     Ok(vec![
+        DispatchPlan {
+            workflow_name: "Check",
+            workflow_id: "check.yml",
+            ref_name: ref_name.to_string(),
+            inputs: json!({}),
+            expected_run_name: format!("Check full @ {head_sha}"),
+            accepts_scheduled_evidence: false,
+        },
+        DispatchPlan {
+            workflow_name: "Miri",
+            workflow_id: "miri.yml",
+            ref_name: ref_name.to_string(),
+            inputs: json!({}),
+            expected_run_name: format!("Miri @ {head_sha}"),
+            accepts_scheduled_evidence: false,
+        },
+        DispatchPlan {
+            workflow_name: "Docs build",
+            workflow_id: "build-docs.yml",
+            ref_name: ref_name.to_string(),
+            inputs: json!({}),
+            expected_run_name: format!("Docs build @ {head_sha}"),
+            accepts_scheduled_evidence: false,
+        },
         DispatchPlan {
             workflow_name: "Fuzz",
             workflow_id: "fuzz.yml",
@@ -760,11 +783,10 @@ fn required_release_workflow_evidence(name: &str) -> Result<WorkflowEvidence, St
     match name {
         "Check" => Ok(WorkflowEvidence {
             path: ".github/workflows/check.yml",
-            // The release reuses the parent's main push run when the tag only
-            // changes version metadata. PR Check may skip test-scripts, which
-            // remains required release evidence.
-            events: &["push"],
-            branches: &[("push", &["main"])],
+            // Main push and PR runs are intentionally fast. Only a full run
+            // dispatched at the exact release tag proves the release suite.
+            events: &["workflow_dispatch"],
+            branches: &[],
         }),
         "Benchmark" => Ok(WorkflowEvidence {
             path: ".github/workflows/benchmark.yml",
@@ -778,17 +800,13 @@ fn required_release_workflow_evidence(name: &str) -> Result<WorkflowEvidence, St
         }),
         "Miri" => Ok(WorkflowEvidence {
             path: ".github/workflows/miri.yml",
-            events: if env::var("RELEASE_PR_NUMBER").is_ok_and(|value| !value.is_empty()) {
-                &["push", "pull_request"]
-            } else {
-                &["push"]
-            },
-            branches: &[("push", &["main"])],
+            events: &["workflow_dispatch"],
+            branches: &[],
         }),
         "Docs build" => Ok(WorkflowEvidence {
             path: ".github/workflows/build-docs.yml",
-            events: &["push", "workflow_dispatch"],
-            branches: &[("push", &["main"])],
+            events: &["workflow_dispatch"],
+            branches: &[],
         }),
         "Real Project Matrix" => Ok(WorkflowEvidence {
             path: ".github/workflows/real-project-matrix.yml",

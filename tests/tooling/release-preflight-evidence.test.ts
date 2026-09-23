@@ -64,14 +64,23 @@ test("required workflow selection fails closed for missing, stale, red, or wrong
     () =>
       selectRequiredWorkflowRuns(
         greenRuns.map((run) =>
-          run.path === ".github/workflows/check.yml"
-            ? { ...run, head_branch: "release-candidate" }
-            : run,
+          run.path === ".github/workflows/check.yml" ? { ...run, event: "push" } : run,
         ),
         releaseSha,
       ),
-    /Check: missing push run/,
+    /Check: missing workflow_dispatch run/,
   );
+  for (const path of [".github/workflows/miri.yml", ".github/workflows/build-docs.yml"]) {
+    assert.throws(
+      () =>
+        selectRequiredWorkflowRuns(
+          greenRuns.map((run) => (run.path === path ? { ...run, event: "push" } : run)),
+          releaseSha,
+        ),
+      /missing workflow_dispatch run/,
+      path,
+    );
+  }
 });
 
 test("release evidence ignores a failed optional Benchmark run", () => {

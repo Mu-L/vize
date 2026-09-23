@@ -14,10 +14,7 @@ export const requiredReleaseWorkflows = [
 ];
 
 export const requiredReleaseWorkflowEvidence = new Map([
-  [
-    "Check",
-    { path: ".github/workflows/check.yml", events: ["push"], branches: { push: ["main"] } },
-  ],
+  ["Check", { path: ".github/workflows/check.yml", events: ["workflow_dispatch"] }],
   ["Benchmark", { path: ".github/workflows/benchmark.yml", events: ["workflow_dispatch"] }],
   [
     "Native Smoke",
@@ -35,7 +32,7 @@ export const requiredReleaseWorkflowEvidence = new Map([
       branches: { schedule: ["main"] },
     },
   ],
-  ["Miri", { path: ".github/workflows/miri.yml", events: ["push"], branches: { push: ["main"] } }],
+  ["Miri", { path: ".github/workflows/miri.yml", events: ["workflow_dispatch"] }],
   [
     "App E2E",
     {
@@ -56,8 +53,7 @@ export const requiredReleaseWorkflowEvidence = new Map([
     "Docs build",
     {
       path: ".github/workflows/build-docs.yml",
-      events: ["push", "workflow_dispatch"],
-      branches: { push: ["main"] },
+      events: ["workflow_dispatch"],
     },
   ],
 ]);

@@ -106,7 +106,13 @@ function releaseWorkflowRuns(tag: string) {
     updated_at: `2026-07-12T00:${id}:00Z`,
   });
   return [
-    run(101, "Check", ".github/workflows/check.yml", "push"),
+    run(
+      101,
+      "Check",
+      ".github/workflows/check.yml",
+      "workflow_dispatch",
+      `Check full @ ${releaseSha}`,
+    ),
     run(
       102,
       "Benchmark",
@@ -121,8 +127,14 @@ function releaseWorkflowRuns(tag: string) {
       "workflow_dispatch",
       `Fuzz replay @ ${releaseSha}`,
     ),
-    run(104, "Miri", ".github/workflows/miri.yml", "push"),
-    run(105, "Docs build", ".github/workflows/build-docs.yml", "push"),
+    run(104, "Miri", ".github/workflows/miri.yml", "workflow_dispatch", `Miri @ ${releaseSha}`),
+    run(
+      105,
+      "Docs build",
+      ".github/workflows/build-docs.yml",
+      "workflow_dispatch",
+      `Docs build @ ${releaseSha}`,
+    ),
     run(
       106,
       "Real Project Matrix",

@@ -27,6 +27,30 @@ export function createReleaseGateDispatchPlans({ ref, headSha, baseSha }) {
 
   return [
     {
+      workflowName: "Check",
+      workflowId: "check.yml",
+      ref,
+      inputs: {},
+      expectedRunName: `Check full @ ${headSha}`,
+      acceptsScheduledEvidence: false,
+    },
+    {
+      workflowName: "Miri",
+      workflowId: "miri.yml",
+      ref,
+      inputs: {},
+      expectedRunName: `Miri @ ${headSha}`,
+      acceptsScheduledEvidence: false,
+    },
+    {
+      workflowName: "Docs build",
+      workflowId: "build-docs.yml",
+      ref,
+      inputs: {},
+      expectedRunName: `Docs build @ ${headSha}`,
+      acceptsScheduledEvidence: false,
+    },
+    {
       workflowName: "Fuzz",
       workflowId: "fuzz.yml",
       ref,
