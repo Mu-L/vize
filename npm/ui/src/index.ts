@@ -1,7 +1,9 @@
-// plain-time leads: its dependency-free chunk is hoisted to the top of the
-// time-field, datetime-field, and time-picker subpath bundles, so it must also
-// precede every other module in the root bundle for the byte-equality gate.
+// The date-time model modules lead: every date-time subpath entry re-exports
+// them first, so their chunks precede every other module in those bundles and
+// must do the same in the root bundle for the byte-equality packaging gate.
+export * from "./families/date-time/calendar/plain-date.ts";
 export * from "./families/date-time/time-field/plain-time.ts";
+export * from "./families/date-time/datetime-field/plain-date-time.ts";
 // field-wiring stays first: it reaches the shared deterministic-id module
 // without any SFC, keeping module order identical between the root bundle and
 // the id/error-summary subpath bundles for the byte-equality packaging gate.
@@ -116,7 +118,13 @@ export * from "./families/overlays/tour/tour.ts";
 export * from "./families/form/search-field/search-field.ts";
 export * from "./families/form/slider/slider.ts";
 export * from "./families/layout/separator/separator.ts";
+export * from "./families/layout/dashboard-grid/dashboard-grid.ts";
+export * from "./families/layout/masonry/masonry.ts";
+export * from "./families/layout/master-detail/master-detail.ts";
+export * from "./families/layout/responsive/responsive.ts";
+export * from "./families/layout/sticky-stack/sticky-stack.ts";
 export * from "./families/layout/splitter/splitter.ts";
+export * from "./families/layout/window-manager/window-manager.ts";
 export * from "./families/layout/spacer/spacer.ts";
 export * from "./families/layout/stack/stack.ts";
 export * from "./families/layout/sidebar/sidebar.ts";
@@ -217,3 +225,7 @@ export * from "./families/interaction/pull-to-refresh/pull-to-refresh.ts";
 export * from "./families/interaction/swipe-actions/swipe-actions.ts";
 export * from "./families/navigation/pager/pager.ts";
 export * from "./families/accessibility/landmark/landmark.ts";
+export * from "./families/editor/rich-text/rich-text.ts";
+// scheduler stays last: it pulls the drag-and-drop and press chunks, which must
+// keep the position earlier families give them in the root bundle.
+export * from "./families/date-time/scheduler/scheduler.ts";

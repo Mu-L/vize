@@ -31,6 +31,7 @@ import { calendarRuntimeFixtures } from "../families/date-time/calendar/runtime-
 import { dateTimeFieldRuntimeFixture } from "../families/date-time/datetime-field/runtime-conformance-datetime-field-fixtures.ts";
 import { durationFieldRuntimeFixture } from "../families/date-time/duration-field/runtime-conformance-duration-field-fixtures.ts";
 import { monthPickerRuntimeFixture } from "../families/date-time/month-picker/runtime-conformance-month-picker-fixtures.ts";
+import { schedulerRuntimeFixtures } from "../families/date-time/scheduler/runtime-conformance-scheduler-fixtures.ts";
 import { timePickerRuntimeFixture } from "../families/date-time/time-picker/runtime-conformance-time-picker-fixtures.ts";
 import { weekPickerRuntimeFixture } from "../families/date-time/week-picker/runtime-conformance-week-picker-fixtures.ts";
 import { yearPickerRuntimeFixture } from "../families/date-time/year-picker/runtime-conformance-year-picker-fixtures.ts";
@@ -42,6 +43,7 @@ import { timeFieldRuntimeFixture } from "../families/date-time/time-field/runtim
 import { tableRuntimeFixtures } from "../families/data/table/runtime-conformance-table-fixtures.ts";
 import { dataViewRuntimeFixtures } from "../families/data/runtime-conformance-data-view-fixtures.ts";
 import { chartRuntimeFixtures } from "../families/charts/chart/runtime-conformance-chart-fixtures.ts";
+import { richTextRuntimeFixtures } from "../families/editor/rich-text/runtime-conformance-rich-text-fixtures.ts";
 import { treeRuntimeFixtures } from "../families/data/tree/runtime-conformance-tree-fixtures.ts";
 import { layoutRuntimeFixtures } from "./runtime-conformance-layout-fixtures.ts";
 import { menusRuntimeFixtures } from "../families/menus/runtime-conformance-menus-fixtures.ts";
@@ -120,6 +122,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   dateTimeFieldRuntimeFixture,
   durationFieldRuntimeFixture,
   monthPickerRuntimeFixture,
+  ...schedulerRuntimeFixtures,
   timePickerRuntimeFixture,
   weekPickerRuntimeFixture,
   yearPickerRuntimeFixture,
@@ -129,6 +132,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   timeFieldRuntimeFixture,
   ...tableRuntimeFixtures,
   ...dataViewRuntimeFixtures,
+  ...richTextRuntimeFixtures,
   ...treeRuntimeFixtures,
   ...chartRuntimeFixtures,
   ...splitterRuntimeFixtures,

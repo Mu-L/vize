@@ -9,6 +9,7 @@ import { commandPaletteRendererFixtures } from "./renderer-fixtures-command-pale
 import { commandRendererFixtures } from "./renderer-fixtures-commands.ts";
 import { dataRendererFixtures } from "./renderer-fixtures-data.ts";
 import { dataViewRendererFixtures } from "./renderer-fixtures-data-views.ts";
+import { editorRendererFixtures } from "./renderer-fixtures-editor.ts";
 import { dialogRendererFixtures } from "./renderer-fixtures-dialog.ts";
 import { disclosureRendererFixtures } from "./renderer-fixtures-disclosure.ts";
 import { drawerRendererFixtures } from "./renderer-fixtures-drawer.ts";
@@ -43,6 +44,7 @@ import { structureRendererFixtures } from "./renderer-fixtures-structure.ts";
 import { toastRendererFixtures } from "./renderer-fixtures-toast.ts";
 import { tourRendererFixtures } from "./renderer-fixtures-tour.ts";
 import { videoPlayerRendererFixtures } from "./renderer-fixtures-video-player.ts";
+import { layoutPatternRendererFixtures } from "./renderer-fixtures-layout-patterns.ts";
 import { wayfindingRendererFixtures } from "./renderer-fixtures-wayfinding.ts";
 import { webcamCaptureRendererFixtures } from "./renderer-fixtures-webcam-capture.ts";
 
@@ -60,6 +62,7 @@ export const groupedRendererFixtures = [
   ...commandRendererFixtures,
   ...dataRendererFixtures,
   ...dataViewRendererFixtures,
+  ...editorRendererFixtures,
   ...dialogRendererFixtures,
   ...disclosureRendererFixtures,
   ...drawerRendererFixtures,
@@ -94,6 +97,7 @@ export const groupedRendererFixtures = [
   ...toastRendererFixtures,
   ...tourRendererFixtures,
   ...videoPlayerRendererFixtures,
+  ...layoutPatternRendererFixtures,
   ...wayfindingRendererFixtures,
   ...webcamCaptureRendererFixtures,
 ] as const;

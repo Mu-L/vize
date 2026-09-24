@@ -17,6 +17,7 @@ import { basicFamilyCatalog } from "./family-catalog-basics.ts";
 import { chartFamilyCatalog } from "./family-catalog-charts.ts";
 import { dataFamilyCatalog } from "./family-catalog-data.ts";
 import { dataViewFamilyCatalog } from "./family-catalog-data-views.ts";
+import { editorFamilyCatalog } from "./family-catalog-editor.ts";
 import { dateTimeFamilyCatalog } from "./family-catalog-date-time.ts";
 import { confirmFamilyCatalog, drawerFamilyCatalog } from "./family-catalog-drawer.ts";
 import { feedbackFamilyCatalog } from "./family-catalog-feedback.ts";
@@ -32,6 +33,7 @@ import { i18nFamilyCatalog } from "./family-catalog-i18n.ts";
 import { interactionGestureFamilyCatalog } from "../families/interaction/catalog/gestures.ts";
 import { interactionSupportFamilyCatalog } from "../families/interaction/catalog/support.ts";
 import { layoutFamilyCatalog } from "./family-catalog-layout.ts";
+import { layoutPatternFamilyCatalog } from "./family-catalog-layout-patterns.ts";
 import { menuFamilyCatalog } from "./family-catalog-menus.ts";
 import { navigationFamilyCatalog } from "./family-catalog-navigation.ts";
 import { overlayFamilyCatalog } from "./family-catalog-overlays.ts";
@@ -101,6 +103,7 @@ const allFamilyCatalogEntries = [
   ...confirmFamilyCatalog,
   ...dataFamilyCatalog,
   ...dataViewFamilyCatalog,
+  ...editorFamilyCatalog,
   ...dateTimeFamilyCatalog,
   ...drawerFamilyCatalog,
   ...feedbackFamilyCatalog,
@@ -116,6 +119,7 @@ const allFamilyCatalogEntries = [
   ...interactionGestureFamilyCatalog,
   ...interactionSupportFamilyCatalog,
   ...layoutFamilyCatalog,
+  ...layoutPatternFamilyCatalog,
   ...menuFamilyCatalog,
   ...navigationFamilyCatalog,
   ...overlayFamilyCatalog,
