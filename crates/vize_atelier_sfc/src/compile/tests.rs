@@ -90,6 +90,7 @@ export default {
     return { message: 'hello' }
   }
 }
+
 </script>
 
 <template>
@@ -115,6 +116,80 @@ export default {
             result.code
         );
     }
+}
+
+#[test]
+fn test_script_only_ssr_preserves_default_export() {
+    let source = r#"<script lang="ts">
+import type { PropType } from 'vue'
+import { defineComponent } from 'vue'
+export default defineComponent({ props: { count: Number as PropType<number> } })
+</script>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).expect("parse");
+    for ssr in [false, true] {
+        let result = compile_sfc(
+            &descriptor,
+            SfcCompileOptions {
+                script: ScriptCompileOptions {
+                    is_ts: true,
+                    ..Default::default()
+                },
+                template: TemplateCompileOptions {
+                    ssr,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .expect("compile");
+        assert_eq!(
+            result.code,
+            "\nimport type { PropType } from 'vue'\nimport { defineComponent } from 'vue'\nexport default defineComponent({ props: { count: Number as PropType<number> } })\n"
+        );
+    }
+}
+
+#[test]
+fn test_script_only_ssr_still_strips_typescript_without_rewriting_export() {
+    let source = r#"<script lang="ts">
+const count: number = 1
+export default { count }
+</script>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).expect("parse");
+    let result = compile_sfc(
+        &descriptor,
+        SfcCompileOptions {
+            template: TemplateCompileOptions {
+                ssr: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .expect("compile");
+    assert!(result.code.contains("export default {"), "{}", result.code);
+    assert!(!result.code.contains("_sfc_main"), "{}", result.code);
+    assert!(!result.code.contains(": number"), "{}", result.code);
+}
+
+#[test]
+fn test_script_only_without_default_keeps_empty_component_fallback() {
+    let source = "<script>\nexport const name = 'ScriptOnly'\n</script>";
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).expect("parse");
+    let result = compile_sfc(
+        &descriptor,
+        SfcCompileOptions {
+            template: TemplateCompileOptions {
+                ssr: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .expect("compile");
+    assert!(result.code.contains("export const name = 'ScriptOnly'"));
+    assert!(result.code.contains("const _sfc_main = {}"));
+    assert!(result.code.ends_with("export default _sfc_main"));
 }
 
 #[test]
