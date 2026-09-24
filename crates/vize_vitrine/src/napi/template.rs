@@ -42,10 +42,18 @@ use vize_atelier_vapor::{
 #[napi]
 pub fn compile(template: String, options: Option<CompilerOptions>) -> Result<CompileResult> {
     let opts = options.unwrap_or_default();
+    let whitespace = resolve_whitespace(opts.whitespace.as_deref())
+        .map_err(|message| Error::new(Status::InvalidArg, message))?;
+    whitespace.apply(|| compile_scoped(template, opts, whitespace.strategy))
+}
+
+fn compile_scoped(
+    template: String,
+    opts: CompilerOptions,
+    whitespace: vize_atelier_core::WhitespaceStrategy,
+) -> Result<CompileResult> {
     let allocator = Allocator::new();
     let template_syntax = resolve_template_syntax(opts.template_syntax.as_deref())
-        .map_err(|message| Error::new(Status::InvalidArg, message))?;
-    let whitespace = resolve_whitespace(opts.whitespace.as_deref())
         .map_err(|message| Error::new(Status::InvalidArg, message))?;
 
     // Parse
@@ -181,7 +189,7 @@ pub fn compile_vapor(template: String, options: Option<CompilerOptions>) -> Resu
         source_map: opts.source_map.unwrap_or(false),
         source_map_filename: opts.filename.clone().map(Into::into),
     };
-    let result = vize_atelier_core::parser::with_whitespace_strategy(whitespace, || {
+    let result = whitespace.apply(|| {
         compile_vapor_with_custom_elements_template_syntax_and_experimental_options(
             &allocator,
             &template,
@@ -246,21 +254,23 @@ pub fn parse_template(
     let whitespace = resolve_whitespace(opts.whitespace.as_deref())
         .map_err(|message| Error::new(Status::InvalidArg, message))?;
 
-    let (root, errors) = parse_with_options_custom_elements_and_template_syntax(
-        &allocator,
-        &template,
-        ParserOptions {
-            whitespace,
-            is_pre_tag: |tag| tag == "pre",
-            custom_renderer: opts.custom_renderer.unwrap_or(false),
-            experimental_in_tag_comments: opts.experimental_in_tag_comments.unwrap_or(false),
-            ..Default::default()
-        },
-        vize_atelier_core::options::CustomElementMatcher::from_patterns(
-            crate::types::custom_element_patterns(opts.custom_elements.as_deref()),
-        ),
-        template_syntax,
-    );
+    let (root, errors) = whitespace.apply(|| {
+        parse_with_options_custom_elements_and_template_syntax(
+            &allocator,
+            &template,
+            ParserOptions {
+                whitespace: whitespace.strategy,
+                is_pre_tag: |tag| tag == "pre",
+                custom_renderer: opts.custom_renderer.unwrap_or(false),
+                experimental_in_tag_comments: opts.experimental_in_tag_comments.unwrap_or(false),
+                ..Default::default()
+            },
+            vize_atelier_core::options::CustomElementMatcher::from_patterns(
+                crate::types::custom_element_patterns(opts.custom_elements.as_deref()),
+            ),
+            template_syntax,
+        )
+    });
 
     if !errors.is_empty() {
         return Err(Error::new(
@@ -379,6 +389,27 @@ mod tests {
                 }),
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn compile_vue2_line_breaks_keeps_issue_6518_trailing_segment() {
+        let source = "<p>\n  {{ name }}\n  <i />\n</p>";
+        let result = compile(
+            source.to_string(),
+            Some(CompilerOptions {
+                mode: Some("module".to_string()),
+                whitespace: Some("vue2-line-breaks".to_string()),
+                ..Default::default()
+            }),
+        )
+        .expect("migration mode should compile");
+        assert!(
+            result
+                .code
+                .contains("_toDisplayString(_ctx.name) + \"\\n\""),
+            "{}",
+            result.code
         );
     }
 }
