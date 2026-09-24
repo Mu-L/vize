@@ -40,6 +40,11 @@
       "import": "./dist/alert.mjs",
       "default": "./dist/alert.mjs"
     },
+    "./angle-picker": {
+      "types": "./dist/angle-picker.d.mts",
+      "import": "./dist/angle-picker.mjs",
+      "default": "./dist/angle-picker.mjs"
+    },
     "./announcer": {
       "types": "./dist/announcer.d.mts",
       "import": "./dist/announcer.mjs",
@@ -50,10 +55,20 @@
       "import": "./dist/aspect-ratio.mjs",
       "default": "./dist/aspect-ratio.mjs"
     },
+    "./audio-player": {
+      "types": "./dist/audio-player.d.mts",
+      "import": "./dist/audio-player.mjs",
+      "default": "./dist/audio-player.mjs"
+    },
     "./avatar": {
       "types": "./dist/avatar.d.mts",
       "import": "./dist/avatar.mjs",
       "default": "./dist/avatar.mjs"
+    },
+    "./avatar-group": {
+      "types": "./dist/avatar-group.d.mts",
+      "import": "./dist/avatar-group.mjs",
+      "default": "./dist/avatar-group.mjs"
     },
     "./badge": {
       "types": "./dist/badge.d.mts",
@@ -89,6 +104,26 @@
       "types": "./dist/date-range-picker.d.mts",
       "import": "./dist/date-range-picker.mjs",
       "default": "./dist/date-range-picker.mjs"
+    },
+    "./fieldset": {
+      "types": "./dist/fieldset.d.mts",
+      "import": "./dist/fieldset.mjs",
+      "default": "./dist/fieldset.mjs"
+    },
+    "./form-wizard": {
+      "types": "./dist/form-wizard.d.mts",
+      "import": "./dist/form-wizard.mjs",
+      "default": "./dist/form-wizard.mjs"
+    },
+    "./knob": {
+      "types": "./dist/knob.d.mts",
+      "import": "./dist/knob.mjs",
+      "default": "./dist/knob.mjs"
+    },
+    "./phone-field": {
+      "types": "./dist/phone-field.d.mts",
+      "import": "./dist/phone-field.mjs",
+      "default": "./dist/phone-field.mjs"
     },
     "./range-calendar": {
       "types": "./dist/range-calendar.d.mts",
@@ -275,6 +310,21 @@
       "import": "./dist/toolbar.mjs",
       "default": "./dist/toolbar.mjs"
     },
+    "./data-grid": {
+      "types": "./dist/data-grid.d.mts",
+      "import": "./dist/data-grid.mjs",
+      "default": "./dist/data-grid.mjs"
+    },
+    "./grid-list": {
+      "types": "./dist/grid-list.d.mts",
+      "import": "./dist/grid-list.mjs",
+      "default": "./dist/grid-list.mjs"
+    },
+    "./kanban": {
+      "types": "./dist/kanban.d.mts",
+      "import": "./dist/kanban.mjs",
+      "default": "./dist/kanban.mjs"
+    },
     "./table": {
       "types": "./dist/table.d.mts",
       "import": "./dist/table.mjs",
@@ -439,6 +489,11 @@
       "types": "./dist/kbd.d.mts",
       "import": "./dist/kbd.mjs",
       "default": "./dist/kbd.mjs"
+    },
+    "./lightbox": {
+      "types": "./dist/lightbox.d.mts",
+      "import": "./dist/lightbox.mjs",
+      "default": "./dist/lightbox.mjs"
     },
     "./list": {
       "types": "./dist/list.d.mts",
@@ -640,6 +695,11 @@
       "import": "./dist/image.mjs",
       "default": "./dist/image.mjs"
     },
+    "./image-cropper": {
+      "types": "./dist/image-cropper.d.mts",
+      "import": "./dist/image-cropper.mjs",
+      "default": "./dist/image-cropper.mjs"
+    },
     "./inert-outside": {
       "types": "./dist/inert-outside.d.mts",
       "import": "./dist/inert-outside.mjs",
@@ -700,6 +760,11 @@
       "import": "./dist/long-press.mjs",
       "default": "./dist/long-press.mjs"
     },
+    "./marquee": {
+      "types": "./dist/marquee.d.mts",
+      "import": "./dist/marquee.mjs",
+      "default": "./dist/marquee.mjs"
+    },
     "./measure": {
       "types": "./dist/measure.d.mts",
       "import": "./dist/measure.mjs",
@@ -750,6 +815,11 @@
       "import": "./dist/qr-code.mjs",
       "default": "./dist/qr-code.mjs"
     },
+    "./qr-code/kanji": {
+      "types": "./dist/qr-code-kanji.d.mts",
+      "import": "./dist/qr-code-kanji.mjs",
+      "default": "./dist/qr-code-kanji.mjs"
+    },
     "./spinner": {
       "types": "./dist/spinner.d.mts",
       "import": "./dist/spinner.mjs",
@@ -774,6 +844,11 @@
       "types": "./dist/shortcut.d.mts",
       "import": "./dist/shortcut.mjs",
       "default": "./dist/shortcut.mjs"
+    },
+    "./signature-pad": {
+      "types": "./dist/signature-pad.d.mts",
+      "import": "./dist/signature-pad.mjs",
+      "default": "./dist/signature-pad.mjs"
     },
     "./sortable": {
       "types": "./dist/sortable.d.mts",
@@ -810,10 +885,20 @@
       "import": "./dist/variants.mjs",
       "default": "./dist/variants.mjs"
     },
+    "./video-player": {
+      "types": "./dist/video-player.d.mts",
+      "import": "./dist/video-player.mjs",
+      "default": "./dist/video-player.mjs"
+    },
     "./virtualizer": {
       "types": "./dist/virtualizer.d.mts",
       "import": "./dist/virtualizer.mjs",
       "default": "./dist/virtualizer.mjs"
+    },
+    "./chart": {
+      "types": "./dist/chart.d.mts",
+      "import": "./dist/chart.mjs",
+      "default": "./dist/chart.mjs"
     },
     "./chart-shape": {
       "types": "./dist/chart-shape.d.mts",
@@ -886,6 +971,11 @@
       "types": "./dist/media.d.mts",
       "import": "./dist/media.mjs",
       "default": "./dist/media.mjs"
+    },
+    "./media-player": {
+      "types": "./dist/media-player.d.mts",
+      "import": "./dist/media-player.mjs",
+      "default": "./dist/media-player.mjs"
     },
     "./media/pdf": {
       "types": "./dist/media-pdf.d.mts",

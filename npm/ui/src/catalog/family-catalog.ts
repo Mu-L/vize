@@ -12,6 +12,7 @@ import { accessibilityFamilyCatalog } from "./family-catalog-accessibility.ts";
 import { basicFamilyCatalog } from "./family-catalog-basics.ts";
 import { chartFamilyCatalog } from "./family-catalog-charts.ts";
 import { dataFamilyCatalog } from "./family-catalog-data.ts";
+import { dataViewFamilyCatalog } from "./family-catalog-data-views.ts";
 import { dateTimeFamilyCatalog } from "./family-catalog-date-time.ts";
 import { confirmFamilyCatalog, drawerFamilyCatalog } from "./family-catalog-drawer.ts";
 import { feedbackFamilyCatalog } from "./family-catalog-feedback.ts";
@@ -19,6 +20,7 @@ import { focusFamilyCatalog } from "./family-catalog-focus.ts";
 import { foundationFamilyCatalog } from "./family-catalog-foundations.ts";
 import { formInputFamilyCatalog } from "./family-catalog-form-inputs.ts";
 import { helperFamilyCatalog } from "./family-catalog-helpers.ts";
+import { formStructureFamilyCatalog } from "./family-catalog-form-structure.ts";
 import { hoverCardFamilyCatalog } from "./family-catalog-hover-card.ts";
 import { formCompositeFamilyCatalog } from "./family-catalog-form-composites.ts";
 import { i18nFamilyCatalog } from "./family-catalog-i18n.ts";
@@ -29,12 +31,20 @@ import { menuFamilyCatalog } from "./family-catalog-menus.ts";
 import { navigationFamilyCatalog } from "./family-catalog-navigation.ts";
 import { overlayFamilyCatalog } from "./family-catalog-overlays.ts";
 import { ratingFamilyCatalog } from "./family-catalog-rating.ts";
+import { audioPlayerFamilyCatalog } from "./family-catalog-audio-player.ts";
+import { avatarGroupFamilyCatalog } from "./family-catalog-avatar-group.ts";
 import { colorPickerFamilyCatalog } from "./family-catalog-color-picker.ts";
 import { fileUploadFamilyCatalog } from "./family-catalog-file-upload.ts";
+import { imageCropperFamilyCatalog } from "./family-catalog-image-cropper.ts";
 import { infiniteScrollFamilyCatalog } from "./family-catalog-infinite-scroll.ts";
+import { lightboxFamilyCatalog } from "./family-catalog-lightbox.ts";
+import { marqueeFamilyCatalog } from "./family-catalog-marquee.ts";
 import { mediaFamilyCatalog } from "./family-catalog-media.ts";
+import { mediaPlayerFamilyCatalog } from "./family-catalog-media-player.ts";
 import { qrCodeFamilyCatalog } from "./family-catalog-qr-code.ts";
+import { signaturePadFamilyCatalog } from "./family-catalog-signature-pad.ts";
 import { tourFamilyCatalog } from "./family-catalog-tour.ts";
+import { videoPlayerFamilyCatalog } from "./family-catalog-video-player.ts";
 import { selectionFamilyCatalog } from "./family-catalog-selection.ts";
 import { sliderFamilyCatalog } from "./family-catalog-slider.ts";
 import { structureFamilyCatalog } from "./family-catalog-structure.ts";
@@ -74,6 +84,7 @@ const allFamilyCatalogEntries = [
   ...chartFamilyCatalog,
   ...confirmFamilyCatalog,
   ...dataFamilyCatalog,
+  ...dataViewFamilyCatalog,
   ...dateTimeFamilyCatalog,
   ...drawerFamilyCatalog,
   ...feedbackFamilyCatalog,
@@ -81,6 +92,7 @@ const allFamilyCatalogEntries = [
   ...helperFamilyCatalog,
   ...focusFamilyCatalog,
   ...formInputFamilyCatalog,
+  ...formStructureFamilyCatalog,
   ...hoverCardFamilyCatalog,
   ...formCompositeFamilyCatalog,
   ...i18nFamilyCatalog,
@@ -91,12 +103,20 @@ const allFamilyCatalogEntries = [
   ...navigationFamilyCatalog,
   ...overlayFamilyCatalog,
   ...ratingFamilyCatalog,
+  ...audioPlayerFamilyCatalog,
+  ...avatarGroupFamilyCatalog,
   ...colorPickerFamilyCatalog,
   ...fileUploadFamilyCatalog,
+  ...imageCropperFamilyCatalog,
   ...infiniteScrollFamilyCatalog,
+  ...lightboxFamilyCatalog,
+  ...marqueeFamilyCatalog,
   ...mediaFamilyCatalog,
+  ...mediaPlayerFamilyCatalog,
   ...qrCodeFamilyCatalog,
+  ...signaturePadFamilyCatalog,
   ...tourFamilyCatalog,
+  ...videoPlayerFamilyCatalog,
   ...selectionFamilyCatalog,
   ...sliderFamilyCatalog,
   ...structureFamilyCatalog,

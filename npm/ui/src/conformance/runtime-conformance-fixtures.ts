@@ -30,6 +30,8 @@ import { dateRangePickerRuntimeFixtures } from "../families/date-time/date-range
 import { rangeCalendarRuntimeFixture } from "../families/date-time/range-calendar/runtime-conformance-range-calendar-fixtures.ts";
 import { timeFieldRuntimeFixture } from "../families/date-time/time-field/runtime-conformance-time-field-fixtures.ts";
 import { tableRuntimeFixtures } from "../families/data/table/runtime-conformance-table-fixtures.ts";
+import { dataViewRuntimeFixtures } from "../families/data/runtime-conformance-data-view-fixtures.ts";
+import { chartRuntimeFixtures } from "../families/charts/chart/runtime-conformance-chart-fixtures.ts";
 import { treeRuntimeFixtures } from "../families/data/tree/runtime-conformance-tree-fixtures.ts";
 import { layoutRuntimeFixtures } from "./runtime-conformance-layout-fixtures.ts";
 import { menusRuntimeFixtures } from "../families/menus/runtime-conformance-menus-fixtures.ts";
@@ -53,6 +55,7 @@ import { toolbarRuntimeFixtures } from "../families/actions/toolbar/runtime-conf
 import { fieldRuntimeFixtures } from "../families/form/field/runtime-conformance-field-fixtures.ts";
 import { formInputRuntimeFixtures } from "../families/form/runtime-conformance-form-input-fixtures.ts";
 import { formCompositeRuntimeFixtures } from "../families/form/runtime-conformance-form-composite-fixtures.ts";
+import { formStructureRuntimeFixtures } from "../families/form/runtime-conformance-form-structure-fixtures.ts";
 import { interactionHooksRuntimeFixture } from "../families/interaction/interaction-hooks/runtime-conformance-interaction-hooks-fixtures.ts";
 import { progressBarRuntimeFixture } from "../families/feedback/progress-bar/runtime-conformance-progress-bar-fixtures.ts";
 import { progressRuntimeFixture } from "../families/feedback/progress/runtime-conformance-progress-fixtures.ts";
@@ -108,7 +111,9 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   rangeCalendarRuntimeFixture,
   timeFieldRuntimeFixture,
   ...tableRuntimeFixtures,
+  ...dataViewRuntimeFixtures,
   ...treeRuntimeFixtures,
+  ...chartRuntimeFixtures,
   ...splitterRuntimeFixtures,
   ...breadcrumbRuntimeFixtures,
   ...tabsRuntimeFixtures,
@@ -169,6 +174,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   ...selectionRuntimeFixtures,
   ...formInputRuntimeFixtures,
   ...formCompositeRuntimeFixtures,
+  ...formStructureRuntimeFixtures,
   {
     name: "deterministic-id-provider",
     sourceFile: "families/foundations/id/deterministic-id-provider.vue",
