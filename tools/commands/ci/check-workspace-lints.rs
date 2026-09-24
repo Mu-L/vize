@@ -21,7 +21,6 @@ const PENDING: &[&str] = &[
     "crates/vize_croquis_cf",
     "crates/vize_doctor",
     "crates/vize_marquette",
-    "crates/vize_s1",
     "crates/vize_s2",
     "crates/vize_vitrine",
 ];
