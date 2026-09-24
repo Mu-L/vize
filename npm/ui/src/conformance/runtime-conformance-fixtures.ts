@@ -52,6 +52,7 @@ import { ratingRuntimeFixture } from "../families/form/rating/runtime-conformanc
 import { richRuntimeFixtures } from "./runtime-conformance-rich-fixtures.ts";
 import { splitterRuntimeFixtures } from "../families/layout/splitter/runtime-conformance-splitter-fixtures.ts";
 import { sliderRuntimeFixture } from "../families/form/slider/runtime-conformance-slider-fixtures.ts";
+import { mentionRuntimeFixtures } from "../families/form/mention/runtime-conformance-mention-fixtures.ts";
 import { tagsInputRuntimeFixtures } from "../families/form/tags-input/runtime-conformance-tags-input-fixtures.ts";
 import { spinnerRuntimeFixture } from "../families/feedback/spinner/runtime-conformance-spinner-fixtures.ts";
 import { statusLightRuntimeFixture } from "../families/feedback/status-light/runtime-conformance-status-light-fixtures.ts";
@@ -324,6 +325,7 @@ export const controlRuntimeFixtures: readonly RuntimeFixture[] = [
   ratingRuntimeFixture,
   ...richRuntimeFixtures,
   sliderRuntimeFixture,
+  ...mentionRuntimeFixtures,
   ...tagsInputRuntimeFixtures,
   {
     name: "search-field",

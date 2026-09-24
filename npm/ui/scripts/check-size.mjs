@@ -5,7 +5,7 @@ import { gzipSync } from "node:zlib";
 const distributionDirectory = new URL("../dist/", import.meta.url);
 const staticImportPattern = /\b(?:import|export)\s+(?:[^"']*?\s+from\s+)?["'](\.\.?\/[^"']+)["']/g;
 const budgets = new Map([
-  ["index.mjs", 419_500],
+  ["index.mjs", 452_000],
   ["alert.mjs", 1_050],
   ["announcer.mjs", 4_100],
   ["aspect-ratio.mjs", 1_500],
@@ -87,6 +87,12 @@ const budgets = new Map([
   ["kbd.mjs", 875],
   ["list.mjs", 900],
   ["listbox.mjs", 16_000],
+  ["cascader.mjs", 23_200],
+  ["emoji-picker.mjs", 10_500],
+  ["transfer-list.mjs", 18_200],
+  ["mention.mjs", 32_700],
+  ["listbox-grid.mjs", 14_000],
+  ["autocomplete.mjs", 45_500],
   // Async status clipping ships in the shared stylesheet so it works without base.css.
   ["combobox.mjs", 54_300],
   ["select.mjs", 45_500],
@@ -96,7 +102,7 @@ const budgets = new Map([
   ["checkbox.mjs", 1_900],
   ["collection.mjs", 5_700],
   ["composite-navigation.mjs", 5_355],
-  ["catalog.mjs", 27_000],
+  ["catalog.mjs", 28_300],
   ["command.mjs", 2_200],
   ["context.mjs", 700],
   ["controllable-state.mjs", 600],
