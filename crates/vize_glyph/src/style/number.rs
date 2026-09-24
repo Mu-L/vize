@@ -11,11 +11,11 @@ pub(super) fn add_leading_zero_to_fractional_numbers(source: &str) -> String {
     let mut copied_through = 0;
     let mut index = 0;
 
-    while index < bytes.len() {
-        match bytes[index] {
-            b'"' | b'\'' => index = skip_string(bytes, index + 1, bytes[index]),
+    while let Some(&byte) = bytes.get(index) {
+        match byte {
+            b'"' | b'\'' => index = skip_string(bytes, index + 1, byte),
             b'/' if bytes.get(index + 1) == Some(&b'*') => {
-                index = memchr::memmem::find(&bytes[index + 2..], b"*/")
+                index = memchr::memmem::find(bytes.get(index + 2..).unwrap_or_default(), b"*/")
                     .map_or(bytes.len(), |end| index + 2 + end + 2);
             }
             b'u' | b'U' => {
@@ -28,8 +28,11 @@ pub(super) fn add_leading_zero_to_fractional_numbers(source: &str) -> String {
             b'.' if bytes.get(index + 1).is_some_and(u8::is_ascii_digit)
                 && is_number_start(bytes, index) =>
             {
+                let Some(segment) = source.get(copied_through..index) else {
+                    return source.to_compact_string();
+                };
                 let output = output.get_or_insert_with(|| String::with_capacity(source.len() + 4));
-                output.push_str(&source[copied_through..index]);
+                output.push_str(segment);
                 output.push('0');
                 copied_through = index;
                 index += 1;
@@ -41,7 +44,10 @@ pub(super) fn add_leading_zero_to_fractional_numbers(source: &str) -> String {
     let Some(mut output) = output else {
         return source.to_compact_string();
     };
-    output.push_str(&source[copied_through..]);
+    let Some(remainder) = source.get(copied_through..) else {
+        return source.to_compact_string();
+    };
+    output.push_str(remainder);
     output
 }
 
@@ -50,7 +56,12 @@ fn is_number_start(bytes: &[u8], dot: usize) -> bool {
         return true;
     };
     if matches!(previous, b'+' | b'-') {
-        return dot <= 1 || is_number_boundary(bytes[dot - 2]);
+        return dot <= 1
+            || dot
+                .checked_sub(2)
+                .and_then(|index| bytes.get(index))
+                .copied()
+                .is_some_and(is_number_boundary);
     }
     is_number_boundary(previous)
 }
@@ -75,7 +86,13 @@ fn skip_string(bytes: &[u8], mut index: usize, quote: u8) -> usize {
 }
 
 fn url_body_start(bytes: &[u8], start: usize) -> Option<usize> {
-    if start > 0 && !is_number_boundary(bytes[start - 1]) {
+    if start > 0
+        && !start
+            .checked_sub(1)
+            .and_then(|index| bytes.get(index))
+            .copied()
+            .is_some_and(is_number_boundary)
+    {
         return None;
     }
     if !bytes.get(start..start + 3)?.eq_ignore_ascii_case(b"url") {
@@ -140,6 +157,14 @@ mod tests {
         assert_eq!(
             add_leading_zero_to_fractional_numbers(".5em").as_str(),
             "0.5em"
+        );
+    }
+
+    #[test]
+    fn fractional_number_after_unicode_text_is_rewritten() {
+        assert_eq!(
+            add_leading_zero_to_fractional_numbers(".foo { --élément: .5; }").as_str(),
+            ".foo { --élément: 0.5; }"
         );
     }
 }
