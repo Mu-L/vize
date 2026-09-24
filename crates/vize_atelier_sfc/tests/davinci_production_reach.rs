@@ -83,6 +83,111 @@ fn maybe_ref_event_handler_matches_legacy_module() {
 }
 
 #[test]
+fn encoded_conditional_operators_match_legacy_in_both_dom_shapes() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = "<template><section><span v-if=\"count &gt; 0\">{{ count }}</span><span v-else-if=\"count &lt; 0\">{{ count }}</span></section></template>";
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "EncodedConditional.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "EncodedConditional.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
+fn scoped_component_props_do_not_trigger_static_child_cache() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = "<template><main><h1>Not found</h1><router-link to='/'>Home</router-link></main></template><style scoped>h1 { color: red; }</style>";
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "ScopedLink.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "ScopedLink.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
+fn conditional_v_for_branch_does_not_hoist_item_props() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = r#"<template><Widget><div class="row" v-if="!items.length"><Label/></div><div class="row" v-for="item in items" v-else><Card :item="item"/></div></Widget></template>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "ConditionalFor.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "ConditionalFor.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
+fn scoped_handler_shadowing_setup_const_keeps_legacy_patch_flags() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = r#"<script setup lang="ts">function start() {}</script><template><Timer><template #controls="{ start }"><button @click="start">START</button></template></Timer></template>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "ShadowedHandler.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "ShadowedHandler.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
+fn component_loop_prop_before_spread_keeps_legacy_layout() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = r#"<template><section><Card class="ma2" v-for="i in 10" v-bind="{ color: 'green' }">button {{ i }}</Card></section></template>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "LoopSpread.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "LoopSpread.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
 fn production_compiles_report_and_hold_their_davinci_reach() {
     let _guard = PROFILER_TEST_LOCK.lock().unwrap();
     std::thread::Builder::new()
@@ -146,6 +251,42 @@ fn nested_interactive_recoveries_keep_production_dom_parity() {
 }
 
 #[test]
+fn duplicate_static_attribute_keeps_production_dom_warning_parity() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source =
+        r#"<template><h4 :class="premium" class="" class="shop_title">Shop</h4></template>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
+        let profiler = global_profiler();
+        profiler.clear();
+        profiler.enable();
+        let selected = compile(&descriptor, "DuplicateClass.vue", shape).unwrap();
+        let counters = profiler.counter_summary();
+        profiler.disable();
+        profiler.clear();
+        assert_eq!(classify(shape, &counters), Ok(Lane::Accepted), "{shape:?}");
+
+        let warnings: Vec<_> = selected
+            .warnings
+            .iter()
+            .map(|warning| warning.message.as_str())
+            .collect();
+        assert_eq!(
+            warnings,
+            [
+                "Duplicate attribute `class`. Keeping the repeated attribute so parsing can continue."
+            ],
+            "{shape:?}"
+        );
+
+        let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+            compile(&descriptor, "DuplicateClass.vue", shape)
+        });
+        assert_eq!(divergence(&selected, &legacy), None, "{shape:?}");
+    }
+}
+
+#[test]
 fn tree_construction_parse_errors_keep_production_dom_parity() {
     let _guard = PROFILER_TEST_LOCK.lock().unwrap();
     for (source, filename) in [
@@ -157,24 +298,64 @@ fn tree_construction_parse_errors_keep_production_dom_parity() {
             "<template><div><img src='x'></img></div></template><script setup>const label = 'inner'</script>",
             "VoidEndTag.vue",
         ),
+        (
+            "<template><div>closed</div></div></template><script setup>const label = 'closed'</script>",
+            "StrayEndTag.vue",
+        ),
     ] {
         let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
-        let shape = Shape::DomInline;
+        for shape in [Shape::DomInline, Shape::DomModule] {
+            let profiler = global_profiler();
+            profiler.clear();
+            profiler.enable();
+            let selected = compile(&descriptor, filename, shape);
+            let counters = profiler.counter_summary();
+            profiler.disable();
+            profiler.clear();
+            assert_eq!(
+                classify(shape, &counters),
+                Ok(Lane::Legacy("parse_error".to_owned())),
+                "{filename}: {shape:?}"
+            );
+
+            let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
+                compile(&descriptor, filename, shape)
+            });
+            match (selected, legacy) {
+                (Ok(selected), legacy) => assert_eq!(divergence(&selected, &legacy), None),
+                (Err(selected), Err(legacy)) => {
+                    assert_eq!(selected.code, legacy.code);
+                    assert_eq!(selected.message, legacy.message);
+                }
+                (selected, legacy) => {
+                    panic!("{filename} {shape:?} compile result differs: {selected:?} {legacy:?}")
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn malformed_slot_params_keep_production_diagnostics() {
+    let _guard = PROFILER_TEST_LOCK.lock().unwrap();
+    let source = r#"<template><Widget><template #actions="v-slot:actions"><button>Run</button></template></Widget></template>"#;
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    for shape in [Shape::DomInline, Shape::DomModule] {
         let profiler = global_profiler();
         profiler.clear();
         profiler.enable();
-        let selected = compile(&descriptor, filename, shape);
+        let selected = compile(&descriptor, "InvalidSlotParams.vue", shape);
         let counters = profiler.counter_summary();
         profiler.disable();
         profiler.clear();
         assert_eq!(
             classify(shape, &counters),
-            Ok(Lane::Legacy("parse_error".to_owned())),
-            "{filename}"
+            Ok(Lane::Legacy("emit_refused".to_owned())),
+            "{shape:?}"
         );
 
         let legacy = vize_atelier_dom::differential::with_legacy_lane(|| {
-            compile(&descriptor, filename, shape)
+            compile(&descriptor, "InvalidSlotParams.vue", shape)
         });
         match (selected, legacy) {
             (Ok(selected), legacy) => assert_eq!(divergence(&selected, &legacy), None),
@@ -183,7 +364,7 @@ fn tree_construction_parse_errors_keep_production_dom_parity() {
                 assert_eq!(selected.message, legacy.message);
             }
             (selected, legacy) => {
-                panic!("{filename} compile result differs: {selected:?} {legacy:?}")
+                panic!("{shape:?} compile result differs: {selected:?} {legacy:?}")
             }
         }
     }

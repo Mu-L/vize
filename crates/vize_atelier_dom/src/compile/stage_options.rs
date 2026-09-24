@@ -177,6 +177,7 @@ pub(super) fn s2_emit_options<'a>(
         hoisted_scope_id,
         scope_id: options.scope_id.as_deref(),
         is_ts: options.is_ts,
+        strict_slot_params: false,
         comments: options.comments,
         experimental_in_tag_comments: options.experimental_in_tag_comments,
         custom_element_patterns: custom_elements.patterns(),
