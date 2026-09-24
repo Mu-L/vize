@@ -16,6 +16,7 @@ npm/*/*/dist/
 npm/ui/registry/
 npm/ui/gallery/stories/
 npm/compose/core/registry/
+npm/compose/core/.conformance/
 npm/ui/.lib-pull-e2e-*/
 editors/*/dist/
 npm/builder-vite/wasm/

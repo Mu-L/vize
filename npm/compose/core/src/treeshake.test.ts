@@ -774,7 +774,7 @@ const utilities: readonly UtilityCase[] = [
     binding: "useCookie",
     entry: "index",
     module: "use-cookie",
-    shared: ["scope", "use-cookie-parse", "use-cookie-serialize", "use-cookie-key"],
+    shared: ["scope", "use-cookie-parse", "use-cookie-serialize", "use-cookie-key", "use-mounted"],
   },
   {
     binding: "parseSearchParams",
@@ -858,7 +858,7 @@ const utilities: readonly UtilityCase[] = [
     binding: "useDocumentTitle",
     entry: "index",
     module: "use-document-title",
-    shared: ["scope"],
+    shared: ["scope", "use-mounted"],
   },
   {
     binding: "matchesAccept",
@@ -882,7 +882,7 @@ const utilities: readonly UtilityCase[] = [
     binding: "useFavicon",
     entry: "index",
     module: "use-favicon",
-    shared: [],
+    shared: ["use-mounted"],
   },
   {
     binding: "useFileDialog",

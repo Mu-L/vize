@@ -1648,7 +1648,7 @@ export const utilities = [
     hydration: "stable",
     cleanupOwners: ["reactive-scope"],
     runtimeGlobals: ["window"],
-    dependencies: ["parseCookieHeader", "serializeCookie", "tryOnScopeDispose"],
+    dependencies: ["parseCookieHeader", "serializeCookie", "tryOnScopeDispose", "useMounted"],
   },
   {
     name: "useCountdown",
@@ -1780,7 +1780,7 @@ export const utilities = [
     hydration: "caller-managed",
     cleanupOwners: ["reactive-scope"],
     runtimeGlobals: ["window"],
-    dependencies: ["tryOnScopeDispose"],
+    dependencies: ["tryOnScopeDispose", "useMounted"],
   },
   {
     name: "matchesAccept",
@@ -1840,7 +1840,7 @@ export const utilities = [
     hydration: "caller-managed",
     cleanupOwners: ["reactive-scope"],
     runtimeGlobals: ["window"],
-    dependencies: [],
+    dependencies: ["useMounted"],
   },
   {
     name: "useFetch",
