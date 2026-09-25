@@ -7,6 +7,7 @@ import { test } from "node:test";
 
 import { runMoonScript } from "./_helpers/moonbit.ts";
 import { writeFakeCommand } from "./support/fake-command.ts";
+import { writeFakeNpmRegistry } from "./support/fake-npm-registry.ts";
 
 test("publish_npm_package waits instead of retrying a hidden staged npm publish", () => {
   const tempDir = mkdtempSync(path.join(tmpdir(), "moonbit-publish-staged-"));
@@ -17,10 +18,12 @@ test("publish_npm_package waits instead of retrying a hidden staged npm publish"
   try {
     fs.mkdirSync(packageDir, { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(packageDir, "package.json"),
       `${JSON.stringify({ name: "@vizejs/example", version: "1.2.3" }, null, 2)}\n`,
     );
+    writeFileSync(statePath, JSON.stringify({ publishCalls: 0, tagChecks: 0, versionChecks: 0 }));
     writeFakeCommand(
       binDir,
       "vp",
@@ -67,6 +70,8 @@ test("publish_npm_package waits instead of retrying a hidden staged npm publish"
       env: {
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
         VP_STATE_PATH: statePath,
+        NPM_FAKE_STATE_PATH: statePath,
+        NPM_FAKE_VERSION: "1.2.3",
         PUBLISH_RETRY_LIMIT: "6",
         PUBLISH_RETRY_DELAY: "1",
         PUBLISH_RESOLUTION_RETRY_LIMIT: "3",

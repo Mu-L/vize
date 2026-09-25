@@ -7,6 +7,7 @@ import { test } from "node:test";
 
 import { runMoonScript } from "./_helpers/moonbit.ts";
 import { writeFakeCommand } from "./support/fake-command.ts";
+import { writeFakeNpmRegistry } from "./support/fake-npm-registry.ts";
 
 test("publish_npm_package normalizes workspace and catalog dependency specs before publishing", () => {
   const tempDir = mkdtempSync(path.join(tmpdir(), "moonbit-publish-normalize-"));
@@ -21,6 +22,7 @@ test("publish_npm_package normalizes workspace and catalog dependency specs befo
     fs.mkdirSync(path.join(repoDir, "npm", "native"), { recursive: true });
     fs.mkdirSync(path.join(repoDir, "npm", "cli"), { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(repoDir, "pnpm-workspace.yaml"),
       [
@@ -102,6 +104,8 @@ test("publish_npm_package normalizes workspace and catalog dependency specs befo
       env: {
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
         VP_STATE_PATH: statePath,
+        NPM_FAKE_STATE_PATH: statePath,
+        NPM_FAKE_VERSION: "0.57.0",
         MANIFEST_LOG_PATH: manifestLogPath,
         PUBLISH_RESOLUTION_RETRY_LIMIT: "1",
         PUBLISH_RESOLUTION_RETRY_DELAY: "1",
@@ -183,11 +187,13 @@ test("publish_npm_package computes the tag and forwards provenance to vp", () =>
   const binDir = path.join(tempDir, "bin");
   const argsLogPath = path.join(tempDir, "vp-args.log");
   const cwdLogPath = path.join(tempDir, "vp-cwd.log");
+  const registryUrlLogPath = path.join(tempDir, "registry-urls.log");
   const statePath = path.join(tempDir, "vp-state.json");
 
   try {
     fs.mkdirSync(packageDir, { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(packageDir, "package.json"),
       `${JSON.stringify({ name: "@vizejs/example", version: "1.2.3-beta.1" }, null, 2)}\n`,
@@ -232,6 +238,9 @@ test("publish_npm_package computes the tag and forwards provenance to vp", () =>
         VP_ARGS_LOG: argsLogPath,
         VP_CWD_LOG: cwdLogPath,
         VP_STATE_PATH: statePath,
+        NPM_FAKE_STATE_PATH: statePath,
+        NPM_FAKE_VERSION: "1.2.3-beta.1",
+        NPM_FAKE_URL_LOG: registryUrlLogPath,
         PUBLISH_RESOLUTION_RETRY_LIMIT: "1",
         PUBLISH_RESOLUTION_RETRY_DELAY: "1",
       },
@@ -249,6 +258,23 @@ test("publish_npm_package computes the tag and forwards provenance to vp", () =>
       "--provenance",
     ]);
     assert.equal(fs.realpathSync(fs.readFileSync(cwdLogPath, "utf8")), fs.realpathSync(packageDir));
+    const registryUrls = fs
+      .readFileSync(registryUrlLogPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((url) => new URL(url));
+    assert.deepEqual(
+      registryUrls.map((url) => url.pathname),
+      [
+        "/%40vizejs%2Fexample/1.2.3-beta.1",
+        "/%40vizejs%2Fexample/1.2.3-beta.1",
+        "/%40vizejs%2Fexample",
+      ],
+    );
+    assert.notEqual(
+      registryUrls[0].searchParams.get("vize-publish-check"),
+      registryUrls[1].searchParams.get("vize-publish-check"),
+    );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -263,6 +289,7 @@ test("publish_npm_package skips publish when the version is already visible in n
   try {
     fs.mkdirSync(packageDir, { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(packageDir, "package.json"),
       `${JSON.stringify({ name: "@vizejs/example", version: "1.2.3-beta.1" }, null, 2)}\n`,
@@ -291,6 +318,8 @@ test("publish_npm_package skips publish when the version is already visible in n
       env: {
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
         VP_ARGS_LOG: argsLogPath,
+        NPM_FAKE_ALWAYS_VISIBLE: "1",
+        NPM_FAKE_VERSION: "1.2.3-beta.1",
         PUBLISH_RESOLUTION_RETRY_LIMIT: "1",
         PUBLISH_RESOLUTION_RETRY_DELAY: "1",
       },
@@ -298,11 +327,7 @@ test("publish_npm_package skips publish when the version is already visible in n
 
     assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`.trim());
     assert.match(result.stdout, /already published/i);
-    const loggedArgs = fs.readFileSync(argsLogPath, "utf8").trim().split("\n");
-    assert.equal(
-      loggedArgs.some((line) => line.includes("pm publish")),
-      false,
-    );
+    assert.equal(fs.existsSync(argsLogPath), false);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -317,6 +342,7 @@ test("publish_npm_package treats a non-zero publish exit as success when npm alr
   try {
     fs.mkdirSync(packageDir, { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(packageDir, "package.json"),
       `${JSON.stringify({ name: "@vizejs/example", version: "1.2.3" }, null, 2)}\n`,
@@ -358,6 +384,8 @@ test("publish_npm_package treats a non-zero publish exit as success when npm alr
       env: {
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
         VP_STATE_PATH: statePath,
+        NPM_FAKE_STATE_PATH: statePath,
+        NPM_FAKE_VERSION: "1.2.3",
         PUBLISH_RETRY_LIMIT: "1",
         PUBLISH_RETRY_DELAY: "1",
         PUBLISH_RESOLUTION_RETRY_LIMIT: "2",
@@ -389,6 +417,7 @@ test("publish_npm_package_dirs publishes only subdirectories that contain packag
     fs.mkdirSync(path.join(baseDir, "skip-me"), { recursive: true });
     fs.mkdirSync(path.join(baseDir, "pkg-c"), { recursive: true });
     fs.mkdirSync(binDir, { recursive: true });
+    writeFakeNpmRegistry(binDir);
     writeFileSync(
       path.join(baseDir, "pkg-a", "package.json"),
       `${JSON.stringify({ name: "@vizejs/pkg-a", version: "1.0.0" }, null, 2)}\n`,
@@ -443,6 +472,8 @@ test("publish_npm_package_dirs publishes only subdirectories that contain packag
       env: {
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
         VP_STATE_PATH: statePath,
+        NPM_FAKE_STATE_PATH: statePath,
+        NPM_FAKE_VERSION: "1.0.0",
         PUBLISH_RETRY_LIMIT: "1",
         PUBLISH_RETRY_DELAY: "1",
         PUBLISH_RESOLUTION_RETRY_LIMIT: "1",
