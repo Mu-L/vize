@@ -20,7 +20,7 @@ const SOURCE_PR_JOBS = [
   "pr-tooling-scripts",
   "pr-playground-test",
 ];
-const PR_JOBS = [...CORE_PR_JOBS, ...SOURCE_PR_JOBS];
+const PR_JOBS = [...CORE_PR_JOBS, "pr-source-checks"];
 const FULL_SUITE_JOBS = [
   "nix-flake",
   "vue-parity",
@@ -40,11 +40,17 @@ type Job = {
   if?: string;
   needs?: string[] | string;
   steps?: Array<{ name?: string; if?: string; run?: string; uses?: string }>;
+  "timeout-minutes"?: number;
+  uses?: string;
 };
 const workflow = parse(readRepoFile(".github", "workflows", "check.yml")) as {
   on?: Record<string, unknown>;
   jobs?: Record<string, Job>;
   concurrency?: { group?: string; "cancel-in-progress"?: boolean };
+};
+const sourceWorkflow = parse(readRepoFile(".github", "workflows", "pr-source-checks.yml")) as {
+  on?: Record<string, unknown>;
+  jobs?: Record<string, Job>;
 };
 
 function needs(results: Record<string, string> = {}): Record<string, { result: string }> {
@@ -164,30 +170,49 @@ test("PR, merge group, and main push stay fast while full checks require schedul
 });
 
 test("PR and merge-group source checks are included in the required report", () => {
+  assert.equal(
+    workflow.jobs?.["pr-source-checks"]?.if,
+    "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+  );
+  assert.equal(
+    workflow.jobs?.["pr-source-checks"]?.uses,
+    "./.github/workflows/pr-source-checks.yml",
+  );
+  assert.ok(Object.hasOwn(sourceWorkflow.on ?? {}, "workflow_call"));
+  for (const [job, minutes] of [
+    ["pr-source-plan", 5],
+    ["pr-rust-source", 35],
+    ["pr-js-packages", 35],
+    ["pr-tooling-scripts", 35],
+    ["pr-playground-test", 60],
+    ["source-report", 5],
+  ] as const) {
+    assert.equal(sourceWorkflow.jobs?.[job]?.["timeout-minutes"], minutes);
+  }
   for (const job of SOURCE_PR_JOBS) {
     assert.equal(
-      workflow.jobs?.[job]?.if,
+      sourceWorkflow.jobs?.[job]?.if,
       "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
     );
   }
   for (const job of SOURCE_PR_JOBS.filter((name) => name !== "pr-source-plan")) {
-    const steps = workflow.jobs?.[job]?.steps ?? [];
+    const steps = sourceWorkflow.jobs?.[job]?.steps ?? [];
     assert.ok(steps.length > 0, `${job} needs a skip explanation or validation steps`);
     assert.ok(
       steps.every((step) => step.if),
       `${job} must guard every expensive step`,
     );
   }
-  assert.deepEqual(workflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
-  assert.deepEqual(workflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
-  assert.deepEqual(workflow.jobs?.["pr-tooling-scripts"]?.needs, "pr-source-plan");
-  assert.deepEqual(workflow.jobs?.["pr-playground-test"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-tooling-scripts"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-playground-test"]?.needs, "pr-source-plan");
   const commands = (job: string) =>
-    (workflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
+    (sourceWorkflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
   assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
   assert.match(commands("pr-rust-source"), /cargo test --workspace/);
   assert.match(commands("pr-rust-source"), /write-coverage-summary\.rs/);
-  const rustSteps = workflow.jobs?.["pr-rust-source"]?.steps ?? [];
+  const rustSteps = sourceWorkflow.jobs?.["pr-rust-source"]?.steps ?? [];
   const pklIndex = rustSteps.findIndex((step) => step.name === "Install Pkl CLI");
   const testIndex = rustSteps.findIndex((step) => step.name === "Test Rust workspace");
   assert.ok(
@@ -198,6 +223,9 @@ test("PR and merge-group source checks are included in the required report", () 
   assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
   assert.match(commands("pr-tooling-scripts"), /vp run --workspace-root test:scripts/);
   assert.match(commands("pr-playground-test"), /vp run --filter '\.\/playground' test:browser/);
+  assert.equal(sourceWorkflow.jobs?.["source-report"]?.if, "${{ always() }}");
+  assert.deepEqual(sourceWorkflow.jobs?.["source-report"]?.needs, SOURCE_PR_JOBS);
+  assert.match(commands("source-report"), /require-needs-success\.mjs/);
 });
 
 test("report fails closed when any PR check fails or skips", () => {
@@ -206,6 +234,9 @@ test("report fails closed when any PR check fails or skips", () => {
     const decision = aggregateNeedsResults(needs({ "check-js": result }));
     assert.equal(decision.exitCode, 1);
     assert.match(decision.message, new RegExp(`check-js: ${result}`));
+    const sourceDecision = aggregateNeedsResults(needs({ "pr-source-checks": result }));
+    assert.equal(sourceDecision.exitCode, 1);
+    assert.match(sourceDecision.message, new RegExp(`pr-source-checks: ${result}`));
   }
   assert.throws(() => aggregateNeedsResults({}), /needs context is empty/);
 });
