@@ -207,123 +207,6 @@ async fn prepare_publish_manifest(directory : String) -> Int {
   exit_code
 }
 
-/// Recursively checks whether a JSON value contains the expected string.
-/// Registry commands sometimes return a bare string and sometimes return JSON
-/// arrays or objects, depending on the field and the package manager wrapper.
-/// This helper keeps the visibility checks tolerant to those shape changes.
-fn json_contains_string(value : Json, expected : String) -> Bool {
-  match value {
-    String(text) => text == expected
-    Array(items) => {
-      for item in items {
-        if json_contains_string(item, expected) {
-          return true
-        }
-      }
-      false
-    }
-    _ => false
-  }
-}
-
-/// Returns `true` when a `dist-tags` JSON object maps `tag` to `version`.
-fn json_dist_tag_matches(value : Json, tag : String, version : String) -> Bool {
-  guard value is Object(obj) else { return false }
-  guard obj.get(tag) is Some(String(tag_version)) else { return false }
-  tag_version == version
-}
-
-/// Checks whether the exact package version is visible from npm registry reads.
-/// Visibility is more important than the publish command's exit code: if the
-/// registry already serves `name@version`, rerunning the workflow should treat
-/// that state as success rather than attempting to publish again.
-async fn npm_version_is_visible(vp_bin : String, name : String, version : String) -> Bool {
-  let (exit_code, stdout, _) = @process.collect_output(
-    vp_bin,
-    ["pm", "view", name + "@" + version, "version", "--json"],
-  )
-  if exit_code != 0 {
-    return false
-  }
-  let body = stdout.text().trim()
-  if body == "" {
-    return false
-  }
-  if body == version || body == "\"" + version + "\"" {
-    return true
-  }
-  let parsed = try {
-    @json.parse(body)
-  } catch {
-    _ => return false
-  }
-  json_contains_string(parsed, version)
-}
-
-/// Checks whether the package's dist-tag has propagated to the expected version.
-/// For consumers of prerelease channels, the dist-tag is often the real source
-/// of truth. We therefore wait for both the version and the dist-tag instead of
-/// declaring success immediately after `publish` returns.
-async fn npm_tag_points_to_version(
-  vp_bin : String,
-  name : String,
-  tag : String,
-  version : String,
-) -> Bool {
-  let (exit_code, stdout, _) = @process.collect_output(
-    vp_bin,
-    ["pm", "view", name, "dist-tags", "--json"],
-  )
-  if exit_code != 0 {
-    return false
-  }
-  let body = stdout.text().trim()
-  if body == "" {
-    return false
-  }
-  let parsed = try {
-    @json.parse(body)
-  } catch {
-    _ => return false
-  }
-  json_dist_tag_matches(parsed, tag, version)
-}
-
-/// Polls the registry until both the version and dist-tag become visible.
-/// Publishing to npm is eventually consistent. This helper turns that
-/// propagation window into an explicit, bounded retry loop so workflow failures
-/// point to a real timeout rather than a transient post-publish race.
-async fn wait_for_registry_visibility(
-  vp_bin : String,
-  info : NpmPackageInfo,
-  max_attempts : Int,
-  delay_seconds : Int,
-) -> Int {
-  let mut attempt = 1
-  while attempt <= max_attempts {
-    let version_visible = npm_version_is_visible(vp_bin, info.name, info.version)
-    let tag_visible = npm_tag_points_to_version(vp_bin, info.name, info.tag, info.version)
-    if version_visible && tag_visible {
-      println(
-        "\{info.name}@\{info.version} is visible in npm with dist-tag \{info.tag}.",
-      )
-      return 0
-    }
-    if attempt >= max_attempts {
-      @stdio.stderr.write(
-        "Timed out waiting for \{info.name}@\{info.version} to appear in npm with dist-tag \{info.tag}.\n",
-      )
-      return 1
-    }
-    println(
-      "Waiting for \{info.name}@\{info.version} to appear in npm with dist-tag \{info.tag}... (\{attempt}/\{max_attempts})",
-    )
-    @async.sleep(delay_seconds * 1000)
-    attempt = attempt + 1
-  }
-  1
-}
-
 /// Main entry point for resilient single-package npm publishing.
 /// The function first decides whether publishing is necessary, then performs
 /// retries around `vp pm publish`, and finally waits for registry propagation.
@@ -432,12 +315,11 @@ async fn run_app() -> Int {
   }
 
   let max_attempts = if retries > 0 { retries } else { 1 }
-  if npm_version_is_visible(vp_bin, info.name, info.version) {
+  if npm_version_is_visible(info.name, info.version, 0) {
     println(
       "\{info.name}@\{info.version} is already published. Skipping publish and verifying registry visibility.",
     )
     return wait_for_registry_visibility(
-      vp_bin,
       info,
       resolution_retries,
       resolution_delay_seconds,
@@ -464,18 +346,16 @@ async fn run_app() -> Int {
     }
     if exit_code == 0 {
       return wait_for_registry_visibility(
-        vp_bin,
         info,
         resolution_retries,
         resolution_delay_seconds,
       )
     }
-    if npm_version_is_visible(vp_bin, info.name, info.version) {
+    if npm_version_is_visible(info.name, info.version, 0 - attempt) {
       println(
         "\{info.name}@\{info.version} appears in npm despite a non-zero publish exit. Verifying registry visibility.",
       )
       return wait_for_registry_visibility(
-        vp_bin,
         info,
         resolution_retries,
         resolution_delay_seconds,
@@ -487,7 +367,6 @@ async fn run_app() -> Int {
         "\{info.name}@\{info.version} is staged in npm but not yet visible. Waiting for registry visibility before retrying.",
       )
       return wait_for_registry_visibility(
-        vp_bin,
         info,
         resolution_retries,
         resolution_delay_seconds,
