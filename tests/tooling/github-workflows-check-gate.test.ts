@@ -6,7 +6,21 @@ import { parse } from "yaml";
 import { aggregateNeedsResults } from "../../tools/support/compat/github/require-needs-success.mjs";
 import { readRepoFile, root } from "./support/github-workflows.ts";
 
-const PR_JOBS = ["fmt-rust", "check-js", "security-audit", "node-engine-compat", "check-vize-apps"];
+const CORE_PR_JOBS = [
+  "fmt-rust",
+  "check-js",
+  "security-audit",
+  "node-engine-compat",
+  "check-vize-apps",
+];
+const SOURCE_PR_JOBS = [
+  "pr-source-plan",
+  "pr-rust-source",
+  "pr-js-packages",
+  "pr-tooling-scripts",
+  "pr-playground-test",
+];
+const PR_JOBS = [...CORE_PR_JOBS, "pr-source-checks"];
 const FULL_SUITE_JOBS = [
   "nix-flake",
   "vue-parity",
@@ -24,13 +38,25 @@ const FULL_SUITE_JOBS = [
 
 type Job = {
   if?: string;
-  needs?: string[];
-  steps?: Array<{ name?: string; if?: string; run?: string; uses?: string }>;
+  needs?: string[] | string;
+  steps?: Array<{
+    name?: string;
+    if?: string;
+    run?: string;
+    uses?: string;
+    with?: Record<string, string>;
+  }>;
+  "timeout-minutes"?: number;
+  uses?: string;
 };
 const workflow = parse(readRepoFile(".github", "workflows", "check.yml")) as {
   on?: Record<string, unknown>;
   jobs?: Record<string, Job>;
   concurrency?: { group?: string; "cancel-in-progress"?: boolean };
+};
+const sourceWorkflow = parse(readRepoFile(".github", "workflows", "pr-source-checks.yml")) as {
+  on?: Record<string, unknown>;
+  jobs?: Record<string, Job>;
 };
 
 function needs(results: Record<string, string> = {}): Record<string, { result: string }> {
@@ -47,7 +73,11 @@ test("obsolete main validation is cancelled when the branch advances", () => {
       candidate.concurrency?.group ?? "",
       /github\.event\.pull_request\.number \|\| github\.ref/,
     );
-    assert.doesNotMatch(candidate.concurrency?.group ?? "", /github\.sha/);
+    if (candidate === workflow) {
+      assert.match(candidate.concurrency?.group ?? "", /format\('full-\{0\}', github\.sha\)/);
+    } else {
+      assert.doesNotMatch(candidate.concurrency?.group ?? "", /github\.sha/);
+    }
   }
 });
 
@@ -65,7 +95,7 @@ test("PR, merge group, and main push stay fast while full checks require schedul
     workflow.jobs?.["test-report"]?.if,
     "${{ always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}",
   );
-  for (const job of PR_JOBS) {
+  for (const job of CORE_PR_JOBS) {
     assert.equal(workflow.jobs?.[job]?.if, undefined, `${job} must run on pull requests`);
   }
   for (const job of FULL_SUITE_JOBS) {
@@ -145,12 +175,102 @@ test("PR, merge group, and main push stay fast while full checks require schedul
   assert.deepEqual(workflow.jobs?.["playground-test"]?.needs, ["build-js-packages"]);
 });
 
+test("PR and merge-group source checks are included in the required report", () => {
+  assert.equal(
+    workflow.jobs?.["pr-source-checks"]?.if,
+    "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+  );
+  assert.equal(
+    workflow.jobs?.["pr-source-checks"]?.uses,
+    "./.github/workflows/pr-source-checks.yml",
+  );
+  assert.ok(Object.hasOwn(sourceWorkflow.on ?? {}, "workflow_call"));
+  for (const [job, minutes] of [
+    ["pr-source-plan", 5],
+    ["pr-rust-source", 35],
+    ["pr-js-packages", 35],
+    ["pr-tooling-scripts", 35],
+    ["pr-playground-test", 60],
+    ["source-report", 5],
+  ] as const) {
+    assert.equal(sourceWorkflow.jobs?.[job]?.["timeout-minutes"], minutes);
+  }
+  for (const job of SOURCE_PR_JOBS) {
+    assert.equal(
+      sourceWorkflow.jobs?.[job]?.if,
+      "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+    );
+  }
+  for (const job of SOURCE_PR_JOBS.filter((name) => name !== "pr-source-plan")) {
+    const steps = sourceWorkflow.jobs?.[job]?.steps ?? [];
+    assert.ok(steps.length > 0, `${job} needs a skip explanation or validation steps`);
+    assert.ok(
+      steps.every((step) => step.if),
+      `${job} must guard every expensive step`,
+    );
+  }
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-tooling-scripts"]?.needs, "pr-source-plan");
+  assert.deepEqual(sourceWorkflow.jobs?.["pr-playground-test"]?.needs, "pr-source-plan");
+  const commands = (job: string) =>
+    (sourceWorkflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
+  assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
+  assert.match(commands("pr-rust-source"), /cargo test --workspace/);
+  assert.match(commands("pr-rust-source"), /write-coverage-summary\.rs/);
+  const rustSteps = sourceWorkflow.jobs?.["pr-rust-source"]?.steps ?? [];
+  const pklIndex = rustSteps.findIndex((step) => step.name === "Install Pkl CLI");
+  const testIndex = rustSteps.findIndex((step) => step.name === "Test Rust workspace");
+  assert.ok(
+    pklIndex >= 0 && testIndex >= 0 && pklIndex < testIndex,
+    "Pkl fixtures need the CLI before workspace tests",
+  );
+  assert.match(commands("pr-js-packages"), /vp run --workspace-root test:js/);
+  assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
+  assert.match(commands("pr-tooling-scripts"), /vp run --workspace-root test:scripts/);
+  assert.match(commands("pr-playground-test"), /vp run --filter '\.\/playground' test:browser/);
+  assert.equal(sourceWorkflow.jobs?.["source-report"]?.if, "${{ always() }}");
+  assert.deepEqual(sourceWorkflow.jobs?.["source-report"]?.needs, SOURCE_PR_JOBS);
+  assert.match(commands("source-report"), /require-needs-success\.mjs/);
+});
+
+test("untrusted source checks cannot write trusted sticky disks", () => {
+  const action = parse(
+    readRepoFile(".github", "actions", "setup-rust-sticky-cache", "action.yml"),
+  ) as {
+    inputs?: Record<string, { default?: string }>;
+    runs?: { steps?: Array<{ uses?: string; with?: Record<string, string> }> };
+  };
+  assert.equal(action.inputs?.["cache-key-prefix"]?.default, "");
+  const prefix =
+    "${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}";
+  for (const job of SOURCE_PR_JOBS.filter((name) => name !== "pr-source-plan")) {
+    const cacheStep = sourceWorkflow.jobs?.[job]?.steps?.find(
+      (step) => step.uses === "./.github/actions/setup-rust-sticky-cache",
+    );
+    assert.equal(cacheStep?.with?.["cache-key-prefix"], prefix, `${job} must isolate its cache`);
+  }
+  const mounts = action.runs?.steps?.filter((step) =>
+    step.uses?.startsWith("useblacksmith/stickydisk@"),
+  );
+  assert.equal(mounts?.length, 4, "registry, git, primary, and secondary disks need isolation");
+  for (const mount of mounts ?? []) {
+    assert.ok(
+      mount.with?.key?.startsWith("${{ github.repository }}-${{ inputs.cache-key-prefix }}"),
+      `shared cache key: ${mount.with?.key}`,
+    );
+  }
+});
+
 test("report fails closed when any PR check fails or skips", () => {
   assert.equal(aggregateNeedsResults(needs()).exitCode, 0);
   for (const result of ["failure", "cancelled", "skipped"] as const) {
     const decision = aggregateNeedsResults(needs({ "check-js": result }));
     assert.equal(decision.exitCode, 1);
     assert.match(decision.message, new RegExp(`check-js: ${result}`));
+    const sourceDecision = aggregateNeedsResults(needs({ "pr-source-checks": result }));
+    assert.equal(sourceDecision.exitCode, 1);
+    assert.match(sourceDecision.message, new RegExp(`pr-source-checks: ${result}`));
   }
   assert.throws(() => aggregateNeedsResults({}), /needs context is empty/);
 });

@@ -2,6 +2,10 @@ name: Setup Rust sticky cache
 description: Mount Blacksmith sticky disks for Cargo and Rust build artifacts
 
 inputs:
+  cache-key-prefix:
+    description: Optional namespace before the Cargo and target cache names
+    required: false
+    default: ""
   key:
     description: Stable cache namespace for this job
     required: true
@@ -37,26 +41,26 @@ runs:
       if: ${{ runner.environment != 'github-hosted' }}
       uses: useblacksmith/stickydisk@d58829ad6f9be8822ec5efe74256c82cd62915ab # v1
       with:
-        key: ${{ github.repository }}-cargo-registry-${{ inputs.cache-key-suffix }}
+        key: ${{ github.repository }}-${{ inputs.cache-key-prefix }}cargo-registry-${{ inputs.cache-key-suffix }}
         path: ~/.cargo/registry
 
     - name: Mount Cargo git sticky disk
       if: ${{ runner.environment != 'github-hosted' }}
       uses: useblacksmith/stickydisk@d58829ad6f9be8822ec5efe74256c82cd62915ab # v1
       with:
-        key: ${{ github.repository }}-cargo-git-${{ inputs.cache-key-suffix }}
+        key: ${{ github.repository }}-${{ inputs.cache-key-prefix }}cargo-git-${{ inputs.cache-key-suffix }}
         path: ~/.cargo/git
 
     - name: Mount Rust target sticky disk
       if: ${{ runner.environment != 'github-hosted' }}
       uses: useblacksmith/stickydisk@d58829ad6f9be8822ec5efe74256c82cd62915ab # v1
       with:
-        key: ${{ github.repository }}-${{ inputs.key }}-target-${{ inputs.cache-key-suffix }}
+        key: ${{ github.repository }}-${{ inputs.cache-key-prefix }}${{ inputs.key }}-target-${{ inputs.cache-key-suffix }}
         path: ${{ inputs.target-path }}
 
     - name: Mount secondary Rust target sticky disk
       if: ${{ runner.environment != 'github-hosted' && inputs.secondary-target-path != '' }}
       uses: useblacksmith/stickydisk@d58829ad6f9be8822ec5efe74256c82cd62915ab # v1
       with:
-        key: ${{ github.repository }}-${{ inputs.secondary-key }}-target-${{ inputs.secondary-cache-key-suffix }}
+        key: ${{ github.repository }}-${{ inputs.cache-key-prefix }}${{ inputs.secondary-key }}-target-${{ inputs.secondary-cache-key-suffix }}
         path: ${{ inputs.secondary-target-path }}
