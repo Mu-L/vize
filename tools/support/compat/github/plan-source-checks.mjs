@@ -32,10 +32,14 @@ export function planSourceChecks(paths) {
 }
 
 export function changedPaths(base, head, cwd = process.cwd()) {
-  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACDMRT", "-z", base, head], {
-    cwd,
-    encoding: "utf8",
-  })
+  return execFileSync(
+    "git",
+    ["diff", "--no-renames", "--name-only", "--diff-filter=ACDMRT", "-z", base, head],
+    {
+      cwd,
+      encoding: "utf8",
+    },
+  )
     .split("\0")
     .filter(Boolean);
 }

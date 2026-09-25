@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, unlinkSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -56,7 +56,7 @@ void test("release sources and tooling tests require the script gate", () => {
   }
 });
 
-void test("deleted source files still select both gates", () => {
+void test("deleted and moved source files still select both gates", () => {
   const cwd = mkdtempSync(join(tmpdir(), "vize-source-checks-"));
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
   try {
@@ -74,6 +74,18 @@ void test("deleted source files still select both gates", () => {
     const paths = changedPaths(base, git("rev-parse", "HEAD"), cwd);
     assert.deepEqual(paths, ["crates/lib.rs"]);
     assert.deepEqual(planSourceChecks(paths), { rust: true, js: true, tooling: false });
+
+    writeFileSync(join(cwd, "crates", "lib.rs"), "pub fn example() {}\n");
+    git("add", ".");
+    git("commit", "-qm", "restore source");
+    const beforeMove = git("rev-parse", "HEAD");
+    mkdirSync(join(cwd, "docs"));
+    renameSync(join(cwd, "crates", "lib.rs"), join(cwd, "docs", "lib.rs"));
+    git("add", "-A");
+    git("commit", "-qm", "move source");
+    const movedPaths = changedPaths(beforeMove, git("rev-parse", "HEAD"), cwd);
+    assert.deepEqual(movedPaths, ["crates/lib.rs", "docs/lib.rs"]);
+    assert.deepEqual(planSourceChecks(movedPaths), { rust: true, js: true, tooling: false });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
