@@ -54,6 +54,44 @@ fn template_directives_suppress_and_report_through_standard_tsgo() {
         "unused directive fixture must report exactly the vize4 diagnostic:\n{}",
         output_text(&unused)
     );
+
+    let parent_ignore = check_project(
+        &tsgo,
+        project.path(),
+        "tsconfig.directives-parent-ignore.json",
+    );
+    assert!(
+        !parent_ignore.status.success(),
+        "child diagnostic must remain visible beneath parent @vue-ignore:\n{}",
+        output_text(&parent_ignore)
+    );
+    let parent_ignore_stdout = std::str::from_utf8(&parent_ignore.stdout).unwrap();
+    let errors = parent_ignore_stdout
+        .lines()
+        .filter(|line| line.contains("error TS2339:"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        errors.len(),
+        1,
+        "only the child diagnostic must remain visible:\n{}",
+        output_text(&parent_ignore)
+    );
+    assert!(
+        errors[0].starts_with("directives/ParentIgnore.vue(8,"),
+        "the remaining diagnostic must target the child expression:\n{}",
+        output_text(&parent_ignore)
+    );
+
+    let parent_skip = check_project(
+        &tsgo,
+        project.path(),
+        "tsconfig.directives-parent-skip.json",
+    );
+    assert!(
+        parent_skip.status.success(),
+        "@vue-skip must suppress parent and child diagnostics:\n{}",
+        output_text(&parent_skip)
+    );
 }
 
 fn workspace_root() -> &'static Path {

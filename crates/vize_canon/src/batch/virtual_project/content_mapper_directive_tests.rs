@@ -45,10 +45,82 @@ fn ignore_directive_suppresses_without_an_unused_report() {
     let directives = transform(source).diagnostic_directives.unwrap();
 
     assert!(directives.unused_expect_directive_diagnostics.is_empty());
-    assert_eq!(directives.directives.len(), 1);
-    let [_, _, virtual_start, virtual_end, policy, _] = directives.directives[0].0;
-    assert_eq!(policy, DIRECTIVE_POLICY_IGNORE);
-    assert!(virtual_start < virtual_end);
+    assert!(!directives.directives.is_empty());
+    for directive in &directives.directives {
+        let [_, _, virtual_start, virtual_end, policy, _] = directive.0;
+        assert_eq!(policy, DIRECTIVE_POLICY_IGNORE);
+        assert!(virtual_start < virtual_end);
+    }
+}
+
+#[test]
+fn ignore_directive_owns_parent_checks_without_hiding_child_checks() {
+    let source = "<script setup lang=\"ts\">const child = 1</script>\n<template>\n  <!-- @vue-ignore -->\n  <div :id=\"child.bad\">{{ child.bad }}</div>\n</template>\n";
+    let result = transform(source);
+    let directives = result.diagnostic_directives.unwrap();
+    let parent = source.find("child.bad").unwrap();
+    let child = source.find("{{ child.bad }}").unwrap() + 3;
+    let parent_positions = mapped_positions(&result.mappings, parent);
+    let child_positions = mapped_positions(&result.mappings, child);
+    assert!(!parent_positions.is_empty(), "parent check has no mapping");
+    assert!(!child_positions.is_empty(), "child check has no mapping");
+    assert!(
+        parent_positions
+            .iter()
+            .all(|position| covered(&directives.directives, *position))
+    );
+    assert!(
+        child_positions
+            .iter()
+            .all(|position| !covered(&directives.directives, *position))
+    );
+}
+
+#[test]
+fn skip_directive_owns_parent_and_child_checks() {
+    let source = "<script setup lang=\"ts\">const child = 1</script>\n<template>\n  <!-- @vue-skip -->\n  <div :id=\"child.bad\">{{ child.bad }}</div>\n</template>\n";
+    let result = transform(source);
+    let directives = result.diagnostic_directives.unwrap();
+    let parent = source.find("child.bad").unwrap();
+    let child = source.find("{{ child.bad }}").unwrap() + 3;
+    let parent_positions = mapped_positions(&result.mappings, parent);
+    let child_positions = mapped_positions(&result.mappings, child);
+    assert!(!parent_positions.is_empty(), "parent check has no mapping");
+    assert!(!child_positions.is_empty(), "child check has no mapping");
+    assert!(
+        parent_positions
+            .iter()
+            .all(|position| covered(&directives.directives, *position))
+    );
+    assert!(
+        child_positions
+            .iter()
+            .all(|position| covered(&directives.directives, *position))
+    );
+}
+
+fn mapped_positions(spans: &[super::protocol::ContentMapperSpan], original: usize) -> Vec<usize> {
+    spans
+        .iter()
+        .filter_map(
+            |super::protocol::ContentMapperSpan(
+                [generated, length, start, original_length, _, _],
+            )| {
+                (*start <= original && original < start + original_length)
+                    .then_some(*generated + (*length / 2))
+            },
+        )
+        .collect()
+}
+
+fn covered(
+    directives: &[super::protocol::ContentMapperDiagnosticDirective],
+    position: usize,
+) -> bool {
+    directives.iter().any(|directive| {
+        let [_, _, start, end, _, _] = directive.0;
+        start <= position && position < end
+    })
 }
 
 #[test]
