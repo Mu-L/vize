@@ -170,6 +170,14 @@ test("PR and merge-group source checks are included in the required report", () 
       "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
     );
   }
+  for (const job of SOURCE_PR_JOBS.filter((name) => name !== "pr-source-plan")) {
+    const steps = workflow.jobs?.[job]?.steps ?? [];
+    assert.ok(steps.length > 0, `${job} needs a skip explanation or validation steps`);
+    assert.ok(
+      steps.every((step) => step.if),
+      `${job} must guard every expensive step`,
+    );
+  }
   assert.deepEqual(workflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
   assert.deepEqual(workflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
   assert.deepEqual(workflow.jobs?.["pr-tooling-scripts"]?.needs, "pr-source-plan");
