@@ -76,8 +76,9 @@ fn template_directives_suppress_and_report_through_standard_tsgo() {
         "only the child diagnostic must remain visible:\n{}",
         output_text(&parent_ignore)
     );
-    assert!(
-        errors[0].starts_with("directives/ParentIgnore.vue(8,"),
+    assert_eq!(
+        errors[0],
+        "directives/ParentIgnore.vue(8,14): error TS2339: Property 'missing' does not exist on type '1'.",
         "the remaining diagnostic must target the child expression:\n{}",
         output_text(&parent_ignore)
     );

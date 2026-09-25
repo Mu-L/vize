@@ -39,7 +39,13 @@ const FULL_SUITE_JOBS = [
 type Job = {
   if?: string;
   needs?: string[] | string;
-  steps?: Array<{ name?: string; if?: string; run?: string; uses?: string }>;
+  steps?: Array<{
+    name?: string;
+    if?: string;
+    run?: string;
+    uses?: string;
+    with?: Record<string, string>;
+  }>;
   "timeout-minutes"?: number;
   uses?: string;
 };
@@ -226,6 +232,34 @@ test("PR and merge-group source checks are included in the required report", () 
   assert.equal(sourceWorkflow.jobs?.["source-report"]?.if, "${{ always() }}");
   assert.deepEqual(sourceWorkflow.jobs?.["source-report"]?.needs, SOURCE_PR_JOBS);
   assert.match(commands("source-report"), /require-needs-success\.mjs/);
+});
+
+test("untrusted source checks cannot write trusted sticky disks", () => {
+  const action = parse(
+    readRepoFile(".github", "actions", "setup-rust-sticky-cache", "action.yml"),
+  ) as {
+    inputs?: Record<string, { default?: string }>;
+    runs?: { steps?: Array<{ uses?: string; with?: Record<string, string> }> };
+  };
+  assert.equal(action.inputs?.["cache-key-prefix"]?.default, "");
+  const prefix =
+    "${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}";
+  for (const job of SOURCE_PR_JOBS.filter((name) => name !== "pr-source-plan")) {
+    const cacheStep = sourceWorkflow.jobs?.[job]?.steps?.find(
+      (step) => step.uses === "./.github/actions/setup-rust-sticky-cache",
+    );
+    assert.equal(cacheStep?.with?.["cache-key-prefix"], prefix, `${job} must isolate its cache`);
+  }
+  const mounts = action.runs?.steps?.filter((step) =>
+    step.uses?.startsWith("useblacksmith/stickydisk@"),
+  );
+  assert.equal(mounts?.length, 4, "registry, git, primary, and secondary disks need isolation");
+  for (const mount of mounts ?? []) {
+    assert.ok(
+      mount.with?.key?.startsWith("${{ github.repository }}-${{ inputs.cache-key-prefix }}"),
+      `shared cache key: ${mount.with?.key}`,
+    );
+  }
 });
 
 test("report fails closed when any PR check fails or skips", () => {

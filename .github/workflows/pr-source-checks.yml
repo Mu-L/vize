@@ -68,6 +68,7 @@ jobs:
       - uses: ./.github/actions/setup-rust-sticky-cache
         if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
         with:
+          cache-key-prefix: ${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}
           key: clippy-test
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
       - uses: ./.github/actions/setup-rust-script
@@ -118,6 +119,7 @@ jobs:
       - uses: ./.github/actions/setup-rust-sticky-cache
         if: ${{ needs.pr-source-plan.outputs.js == 'true' }}
         with:
+          cache-key-prefix: ${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}
           key: test-js-packages
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
       - name: Install JS dependencies
@@ -162,6 +164,7 @@ jobs:
       - uses: ./.github/actions/setup-rust-sticky-cache
         if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
         with:
+          cache-key-prefix: ${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}
           key: test-scripts
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
       - uses: ./.github/actions/setup-rust-script
@@ -204,6 +207,7 @@ jobs:
       - uses: ./.github/actions/setup-rust-sticky-cache
         if: ${{ env.RUN_PLAYGROUND == 'true' }}
         with:
+          cache-key-prefix: ${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.pull_request.number) || format('merge-{0}-', github.sha) }}
           key: playground-test
           cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
       - uses: ./.github/actions/setup-rust-script
