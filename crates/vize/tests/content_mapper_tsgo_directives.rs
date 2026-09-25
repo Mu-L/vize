@@ -76,6 +76,11 @@ fn template_directives_suppress_and_report_through_standard_tsgo() {
         "only the child diagnostic must remain visible:\n{}",
         output_text(&parent_ignore)
     );
+    assert!(
+        errors[0].starts_with("directives/ParentIgnore.vue(8,"),
+        "the remaining diagnostic must target the child expression:\n{}",
+        output_text(&parent_ignore)
+    );
 
     let parent_skip = check_project(
         &tsgo,

@@ -4,5 +4,7 @@ const count = 1
 
 <template>
   <!-- @vue-ignore -->
-  <div :id="count.missing">{{ count.missing }}</div>
+  <div :id="count.missing">
+    {{ count.missing }}
+  </div>
 </template>
