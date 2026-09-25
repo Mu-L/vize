@@ -6,7 +6,9 @@ import { parse } from "yaml";
 import { aggregateNeedsResults } from "../../tools/support/compat/github/require-needs-success.mjs";
 import { readRepoFile, root } from "./support/github-workflows.ts";
 
-const PR_JOBS = ["fmt-rust", "check-js", "security-audit", "node-engine-compat", "check-vize-apps"];
+const CORE_PR_JOBS = ["fmt-rust", "check-js", "security-audit", "node-engine-compat", "check-vize-apps"];
+const SOURCE_PR_JOBS = ["pr-source-plan", "pr-rust-source", "pr-js-packages"];
+const PR_JOBS = [...CORE_PR_JOBS, ...SOURCE_PR_JOBS];
 const FULL_SUITE_JOBS = [
   "nix-flake",
   "vue-parity",
@@ -24,7 +26,7 @@ const FULL_SUITE_JOBS = [
 
 type Job = {
   if?: string;
-  needs?: string[];
+  needs?: string[] | string;
   steps?: Array<{ name?: string; if?: string; run?: string; uses?: string }>;
 };
 const workflow = parse(readRepoFile(".github", "workflows", "check.yml")) as {
@@ -47,7 +49,11 @@ test("obsolete main validation is cancelled when the branch advances", () => {
       candidate.concurrency?.group ?? "",
       /github\.event\.pull_request\.number \|\| github\.ref/,
     );
-    assert.doesNotMatch(candidate.concurrency?.group ?? "", /github\.sha/);
+    if (candidate === workflow) {
+      assert.match(candidate.concurrency?.group ?? "", /format\('full-\{0\}', github\.sha\)/);
+    } else {
+      assert.doesNotMatch(candidate.concurrency?.group ?? "", /github\.sha/);
+    }
   }
 });
 
@@ -65,7 +71,7 @@ test("PR, merge group, and main push stay fast while full checks require schedul
     workflow.jobs?.["test-report"]?.if,
     "${{ always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}",
   );
-  for (const job of PR_JOBS) {
+  for (const job of CORE_PR_JOBS) {
     assert.equal(workflow.jobs?.[job]?.if, undefined, `${job} must run on pull requests`);
   }
   for (const job of FULL_SUITE_JOBS) {
@@ -143,6 +149,23 @@ test("PR, merge group, and main push stay fast while full checks require schedul
   assert.match(commands("branch-coverage"), /coverage:source:branch/);
   assert.match(commands("playground-test"), /test:browser/);
   assert.deepEqual(workflow.jobs?.["playground-test"]?.needs, ["build-js-packages"]);
+});
+
+test("PR and merge-group source checks are included in the required report", () => {
+  for (const job of SOURCE_PR_JOBS) {
+    assert.equal(
+      workflow.jobs?.[job]?.if,
+      "${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}",
+    );
+  }
+  assert.deepEqual(workflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
+  assert.deepEqual(workflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
+  const commands = (job: string) =>
+    (workflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
+  assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
+  assert.match(commands("pr-rust-source"), /cargo test --workspace/);
+  assert.match(commands("pr-js-packages"), /vp run --workspace-root test:js/);
+  assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
 });
 
 test("report fails closed when any PR check fails or skips", () => {
