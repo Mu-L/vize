@@ -338,30 +338,38 @@ fn workspace_moonbit_paths_survive_the_isolated_worktree() {
 }
 
 #[test]
-fn required_checks_include_uncreated_jobs_and_the_configured_app() {
+fn required_checks_follow_the_selected_pr_run_and_verify_exact_head_and_app() {
     let rules = json!([{"type": "required_status_checks", "parameters": {
         "required_status_checks": [{"context": "test-report", "integration_id": 15368}]
     }}]);
     let check = json!({"id": 1, "name": "test-report", "head_sha": HEAD,
-        "app": {"id": 15368}, "status": "completed", "conclusion": "success"});
-    let ready = |checks: &[Value]| super::pr_checks::required_checks(&rules, checks, HEAD);
+        "app": {"id": 15368}, "status": "completed", "conclusion": "success",
+        "details_url": "https://github.com/owner/repo/actions/runs/1/job/1"});
+    let selected = json!([{"name": "test-report", "bucket": "pass",
+        "link": "https://github.com/owner/repo/actions/runs/1/job/1"}]);
+    let ready = |checks: &[Value], selected: &Value| {
+        super::pr_checks::required_checks(&rules, checks, selected.as_array().unwrap(), HEAD)
+    };
     assert!(
-        !ready(&[]).unwrap(),
+        !ready(&[], &selected).unwrap(),
         "a job absent from the PR rollup still blocks promotion"
     );
-    assert!(ready(&[check.clone()]).unwrap());
+    assert!(!ready(&[check.clone()], &json!([])).unwrap());
+    assert!(ready(&[check.clone()], &selected).unwrap());
     for (pointer, value) in [("/app/id", json!(999)), ("/head_sha", json!(BASE))] {
         let mut wrong = check.clone();
         *wrong.pointer_mut(pointer).unwrap() = value;
-        assert!(!ready(&[wrong]).unwrap());
+        assert!(!ready(&[wrong], &selected).unwrap());
     }
-    let mut newer = check.clone();
-    newer["id"] = json!(2);
-    newer["status"] = json!("queued");
-    newer["conclusion"] = Value::Null;
-    assert!(!ready(&[check.clone(), newer.clone()]).unwrap());
-    newer["status"] = json!("completed");
-    newer["conclusion"] = json!("failure");
-    assert!(ready(&[check, newer]).is_err());
-    assert!(super::pr_checks::required_checks(&json!([]), &[], HEAD).is_err());
+    let mut later_full = check.clone();
+    later_full["id"] = json!(2);
+    later_full["details_url"] = json!("https://github.com/owner/repo/actions/runs/2/job/2");
+    later_full["conclusion"] = json!("skipped");
+    assert!(ready(&[check.clone(), later_full.clone()], &selected).unwrap());
+    let later_selected = json!([{"name": "test-report", "bucket": "pass",
+        "link": "https://github.com/owner/repo/actions/runs/2/job/2"}]);
+    assert!(ready(&[check.clone(), later_full], &later_selected).is_err());
+    let duplicate = json!([selected[0], selected[0]]);
+    assert!(ready(&[check], &duplicate).is_err());
+    assert!(super::pr_checks::required_checks(&json!([]), &[], &[], HEAD).is_err());
 }
