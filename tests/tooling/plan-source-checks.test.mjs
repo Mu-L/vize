@@ -18,7 +18,12 @@ void test("compiler and CI changes run both source gates", () => {
   ]) {
     assert.deepEqual(
       planSourceChecks([path]),
-      { rust: true, js: true, tooling: path === ".github/workflows/check.yml" },
+      {
+        rust: true,
+        js: true,
+        tooling: path === ".github/workflows/check.yml",
+        playground: path !== "crates/vize_croquis_cf/src/rules/provide_inject/index.rs",
+      },
       path,
     );
   }
@@ -29,11 +34,13 @@ void test("package changes run package tests while documentation stays fast", ()
     rust: false,
     js: true,
     tooling: false,
+    playground: false,
   });
   assert.deepEqual(planSourceChecks(["docs/guide/example.md", "README.md"]), {
     rust: false,
     js: false,
     tooling: false,
+    playground: false,
   });
 });
 
@@ -42,6 +49,7 @@ void test("unknown source directories fail closed", () => {
     rust: true,
     js: true,
     tooling: true,
+    playground: true,
   });
 });
 
@@ -52,7 +60,11 @@ void test("release sources and tooling tests require the script gate", () => {
     "tests/tooling/release/release-pr.test.ts",
     ".github/workflows/release.yml",
   ]) {
-    assert.deepEqual(planSourceChecks([path]), { rust: false, js: false, tooling: true }, path);
+    assert.deepEqual(
+      planSourceChecks([path]),
+      { rust: false, js: false, tooling: true, playground: false },
+      path,
+    );
   }
 });
 
@@ -61,7 +73,18 @@ void test("coverage goldens run the Rust fixture gate", () => {
     rust: true,
     js: false,
     tooling: false,
+    playground: false,
   });
+});
+
+void test("compiler, Vite, and playground changes run browser snapshots", () => {
+  for (const path of [
+    "crates/vize_atelier_vapor/src/generate.rs",
+    "npm/builder/vite/src/index.ts",
+    "playground/e2e/sfc-compile.test.ts",
+  ]) {
+    assert.equal(planSourceChecks([path]).playground, true, path);
+  }
 });
 
 void test("deleted and moved source files still select both gates", () => {
@@ -81,7 +104,12 @@ void test("deleted and moved source files still select both gates", () => {
     git("commit", "-qm", "remove source");
     const paths = changedPaths(base, git("rev-parse", "HEAD"), cwd);
     assert.deepEqual(paths, ["crates/lib.rs"]);
-    assert.deepEqual(planSourceChecks(paths), { rust: true, js: true, tooling: false });
+    assert.deepEqual(planSourceChecks(paths), {
+      rust: true,
+      js: true,
+      tooling: false,
+      playground: false,
+    });
 
     writeFileSync(join(cwd, "crates", "lib.rs"), "pub fn example() {}\n");
     git("add", ".");
@@ -93,7 +121,12 @@ void test("deleted and moved source files still select both gates", () => {
     git("commit", "-qm", "move source");
     const movedPaths = changedPaths(beforeMove, git("rev-parse", "HEAD"), cwd);
     assert.deepEqual(movedPaths, ["crates/lib.rs", "docs/lib.rs"]);
-    assert.deepEqual(planSourceChecks(movedPaths), { rust: true, js: true, tooling: false });
+    assert.deepEqual(planSourceChecks(movedPaths), {
+      rust: true,
+      js: true,
+      tooling: false,
+      playground: false,
+    });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

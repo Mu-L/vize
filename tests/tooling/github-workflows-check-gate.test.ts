@@ -13,7 +13,13 @@ const CORE_PR_JOBS = [
   "node-engine-compat",
   "check-vize-apps",
 ];
-const SOURCE_PR_JOBS = ["pr-source-plan", "pr-rust-source", "pr-js-packages", "pr-tooling-scripts"];
+const SOURCE_PR_JOBS = [
+  "pr-source-plan",
+  "pr-rust-source",
+  "pr-js-packages",
+  "pr-tooling-scripts",
+  "pr-playground-test",
+];
 const PR_JOBS = [...CORE_PR_JOBS, ...SOURCE_PR_JOBS];
 const FULL_SUITE_JOBS = [
   "nix-flake",
@@ -167,6 +173,7 @@ test("PR and merge-group source checks are included in the required report", () 
   assert.deepEqual(workflow.jobs?.["pr-rust-source"]?.needs, "pr-source-plan");
   assert.deepEqual(workflow.jobs?.["pr-js-packages"]?.needs, "pr-source-plan");
   assert.deepEqual(workflow.jobs?.["pr-tooling-scripts"]?.needs, "pr-source-plan");
+  assert.deepEqual(workflow.jobs?.["pr-playground-test"]?.needs, "pr-source-plan");
   const commands = (job: string) =>
     (workflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
   assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
@@ -175,6 +182,7 @@ test("PR and merge-group source checks are included in the required report", () 
   assert.match(commands("pr-js-packages"), /vp run --workspace-root test:js/);
   assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
   assert.match(commands("pr-tooling-scripts"), /vp run --workspace-root test:scripts/);
+  assert.match(commands("pr-playground-test"), /vp run --filter '\.\/playground' test:browser/);
 });
 
 test("report fails closed when any PR check fails or skips", () => {
