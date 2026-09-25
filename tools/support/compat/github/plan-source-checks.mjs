@@ -13,6 +13,7 @@ export function planSourceChecks(paths) {
       )
     ) {
       result.tooling = true;
+      continue;
     }
     if (/^(crates\/|\.cargo\/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)/.test(path)) {
       result.rust = true;

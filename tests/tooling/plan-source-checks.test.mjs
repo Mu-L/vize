@@ -52,7 +52,7 @@ void test("release sources and tooling tests require the script gate", () => {
     "tests/tooling/release/release-pr.test.ts",
     ".github/workflows/release.yml",
   ]) {
-    assert.equal(planSourceChecks([path]).tooling, true, path);
+    assert.deepEqual(planSourceChecks([path]), { rust: false, js: false, tooling: true }, path);
   }
 });
 
