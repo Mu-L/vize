@@ -187,6 +187,13 @@ test("PR and merge-group source checks are included in the required report", () 
   assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
   assert.match(commands("pr-rust-source"), /cargo test --workspace/);
   assert.match(commands("pr-rust-source"), /write-coverage-summary\.rs/);
+  const rustSteps = workflow.jobs?.["pr-rust-source"]?.steps ?? [];
+  const pklIndex = rustSteps.findIndex((step) => step.name === "Install Pkl CLI");
+  const testIndex = rustSteps.findIndex((step) => step.name === "Test Rust workspace");
+  assert.ok(
+    pklIndex >= 0 && testIndex >= 0 && pklIndex < testIndex,
+    "Pkl fixtures need the CLI before workspace tests",
+  );
   assert.match(commands("pr-js-packages"), /vp run --workspace-root test:js/);
   assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
   assert.match(commands("pr-tooling-scripts"), /vp run --workspace-root test:scripts/);
