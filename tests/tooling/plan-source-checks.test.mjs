@@ -56,6 +56,14 @@ void test("release sources and tooling tests require the script gate", () => {
   }
 });
 
+void test("coverage goldens run the Rust fixture gate", () => {
+  assert.deepEqual(planSourceChecks(["tests/expected/vapor/element.snap"]), {
+    rust: true,
+    js: false,
+    tooling: false,
+  });
+});
+
 void test("deleted and moved source files still select both gates", () => {
   const cwd = mkdtempSync(join(tmpdir(), "vize-source-checks-"));
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();

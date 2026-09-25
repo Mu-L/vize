@@ -171,6 +171,7 @@ test("PR and merge-group source checks are included in the required report", () 
     (workflow.jobs?.[job]?.steps ?? []).map((step) => step.run ?? "").join("\n");
   assert.match(commands("pr-rust-source"), /cargo clippy --workspace/);
   assert.match(commands("pr-rust-source"), /cargo test --workspace/);
+  assert.match(commands("pr-rust-source"), /write-coverage-summary\.rs/);
   assert.match(commands("pr-js-packages"), /vp run --workspace-root test:js/);
   assert.match(commands("pr-js-packages"), /vp run --filter '\.\/npm\/ui' check/);
   assert.match(commands("pr-tooling-scripts"), /vp run --workspace-root test:scripts/);

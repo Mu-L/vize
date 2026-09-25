@@ -15,6 +15,10 @@ export function planSourceChecks(paths) {
       result.tooling = true;
       continue;
     }
+    if (path.startsWith("tests/expected/")) {
+      result.rust = true;
+      continue;
+    }
     if (/^(crates\/|\.cargo\/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)/.test(path)) {
       result.rust = true;
       result.js = true;
@@ -60,7 +64,7 @@ if (process.argv[1]?.endsWith("/plan-source-checks.mjs")) {
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `### Source checks\n\n| Check | Run |\n| --- | --- |\n| Rust Clippy and tests | ${plan.rust} |\n| JS package build and tests | ${plan.js} |\n| Tooling scripts | ${plan.tooling} |\n\nChanged paths: ${paths.length}.\n`,
+      `### Source checks\n\n| Check | Run |\n| --- | --- |\n| Rust Clippy, tests, and fixtures | ${plan.rust} |\n| JS package build and tests | ${plan.js} |\n| Tooling scripts | ${plan.tooling} |\n\nChanged paths: ${paths.length}.\n`,
     );
   }
 }
