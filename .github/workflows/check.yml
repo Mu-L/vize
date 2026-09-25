@@ -36,6 +36,7 @@ jobs:
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
       js: ${{ steps.plan.outputs.js }}
+      tooling: ${{ steps.plan.outputs.tooling }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Fetch comparison base
@@ -129,6 +130,52 @@ jobs:
       - name: Check UI package conformance
         if: ${{ needs.pr-source-plan.outputs.js == 'true' }}
         run: vp run --filter './npm/fresco-native' check:generated && vp run --filter './npm/fresco-native' check:types && vp run --filter './npm/native' build:ci && vp run --filter './npm/ui' check
+
+  pr-tooling-scripts:
+    name: PR tooling scripts
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    needs: pr-source-plan
+    runs-on: blacksmith-32vcpu-ubuntu-2404
+    timeout-minutes: 35
+    env:
+      NODE_OPTIONS: "--disable-warning=DEP0040 --disable-warning=DEP0169"
+      CARGO_BUILD_JOBS: "12"
+    steps:
+      - name: Explain unrelated skip
+        if: ${{ needs.pr-source-plan.outputs.tooling != 'true' }}
+        run: echo 'Tooling scripts skipped because this PR changes no release scripts, tooling tests, or unknown source paths.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+      - uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        with:
+          node-version-file: "package.json"
+          cache: true
+          run-install: false
+      - uses: ./.github/actions/setup-moonbit
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+      - uses: wild-linker/action@0bbbfa5df4380cab8e63cb8505a1ce65e1d10203 # v0.9.0
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        with:
+          wild-version: "0.9.0"
+      - uses: ./.github/actions/setup-rust-sticky-cache
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        with:
+          key: test-scripts
+          cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
+      - uses: ./.github/actions/setup-rust-script
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+      - name: Install fixture and JS dependencies
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        run: git submodule update --init --force --depth 1 -- tests/_fixtures/_git/ant-design-vue tests/_fixtures/_git/create-vue tests/_fixtures/_git/vue-select && vp install --frozen-lockfile --prefer-offline
+      - name: Build and install vize CLI
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        run: cargo build --profile ci -p vize && sudo install -m 0755 target/ci/vize /usr/local/bin/vize
+      - name: Test tooling scripts
+        if: ${{ needs.pr-source-plan.outputs.tooling == 'true' }}
+        run: vp run --workspace-root test:scripts
 
   nix-flake:
     runs-on: blacksmith-32vcpu-ubuntu-2404
@@ -755,6 +802,7 @@ jobs:
       - pr-source-plan
       - pr-rust-source
       - pr-js-packages
+      - pr-tooling-scripts
     permissions:
       contents: read
     steps:

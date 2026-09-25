@@ -10,32 +10,53 @@ import {
   planSourceChecks,
 } from "../../tools/support/compat/github/plan-source-checks.mjs";
 
-test("compiler and CI changes run both source gates", () => {
+void test("compiler and CI changes run both source gates", () => {
   for (const path of [
     "crates/vize_croquis_cf/src/rules/provide_inject/index.rs",
     ".github/workflows/check.yml",
     "Cargo.lock",
   ]) {
-    assert.deepEqual(planSourceChecks([path]), { rust: true, js: true }, path);
+    assert.deepEqual(
+      planSourceChecks([path]),
+      { rust: true, js: true, tooling: path === ".github/workflows/check.yml" },
+      path,
+    );
   }
 });
 
-test("package changes run package tests while documentation stays fast", () => {
+void test("package changes run package tests while documentation stays fast", () => {
   assert.deepEqual(planSourceChecks(["npm/builder/rspack/src/scoped-css.test.ts"]), {
     rust: false,
     js: true,
+    tooling: false,
   });
   assert.deepEqual(planSourceChecks(["docs/guide/example.md", "README.md"]), {
     rust: false,
     js: false,
+    tooling: false,
   });
 });
 
-test("unknown source directories fail closed", () => {
-  assert.deepEqual(planSourceChecks(["new-runtime/src/index.ts"]), { rust: true, js: true });
+void test("unknown source directories fail closed", () => {
+  assert.deepEqual(planSourceChecks(["new-runtime/src/index.ts"]), {
+    rust: true,
+    js: true,
+    tooling: true,
+  });
 });
 
-test("deleted source files still select both gates", () => {
+void test("release sources and tooling tests require the script gate", () => {
+  for (const path of [
+    "tools/support/release/pr_watch.rs",
+    "tools/commands/release/promote.rs",
+    "tests/tooling/release/release-pr.test.ts",
+    ".github/workflows/release.yml",
+  ]) {
+    assert.equal(planSourceChecks([path]).tooling, true, path);
+  }
+});
+
+void test("deleted source files still select both gates", () => {
   const cwd = mkdtempSync(join(tmpdir(), "vize-source-checks-"));
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
   try {
@@ -52,7 +73,7 @@ test("deleted source files still select both gates", () => {
     git("commit", "-qm", "remove source");
     const paths = changedPaths(base, git("rev-parse", "HEAD"), cwd);
     assert.deepEqual(paths, ["crates/lib.rs"]);
-    assert.deepEqual(planSourceChecks(paths), { rust: true, js: true });
+    assert.deepEqual(planSourceChecks(paths), { rust: true, js: true, tooling: false });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
