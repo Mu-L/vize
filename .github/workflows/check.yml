@@ -77,6 +77,12 @@ jobs:
         if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
         with:
           wild-version: "0.9.0"
+      - uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1
+        if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
+        with:
+          node-version-file: "package.json"
+          cache: true
+          run-install: true
       - uses: ./.github/actions/setup-rust-sticky-cache
         if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
         with:
@@ -89,6 +95,7 @@ jobs:
         run: cargo clippy --workspace -- -D warnings -D clippy::wildcard_imports
       - name: Test Rust workspace
         if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
+        env: { VIZE_TEST_REQUIRE_TSGO: "1" }
         run: cargo test --workspace
       - name: Install Pkl CLI
         if: ${{ needs.pr-source-plan.outputs.rust == 'true' }}
