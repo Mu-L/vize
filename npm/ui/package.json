@@ -1184,7 +1184,7 @@
     "vite-plus": "catalog:vite-stack",
     "vue": "catalog:vue-stable",
     "vue-tsc": "catalog:typescript",
-    "vue-vapor-runtime": "npm:vue@3.6.0-rc.6"
+    "vue-vapor-runtime": "npm:vue@3.6.0-rc.9"
   },
   "peerDependencies": {
     "vue": "^3.5.0"
