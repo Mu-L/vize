@@ -51,12 +51,20 @@ test("obsolete main validation is cancelled when the branch advances", () => {
   }
 });
 
-test("PR and main push stay fast while full checks require schedule or dispatch", () => {
+test("PR, merge group, and main push stay fast while full checks require schedule or dispatch", () => {
   assert.ok(workflow.on?.pull_request);
+  assert.deepEqual(workflow.on?.merge_group, {
+    types: ["checks_requested"],
+    branches: ["main"],
+  });
   assert.ok(workflow.on?.push);
   assert.ok(workflow.on?.schedule);
   assert.ok(Object.hasOwn(workflow.on ?? {}, "workflow_dispatch"));
   assert.deepEqual(workflow.jobs?.["test-report"]?.needs, PR_JOBS);
+  assert.equal(
+    workflow.jobs?.["test-report"]?.if,
+    "${{ always() && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}",
+  );
   for (const job of PR_JOBS) {
     assert.equal(workflow.jobs?.[job]?.if, undefined, `${job} must run on pull requests`);
   }
@@ -83,7 +91,7 @@ test("PR and main push stay fast while full checks require schedule or dispatch"
   const checkSteps = workflow.jobs?.["check-js"]?.steps ?? [];
   assert.equal(
     checkSteps.find((step) => step.name === "Check fast JS/TS")?.if,
-    "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}",
+    "${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group' }}",
   );
   assert.equal(
     checkSteps.find((step) => step.name === "Check JS/TS")?.if,
@@ -93,7 +101,7 @@ test("PR and main push stay fast while full checks require schedule or dispatch"
   assert.ok(inventory);
   assert.equal(
     inventory.if,
-    "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}",
+    "${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group' }}",
   );
   assert.deepEqual(
     inventory.run
