@@ -16,7 +16,7 @@ pub fn checks_pass(candidate: &Candidate, root: &Path) -> Result<bool, String> {
             &candidate.repository,
             "--required",
             "--json",
-            "name,bucket",
+            "name,bucket,link",
         ])
         .current_dir(root)
         .output()
@@ -42,7 +42,7 @@ pub fn checks_pass(candidate: &Candidate, root: &Path) -> Result<bool, String> {
     let reported_pass = checks
         .iter()
         .all(|c| c.get("bucket").and_then(Value::as_str) == Some("pass"));
-    Ok(reported_pass && pr_checks::ready(candidate, root)?)
+    Ok(reported_pass && pr_checks::ready(candidate, checks, root)?)
 }
 
 pub fn refresh(
