@@ -1732,3 +1732,65 @@ function processItem(item) {
 
     assert_snapshot!(output);
 }
+
+#[test]
+fn test_options_api_instance_member_wins_over_same_named_import() {
+    // A plain `<script>` template resolves `format` on the instance, so the
+    // method owns the name even though the script also imports a `format`.
+    let source = r#"
+import { defineComponent } from 'vue'
+import { format } from 'date-fns'
+
+export default defineComponent({
+  methods: {
+    format(date: string): string {
+      return format(new Date(date), 'yyyy/MM/dd')
+    },
+  },
+})
+"#;
+    let result = parse_script_with_options(
+        source,
+        ScriptParserOptions {
+            options_api: true,
+            ..ScriptParserOptions::default()
+        },
+    );
+
+    assert_eq!(result.bindings.get("format"), Some(BindingType::Options));
+    // The template-facing span is the method's, not the import specifier's.
+    let method_start = source.find("format(date").unwrap();
+    assert_eq!(
+        result.binding_spans.get("format"),
+        Some(&(method_start as u32, (method_start + "format".len()) as u32))
+    );
+    // The import itself is still known to module-scope consumers.
+    assert_eq!(
+        result
+            .import_sources
+            .get("format")
+            .map(CompactString::as_str),
+        Some("date-fns")
+    );
+}
+
+#[test]
+fn test_script_setup_import_still_shadows_same_named_prop() {
+    // `<script setup>` templates read setup bindings before props, so an
+    // import keeps the name even when a prop registered earlier shares it.
+    let source = r#"
+const props = defineProps<{ format: string }>()
+import { format } from 'date-fns'
+"#;
+    let result = parse_script_setup(source);
+
+    assert_eq!(
+        result.bindings.get("format"),
+        Some(BindingType::SetupMaybeRef)
+    );
+    let import_start = source.find("format }").unwrap();
+    assert_eq!(
+        result.binding_spans.get("format"),
+        Some(&(import_start as u32, (import_start + "format".len()) as u32))
+    );
+}
