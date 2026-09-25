@@ -10,7 +10,9 @@ export function planSourceChecks(paths) {
     if (/^(crates\/|\.cargo\/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)/.test(path)) {
       result.rust = true;
       result.js = true;
-    } else if (/^(npm\/|tests\/|playground\/|editors\/|package\.json$|pnpm-|tools\/config\/)/.test(path)) {
+    } else if (
+      /^(npm\/|tests\/|playground\/|editors\/|package\.json$|pnpm-|tools\/config\/)/.test(path)
+    ) {
       result.js = true;
     } else {
       result.rust = true;
@@ -20,23 +22,28 @@ export function planSourceChecks(paths) {
   return result;
 }
 
+export function changedPaths(base, head, cwd = process.cwd()) {
+  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACDMRT", "-z", base, head], {
+    cwd,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter(Boolean);
+}
+
 if (process.argv[1]?.endsWith("/plan-source-checks.mjs")) {
   const [base, head] = process.argv.slice(2);
   if (!/^[0-9a-f]{40}$/.test(base ?? "") || !/^[0-9a-f]{40}$/.test(head ?? "")) {
     throw new Error("expected full base and head commit SHAs");
   }
   // A new branch or an unavailable predecessor gets both gates, never a pass.
-  const paths = /^0+$/.test(base)
-    ? [".github/workflows/check.yml"]
-    : execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRT", "-z", base, head], {
-        encoding: "utf8",
-      })
-        .split("\0")
-        .filter(Boolean);
+  const paths = /^0+$/.test(base) ? [".github/workflows/check.yml"] : changedPaths(base, head);
   const plan = paths.length ? planSourceChecks(paths) : { rust: true, js: true };
   const output = `rust=${plan.rust}\njs=${plan.js}\n`;
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, output);
-  process.stdout.write(`Changed paths: ${paths.length}; Rust: ${plan.rust}; JS packages: ${plan.js}\n`);
+  process.stdout.write(
+    `Changed paths: ${paths.length}; Rust: ${plan.rust}; JS packages: ${plan.js}\n`,
+  );
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,

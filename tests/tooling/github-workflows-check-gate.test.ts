@@ -6,7 +6,13 @@ import { parse } from "yaml";
 import { aggregateNeedsResults } from "../../tools/support/compat/github/require-needs-success.mjs";
 import { readRepoFile, root } from "./support/github-workflows.ts";
 
-const CORE_PR_JOBS = ["fmt-rust", "check-js", "security-audit", "node-engine-compat", "check-vize-apps"];
+const CORE_PR_JOBS = [
+  "fmt-rust",
+  "check-js",
+  "security-audit",
+  "node-engine-compat",
+  "check-vize-apps",
+];
 const SOURCE_PR_JOBS = ["pr-source-plan", "pr-rust-source", "pr-js-packages"];
 const PR_JOBS = [...CORE_PR_JOBS, ...SOURCE_PR_JOBS];
 const FULL_SUITE_JOBS = [
