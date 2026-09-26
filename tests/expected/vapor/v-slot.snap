@@ -186,14 +186,15 @@ const t0 = _template("content")
 
 export function render(_ctx) {
   const _component_MyComponent = _resolveComponent("MyComponent")
+  let _slot2_0
   const n2 = _createComponentWithFallback(_component_MyComponent, null, {
     $: [
       () => ({
         name: _ctx.slotName,
-        fn: () => {
+        fn: _slot2_0 || (_slot2_0 = () => {
           const n0 = t0()
           return n0
-        }
+        })
       })
     ]
   }, true)

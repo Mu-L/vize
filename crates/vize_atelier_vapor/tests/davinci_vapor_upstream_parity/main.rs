@@ -11,25 +11,16 @@
     reason = "tests assert by panicking and compare std-string fixtures"
 )]
 
+mod dynamic_content;
 mod dynamic_slots;
 mod trace;
 
-use serde::Deserialize;
 use serde_json::{Value, json};
 use vize_atelier_core::walk_probe::WalkCounts;
 use vize_atelier_vapor::{VaporCompilerOptions, compile_vapor};
 use vize_carton::Allocator;
 
-use trace::{assert_native_upstream_trace, trace};
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Fixture {
-    source: String,
-    context: Value,
-    steps: Vec<Value>,
-    expected: Vec<Value>,
-}
+use trace::{Fixture, assert_native_upstream_trace, trace};
 
 #[test]
 fn s3_branch_matches_official_vapor_state_and_identity_trace() {

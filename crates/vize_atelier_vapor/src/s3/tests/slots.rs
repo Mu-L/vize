@@ -71,12 +71,44 @@ fn computed_outlet_name_is_owned_by_the_checked_graph() {
     insta::assert_snapshot!("computed_outlet_payload", code);
 }
 
+#[test]
+#[expect(
+    clippy::disallowed_macros,
+    reason = "insta formats exact generated-code snapshots"
+)]
+fn computed_content_name_is_owned_by_the_checked_graph() {
+    let allocator = Allocator::new();
+    let mut s3 = super::lowered_source(
+        &allocator,
+        r#"<MyComp><template #[original]>content</template></MyComp>"#,
+    );
+    let name = s3
+        .program
+        .operands
+        .iter_mut()
+        .find(|operand| {
+            operand.role == vize_s3::operand::OperandRole::Name && operand.target.is_some()
+        })
+        .unwrap();
+    name.value.text = "replacement";
+    let code = super::generated(
+        crate::s3::admit(s3, &crate::s3::retained::Retained::new(&allocator)),
+        &allocator,
+    );
+    insta::assert_snapshot!("computed_content_payload", code);
+}
+
 /// Named and scoped slots at the template root match the retained lane byte
 /// for byte, including the shared generator's plain-identifier parameter.
 #[test]
 fn named_and_scoped_slots_match_the_retained_lane() {
     for source in [
         r#"<MyComponent><template #header>H</template><template #footer>F</template></MyComponent>"#,
+        r#"<MyComponent v-slot:head="p">{{ p.x }}</MyComponent>"#,
+        r#"<MyComponent v-slot:[name]="{ item }">{{ item }}</MyComponent>"#,
+        r#"<MyComponent><template #[name]>x</template></MyComponent>"#,
+        r#"<MyComponent><template #[names[selected]]="{ item }">{{ item }}</template><template #fixed>fixed</template></MyComponent>"#,
+        r#"<MyComponent><template #['slot-'+selected]>x</template><template #[selected.toLowerCase()]>y</template></MyComponent>"#,
         r#"<MyComponent v-slot="{ item, index }">{{ index }}: {{ item }}</MyComponent>"#,
         r#"<MyComponent><template #item="{ data }">{{ data }}</template></MyComponent>"#,
         r#"<MyComponent v-slot="p">{{ p.x }}</MyComponent>"#,
@@ -84,17 +116,25 @@ fn named_and_scoped_slots_match_the_retained_lane() {
         r#"<MyComponent><template #default>d</template><template #row="{ r }"><i v-if="r.on">{{ r.a }}</i></template></MyComponent>"#,
     ] {
         assert!(admitted(source), "{source}");
-        let allocator = Allocator::new();
-        let native = compile_vapor(&allocator, source, VaporCompilerOptions::default());
-        let retained = compile_vapor(
-            &allocator,
-            source,
-            VaporCompilerOptions {
-                davinci_retained_lane: true,
-                ..Default::default()
-            },
-        );
-        assert_eq!(native.code, retained.code, "{source}");
+        for prefix_identifiers in [false, true] {
+            let allocator = Allocator::new();
+            let compile = |davinci_retained_lane| {
+                compile_vapor(
+                    &allocator,
+                    source,
+                    VaporCompilerOptions {
+                        prefix_identifiers,
+                        davinci_retained_lane,
+                        ..Default::default()
+                    },
+                )
+            };
+            assert_eq!(
+                compile(false).code,
+                compile(true).code,
+                "{source}: prefix={prefix_identifiers}"
+            );
+        }
     }
     // Inside an element only the node numbering differs (parent-first).
     assert!(admitted(
@@ -138,14 +178,9 @@ fn unsupported_slot_shapes_select_exact_legacy_reasons() {
             Component,
         ),
         (
-            r#"<MyComp><template #[name]>x</template></MyComp>"#,
-            Component,
-        ),
-        (
             r#"<MyComp><template #a>x</template><template #a>y</template></MyComp>"#,
             Component,
         ),
-        (r#"<MyComp v-slot:head="p">{{ p }}</MyComp>"#, Component),
         (r#"<MyComp v-slot="{ a: b }">{{ b }}</MyComp>"#, Component),
         (r#"<MyComp v-slot="{ a = 1 }">{{ a }}</MyComp>"#, Component),
         (

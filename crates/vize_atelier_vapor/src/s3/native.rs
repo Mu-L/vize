@@ -135,6 +135,8 @@ struct Binding<'a> {
     kind: BindingKind,
     /// Prop or event name; empty for the unnamed element directives.
     name: &'a str,
+    /// A computed slot-content name, retaining its expression tree.
+    dynamic_name: Option<Expr<'a>>,
     value: Expr<'a>,
     modifiers: Vec<'a, &'a str>,
     /// Static class/style value and whether it followed the bound value.

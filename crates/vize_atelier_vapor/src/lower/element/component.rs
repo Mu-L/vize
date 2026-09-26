@@ -40,14 +40,24 @@ pub(super) fn transform_component<'a>(
     let mut is_selected = false;
     let mut has_dynamic_slot = false;
 
-    // Check for v-slot on the component itself (scoped default slot)
+    // Check for v-slot on the component itself (named or default slot)
     let mut has_v_slot_on_component = false;
     let mut slot_props_expr: Option<String> = None;
+    let mut own_slot_name = SimpleExpressionNode::new("default", true, SourceLocation::STUB);
     for prop in el.props.iter() {
         if let PropNode::Directive(dir) = prop
             && dir.name == "slot"
         {
             has_v_slot_on_component = true;
+            let (name, is_static) = slots::resolve_named_slot(dir);
+            own_slot_name = SimpleExpressionNode::new(
+                ctx.allocator.alloc_str(&name),
+                is_static,
+                dir.arg
+                    .as_ref()
+                    .map_or(SourceLocation::STUB, |arg| arg.loc().clone()),
+            );
+            has_dynamic_slot |= !is_static;
             if let Some(ref exp) = dir.exp
                 && let ExpressionNode::Simple(s) = exp
             {
@@ -196,14 +206,13 @@ pub(super) fn transform_component<'a>(
     // Process children to create slots
     if has_v_slot_on_component {
         let slot_block = transform_children(ctx, &el.children);
-        let name_exp = SimpleExpressionNode::new("default", true, SourceLocation::STUB);
         let fn_exp = slot_props_expr.map(|expr| {
             let text = ctx.allocator.alloc_str(&expr);
             let node = SimpleExpressionNode::new(text, false, SourceLocation::STUB);
             Box::new_in(node, &ctx.allocator)
         });
         slots.push(IRSlot {
-            name: Box::new_in(name_exp, &ctx.allocator),
+            name: Box::new_in(own_slot_name, &ctx.allocator),
             fn_exp,
             block: slot_block,
         });

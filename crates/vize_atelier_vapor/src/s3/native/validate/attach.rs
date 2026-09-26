@@ -57,16 +57,16 @@ pub(super) fn bindings<'a>(
         }
         let fresh = names.insert((index, binding.kind, binding.name));
         // Slot content binds to its `<template>` or to its component (only
-        // the default slot there); the structure is checked once attached.
+        // its named slot there); the structure is checked once attached.
         if binding.kind == BindingKind::Slot {
             let node = at_mut(nodes, index)?;
-            let admitted = match node.content {
+            let admitted = matches!(
+                node.content,
                 Content::Element {
-                    tag: "template", ..
-                } => true,
-                Content::Component { .. } => binding.name == "default",
-                _ => false,
-            };
+                    tag: "template",
+                    ..
+                } | Content::Component { .. }
+            );
             if !admitted || node.bindings.iter().any(|b| b.kind == BindingKind::Slot) {
                 return Err(LegacyReason::Component.into());
             }

@@ -95,7 +95,17 @@ the commands that re-derive it, and the local measurements taken so far.
   pinned official compiler: prop updates, switching supplied slots, absent
   names, fallback text updates, fallback recreation, untouched sibling
   identities and unmount match independently specified observations. Dynamic
-  slot _content_ names remain a separate legacy boundary.
+  slot content names have the additional evidence below.
+
+- Computed slot content names admit references, members, calls and compound
+  expressions on templates and components. Exact snapshots prove checked-graph
+  name ownership and decoded authored source-map anchors. The single recorder
+  holds zero legacy walks and reparses in both prefix settings, and native
+  allocation ceilings remain unchanged. Five TS-33 scenarios pin parent and
+  slot-prop updates, slot switching, fallback lifetimes, untouched siblings
+  and unmount. A call whose dependency changes but whose name stays the same
+  exposed remounting through a fresh slot function; caching that function now
+  preserves node identity and matches official Vapor.
 
 ## Mechanical witnesses
 

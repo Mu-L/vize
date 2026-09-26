@@ -5,6 +5,7 @@
 mod attach;
 mod component;
 mod control;
+mod expressions;
 mod ident;
 mod model;
 mod once;
@@ -92,7 +93,7 @@ pub(super) fn admit<'a>(
                     || values.iter().any(|value| value.role == Role::BindingKind) =>
             {
                 let (target, mut binding) = if op.kind == OpKind::SlotOutlet {
-                    slots::slot(values, alloc)?
+                    slots::slot(values, retained)?
                 } else {
                     operands::binding(values, op.kind, retained)?
                 };

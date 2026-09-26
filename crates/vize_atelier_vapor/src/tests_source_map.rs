@@ -227,3 +227,21 @@ fn both_lanes_map_template_carriers_the_same() {
         );
     }
 }
+
+#[test]
+fn computed_slot_names_keep_their_authored_mapping_units() {
+    for (case, source) in [
+        (
+            "template",
+            r#"<MyComp><template #[names[selected]]="{ item }"><b>{{ item }}</b></template></MyComp>"#,
+        ),
+        (
+            "component",
+            r#"<MyComp v-slot:[names[selected]]="{ item }"><b>{{ item }}</b></MyComp>"#,
+        ),
+    ] {
+        let (code, segments) = mapped_on(source, Lane::Selected);
+        insta::assert_snapshot!(format!("computed_slot_{case}_code"), code);
+        insta::assert_debug_snapshot!(format!("computed_slot_{case}_map"), segments);
+    }
+}
