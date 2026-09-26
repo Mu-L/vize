@@ -321,3 +321,25 @@ fn keep_alive_props_and_child_keep_authored_mapping_units() {
         insta::assert_debug_snapshot!(format!("keep_alive_{case}_map"), segments);
     }
 }
+
+#[test]
+fn select_models_keep_authored_option_maps() {
+    for (case, source) in [
+        (
+            "single",
+            r#"<select v-model="selected"><option value="a">A</option><option value="b">B</option></select>"#,
+        ),
+        (
+            "bound",
+            r#"<select multiple v-model="selected"><option :value="first">{{ label }}</option><option :value="second">B</option></select>"#,
+        ),
+        (
+            "computed",
+            r#"<select v-model="form[key]"><option value="a">A</option></select>"#,
+        ),
+    ] {
+        let (code, segments) = mapped_on(source, Lane::Selected);
+        insta::assert_snapshot!(format!("select_model_{case}_code"), code);
+        insta::assert_debug_snapshot!(format!("select_model_{case}_map"), segments);
+    }
+}
