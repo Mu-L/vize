@@ -101,3 +101,56 @@ fn generic_shape_binders_never_capture_a_same_named_type_declaration() {
     assert_eq!(props(&croquis), vec![("known", true, Some("number"))]);
     assert_eq!(croquis.types.resolved_props_complete(), Some(false));
 }
+
+#[test]
+fn generic_field_projection_keeps_authored_types_identical_to_the_legacy_context() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("types.ts"),
+        "export type Public<T> = { value: T }",
+    )
+    .unwrap();
+    let filename = dir.path().join("App.vue");
+    let script = "import type { Public } from './types'; defineProps<Public<string>>()";
+    let mut legacy = crate::script::ScriptCompileContext::new(script);
+    legacy.collect_imported_types_from_path(script, filename.to_str().unwrap(), true);
+    legacy.analyze();
+    let legacy_props = legacy.resolve_type_props("Public<string>");
+    let legacy_projection: Vec<_> = legacy_props
+        .iter()
+        .map(|prop| (prop.name.as_str(), prop.required, prop.prop_type.as_deref()))
+        .collect();
+    assert_eq!(legacy_projection, vec![("value", true, Some("T"))]);
+    let source = vize_carton::cstr!("<script setup lang='ts'>{script}</script>");
+    let croquis = analyze(&source, filename.to_str().unwrap());
+    assert_eq!(props(&croquis), legacy_projection);
+    assert_eq!(croquis.types.resolved_props_complete(), Some(true));
+}
+
+#[test]
+fn scoped_numeric_property_names_use_the_cooked_key_and_inline_catalog_is_complete() {
+    let ctx = crate::script::ScriptCompileContext::new(
+        "defineProps<{ 0x2a: string; normal?: boolean }>()",
+    );
+    let world = ctx.resolve_type_world("App.vue", None);
+    let properties = world.resolve_properties("{ 0x2a: string; normal?: boolean }");
+    let projection: Vec<_> = properties
+        .properties
+        .iter()
+        .map(|prop| {
+            (
+                prop.name.as_str(),
+                !prop.optional,
+                prop.prop_type.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        projection,
+        vec![
+            ("42", true, Some("string")),
+            ("normal", false, Some("boolean"))
+        ]
+    );
+    assert!(properties.complete);
+}
