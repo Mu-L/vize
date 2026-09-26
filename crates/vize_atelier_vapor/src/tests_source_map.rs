@@ -273,3 +273,28 @@ fn computed_events_keep_name_and_handler_anchors_in_both_lanes() {
         insta::assert_debug_snapshot!(format!("computed_event_{case}_map"), segments);
     }
 }
+
+#[test]
+fn teleport_props_and_contents_keep_authored_mapping_units() {
+    for (case, source) in [
+        (
+            "static",
+            r#"<Teleport to="body"><div>content</div></Teleport>"#,
+        ),
+        (
+            "reactive",
+            r#"<Teleport :to="target" :disabled="disabled" defer><span>{{ label }}</span></Teleport>"#,
+        ),
+        (
+            "indexed",
+            r#"<Teleport :to="targets[selected]" :defer="deferred"><span v-if="visible">{{ value }}</span><span v-else>fallback</span></Teleport>"#,
+        ),
+    ] {
+        let (code, segments) = mapped_on(source, Lane::Selected);
+        let (legacy_code, legacy_segments) = mapped_on(source, Lane::Legacy);
+        assert_eq!(code, legacy_code, "{case}: generated code");
+        assert_eq!(segments, legacy_segments, "{case}: authored spans");
+        insta::assert_snapshot!(format!("teleport_{case}_code"), code);
+        insta::assert_debug_snapshot!(format!("teleport_{case}_map"), segments);
+    }
+}

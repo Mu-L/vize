@@ -48,6 +48,8 @@ enum Content<'a> {
     /// `:is` expression of a `<component>`, which is created dynamically.
     /// `tag_span` is the whole component; its tag name starts after `<`.
     Component {
+        /// Checked runtime component kind; never inferred from source at emission.
+        kind: crate::ir::ComponentKind,
         tag: &'a str,
         tag_span: AuthoredSpan,
         props: Vec<'a, Prop<'a>>,

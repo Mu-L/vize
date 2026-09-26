@@ -21,6 +21,11 @@ pub(super) fn component<'a>(values: &[Operand<'a>], alloc: &'a Allocator) -> Res
     }
     let props = static_props(values, Role::Tag, alloc)?;
     Ok(Content::Component {
+        kind: if tag.value.text == "Teleport" {
+            crate::ir::ComponentKind::Teleport
+        } else {
+            crate::ir::ComponentKind::Regular
+        },
         tag: tag.value.text,
         tag_span: (tag.value.span.start, tag.value.span.end),
         props,
@@ -92,9 +97,12 @@ fn static_props<'a>(
 }
 
 /// Ordinary user components and `<component :is>` (its `:is` checked once
-/// bindings attach). Built-ins and self references have their own runtime
-/// contracts and stay on the legacy lane.
+/// bindings attach). Teleport has a separate checked runtime contract;
+/// other built-ins and self references stay on the legacy lane.
 fn component_tag(tag: &str) -> bool {
+    if tag == "Teleport" {
+        return true;
+    }
     !matches!(
         tag,
         "Component"

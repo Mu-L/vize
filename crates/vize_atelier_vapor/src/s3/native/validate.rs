@@ -14,6 +14,7 @@ mod operands;
 mod order;
 mod slots;
 mod spread;
+mod teleport;
 mod tree;
 
 use std::borrow::Cow;
@@ -169,6 +170,7 @@ pub(super) fn admit<'a>(
     let parents = tree::assemble(program, &mut nodes, &slots, &mut regions, alloc)?;
     attach::bindings(&mut nodes, &slots, &parents, bindings, alloc)?;
     slots::check(&nodes, &parents)?;
+    teleport::check(&nodes)?;
     model::check(&nodes)?;
     once::check(&nodes, &parents)?;
     spread::check(&nodes)?;

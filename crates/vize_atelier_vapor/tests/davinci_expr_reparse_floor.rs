@@ -72,6 +72,10 @@ fn vapor_legacy_reparse_floor_holds() {
         r#"<button v-on:[names[selected]].once.capture.passive="save">go</button>"#,
         r#"<button @[enabled?first:second].enter.stop="save">go</button>"#,
         r#"<button @[eventName.toLowerCase()].right="save">go</button>"#,
+        r#"<Teleport to="body"><div>content</div></Teleport>"#,
+        r#"<Teleport :to="target" :disabled="disabled" defer><button @click="save">{{ label }}</button></Teleport>"#,
+        r#"<Teleport :to="targets[selected]" :defer="deferred"><span v-if="visible">{{ value }}</span><span v-else>fallback</span></Teleport>"#,
+        r#"<Teleport to="body"><ul><li v-for="item in items" :key="item.id">{{ item.label }}</li></ul></Teleport>"#,
     ] {
         for prefix_identifiers in [false, true] {
             let allocator = Allocator::new();

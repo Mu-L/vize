@@ -15,6 +15,7 @@ const {
   steps,
   components = {},
   slots = null,
+  externalTargets = [],
 } = JSON.parse(Buffer.concat(chunks).toString("utf8"));
 assert.equal(typeof source, "string");
 assert.ok(source.length > 0);
@@ -42,6 +43,7 @@ process.stdout.write(
       identities: true,
       components: compiledComponents,
       slots,
+      externalTargets,
     }),
   )}\n`,
 );
