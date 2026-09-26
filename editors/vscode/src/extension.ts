@@ -20,14 +20,12 @@ import {
 import {
   Executable,
   LanguageClient,
-  LanguageClientOptions,
   ServerOptions,
   Trace,
   TransportKind,
 } from "vscode-languageclient/node.js";
 import {
   LINT_ONLY_CONFIGURATION_UPDATES,
-  createDocumentSelector,
   describeCapabilities,
   getInitializationOptions,
   hasAnyEnabledCapability,
@@ -38,7 +36,8 @@ import {
 } from "./extension-core.js";
 import { registerHostTestCommands } from "./host-test-commands.js";
 import { registerTypeScriptContentMapperDiscovery } from "./content-mapper-discovery.js";
-import { createAutoInsertMiddleware } from "./auto-insert.js";
+import { createClientOptions } from "./client-options.js";
+import { isJsxDocument } from "./jsx-routing.js";
 import { downloadFile } from "./release-download.js";
 
 const execFileAsync = promisify(execFile);
@@ -217,7 +216,10 @@ async function maybeOfferInitialSetup(
   context: ExtensionContext,
   config: ReturnType<typeof workspace.getConfiguration>,
 ): Promise<void> {
-  if (hasExplicitConfigurationValue(config, "enable")) {
+  if (
+    hasExplicitConfigurationValue(config, "enable") ||
+    workspace.textDocuments.some(isJsxDocument)
+  ) {
     return;
   }
 
@@ -538,7 +540,7 @@ async function startClient(
     "vize",
     "Vize Language Server",
     serverOptions,
-    createClientOptions(initializationOptions, () => nextClient, config),
+    createClientOptions(initializationOptions, () => nextClient, config, outputChannel),
   );
   applyTraceSetting(nextClient, config);
 
@@ -562,27 +564,6 @@ async function stopClient(): Promise<void> {
   const activeClient = client;
   client = undefined;
   await activeClient.stop();
-}
-
-function createClientOptions(
-  initializationOptions: LspInitializationOptions,
-  getClient: () => LanguageClient | undefined,
-  config: ReturnType<typeof workspace.getConfiguration>,
-): LanguageClientOptions {
-  return {
-    documentSelector: createDocumentSelector(),
-    synchronize: {
-      configurationSection: "vize",
-      fileEvents: [
-        workspace.createFileSystemWatcher("**/*.vue"),
-        workspace.createFileSystemWatcher("**/*.{html,htm}"),
-      ],
-    },
-    outputChannel,
-    traceOutputChannel: outputChannel,
-    initializationOptions,
-    middleware: createAutoInsertMiddleware(getClient, config),
-  };
 }
 
 function applyTraceSetting(

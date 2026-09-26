@@ -17,7 +17,13 @@ export type InitializationOptionBehavior = {
   logDefaultProfile?: boolean;
 };
 
-export const SUPPORTED_LANGUAGE_IDS = ["vue", "art-vue", "html"] as const;
+export const SUPPORTED_LANGUAGE_IDS = [
+  "vue",
+  "art-vue",
+  "html",
+  "typescriptreact",
+  "javascriptreact",
+] as const;
 export const SUPPORTED_URI_SCHEMES = ["file", "untitled"] as const;
 export const FEATURE_SETTING_KEYS = [
   "lint.enable",

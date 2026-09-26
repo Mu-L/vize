@@ -185,9 +185,13 @@ test("document selector covers supported language and URI scheme product", () =>
     { scheme: "file", language: "vue" },
     { scheme: "file", language: "art-vue" },
     { scheme: "file", language: "html" },
+    { scheme: "file", language: "typescriptreact" },
+    { scheme: "file", language: "javascriptreact" },
     { scheme: "untitled", language: "vue" },
     { scheme: "untitled", language: "art-vue" },
     { scheme: "untitled", language: "html" },
+    { scheme: "untitled", language: "typescriptreact" },
+    { scheme: "untitled", language: "javascriptreact" },
   ]);
 });
 

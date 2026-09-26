@@ -316,6 +316,10 @@ test("vscode document selector does not duplicate language and scheme pairs", ()
     "art-vue:untitled",
     "html:file",
     "html:untitled",
+    "javascriptreact:file",
+    "javascriptreact:untitled",
+    "typescriptreact:file",
+    "typescriptreact:untitled",
     "vue:file",
     "vue:untitled",
   ]);

@@ -211,7 +211,7 @@ test("every contributed command carries the Vize category and a title", () => {
 test("activation events register the supported languages", () => {
   const manifest = readManifest();
   const events = new Set(manifest.activationEvents ?? []);
-  for (const language of ["vue", "art-vue", "html"]) {
+  for (const language of ["vue", "art-vue", "html", "typescriptreact", "javascriptreact"]) {
     assert.ok(events.has(`onLanguage:${language}`), `missing onLanguage:${language}`);
   }
 });
