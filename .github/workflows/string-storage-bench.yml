@@ -60,6 +60,7 @@ jobs:
           BASE_SHA: ${{ inputs.base_sha || github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ inputs.head_sha || github.event.pull_request.head.sha }}
           DISPATCH_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -67,7 +68,15 @@ jobs:
           [[ "$HEAD_SHA" == "$DISPATCH_SHA" ]]
           [[ "$(git -C base rev-parse HEAD)" == "$BASE_SHA" ]]
           [[ "$(git -C head rev-parse HEAD)" == "$HEAD_SHA" ]]
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            BASE_SHA=$(git -C head merge-base "$BASE_SHA" "$HEAD_SHA")
+            git -C base fetch origin "$BASE_SHA"
+            git -C base checkout --detach "$BASE_SHA"
+          fi
           git -C head merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          mkdir -p reports
+          printf '%s\n' "$BASE_SHA" > reports/base-sha.txt
+          printf '%s\n' "$HEAD_SHA" > reports/head-sha.txt
           cp head/crates/vize_croquis_cf/benches/{cross_file,string_storage}.rs base/crates/vize_croquis_cf/benches/
           python3 - <<'PY'
           from pathlib import Path
