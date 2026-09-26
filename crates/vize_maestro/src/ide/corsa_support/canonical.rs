@@ -5,6 +5,7 @@ use vize_s0::{String, cstr};
 use crate::ide::IdeContext;
 use crate::ide::diagnostics::VirtualTsResult;
 
+mod catalog;
 mod component_completion;
 mod exact_edits;
 mod mapping;
@@ -43,6 +44,7 @@ pub(crate) struct CanonicalVirtualDocument {
     pub(crate) dependencies: Vec<CanonicalDependencyDocument>,
     pub(crate) materialized_sources: Vec<CanonicalMaterializedSource>,
     pub(crate) session_project_roots: Vec<std::path::PathBuf>,
+    pub(crate) source_catalogs: Vec<vize_canon::CorsaSourceCatalog>,
 }
 
 pub(crate) struct CanonicalDependencyDocument {
@@ -147,6 +149,10 @@ pub(crate) fn map_canonical_corsa_location(
             uri: materialized.source_uri.clone(),
             range,
         });
+    }
+
+    if let Some(location) = catalog::map_location(ctx, doc, location) {
+        return Some(location);
     }
 
     if let Some(location) = super::external_mirror::map_location(ctx, location) {

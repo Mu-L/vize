@@ -309,6 +309,7 @@ fn build_vue_virtual_workspace_project(
             dependencies,
             resolved_dependencies,
             materialized_sources,
+            source_catalog: alias_context.source_catalog.clone(),
             session_project_root: session_project_root.clone(),
         },
         documents,

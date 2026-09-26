@@ -142,6 +142,7 @@ const greeting = "hello";
             dependencies: Vec::new(),
             materialized_sources: Vec::new(),
             session_project_roots: Vec::new(),
+            source_catalogs: Vec::new(),
         };
         let child_definition = Location::new(
             Url::parse("file:///workspace/Child.vue").expect("Child URI"),

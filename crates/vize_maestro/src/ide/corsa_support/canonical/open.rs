@@ -103,6 +103,7 @@ pub(super) async fn open_canonical_virtual_document_with_sources_strict(
         dependencies,
         materialized_sources,
         session_project_roots: opened.session_project_root.into_iter().collect(),
+        source_catalogs: vec![opened.source_catalog],
     }))
 }
 
@@ -132,7 +133,7 @@ pub(super) fn map_materialized_sources(
         .collect()
 }
 
-fn authored_uri(ctx: &IdeContext<'_>, source_path: &std::path::Path) -> Option<Url> {
+pub(super) fn authored_uri(ctx: &IdeContext<'_>, source_path: &std::path::Path) -> Option<Url> {
     let source_path = vize_s0::path::canonicalize_non_verbatim(source_path);
     ctx.state
         .documents

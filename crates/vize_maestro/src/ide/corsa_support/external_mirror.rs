@@ -89,6 +89,7 @@ fn map_range(
         dependencies: Vec::new(),
         materialized_sources: Vec::new(),
         session_project_roots: Vec::new(),
+        source_catalogs: Vec::new(),
     };
     map_lsp_range_to_source(&source, &mirror_doc, range)
 }

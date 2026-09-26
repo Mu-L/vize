@@ -245,6 +245,7 @@ mod semantic_position_tests {
                 mapping_kind: CorsaMaterializedMappingKind::AuthoredIdentity,
             }],
             session_project_roots: vec!["/mirror".into()],
+            source_catalogs: Vec::new(),
         };
 
         let positions = materialized_semantic_positions(&document, &package_uri, offset);
@@ -308,6 +309,7 @@ mod tests {
             dependencies: Vec::new(),
             materialized_sources: Vec::new(),
             session_project_roots: Vec::new(),
+            source_catalogs: Vec::new(),
         };
         let (line, character) = crate::ide::offset_to_position(code, source_start);
         let (_, end_character) =

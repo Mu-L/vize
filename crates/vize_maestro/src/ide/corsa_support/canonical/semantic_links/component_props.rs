@@ -302,6 +302,7 @@ mod tests {
             dependencies: Vec::new(),
             materialized_sources: Vec::new(),
             session_project_roots: vec![project.path().to_path_buf()],
+            source_catalogs: Vec::new(),
         };
         let start = source.find("title").expect("prop name");
         let end = start + "title".len();

@@ -15,6 +15,15 @@ pub(crate) enum CanonicalProjectOpenError {
 
 impl CanonicalVirtualDocument {
     fn include_opened_document(&mut self, source_uri: Url, source: String, mut opened: Self) {
+        for catalog in opened.source_catalogs.drain(..) {
+            if !self
+                .source_catalogs
+                .iter()
+                .any(|existing| existing.shares_revision_with(&catalog))
+            {
+                self.source_catalogs.push(catalog);
+            }
+        }
         self.include_dependency(CanonicalDependencyDocument {
             source_uri,
             source,

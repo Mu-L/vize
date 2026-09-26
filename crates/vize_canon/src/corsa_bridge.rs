@@ -11,6 +11,7 @@ mod script_document;
 #[cfg(test)]
 mod script_document_tests;
 mod session;
+mod source_catalog;
 mod types;
 mod vue_dependencies;
 mod vue_dependencies_alias;
@@ -58,6 +59,7 @@ pub(crate) use editor_session::EditorMirrorSession;
 pub use script_document::{
     CorsaScriptVirtualDocument, CorsaScriptVirtualDocumentRequest, CorsaScriptVirtualProject,
 };
+pub use source_catalog::CorsaSourceCatalog;
 pub use types::{
     CorsaBridgeConfig, CorsaBridgeError, LspCompletionItem, LspCompletionList,
     LspCompletionResponse, LspDefinitionResponse, LspDiagnostic, LspDocumentation, LspHover,

@@ -34,8 +34,9 @@ pub struct CorsaVueVirtualDocument {
     /// Unlike the shared materialized mirror, this excludes unrelated hosts.
     pub resolved_dependencies: Vec<PathBuf>,
     pub materialized_sources: Vec<CorsaMaterializedSource>,
+    pub source_catalog: crate::corsa_bridge::CorsaSourceCatalog,
     /// Private Canon mirror root. Any native URI under this root that is not
-    /// present in `materialized_sources` must be rejected by consumers.
+    /// retained in the local sources or captured source catalog is unmappable.
     pub session_project_root: Option<PathBuf>,
 }
 
