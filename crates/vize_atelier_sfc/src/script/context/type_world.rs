@@ -131,11 +131,11 @@ fn read_module_source(path: &Path) -> Option<(String, bool)> {
                 descriptor
                     .script
                     .as_ref()
-                    .map_or("", |script| script.content.as_str()),
+                    .map_or("", |script| script.content.as_ref()),
                 descriptor
                     .script_setup
                     .as_ref()
-                    .map_or("", |script| script.content.as_str()),
+                    .map_or("", |script| script.content.as_ref()),
             ),
             is_tsx,
         ));

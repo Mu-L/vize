@@ -289,7 +289,7 @@ pub fn merge_resolved_props_into_croquis(
             descriptor
                 .script
                 .as_ref()
-                .map(|script| script.content.as_str()),
+                .map(|script| script.content.as_ref()),
             script_setup.lang.as_deref() == Some("tsx")
                 || descriptor
                     .script
