@@ -63,7 +63,7 @@ async function verifyDocument(document, enabled) {
     60_000,
   );
   const mismatch = diagnostics.filter((item) => item.source === "vize/types");
-  assert.equal(mismatch.length, 1);
+  assert.equal(mismatch.length, 1, JSON.stringify(diagnostics));
   assert.equal(mismatch[0].message, "Type 'number' is not assignable to type 'string'.");
   assert.equal(mismatch[0].range.start.line, 1);
 
