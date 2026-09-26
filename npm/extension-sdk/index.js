@@ -2,7 +2,7 @@
 // `tests/tooling/davinci-extension-sdk.test.ts` pins them to the released
 // contract surface and to the Rust SDK.
 
-export const PACKAGE = "vize:contracts@0.1.2";
+export const PACKAGE = "vize:contracts@0.1.3";
 export const PROTOCOL_VERSION = 1;
 export const S1_PAGE_SCHEMA = 1;
 export const S2_PAGE_SCHEMA = 1;
@@ -30,3 +30,9 @@ export function capability(langs) {
   features.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
   return { protocolVersion: PROTOCOL_VERSION, features };
 }
+
+export const TYPED_EXPRESSION_REQUIRED_FEATURES = Object.freeze([
+  "facts-page@1",
+  "projection-page@1",
+  "typed-environment@1",
+]);

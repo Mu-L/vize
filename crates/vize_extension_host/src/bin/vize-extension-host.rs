@@ -10,17 +10,21 @@ use std::io::{self, BufReader, StdoutLock};
 use std::path::Path;
 use std::process::ExitCode;
 
-use vize_extension_host::wasm::{WasmExpressionGuest, WasmGuest, WasmOutputGuest};
+use vize_extension_host::wasm::{
+    WasmExpressionGuest, WasmGuest, WasmOutputGuest, WasmTypedExpressionGuest,
+};
 use vize_extension_host::wire::{
-    Response, answer_expression, answer_input, answer_output, serve, write_message,
+    Response, answer_expression, answer_input, answer_output, answer_typed_expression, serve,
+    write_message,
 };
 use vize_extension_host::{GuestError, GuestLimits};
 
-const USAGE: &str = "usage: vize-extension-host serve <component.wasm> [--world <input-dialect|expression-dialect|output-target>] [--fuel <n>] [--memory <bytes>]";
+const USAGE: &str = "usage: vize-extension-host serve <component.wasm> [--world <input-dialect|expression-dialect|typed-expression-dialect|output-target>] [--fuel <n>] [--memory <bytes>]";
 
 enum World {
     Input,
     Expression,
+    TypedExpression,
     Output,
 }
 
@@ -38,6 +42,7 @@ fn options(flags: &[OsString]) -> Option<(World, GuestLimits)> {
         match (flag.to_str()?, value.to_str()?) {
             ("--world", "input-dialect") => world = World::Input,
             ("--world", "expression-dialect") => world = World::Expression,
+            ("--world", "typed-expression-dialect") => world = World::TypedExpression,
             ("--world", "output-target") => world = World::Output,
             ("--fuel", value) => limits.fuel_per_call = value.parse().ok()?,
             ("--memory", value) => limits.max_memory_bytes = value.parse().ok()?,
@@ -72,6 +77,14 @@ fn main() -> ExitCode {
     let out = io::stdout().lock();
     let input = BufReader::new(io::stdin().lock());
     let served = match world {
+        World::TypedExpression => match WasmTypedExpressionGuest::load_with(path, limits) {
+            Ok(mut guest) => serve(
+                |request| answer_typed_expression(&mut guest, request),
+                input,
+                out,
+            ),
+            Err(error) => return refuse(out, error),
+        },
         World::Expression => match WasmExpressionGuest::load_with(path, limits) {
             Ok(mut guest) => serve(|request| answer_expression(&mut guest, request), input, out),
             Err(error) => return refuse(out, error),

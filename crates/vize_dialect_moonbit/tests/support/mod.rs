@@ -7,6 +7,10 @@
 //! of comparing it; every comparison is exact.
 
 #![expect(clippy::panic, reason = "tests assert by panicking")]
+#![expect(
+    dead_code,
+    reason = "each integration suite uses a different subset of the shared fixtures"
+)]
 
 use std::path::PathBuf;
 
@@ -50,3 +54,5 @@ pub fn pinned_toolchain() -> vize_s0::String {
         .trim()
         .into()
 }
+
+pub mod typed;

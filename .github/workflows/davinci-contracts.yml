@@ -10,6 +10,7 @@ on:
   push:
     branches: [main, davinci]
     paths:
+      - "crates/vize_extension_contract/**"
       - "crates/vize_extension_host/**"
       - "crates/vize_extension_sdk/**"
       - "npm/extension-sdk/**"
@@ -57,11 +58,15 @@ jobs:
       - name: Clippy the wasmtime host lane
         run: cargo clippy -p vize_extension_host --all-targets --features extension-host -- -D warnings -D clippy::wildcard_imports
       - name: Clippy the SDK's wasm guest runtime
-        run: cargo clippy -p vize_extension_sdk --target wasm32-wasip2 -- -D warnings -D clippy::wildcard_imports
+        run: |
+          cargo clippy -p vize_extension_sdk --target wasm32-wasip2 -- -D warnings -D clippy::wildcard_imports
+          cargo clippy -p vize_extension_sdk --target wasm32-wasip2 --features typed-expression -- -D warnings -D clippy::wildcard_imports
       - name: Run TS-48 (input world, both hosting modes)
         run: cargo test -p vize_extension_host --features extension-host --test wit_golden
       - name: Run TS-48 (expression world, both hosting modes) (P6-1b)
-        run: cargo test -p vize_extension_host --features extension-host --test wit_golden_expression --test expression_contract
+        run: cargo test -p vize_extension_host --features extension-host --test wit_golden_expression --test wit_golden_typed_expression --test expression_contract
+      - name: Run compiled SDK/WIT 0.1.2 guests against the current host (both modes)
+        run: cargo test -p vize_extension_host --features extension-host --test wit_legacy
       - name: Build the hello dialect from the packed SDK and run it (P6-2)
         run: cargo test -p vize_extension_host --features extension-host --test sdk_hello
       - name: Stop runaway and hoarding guests at their limits in both modes (P6-3)

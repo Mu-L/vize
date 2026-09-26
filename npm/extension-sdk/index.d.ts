@@ -1,4 +1,4 @@
-// The `vize:contracts@0.1.2` WIT types in the component-model JavaScript
+// The `vize:contracts@0.1.3` WIT types in the component-model JavaScript
 // mapping (records as camelCase interfaces, enums as kebab-case string unions,
 // variants as `{ tag, val }`, `option<T>` as `T | undefined`, `u32` as
 // `number`). `tests/tooling/davinci-extension-sdk.test.ts` pins every
@@ -121,7 +121,7 @@ export interface Emission {
   emit(request: EmitRequest): Emitted;
 }
 
-export declare const PACKAGE: "vize:contracts@0.1.2";
+export declare const PACKAGE: "vize:contracts@0.1.3";
 export declare const PROTOCOL_VERSION: 1;
 export declare const S1_PAGE_SCHEMA: 1;
 export declare const S2_PAGE_SCHEMA: 1;
@@ -139,3 +139,42 @@ export declare const OUTPUT_REQUIRED_FEATURES: readonly [
 
 /** The capability offer for a guest lowering the given `lang` values. */
 export declare function capability(langs: readonly string[]): Capability;
+
+// interface typed-expression-analysis (existing expression records unchanged)
+
+export interface TypedBinding {
+  name: string;
+  kind: string;
+  signature: string;
+}
+
+export type Demand = "value" | "show" | "condition" | "name" | "handler" | "statement";
+
+export interface TypedExpression {
+  id: number;
+  source: string;
+  span: Span;
+  locals: Array<TypedBinding>;
+  expected: Demand;
+}
+
+export interface TypedExpressionBatch {
+  environment: Array<TypedBinding>;
+  expressions: Array<TypedExpression>;
+}
+
+export interface TypedAnalysis {
+  facts: Page;
+  projection: Page;
+  diagnostics: Array<Diagnostic>;
+}
+
+export interface TypedExpressionAnalysis {
+  analyzeTyped(batch: TypedExpressionBatch): TypedAnalysis;
+}
+
+export declare const TYPED_EXPRESSION_REQUIRED_FEATURES: readonly [
+  "facts-page@1",
+  "projection-page@1",
+  "typed-environment@1",
+];

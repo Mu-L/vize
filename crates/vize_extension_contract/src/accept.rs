@@ -124,11 +124,9 @@ pub fn accept(block: &SourceBlock, lowered: LoweredBlock) -> Result<Accepted, Ac
     })
 }
 
-pub(crate) fn read_page<T: Folio>(
-    name: &'static str,
-    reads: u32,
-    page: &Page,
-) -> Result<T, AcceptError> {
+/// Parse a versioned page and require its exact canonical spelling.
+#[doc(hidden)]
+pub fn read_page<T: Folio>(name: &'static str, reads: u32, page: &Page) -> Result<T, AcceptError> {
     if page.schema_version != reads {
         return Err(AcceptError::UnreadableSchema {
             page: name,

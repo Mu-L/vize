@@ -4466,8 +4466,12 @@ name = "vize_dialect_moonbit"
 version = "0.428.1"
 dependencies = [
  "serde_json",
+ "sha2 0.11.0",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
+ "vize_extension_contract",
+ "vize_extension_host",
  "vize_s1",
  "vize_s1_to_s2",
  "vize_s2",
@@ -4490,6 +4494,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "vize_extension_contract"
+version = "0.428.1"
+dependencies = [
+ "serde",
+ "vize_carton",
+ "vize_davinci",
+ "vize_s1",
+ "vize_s1_to_s2",
+ "vize_s2",
+]
+
+[[package]]
 name = "vize_extension_host"
 version = "0.428.1"
 dependencies = [
@@ -4499,6 +4515,7 @@ dependencies = [
  "vize_canon",
  "vize_carton",
  "vize_davinci",
+ "vize_extension_contract",
  "vize_extension_sdk",
  "vize_marquette",
  "vize_s1",

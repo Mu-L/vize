@@ -135,9 +135,11 @@
 before projection, preserving dialect-owned scope names without a JS parse.
 A bounded checker cache keys every result by the toolchain version and the
 complete projection inputs. The fixed `moonc` still reproduces both existing
-fixture projections and diagnostic spans. The typed `.mbti` environment and
-expression-world exchange remain open; see
-[phase-6-records/p6-4b-lowering-cache.md](./phase-6-records/p6-4b-lowering-cache.md).
+fixture projections and diagnostic spans. The separate additive typed world
+now checks producer-supplied signatures via generated `.mbti` interfaces and
+exact projection pages. The automatic S2 type producer and full matrix remain
+open; see [typed-world evidence](./phase-6-records/p6-4b-typed-world.md) and the
+[lowering/cache record](./phase-6-records/p6-4b-lowering-cache.md).
 
 **Start gate:** gated on P4-5b — the dialect's projection is an instance of the single projection.
 
@@ -149,7 +151,7 @@ expression-world exchange remain open; see
 
 - [ ] `crates/vize_dialect_moonbit/` over the P6-1b world and the P6-4a hosting choice
 - [ ] Matrix fixtures with MoonBit expressions compiled and checked end to end
-- [ ] Register the TS-49 command in [test-suites.md](./test-suites.md)
+- [x] Register the TS-49 command in [test-suites.md](./test-suites.md)
 
 **Acceptance:** TS-49 — span-mapped diagnostics exact over the `.mbti`/`.mbt` fixtures, with the `moonc` version in the cache key.
 
@@ -167,7 +169,8 @@ expression-world exchange remain open; see
 
 **Steps:**
 
-- [ ] Write the report from P6-4b's findings; land or defer each fix
+- [x] Write the report from P6-4b's findings; land or defer each fix
+      — [validation report](./exprref-validation.md), with pending fixes in #6795.
 
 **Acceptance:** the report committed; every finding marked `fixed` (with its PR) or `deferred` (with its rationale).
 

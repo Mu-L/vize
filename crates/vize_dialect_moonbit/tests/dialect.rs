@@ -116,3 +116,28 @@ fn handler_references_are_lowercase_member_paths() {
         assert!(!is_handler_path(statement), "{statement}");
     }
 }
+
+#[test]
+fn a_span_inside_a_utf8_codepoint_falls_back_to_the_whole_expression() {
+    let allocator = Allocator::new();
+    let arena = &allocator;
+    let foreign = allocator.alloc(ForeignExpr {
+        dialect: "moonbit",
+        source: "\"é\"",
+        span: Span::new(40, 44),
+        facts: vize_s0::Vec::new_in(&arena),
+    });
+    let expr = ExprRef::Foreign(foreign);
+    assert_eq!(
+        MoonBitDialect.map_span(expr, Span::new(1, 3)),
+        Span::new(41, 43)
+    );
+    assert_eq!(
+        MoonBitDialect.map_span(expr, Span::new(2, 3)),
+        Span::new(40, 44)
+    );
+    assert_eq!(
+        MoonBitDialect.map_span(expr, Span::new(3, 2)),
+        Span::new(40, 44)
+    );
+}

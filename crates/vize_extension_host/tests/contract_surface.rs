@@ -57,6 +57,10 @@ fn host_protocol() -> Protocol {
         ]),
         required_features: BTreeMap::from([
             (
+                String::from("typed-expression-dialect"),
+                features(vize_extension_host::typed_expression::REQUIRED_FEATURES),
+            ),
+            (
                 String::from("expression-dialect"),
                 features(expression::REQUIRED_FEATURES),
             ),
@@ -107,7 +111,7 @@ fn released_surfaces_are_canonical_and_follow_the_policy() {
             .iter()
             .map(|(version, ..)| cstr!("{version}"))
             .collect::<Vec<_>>(),
-        ["0.1.0", "0.1.1", "0.1.2"]
+        ["0.1.0", "0.1.1", "0.1.2", "0.1.3"]
     );
     for (_, surface, bytes) in &released {
         assert_eq!(

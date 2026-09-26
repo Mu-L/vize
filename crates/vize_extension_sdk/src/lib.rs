@@ -61,6 +61,7 @@ mod runtime;
     missing_docs,
     reason = "wit-bindgen generates this module without docs"
 )]
+#[cfg(not(feature = "typed-expression"))]
 pub mod bindings {
     wit_bindgen::generate!({
         path: "wit",
@@ -74,12 +75,17 @@ pub mod bindings {
 
 /// Export a type implementing [`handshake::Guest`] and
 /// [`input_lowering::Guest`] as the guest component's world.
+#[cfg(not(feature = "typed-expression"))]
 pub use bindings::export_input_dialect;
+#[cfg(not(feature = "typed-expression"))]
 pub use bindings::exports::vize::contracts::{handshake, input_lowering};
+#[cfg(not(feature = "typed-expression"))]
 pub use bindings::vize::contracts::types;
+#[cfg(feature = "typed-expression")]
+pub use typed_bindings::vize::contracts::types;
 
 /// The WIT package this SDK binds.
-pub const PACKAGE: &str = "vize:contracts@0.1.2";
+pub const PACKAGE: &str = "vize:contracts@0.1.3";
 /// The handshake protocol version of this contract version.
 pub const PROTOCOL_VERSION: u32 = 1;
 /// The S1 page schema version the [`pages::s1`] writer emits.
@@ -105,6 +111,7 @@ pub const OUTPUT_REQUIRED_FEATURES: &[&str] = &["emit-document-page@1", "s2-page
 /// The capability offer for a guest lowering the given `lang` values:
 /// protocol version and features, sorted and unique as the host requires.
 #[must_use]
+#[cfg(not(feature = "typed-expression"))]
 pub fn capability(langs: &[&str]) -> handshake::Capability {
     let mut features: Vec<String> = langs
         .iter()
@@ -120,5 +127,48 @@ pub fn capability(langs: &[&str]) -> handshake::Capability {
     handshake::Capability {
         protocol_version: PROTOCOL_VERSION,
         features,
+    }
+}
+
+/// Required features of the separate typed-expression world.
+pub const TYPED_EXPRESSION_REQUIRED_FEATURES: &[&str] =
+    &["facts-page@1", "projection-page@1", "typed-environment@1"];
+
+/// Guest bindings for producer-supplied foreign types and lexical scopes.
+#[expect(
+    missing_docs,
+    reason = "wit-bindgen generates this module without docs"
+)]
+#[cfg(feature = "typed-expression")]
+pub mod typed_bindings {
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "typed-expression-dialect",
+        pub_export_macro: true,
+        export_macro_name: "export_typed_expression_dialect",
+        default_bindings_module: "vize_extension_sdk::typed_bindings",
+        additional_derives: [PartialEq, Eq],
+    });
+}
+
+/// Export a guest implementing the typed expression world.
+#[cfg(feature = "typed-expression")]
+pub use typed_bindings::export_typed_expression_dialect;
+
+/// Handshake trait and capability for the selected typed export world.
+#[cfg(feature = "typed-expression")]
+pub use typed_bindings::exports::vize::contracts::handshake as typed_handshake;
+
+/// Offer the exact required features of the selected typed expression world.
+#[must_use]
+#[cfg(feature = "typed-expression")]
+pub fn typed_capability() -> typed_handshake::Capability {
+    typed_handshake::Capability {
+        protocol_version: PROTOCOL_VERSION,
+        features: TYPED_EXPRESSION_REQUIRED_FEATURES
+            .iter()
+            .copied()
+            .map(String::from)
+            .collect::<Vec<_>>(),
     }
 }

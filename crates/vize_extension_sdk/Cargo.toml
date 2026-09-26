@@ -20,6 +20,9 @@ include = ["Cargo.toml", "README.md", "src/**", "wit/**", "versions/**"]
 
 [features]
 default = ["runtime"]
+# Select the typed-expression export world. wit-bindgen publishes one export
+# macro per interface; selecting a world avoids duplicate handshake macros.
+typed-expression = []
 # On `wasm32`, provide the runtime an import-free `no_std` guest needs: the
 # global allocator, `cabi_realloc`, `memcmp`/`bcmp` and the panic handler.
 runtime = ["dep:dlmalloc"]

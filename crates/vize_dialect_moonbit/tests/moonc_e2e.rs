@@ -47,6 +47,7 @@ fn pinned_moonc_checks_every_fixture_exactly() {
                 package: vize_dialect_moonbit::projection::PACKAGE,
                 file_name: &checked.projection.file_name,
                 source: &checked.projection.text,
+                environment: None,
             })
             .unwrap();
         let mut jsonl = raw.lines.join("\n");
@@ -85,6 +86,7 @@ fn an_oversized_projection_is_refused_before_spawning() {
         package: "vize/sfc",
         file_name: "big.mbt",
         source: &text,
+        environment: None,
     };
     assert_eq!(
         host().check(&unit).unwrap_err(),

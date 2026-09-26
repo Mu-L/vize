@@ -14,6 +14,8 @@ pub struct CheckKey {
     pub package: String,
     pub file_name: String,
     pub source: String,
+    pub environment: Option<String>,
+    pub dependencies: String,
 }
 
 impl CheckKey {
@@ -24,11 +26,21 @@ impl CheckKey {
             package: unit.package.to_compact_string(),
             file_name: unit.file_name.to_compact_string(),
             source: unit.source.to_compact_string(),
+            environment: unit.environment.map(ToCompactString::to_compact_string),
+            dependencies: String::default(),
         }
     }
 
     fn bytes(&self) -> usize {
-        self.toolchain.len() + self.package.len() + self.file_name.len() + self.source.len()
+        self.toolchain.len()
+            + self.package.len()
+            + self.file_name.len()
+            + self.source.len()
+            + self
+                .environment
+                .as_ref()
+                .map_or(0, |environment| environment.len())
+            + self.dependencies.len()
     }
 }
 
@@ -62,8 +74,13 @@ impl<H: MooncHost> MooncHost for CachedMoonc<H> {
         self.host.toolchain()
     }
 
+    fn dependency_key(&self) -> Result<String, HostError> {
+        self.host.dependency_key()
+    }
+
     fn check(&mut self, unit: &CheckUnit<'_>) -> Result<RawCheck, HostError> {
-        let key = CheckKey::of(self.toolchain(), unit);
+        let mut key = CheckKey::of(self.toolchain(), unit);
+        key.dependencies = self.host.dependency_key()?;
         if let Some((_, result)) = self.entries.iter().find(|(stored, _)| *stored == key) {
             return Ok(result.clone());
         }
@@ -71,6 +88,11 @@ impl<H: MooncHost> MooncHost for CachedMoonc<H> {
         if result.toolchain != key.toolchain {
             return Err(HostError::Failed(
                 "checker answer changed its toolchain during the request".into(),
+            ));
+        }
+        if self.host.dependency_key()? != key.dependencies {
+            return Err(HostError::Failed(
+                "checker dependencies changed during the request".into(),
             ));
         }
         let result_bytes =

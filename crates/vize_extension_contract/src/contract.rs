@@ -1,4 +1,4 @@
-//! The host's mirror of the `vize:contracts@0.1.2` WIT types, and the
+//! The host's mirror of the `vize:contracts@0.1.3` WIT types, and the
 //! [`InputDialectGuest`] trait every hosting mode implements.
 //!
 //! Field order and names follow `crates/vize_extension_sdk/wit/` exactly (serialized with
@@ -17,7 +17,7 @@ use vize_s1_to_s2::exemptions;
 /// An error a guest reports without a witness the host can re-check against
 /// its fact base, or under an exemption the host does not declare: exempt
 /// from the witness law under this one counted row (P4-6a), never silently.
-static GUEST_ERROR: Exemption = Exemption::new("vize_extension_host", "guest-error");
+static GUEST_ERROR: Exemption = Exemption::new("vize_extension_contract", "guest-error");
 
 /// The in-tree exemptions a diagnostic may carry across the ABI; a
 /// `legacy-exempt("producer/code")` naming one of them converts back to the
@@ -36,7 +36,7 @@ fn declared_exemption(name: &str) -> Option<&'static Exemption> {
 }
 
 /// The WIT package this host implements.
-pub const PACKAGE: &str = "vize:contracts@0.1.2";
+pub const PACKAGE: &str = "vize:contracts@0.1.3";
 /// The integer protocol version this host speaks.
 pub const PROTOCOL_VERSION: u32 = 1;
 /// The S1 page schema version this host reads and writes.

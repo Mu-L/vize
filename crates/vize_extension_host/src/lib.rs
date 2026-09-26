@@ -29,20 +29,21 @@
 //! [`wire`] protocol, and the `extension-host` feature adds `wasm`, the
 //! wasmtime component host the child process uses.
 
-pub mod accept;
-pub mod contract;
-pub mod expression;
-pub mod handshake;
+pub use vize_extension_contract::accept;
+pub use vize_extension_contract::contract;
+pub use vize_extension_contract::expression;
+pub use vize_extension_contract::handshake;
 pub mod outproc;
 pub mod output;
 pub mod session;
-pub mod surface_page;
+pub use vize_extension_contract::surface_page;
+pub use vize_extension_contract::typed_expression;
 pub mod vue;
 #[cfg(feature = "extension-host")]
 pub mod wasm;
 pub mod wire;
 
-pub use accept::{Accepted, accept};
+pub use accept::Accepted;
 pub use contract::{
     Capability, Diagnostic, DiagnosticPart, GuestError, GuestLimits, InputDialectGuest,
     LoweredBlock, Page, PartKind, Severity, SourceBlock, Span, Stage, Witness,
