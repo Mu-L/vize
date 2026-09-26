@@ -1,15 +1,14 @@
 //! Module emission for compiled JSX/TSX components (`module_code`).
 //!
-//! A module whose components are all block-body VDOM components is rebuilt as
-//! `_defineComponent({ name, setup(…) { … } })` around the authored source;
-//! everything else falls back to plain render exports.
+//! VDOM modules retain authored declarations, exports and lexical scopes while
+//! block-body components reuse their authored bodies in Vue setup.
 #![expect(clippy::disallowed_macros, reason = "insta and fixtures use format!")]
 
 use vize_atelier_jsx::{JsxCompileConfig, JsxLang, compile_jsx};
 use vize_s0::Allocator;
 
 #[test]
-fn module_code_renames_multiple_render_exports_to_component_names() {
+fn module_code_preserves_authored_declarations_and_exports() {
     let bump = Allocator::new();
     let out = compile_jsx(
         &bump,
@@ -23,9 +22,9 @@ fn module_code_renames_multiple_render_exports_to_component_names() {
     );
     let module = out.module_code();
 
-    assert!(module.contains("export function InspectTable("));
-    assert!(module.contains("export function LabelContent("));
-    assert!(module.contains("export function InspectTableRow("));
+    assert!(module.contains("export const InspectTable = () =>"));
+    assert!(module.contains("const LabelContent = () =>"));
+    assert!(module.contains("export const InspectTableRow = () =>"));
     assert!(!module.contains("export function render("));
 }
 
@@ -71,8 +70,7 @@ fn module_code_wraps_block_body_component_setup_state() {
     assert!(module.contains("const count = ref(0);"));
     assert!(module.contains("const doubled = computed(() => count.value * 2);"));
     assert!(module.contains("count.value += 1;"));
-    assert!(module.contains("function render(_ctx, _cache)"));
-    assert!(module.contains("return render"));
+    assert!(module.contains("return (function(_ctx, _cache)"));
     assert!(!module.contains("export function render("));
     assert!(out.source_map().is_none());
 }
@@ -241,7 +239,7 @@ fn module_code_forwards_each_components_own_parameters() {
 }
 
 #[test]
-fn jsx_in_a_parameter_default_falls_back_to_plain_render_exports() {
+fn jsx_in_a_parameter_default_retains_the_component_setup() {
     let bump = Allocator::new();
     let out = compile_jsx(
         &bump,
@@ -257,10 +255,11 @@ fn jsx_in_a_parameter_default_falls_back_to_plain_render_exports() {
     );
     let module = out.module_code();
 
-    // The default's JSX is its own render root without setup metadata, so the
-    // stateful wrapper is skipped and no raw JSX can leak into `setup(...)`.
-    assert!(!module.contains("_defineComponent"), "{module}");
-    assert!(!module.contains("setup("), "{module}");
+    assert!(module.contains("const App = _defineComponent"), "{module}");
+    assert!(module.contains("setup({ slot = (() => {"), "{module}");
+    assert!(module.contains("const node = slot;"), "{module}");
+    assert!(!module.contains("<Fallback"), "{module}");
+    assert!(!module.contains("App_2"), "{module}");
 }
 
 #[test]
@@ -279,6 +278,6 @@ fn module_code_leaves_synchronous_components_without_an_async_setup() {
     );
     let module = out.module_code();
 
-    assert!(module.contains("  setup() {"), "{module}");
+    assert!(module.contains("setup() {"), "{module}");
     assert!(!module.contains("async setup"), "{module}");
 }

@@ -8,8 +8,7 @@ use super::*;
 
 #[test]
 fn module_code_prepends_merged_preamble_to_render_code() {
-    // A single VDOM component's module string is its preamble followed by the
-    // render code, so the emitted helpers are actually imported.
+    // The authored VDOM declaration follows its deduplicated runtime imports.
     let bump = Allocator::new();
     let out = compile_jsx(
         &bump,
@@ -22,7 +21,7 @@ fn module_code_prepends_merged_preamble_to_render_code() {
 }
 
 #[test]
-fn source_map_present_only_for_single_component_module() {
+fn source_map_covers_single_and_multiple_component_modules() {
     let bump = Allocator::new();
     let mut config = JsxCompileConfig::default();
     config.vdom.source_map = true;
@@ -45,7 +44,7 @@ fn source_map_present_only_for_single_component_module() {
     );
     assert!(multi.components.len() >= 2);
     assert!(
-        multi.source_map().is_none(),
-        "multi-component module reports no map to avoid misalignment"
+        multi.source_map().is_some(),
+        "multi-component module composes maps for every retained declaration"
     );
 }

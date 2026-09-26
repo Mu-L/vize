@@ -16,9 +16,12 @@ const A = () => _createVNode("div", {
 }, [_createTextVNode("x")]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", { class: "a" }, "x"))
-}
+})(undefined, [])
+})();
 
 ## optimize/class_only
 ### verdict
@@ -34,11 +37,14 @@ const A = () => _createVNode("div", {
 }, null, 2);
 ### vize (vdom, babel compat)
 import { normalizeClass as _normalizeClass, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", {
     class: _normalizeClass(c)
   }, null, 2 /* CLASS */))
-}
+})(undefined, [])
+})();
 
 ## optimize/style_only
 ### verdict
@@ -54,11 +60,14 @@ const A = () => _createVNode("div", {
 }, null, 4);
 ### vize (vdom, babel compat)
 import { normalizeStyle as _normalizeStyle, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", {
     style: _normalizeStyle(s)
   }, null, 4 /* STYLE */))
-}
+})(undefined, [])
+})();
 
 ## optimize/text_only
 ### verdict
@@ -72,11 +81,14 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, [t]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     t
   ]))
-}
+})(undefined, [])
+})();
 
 ## optimize/class_and_props
 ### verdict
@@ -93,14 +105,17 @@ const A = () => _createVNode("div", {
 }, [t], 10, ["id"]);
 ### vize (vdom, babel compat)
 import { normalizeClass as _normalizeClass, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", {
     class: _normalizeClass(c),
     id: i
   }, [
     t
   ], 10 /* CLASS, PROPS */, ["id"]))
-}
+})(undefined, [])
+})();
 
 ## optimize/spread
 ### verdict
@@ -114,9 +129,12 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", p, null, 16);
 ### vize (vdom, babel compat)
 import { normalizeProps as _normalizeProps, guardReactiveProps as _guardReactiveProps, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", _normalizeProps(_guardReactiveProps(p)), null, 16 /* FULL_PROPS */))
-}
+})(undefined, [])
+})();
 
 ## optimize/ref
 ### verdict
@@ -132,9 +150,12 @@ const A = () => _createVNode("div", {
 }, null, 512);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", { ref: r }, null, 512 /* NEED_PATCH */))
-}
+})(undefined, [])
+})();
 
 ## optimize/key
 ### verdict
@@ -150,9 +171,12 @@ const A = () => _createVNode("div", {
 }, null);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", { key: k }))
-}
+})(undefined, [])
+})();
 
 ## optimize/event
 ### verdict
@@ -168,9 +192,12 @@ const A = () => _createVNode("div", {
 }, null, 8, ["onClick"]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", { onClick: h }, null, 8 /* PROPS */, ["onClick"]))
-}
+})(undefined, [])
+})();
 
 ## optimize/component_props
 ### verdict
@@ -186,11 +213,14 @@ const A = () => _createVNode(_resolveComponent("B"), {
 }, null, 8, ["foo"]);
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, { foo: f }, null, 8 /* PROPS */, ["foo"]))
-}
+})(undefined, [])
+})();
 
 ## optimize/v_model_input
 ### verdict
@@ -206,13 +236,16 @@ const A = () => _withDirectives(_createVNode("input", {
 }, null, 8, ["onUpdate:modelValue"]), [[_vModelText, val]]);
 ### vize (vdom, babel compat)
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:modelValue": $event => ((val) = $event)
   }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [
     [_vModelText, val]
   ])
-}
+})(undefined, [])
+})();
 
 ## optimize/slots_stability
 ### verdict
@@ -230,7 +263,9 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 });
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, createElementVNode as _createElementVNode, openBlock as _openBlock, createBlock as _createBlock, withCtx as _withCtx } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {
@@ -242,7 +277,8 @@ export function render(_ctx, _cache) {
     ]),
     _: 1 /* STABLE */
   }))
-}
+})(undefined, [])
+})();
 
 ## optimize/scoped_slot_stability
 ### verdict
@@ -259,7 +295,9 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 });
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, createElementVNode as _createElementVNode, openBlock as _openBlock, createBlock as _createBlock, withCtx as _withCtx } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {
@@ -270,7 +308,8 @@ export function render(_ctx, _cache) {
     ]),
     _: 1 /* STABLE */
   }))
-}
+})(undefined, [])
+})();
 
 ## optimize/v_slots_stability
 ### verdict
@@ -284,11 +323,14 @@ import { resolveComponent as _resolveComponent, createVNode as _createVNode } fr
 const A = () => _createVNode(_resolveComponent("B"), null, slots);
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, slots, 1024 /* DYNAMIC_SLOTS */))
-}
+})(undefined, [])
+})();
 
 ## optimize/fragment
 ### verdict
@@ -302,12 +344,15 @@ import { Fragment as _Fragment, createVNode as _createVNode } from "vue";
 const A = () => _createVNode(_Fragment, null, [_createVNode("i", null, null), _createVNode("b", null, null)]);
 ### vize (vdom, babel compat)
 import { createElementVNode as _createElementVNode, openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
     _createElementVNode("i"),
     _createElementVNode("b")
   ], 64 /* STABLE_FRAGMENT */))
-}
+})(undefined, [])
+})();
 
 ## optimize/map_list
 ### verdict
@@ -323,7 +368,9 @@ const A = () => _createVNode("div", null, [list.map(i => _createVNode("span", {
 }, [i]))]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment, renderList as _renderList } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(list, (i) => {
       return (_openBlock(), _createElementBlock("span", { key: i }, [
@@ -331,4 +378,5 @@ export function render(_ctx, _cache) {
       ]))
     }), 128 /* KEYED_FRAGMENT */))
   ]))
-}
+})(undefined, [])
+})();

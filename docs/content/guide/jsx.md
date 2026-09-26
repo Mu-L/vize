@@ -8,14 +8,10 @@ title: JSX & TSX
 > Type-aware checks stay opt-in so React `.tsx` files are never treated as Vue JSX by accident.
 > HMR for standalone `.jsx`/`.tsx` modules is still the main remaining integration gap.
 
-Vize compiles `.jsx` and `.tsx` Vue components through the **same compiler crates** as `.vue`
-single-file components — the VDOM and Vapor backends, Croquis semantic analysis, Canon type
-checking, Patina lint, and the Maestro language server. There is no separate Babel pipeline and no
-runtime JSX factory shim: a JSX component is lowered straight to a Vue render function (or a Vapor
-template) by the native compiler.
-
-This means a `.tsx` Vue component gets the same Rust-native compilation, the same type checking, and
-the same editor experience as an SFC — just authored as a typed function instead of a `<template>`.
+Vize compiles `.jsx` and `.tsx` Vue components through the compiler crates used by `.vue` files:
+VDOM/Vapor backends, Croquis analysis, Canon type checking, Patina lint, and the Maestro language server.
+The native compiler lowers JSX directly to Vue render functions or Vapor templates without Babel.
+VDOM modules retain authored imports, declarations, exports, parameters, and lexical component bindings.
 
 ## Enabling JSX/TSX
 
@@ -106,8 +102,8 @@ The component name is taken from the binding (`const Counter = …`) or the func
 nesting, fragments (`<>…</>`), expression children, and event props such as `onClick`. The only
 Vue-specific addition is the `<style scoped>` element described [below](#scoped-styles).
 
-> The type-only authoring form above is the supported common case. Synthesizing runtime `props`
-> metadata, and the `defineComponent(() => () => vnode)` setup form, are planned follow-ups.
+> VDOM block-body components declare runtime prop names from destructuring or inline object types.
+> Runtime validators, named type inference, and explicit `defineComponent` setup forms remain follow-ups.
 
 ## Supported JSX surface
 
@@ -493,10 +489,14 @@ Be aware of the current edges:
 
 - **Type-checking is opt-in.** `typeChecker.jsxTypecheck` is `false` by default so mixed Vue/React
   repositories do not accidentally route React TSX through the Vue JSX checker.
-- **HMR is not yet wired for `.jsx`/`.tsx` modules.** The JSX compiler currently emits a
-  render-function module rather than a full component-object module, so there is no Vue HMR boundary
-  to attach to. Full component-module output plus state-preserving HMR is a planned follow-up; until
-  then, edits to a `.jsx`/`.tsx` component fall back to a normal reload.
+- **HMR is not yet wired for `.jsx`/`.tsx` modules.** VDOM compilation preserves authored
+  imports and exports. Block-body setup state and JSX parameter defaults retain their scopes.
+  Edits still trigger a normal reload because the bundler adapters do not register Vue HMR boundaries.
+- **Authored module preservation for Vapor and SSR remains incomplete.** Imports, exports,
+  setup statements, and captured local bindings that the standalone renderer would drop produce
+  a diagnostic. Static standalone renderers and the per-component compiler outputs remain available.
+- **Runtime helper aliases cannot be shadowed.** An authored binding such as `_openBlock`
+  that conflicts with a generated helper is diagnosed instead of emitting a broken module.
 - **Literal CSS `v-bind(...)` inside a JSX `<style scoped>` block is not supported.** Use `${expr}`
   template-literal interpolation, which is the supported, type-checked form.
 

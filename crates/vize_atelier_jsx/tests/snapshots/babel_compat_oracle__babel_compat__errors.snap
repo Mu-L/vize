@@ -14,9 +14,12 @@ const A = () => <input v-model={{a:1}}/>;
 ### vize (vdom, babel compat)
 <Error> v-model target `{a:1}` cannot be assigned to; v-model needs a variable or property reference.
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("input"))
-}
+})(undefined, [])
+})();
 
 ## errors/v_model_no_value
 ### verdict
@@ -30,9 +33,12 @@ const A = () => <input v-model/>;
 ### vize (vdom, babel compat)
 <Error> v-model is missing expression.
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("input"))
-}
+})(undefined, [])
+})();
 
 ## errors/v_models_not_array
 ### verdict
@@ -46,11 +52,14 @@ const A = () => <B v-models={foo}/>;
 ### vize (vdom, babel compat)
 <Error> v-models expects a two-dimensional array of `[value, arg?, modifiers?]` entries, e.g. v-models={[[foo], [bar, "bar"]]}.
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B))
-}
+})(undefined, [])
+})();
 
 ## errors/v_models_entry_not_array
 ### verdict
@@ -64,11 +73,14 @@ const A = () => <B v-models={[foo]}/>;
 ### vize (vdom, babel compat)
 <Error> v-models entry `foo` is not an array; each entry must be `[value, arg?, modifiers?]`.
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B))
-}
+})(undefined, [])
+})();
 
 ## errors/v_slots_not_object
 ### verdict
@@ -82,11 +94,14 @@ import { resolveComponent as _resolveComponent, createVNode as _createVNode } fr
 const A = () => _createVNode(_resolveComponent("B"), null, 1);
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, 1, 1024 /* DYNAMIC_SLOTS */))
-}
+})(undefined, [])
+})();
 
 ## errors/v_slots_static_template
 ### verdict
@@ -100,11 +115,14 @@ import { resolveComponent as _resolveComponent, createVNode as _createVNode } fr
 const A = () => _createVNode(_resolveComponent("B"), null, `text`);
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, `text`, 1024 /* DYNAMIC_SLOTS */))
-}
+})(undefined, [])
+})();
 
 ## errors/v_slots_not_object_with_children
 ### verdict
@@ -121,7 +139,9 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 });
 ### vize (vdom, babel compat)
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock, createTextVNode as _createTextVNode, withCtx as _withCtx } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {
@@ -130,4 +150,5 @@ export function render(_ctx, _cache) {
     ]),
     ...1
   }, 1024 /* DYNAMIC_SLOTS */))
-}
+})(undefined, [])
+})();

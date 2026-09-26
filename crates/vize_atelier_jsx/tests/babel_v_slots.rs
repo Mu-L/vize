@@ -46,11 +46,11 @@ fn render_module(children: Option<&str>) -> String {
         concat!(
             "import {{ resolveComponent as _resolveComponent, openBlock as _openBlock, ",
             "createBlock as _createBlock }} from \"vue\"\n",
-            "export function render(_ctx, _cache) {{\n",
+            "\nconst A = () => (() => {{\nreturn (function(_ctx, _cache) {{\n",
             "  const _component_B = _resolveComponent(\"B\")\n",
             "  \n",
             "  return (_openBlock(), {call})\n",
-            "}}",
+            "}})(undefined, [])\n}})();",
         ),
         call = call
     )

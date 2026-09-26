@@ -148,14 +148,15 @@ pub struct ComponentSetupSpan {
     /// `await`, so the generated method has to stay `async setup()` to remain
     /// syntactically valid (#3856).
     pub is_async: bool,
-    /// Prop names read off the first parameter's object destructuring pattern, in
-    /// source order. Vue only fills `setup`'s first argument with *declared*
-    /// props, so these are emitted as the wrapper's `props` option — otherwise a
+    /// Prop names from the first parameter's object destructuring pattern or
+    /// inline TypeScript object annotation, in source order. Vue only fills
+    /// `setup`'s first argument with declared props, so these are emitted as the
+    /// wrapper's `props` option — otherwise a
     /// value the caller passes lands in `attrs` and the destructured binding
     /// keeps its default (#3861).
     ///
-    /// Empty whenever the names cannot be enumerated exactly: a plain `props`
-    /// parameter, a rest element, or a computed key.
+    /// Empty whenever the names cannot be enumerated exactly: an untyped or
+    /// aliased `props` parameter, a rest element, or a computed key.
     pub destructured_props: Vec<String>,
     /// Start of setup statements inside the component body.
     pub setup_start: u32,
@@ -245,7 +246,7 @@ fn lower_source_with_compat<'a>(
 ) -> (LowerOutput<'a>, std::vec::Vec<(u32, u32)>) {
     let parse_source = parse::prepare_source_for_parse(source, lang);
     let parsed = parse::parse_module(allocator, parse_source.as_ref(), lang);
-    let scoping = babel.is_custom_element.map(|_| {
+    let scoping = Some({
         SemanticBuilder::new()
             .build(&parsed.program)
             .semantic

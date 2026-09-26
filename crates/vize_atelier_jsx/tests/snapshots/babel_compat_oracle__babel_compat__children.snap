@@ -14,9 +14,12 @@ import { createTextVNode as _createTextVNode, createVNode as _createVNode } from
 const A = () => _createVNode("div", null, [_createTextVNode("x")]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, "x"))
-}
+})(undefined, [])
+})();
 
 ## children/text_interp_mix
 ### verdict
@@ -30,9 +33,12 @@ import { createTextVNode as _createTextVNode, createVNode as _createVNode } from
 const A = () => _createVNode("div", null, [_createTextVNode("hi "), name, _createTextVNode("!")]);
 ### vize (vdom, babel compat)
 import { toDisplayString as _toDisplayString, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, "hi " + _toDisplayString(name) + "!", 1 /* TEXT */))
-}
+})(undefined, [])
+})();
 
 ## children/comment_only
 ### verdict
@@ -46,9 +52,12 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, null);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div"))
-}
+})(undefined, [])
+})();
 
 ## children/empty_expr
 ### verdict
@@ -62,9 +71,12 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, null);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div"))
-}
+})(undefined, [])
+})();
 
 ## children/spread_child
 ### verdict
@@ -78,11 +90,14 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, [...items]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     ...items
   ]))
-}
+})(undefined, [])
+})();
 
 ## children/logical_and
 ### verdict
@@ -96,13 +111,16 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, [c && _createVNode("span", null, null)]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, createCommentVNode as _createCommentVNode } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     (c)
       ? (_openBlock(), _createElementBlock("span", { key: 0 }))
       : _createCommentVNode("v-if", true)
   ]))
-}
+})(undefined, [])
+})();
 
 ## children/ternary
 ### verdict
@@ -116,13 +134,16 @@ import { createVNode as _createVNode } from "vue";
 const A = () => _createVNode("div", null, [c ? _createVNode("a", null, null) : _createVNode("b", null, null)]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, createCommentVNode as _createCommentVNode } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     (c)
       ? (_openBlock(), _createElementBlock("a", { key: 0 }))
       : (_openBlock(), _createElementBlock("b", { key: 1 }))
   ]))
-}
+})(undefined, [])
+})();
 
 ## children/map_list
 ### verdict
@@ -138,7 +159,9 @@ const A = () => _createVNode("div", null, [list.map(i => _createVNode("span", {
 }, [i]))]);
 ### vize (vdom, babel compat)
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment, renderList as _renderList } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return (function(_ctx, _cache) {
   return (_openBlock(), _createElementBlock("div", null, [
     (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(list, (i) => {
       return (_openBlock(), _createElementBlock("span", { key: i }, [
@@ -146,4 +169,5 @@ export function render(_ctx, _cache) {
       ]))
     }), 128 /* KEYED_FRAGMENT */))
   ]))
-}
+})(undefined, [])
+})();
