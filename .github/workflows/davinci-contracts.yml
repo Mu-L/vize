@@ -57,7 +57,9 @@ jobs:
       - name: Clippy the wasmtime host lane
         run: cargo clippy -p vize_extension_host --all-targets --features extension-host -- -D warnings -D clippy::wildcard_imports
       - name: Clippy the SDK's wasm guest runtime
-        run: cargo clippy -p vize_extension_sdk --target wasm32-wasip2 -- -D warnings -D clippy::wildcard_imports
+        run: |
+          cargo clippy -p vize_extension_sdk --target wasm32-wasip2 -- -D warnings -D clippy::wildcard_imports
+          cargo clippy -p vize_extension_sdk --target wasm32-wasip2 --features typed-expression -- -D warnings -D clippy::wildcard_imports
       - name: Run TS-48 (input world, both hosting modes)
         run: cargo test -p vize_extension_host --features extension-host --test wit_golden
       - name: Run TS-48 (expression world, both hosting modes) (P6-1b)

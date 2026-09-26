@@ -12,10 +12,7 @@ struct Echo;
 
 impl handshake::Guest for Echo {
     fn get_capability() -> handshake::Capability {
-        handshake::Capability {
-            protocol_version: 1,
-            features: vize_extension_sdk::TYPED_EXPRESSION_REQUIRED_FEATURES.iter().copied().map(String::from).collect(),
-        }
+        vize_extension_sdk::typed_capability()
     }
 }
 
