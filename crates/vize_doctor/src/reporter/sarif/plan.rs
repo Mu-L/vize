@@ -252,6 +252,8 @@ fn encode_relative_uri(path: &str) -> String {
 mod unit_tests {
     use std::collections::BTreeMap;
 
+    use vize_s0::cstr;
+
     use super::{SarifMissingSourcePolicy, SarifPlan, encode_relative_uri};
     use crate::{
         AnalysisProvenance, DoctorCategory, DoctorFinding, DoctorReport, FindingAssessment,
