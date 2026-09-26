@@ -73,29 +73,26 @@ impl MarkupRule for DeprecatedAttr {
         META.name
     }
 
-    fn enter_binding<'a>(
-        &self,
-        ctx: &mut MarkupContext<'_, 'a>,
-        element: &MarkupElement<'a>,
-        binding: &MarkupBinding<'a>,
-    ) {
+    fn enter_element<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
         if element.is_component() {
             return;
         }
 
-        let tag = element.tag();
-        let Some((name, suggestion)) = Self::deprecated_markup_attr(element, binding) else {
-            return;
-        };
-
-        let message = ctx.lint().t_fmt(
-            "html/deprecated-attr.message",
-            &[("attr", name), ("tag", tag)],
-        );
-        let help = ctx
-            .lint()
-            .t_fmt("html/deprecated-attr.help", &[("suggestion", suggestion)]);
-        ctx.lint().warn_at_with_help(message, binding.range(), help);
+        // The legacy rule checks attributes in its element hook. Keeping that
+        // hook preserves registry order when another rule reports the attributes or direct child text.
+        element.walk_bindings(&mut |binding| {
+            let Some((name, suggestion)) = Self::deprecated_markup_attr(element, &binding) else {
+                return;
+            };
+            let message = ctx.lint().t_fmt(
+                "html/deprecated-attr.message",
+                &[("attr", name), ("tag", element.tag())],
+            );
+            let help = ctx
+                .lint()
+                .t_fmt("html/deprecated-attr.help", &[("suggestion", suggestion)]);
+            ctx.lint().warn_at_with_help(message, binding.range(), help);
+        });
     }
 }
 

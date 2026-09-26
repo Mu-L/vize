@@ -161,6 +161,8 @@ impl<'rule, 'ctx, 'mc, 'a, R: MarkupRule + ?Sized> MarkupDocumentVisitor<'rule, 
 
         self.set_rule();
         self.rule.enter_element(self.ctx, &element);
+        self.set_rule();
+        self.rule.enter_attributes(self.ctx, &element);
 
         element.walk_bindings(&mut |binding| {
             self.ctx.lint.current_rule = self.rule.name();

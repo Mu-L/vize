@@ -2,8 +2,8 @@
 
 use crate::ir::ByteRange;
 use crate::markup::{
-    MarkupBinding, MarkupConditional, MarkupContext, MarkupDirective, MarkupDocument,
-    MarkupElement, MarkupList, MarkupRule, MarkupText,
+    MarkupConditional, MarkupContext, MarkupDirective, MarkupDocument, MarkupElement, MarkupList,
+    MarkupRule, MarkupText,
 };
 
 pub(super) struct Rules<'a>(pub &'a [(usize, &'static str, &'a dyn MarkupRule)]);
@@ -24,6 +24,20 @@ impl MarkupRule for Rules<'_> {
         for (_, name, rule) in self.0 {
             ctx.lint().current_rule = name;
             rule.enter_element(ctx, element);
+            // The admitted binding checks originate in legacy element hooks.
+            // Keep each rule's attribute reports beside its element reports,
+            // before the next rule can report direct child text.
+            element.walk_bindings(&mut |binding| {
+                ctx.lint().current_rule = name;
+                rule.enter_binding(ctx, element, &binding);
+            });
+        }
+    }
+
+    fn enter_attributes<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
+        for (_, name, rule) in self.0 {
+            ctx.lint().current_rule = name;
+            rule.enter_attributes(ctx, element);
         }
     }
 
@@ -31,18 +45,6 @@ impl MarkupRule for Rules<'_> {
         for (_, name, rule) in self.0 {
             ctx.lint().current_rule = name;
             rule.exit_element(ctx, element);
-        }
-    }
-
-    fn enter_binding<'a>(
-        &self,
-        ctx: &mut MarkupContext<'_, 'a>,
-        element: &MarkupElement<'a>,
-        binding: &MarkupBinding<'a>,
-    ) {
-        for (_, name, rule) in self.0 {
-            ctx.lint().current_rule = name;
-            rule.enter_binding(ctx, element, binding);
         }
     }
 

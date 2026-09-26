@@ -23,6 +23,9 @@ fn linter() -> Linter {
         crate::rules::opinionated::vapor::PreferStaticClass,
     ));
     linter
+        .registry
+        .register(Box::new(crate::rules::vue::NoBareStringsInTemplate));
+    linter
 }
 
 fn compare_template(source: &str) {
@@ -92,6 +95,7 @@ const view = <button style="color:red">go</button>;
 
 mod battery;
 mod stylesheet;
+mod text_order;
 
 struct FacadeOnly(&'static crate::rule::RuleMeta);
 

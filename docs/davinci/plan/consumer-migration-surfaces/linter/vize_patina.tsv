@@ -83,6 +83,7 @@ linter	Linter	source	crates/vize_patina/src/linter/engine/sfc/facade.rs	11	croqu
 linter	Linter	test/dev	crates/vize_patina/src/linter/engine/sfc/facade/tests.rs	6	s0	S0	stage	vize_s0	preferred	1
 linter	Linter	test/dev	crates/vize_patina/src/linter/engine/sfc/facade/tests.rs	6	old_ast	old AST/parser	old	vize_relief	legacy	1
 linter	Linter	test/dev	crates/vize_patina/src/linter/engine/sfc/facade/tests/stylesheet.rs	7	old_ast	old AST/parser	old	vize_relief	legacy	1
+linter	Linter	test/dev	crates/vize_patina/src/linter/engine/sfc/facade/tests/text_order.rs	27	s0	S0	stage	vize_s0	preferred	3
 linter	Linter	source	crates/vize_patina/src/linter/engine/sfc/pug.rs	13	s1_to_s2	S1->S2	stage	vize_s1_to_s2	preferred	1
 linter	Linter	source	crates/vize_patina/src/linter/engine/template_extract.rs	4	s0	S0	stage	vize_s0	preferred	2
 linter	Linter	test/dev	crates/vize_patina/src/linter/engine/template_extract.rs	123	s0	S0	stage	vize_s0	preferred	1
