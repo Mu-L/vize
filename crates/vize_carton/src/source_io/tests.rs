@@ -1,7 +1,9 @@
 use super::{decode_utf8, read_to_string};
 
 fn assert_decode_matches_std(bytes: &[u8]) {
-    match (core::str::from_utf8(bytes), decode_utf8(bytes)) {
+    let expected = core::str::from_utf8(bytes);
+    let actual = decode_utf8(bytes);
+    match (expected, actual) {
         (Ok(expected), Ok(actual)) => {
             assert_eq!(actual, expected);
             assert_eq!(actual.as_ptr(), bytes.as_ptr());
@@ -11,7 +13,7 @@ fn assert_decode_matches_std(bytes: &[u8]) {
             assert_eq!(actual.error_len(), expected.error_len());
             assert_eq!(actual.to_string(), expected.to_string());
         }
-        pair => panic!("UTF-8 verdict differs: {pair:?}"),
+        _ => assert_eq!(actual, expected, "UTF-8 verdict differs"),
     }
 }
 

@@ -70,7 +70,9 @@ fn main() -> io::Result<()> {
                 end -= 1;
             }
             text.truncate(end);
-            let path = directory.path().join(format!("{kind}-{size}.vue"));
+            let path = directory
+                .path()
+                .join(vize_carton::cstr!("{kind}-{size}.vue").as_str());
             std::fs::write(&path, &text)?;
             if decode_utf8(text.as_bytes()).map_err(io::Error::other)? != text
                 || read_to_string(&path)? != std::fs::read_to_string(&path)?
