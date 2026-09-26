@@ -93,6 +93,15 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
             };
         "#,
         ),
+        (
+            "factory",
+            r#"
+            export const make = function (label: string) {
+                return () => { return <p>{label}</p>; };
+            };
+            export default make("retained-factory");
+        "#,
+        ),
     ];
     let modules: serde_json::Map<_, _> = cases
         .into_iter()
@@ -127,7 +136,7 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
     );
     assert_eq!(
         std::string::String::from_utf8_lossy(&output.stdout).trim(),
-        "5 mounted TSX module scenarios passed"
+        "6 mounted TSX module scenarios passed"
     );
 }
 

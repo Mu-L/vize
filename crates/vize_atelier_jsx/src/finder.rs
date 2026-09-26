@@ -249,11 +249,13 @@ impl<'ast> Visit<'ast> for RootLowerer<'_, '_, '_, '_> {
     }
 
     fn visit_function(&mut self, it: &Function<'ast>, flags: ScopeFlags) {
+        let pending_name = self.pending_name.take();
+        self.pending_declaration_span = None;
         let name = it
             .id
             .as_ref()
             .map(|id| String::from(id.name.as_str()))
-            .or_else(|| self.pending_name.take());
+            .or(pending_name);
         self.push_scope(it.body.as_deref(), name, None);
         walk::walk_function(self, it, flags);
         self.scopes.pop();

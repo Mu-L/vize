@@ -103,6 +103,12 @@ for (const [scenario, module] of Object.entries(modules)) {
     assert.equal(host.textContent, "lexical:lexical");
     assert.equal(vue.widgets.marker, "kept");
     assert.equal(vue.widgets.render().type, "i");
+  } else if (scenario === "factory") {
+    assert.equal(host.textContent, "retained-factory");
+    assert.equal(vue.make("other")().children, "other");
+    state.label = "second";
+    await vue.nextTick();
+    assert.equal(host.textContent, "retained-factory");
   } else {
     assert.fail(`unknown scenario ${scenario}`);
   }
@@ -112,4 +118,4 @@ for (const [scenario, module] of Object.entries(modules)) {
 }
 assert.deepEqual(messages, []);
 await window.happyDOM.abort();
-console.log("5 mounted TSX module scenarios passed");
+console.log("6 mounted TSX module scenarios passed");
