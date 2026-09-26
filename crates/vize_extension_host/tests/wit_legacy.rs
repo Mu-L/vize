@@ -1,5 +1,4 @@
 //! Real SDK/WIT 0.1.2 components against the current host, in both modes.
-#![expect(clippy::expect_used, reason = "tests assert by panicking")]
 
 mod support;
 
