@@ -93,7 +93,7 @@ fn last_static_properties_win_and_unknown_overrides_are_explicit() {
         .collect();
     assert_eq!(bindings, [("same", Some("last")), ("final", Some("last"))]);
     let result = parse_script_setup(
-        "const first=1, last=2; defineExpose({ same:first, ['literal']: first, same:last, __proto__: first, ['__proto__']:last });",
+        "const first=1, last=2; defineExpose({ same:first, ['literal']: first, same:last, ['__proto__']:last });",
     );
     assert!(result.macros.expose_is_complete());
     let bindings: Vec<_> = result
@@ -117,12 +117,19 @@ fn last_static_properties_win_and_unknown_overrides_are_explicit() {
         "defineExpose<{ count: number }>()",
         "const result=defineExpose({ count: 1 })",
         "defineExpose({ one: 1 }); defineExpose({ two: 2 })",
+        "defineExpose({ __proto__: { inherited: 1 } })",
     ] {
         assert!(
             !parse_script_setup(source).macros.expose_is_complete(),
             "{source}"
         );
     }
+    let result = parse_script_setup(
+        "const count=ref(0); defineExpose({ __proto__: { inherited: 1 }, count })",
+    );
+    assert!(!result.macros.expose_is_complete());
+    assert_eq!(result.macros.exposes().len(), 1);
+    assert_eq!(result.macros.exposes().first().unwrap().name, "count");
 }
 
 #[test]
