@@ -357,18 +357,22 @@ impl ScopeChain {
         // to `self.scopes` before exposing the id. Exiting a scope moves to a
         // stored parent id, never an arbitrary index. This unchecked access is on
         // every identifier lookup path, so we keep the invariant centralized here.
-        unsafe { self.scopes.get_unchecked(self.current) }
+        unsafe {
+            self.scopes
+                .raw
+                .get_unchecked(self.current.as_u32() as usize)
+        }
     }
 
     /// Get the current scope mutably
     #[inline]
     pub fn current_scope_mut(&mut self) -> &mut Scope {
-        let idx = self.current;
+        let idx = self.current.as_u32() as usize;
         // SAFETY: same invariant as `current_scope`: `idx` comes from a
         // ScopeId minted by this chain and therefore addresses an existing scope.
         // The `&mut self` receiver guarantees no competing borrow of the scope
         // vector while returning this mutable reference.
-        unsafe { self.scopes.get_unchecked_mut(idx) }
+        unsafe { self.scopes.raw.get_unchecked_mut(idx) }
     }
 
     /// Get a scope by ID
@@ -386,7 +390,7 @@ impl ScopeChain {
     #[inline]
     pub unsafe fn get_scope_unchecked(&self, id: ScopeId) -> &Scope {
         // SAFETY: upheld by the caller contract above.
-        unsafe { self.scopes.get_unchecked(id) }
+        unsafe { self.scopes.raw.get_unchecked(id.as_u32() as usize) }
     }
 
     /// Current scope ID
