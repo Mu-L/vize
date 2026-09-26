@@ -17,7 +17,8 @@ use std::path::Path;
 
 use parking_lot::Mutex;
 use tower_lsp::lsp_types::Url;
-use vize_resident::{ParsedSfc, ResidentDocuments, SharedDescriptor};
+use vize_davinci::summary::AlphaPages;
+use vize_resident::{ComponentSurface, ParsedSfc, ResidentDocuments, SharedDescriptor};
 
 use super::ServerState;
 
@@ -36,14 +37,52 @@ impl ResidentCache {
         self.0.lock().close(key);
     }
 
+    pub(crate) fn invalidate_interfaces(&self) {
+        self.0.lock().invalidate_interfaces();
+    }
+
+    pub(crate) fn interface(
+        &self,
+        key: &str,
+        text: &str,
+        configuration: &str,
+        export: impl FnOnce(&SharedDescriptor) -> Option<AlphaPages>,
+    ) -> Option<ComponentSurface> {
+        self.0
+            .lock()
+            .component_surface(key, key, text, configuration, export)
+    }
+
     /// Lookups served and parses run since the last call.
     #[cfg(test)]
     pub(crate) fn take_stats(&self) -> vize_resident::DescriptorStats {
         self.0.lock().take_stats()
     }
+
+    #[cfg(test)]
+    pub(crate) fn take_interface_stats(&self) -> vize_resident::InterfaceStats {
+        self.0.lock().take_interface_stats()
+    }
 }
 
 impl ServerState {
+    /// Publish current Croquis alpha pages before imported-component
+    /// completion/hover/diagnostics consume the declaration contracts.
+    pub(crate) fn component_interface(
+        &self,
+        path: &Path,
+        text: &str,
+        configuration: &str,
+        export: impl FnOnce(&SharedDescriptor) -> Option<AlphaPages>,
+    ) -> Option<ComponentSurface> {
+        self.resident
+            .interface(&path.to_string_lossy(), text, configuration, export)
+    }
+
+    pub(crate) fn invalidate_component_interfaces(&self) {
+        self.component_metadata_cache.clear();
+        self.resident.invalidate_interfaces();
+    }
     /// The memoized descriptor of open document `uri` whose text is `text`.
     pub(crate) fn sfc_descriptor(&self, uri: &Url, text: &str) -> Option<SharedDescriptor> {
         self.sfc_parsed(uri, text).into_descriptor()

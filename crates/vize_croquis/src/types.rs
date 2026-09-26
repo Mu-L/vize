@@ -6,6 +6,7 @@
 //! - Type references: `defineProps<Props>()`
 //! - External imports (future): `import type { Props } from './types'`
 
+mod declaration_metadata;
 mod props;
 pub mod world;
 
@@ -142,7 +143,8 @@ impl TypeDefinitions {
         }
     }
 
-    fn interface_extends(&self, name: &str) -> Vec<CompactString> {
+    /// Authored heritage clauses retained by the interface declaration producer.
+    pub fn interface_extends(&self, name: &str) -> Vec<CompactString> {
         let key = interface_extends_key(name);
         self.type_aliases
             .get(key.as_str())

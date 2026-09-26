@@ -25,6 +25,7 @@ mod parse;
 mod process;
 mod recovery;
 mod result;
+mod type_definitions;
 mod typeof_refs;
 mod walk;
 

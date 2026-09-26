@@ -4,7 +4,8 @@ use std::{path::Path, sync::Arc};
 
 use crate::ide::IdeContext;
 
-use super::component_meta::{ComponentMetadata, extract_component_metadata};
+use super::component_interface::{component_metadata_from_interface, export_component_interface};
+use super::component_meta::ComponentMetadata;
 
 #[derive(Clone)]
 pub(crate) struct CachedComponentMetadata {
@@ -12,6 +13,7 @@ pub(crate) struct CachedComponentMetadata {
     modified: Option<std::time::SystemTime>,
     version: Option<i32>,
     hash: Option<u64>,
+    configuration: u64,
     metadata: Arc<ComponentMetadata>,
 }
 
@@ -20,10 +22,20 @@ pub(super) fn cached_component_metadata(
     resolved: &Path,
 ) -> Option<Arc<ComponentMetadata>> {
     let cache = ctx.state.component_metadata_cache();
+    let options_api = ctx.state.options_api_enabled();
+    let legacy_vue2 = ctx.state.legacy_vue2_enabled();
+    let configuration = serde_json::to_string(&(
+        ctx.state.get_type_checker_config(),
+        options_api,
+        legacy_vue2,
+    ))
+    .ok()?;
+    let configuration_hash = vize_s0::hash::hash_str(&configuration);
     let open = open_component(ctx, resolved);
     let (content, len, modified, version, hash) = if let Some((content, len, version, hash)) = open
     {
         if let Some(entry) = cache.get(resolved)
+            && entry.configuration == configuration_hash
             && entry.len == len
             && entry.version == Some(version)
             && entry.hash == Some(hash)
@@ -36,6 +48,7 @@ pub(super) fn cached_component_metadata(
         let len = metadata.len();
         let modified = metadata.modified().ok();
         if let Some(entry) = cache.get(resolved)
+            && entry.configuration == configuration_hash
             && modified.is_some()
             && entry.len == len
             && entry.modified == modified
@@ -52,13 +65,21 @@ pub(super) fn cached_component_metadata(
         )
     };
 
-    let descriptor = ctx.state.component_descriptor(resolved, &content);
-    let metadata = Arc::new(extract_component_metadata(
-        descriptor.as_deref(),
-        &resolved.to_string_lossy(),
-        ctx.state.options_api_enabled(),
-        ctx.state.legacy_vue2_enabled(),
-    ));
+    let summary =
+        ctx.state
+            .component_interface(resolved, &content, &configuration, |descriptor| {
+                export_component_interface(
+                    descriptor,
+                    &resolved.to_string_lossy(),
+                    options_api,
+                    legacy_vue2,
+                )
+            })?;
+    let projected = component_metadata_from_interface(&summary)?;
+    let metadata = cache
+        .get(resolved)
+        .filter(|entry| *entry.metadata == projected)
+        .map_or_else(|| Arc::new(projected), |entry| entry.metadata.clone());
     cache.insert(
         resolved.to_path_buf(),
         CachedComponentMetadata {
@@ -66,6 +87,7 @@ pub(super) fn cached_component_metadata(
             modified,
             version,
             hash,
+            configuration: configuration_hash,
             metadata: metadata.clone(),
         },
     );
@@ -142,5 +164,64 @@ mod tests {
         let third = cached_component_metadata(&ctx, &component).unwrap();
         assert!(!Arc::ptr_eq(&first, &third));
         assert!(third.props.len() > first.props.len());
+    }
+
+    #[test]
+    fn body_edits_refresh_production_alpha_and_reuse_the_metadata_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let component = dir.path().join("Widget.vue");
+        let first_source = "<script setup lang='ts'>defineProps<{ title: string }>(); const count = 1</script><template><p>{{ count }}</p><slot name='footer'/></template>";
+        std::fs::write(&component, first_source).unwrap();
+        let state = ServerState::new();
+        let uri = Url::parse("file:///host.vue").unwrap();
+        state.documents.open(
+            uri.clone(),
+            "<template />".to_string(),
+            1,
+            "vue".to_string(),
+        );
+        let ctx = IdeContext::new(&state, &uri, 0).unwrap();
+        let first = cached_component_metadata(&ctx, &component).unwrap();
+        assert_eq!(state.resident.take_interface_stats().exports, 1);
+        let component_uri = Url::from_file_path(&component).unwrap();
+        state.documents.open(
+            component_uri.clone(),
+            first_source.replace("count = 1", "count = 42"),
+            2,
+            "vue".to_string(),
+        );
+        let body = cached_component_metadata(&ctx, &component).unwrap();
+        assert!(Arc::ptr_eq(&first, &body));
+        let body_stats = state.resident.take_interface_stats();
+        assert_eq!(
+            (
+                body_stats.exports,
+                body_stats.consumers,
+                body_stats.consumer_reuses
+            ),
+            (1, 0, 1)
+        );
+        assert!(Arc::ptr_eq(
+            &body,
+            &cached_component_metadata(&ctx, &component).unwrap()
+        ));
+        assert_eq!(state.resident.take_interface_stats().exports, 0);
+        state.documents.open(
+            component_uri,
+            first_source.replace("title: string", "title: number"),
+            3,
+            "vue".to_string(),
+        );
+        let prop = cached_component_metadata(&ctx, &component).unwrap();
+        assert!(!Arc::ptr_eq(&body, &prop));
+        assert_eq!(
+            prop.props.first().unwrap().type_detail.as_deref(),
+            Some("number")
+        );
+        assert_eq!(state.resident.take_interface_stats().exports, 1);
+        state.invalidate_component_interfaces();
+        let refreshed = cached_component_metadata(&ctx, &component).unwrap();
+        assert_eq!(*refreshed, *prop);
+        assert_eq!(state.resident.take_interface_stats().exports, 1);
     }
 }

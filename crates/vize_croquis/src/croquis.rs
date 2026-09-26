@@ -28,6 +28,7 @@
 //! - [`model`]    - `Croquis` query methods and statistics
 //! - [`vir`]      - VIR text format output
 
+pub mod alpha;
 mod bindings;
 mod merge;
 mod model;

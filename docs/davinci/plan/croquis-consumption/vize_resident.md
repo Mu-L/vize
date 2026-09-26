@@ -24,6 +24,7 @@ _None._
 | product            | resolved | grep |
 | ------------------ | -------: | ---: |
 | `BlockKind`        |        0 |   28 |
+| `Croquis`          |        0 |    2 |
 | `Scope`            |        0 |    1 |
 | `Span`             |        0 |    3 |
 | `Croquis.bindings` |        0 |    3 |

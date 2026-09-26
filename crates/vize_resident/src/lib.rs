@@ -28,6 +28,7 @@ pub mod artifact;
 pub mod db;
 pub mod descriptor;
 pub mod equivalence;
+pub mod interface;
 pub mod snapshot;
 pub mod summary;
 
@@ -41,6 +42,7 @@ pub use descriptor::{
     DescriptorParseError, DescriptorParseLoc, DescriptorStats, ParsedSfc, ResidentDocuments,
     SharedDescriptor, parse_descriptor,
 };
+pub use interface::{ComponentSurface, InterfaceStats};
 pub use summary::{
     DeclarationName, ResidentSummaryError, SummaryCachePolicy, SummaryInput, TsConfig,
     declaration_fingerprint, sfc_summary,
