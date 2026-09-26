@@ -17,7 +17,7 @@ use vize_s1_to_s2::exemptions;
 /// An error a guest reports without a witness the host can re-check against
 /// its fact base, or under an exemption the host does not declare: exempt
 /// from the witness law under this one counted row (P4-6a), never silently.
-static GUEST_ERROR: Exemption = Exemption::new("vize_extension_host", "guest-error");
+static GUEST_ERROR: Exemption = Exemption::new("vize_extension_contract", "guest-error");
 
 /// The in-tree exemptions a diagnostic may carry across the ABI; a
 /// `legacy-exempt("producer/code")` naming one of them converts back to the

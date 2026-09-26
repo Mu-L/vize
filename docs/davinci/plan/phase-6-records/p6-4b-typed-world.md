@@ -23,6 +23,11 @@ host also carries it in process and out of process, under the existing fuel
 and memory limits. The SDK's transport probe observes changed signatures and
 local scopes; it retains the existing analysis-page goldens byte for byte.
 
+The sole unwitnessed guest-error exemption moves with its diagnostic producer
+to `vize_extension_contract/guest-error`. Its construction count stays one;
+the witness inventory's crate-ownership rule and total exemption count remain
+unchanged. Original WIT records and guest-supplied exemption strings are unchanged.
+
 ## Generated environment
 
 Each expression's supplied signatures generate a plain function signature in
