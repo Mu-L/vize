@@ -20,6 +20,7 @@ pub struct TypeModule {
     pub declarations: FxHashMap<CompactString, TypeDeclaration>,
     /// Declaration merging needs semantic elaboration; never select one part.
     pub unsupported_declarations: FxHashSet<CompactString>,
+    pub unsupported_contracts: FxHashMap<CompactString, Vec<CompactString>>,
     pub imports: FxHashMap<CompactString, TypeImport>,
     pub exports: FxHashMap<CompactString, TypeExportBinding>,
     pub star_exports: Vec<TypeModuleReference>,
@@ -103,6 +104,16 @@ pub enum UnknownTypeReason {
 impl ResolvedTypeWorld {
     pub fn declaration(&self, id: &TypeDeclarationId) -> Option<&TypeDeclaration> {
         self.modules.get(&id.module)?.declarations.get(&id.name)
+    }
+
+    /// Keep every authored type declaration part observable even when semantic
+    /// declaration merging is unsupported. Runtime implementation text is absent.
+    pub fn unknown_contract(&self, reference: &UnknownTypeReference) -> Option<&[CompactString]> {
+        self.modules
+            .get(&reference.module)?
+            .unsupported_contracts
+            .get(&reference.name)
+            .map(Vec::as_slice)
     }
 }
 

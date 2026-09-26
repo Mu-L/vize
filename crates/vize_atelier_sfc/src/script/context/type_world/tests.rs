@@ -219,6 +219,11 @@ fn declaration_merging_is_unknown_without_hiding_a_part_or_poisoning_siblings() 
             reference.reason,
             vize_croquis::types::world::UnknownTypeReason::UnsupportedDeclaration
         );
+        let parts = vec![
+            vize_carton::cstr!("interface Public<T = string> {{ {field} }}"),
+            vize_carton::String::new("interface Public<T = string> { second: number }"),
+        ];
+        assert_eq!(world.unknown_contract(&reference), Some(parts.as_slice()));
         let TypeLookup::Found(sibling) = world.resolve(&world.root_module, "Sibling") else {
             panic!("unrelated sibling remains resolved")
         };

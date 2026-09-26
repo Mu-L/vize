@@ -186,8 +186,13 @@ fn add_declaration(
     exported: bool,
 ) {
     let name = CompactString::new(name);
-    if module.declarations.contains_key(&name) {
+    if let Some(existing) = module.declarations.get(&name) {
         module.unsupported_declarations.insert(name.clone());
+        module
+            .unsupported_contracts
+            .entry(name.clone())
+            .or_insert_with(|| vec![existing.declaration_source.clone()])
+            .push(declaration.declaration_source);
     } else {
         module.declarations.insert(name.clone(), declaration);
     }
