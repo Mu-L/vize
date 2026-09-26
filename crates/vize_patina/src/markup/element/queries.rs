@@ -78,7 +78,8 @@ impl<'a> MarkupElement<'a> {
                 }
             }),
             MarkupElementInner::JsxFragment { .. } => {}
-            MarkupElementInner::Relief(_)
+            MarkupElementInner::Authored { .. }
+            | MarkupElementInner::Relief(_)
             | MarkupElementInner::S2 { .. }
             | MarkupElementInner::S2Carrier { .. } => self.walk_directives(&mut |directive| {
                 if directive.name_eq("bind") && directive.arg_name_eq(name) {
@@ -132,7 +133,7 @@ pub(super) fn s2_template_is_special(
 
 /// The Vue parser's lint-mode component rule (no DOM `is_native_tag`): a core
 /// built-in component or a tag starting with an uppercase letter.
-pub(super) fn is_lint_component(tag: &str) -> bool {
+pub(in crate::markup) fn is_lint_component(tag: &str) -> bool {
     matches!(
         tag,
         "Teleport" | "Suspense" | "KeepAlive" | "BaseTransition" | "Transition" | "TransitionGroup"

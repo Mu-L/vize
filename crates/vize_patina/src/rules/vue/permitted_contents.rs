@@ -43,7 +43,8 @@
 use crate::context::LintContext;
 use crate::diagnostic::{LintDiagnostic, Severity};
 use crate::html_content_model::{
-    Context, Family, NodeKind, Skeleton, ViolationClass, check, skeleton, template_skeleton,
+    Context, Family, NodeKind, Skeleton, ViolationClass, authored_document_skeleton, check,
+    template_skeleton,
 };
 use crate::markup::{MarkupContext, MarkupDocument, MarkupRule};
 use crate::rule::{Rule, RuleCategory, RuleMeta};
@@ -117,10 +118,10 @@ impl MarkupRule for PermittedContents {
         META.name
     }
 
-    /// The markup lane (lowered JSX): JSX is lowered without tree
-    /// construction repair, so the document already is the authored tree.
+    /// SFC reads the authored S1 projection retained by its S2 document.
+    /// JSX is lowered without HTML repair and already is authored.
     fn enter_document(&self, ctx: &mut MarkupContext<'_, '_>, document: &MarkupDocument) {
-        let skeleton = skeleton(document);
+        let skeleton = authored_document_skeleton(document);
         report_skeleton(ctx.lint(), &skeleton);
     }
 }

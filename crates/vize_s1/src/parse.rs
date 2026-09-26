@@ -53,6 +53,34 @@ pub fn parse_with_options<'a>(
     source: &'a str,
     options: SurfaceParseOptions,
 ) -> (SurfaceTree<'a>, Vec<'a, SurfaceError>) {
+    let (tree, _, errors) = parse_projection(allocator, source, options, false);
+    (tree, errors)
+}
+
+/// Parse once, retaining a non-repairing authored projection when the normal
+/// surface construction implicitly closes a nested interactive element.
+/// Both projections share the tokenizer's event stream and source slices.
+pub fn parse_with_authored<'a>(
+    allocator: &'a Allocator,
+    source: &'a str,
+) -> (
+    SurfaceTree<'a>,
+    Option<SurfaceTree<'a>>,
+    Vec<'a, SurfaceError>,
+) {
+    parse_projection(allocator, source, SurfaceParseOptions::default(), true)
+}
+
+fn parse_projection<'a>(
+    allocator: &'a Allocator,
+    source: &'a str,
+    options: SurfaceParseOptions,
+    authored: bool,
+) -> (
+    SurfaceTree<'a>,
+    Option<SurfaceTree<'a>>,
+    Vec<'a, SurfaceError>,
+) {
     let mut events: Vec<'a, Event> = Vec::new_in(&allocator);
     let mut errors: Vec<'a, SurfaceError> = Vec::new_in(&allocator);
     // S1 addresses sources with `u32` offsets. A larger source keeps byte
@@ -61,7 +89,7 @@ pub fn parse_with_options<'a>(
         let mut children = Vec::new_in(&allocator);
         let hole = Token::present(crate::slice::range(source, 0, 0), source);
         children.push(SurfaceChild::Unexpected(hole));
-        return (SurfaceTree { source, children }, errors);
+        return (SurfaceTree { source, children }, None, errors);
     }
     {
         let recorder = Recorder {
@@ -72,10 +100,14 @@ pub fn parse_with_options<'a>(
         tokenizer.set_in_tag_comments(options.experimental_in_tag_comments);
         tokenizer.tokenize();
     }
-    let tree = build(allocator, source, &events);
+    let (tree, repaired) = build(allocator, source, &events, true);
+    let authored = (authored && repaired).then(|| build(allocator, source, &events, false).0);
     debug_assert!(
         check_fidelity(&tree).is_ok(),
         "S1 fidelity: render(tree) != source"
     );
-    (tree, errors)
+    if let Some(authored) = &authored {
+        debug_assert!(check_fidelity(authored).is_ok(), "authored S1 fidelity");
+    }
+    (tree, authored, errors)
 }

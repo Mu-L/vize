@@ -55,6 +55,7 @@ pub(in crate::linter::engine) const RULES: &[&str] = &[
     "a11y/no-redundant-roles",
     "a11y/interactive-supports-focus",
     "vue/no-bare-strings-in-template",
+    "vue/permitted-contents",
 ];
 
 pub(in crate::linter::engine) struct Dispatch<'a> {

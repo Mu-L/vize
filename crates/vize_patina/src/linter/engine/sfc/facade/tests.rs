@@ -94,6 +94,7 @@ const view = <button style="color:red">go</button>;
 }
 
 mod battery;
+mod content_model;
 mod stylesheet;
 mod text_order;
 
