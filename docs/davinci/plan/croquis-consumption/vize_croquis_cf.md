@@ -54,7 +54,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `MacroKind`                  |     1 |     1 |
 | `PropDefinition`             |     3 |     3 |
 | `ProvideEntry`               |     2 |     7 |
-| `ProvideKey`                 |     7 |    36 |
+| `ProvideKey`                 |     9 |    49 |
 | `RaceConditionRisk`          |     2 |     4 |
 | `RaceConditionRiskKind`      |     2 |     3 |
 | `ReactiveKind`               |     5 |    33 |
@@ -101,7 +101,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `ScopeKind`                            |        8 |    9 |
 | `SlotUsage`                            |        2 |    7 |
 | `Span`                                 |        0 |   36 |
-| `Symbol`                               |        0 |   27 |
+| `Symbol`                               |        0 |   30 |
 | `SymbolId`                             |        0 |    6 |
 | `build_effect_graph_from_script`       |        2 |    3 |
 | `build_effect_graph_from_script_setup` |        1 |    2 |
