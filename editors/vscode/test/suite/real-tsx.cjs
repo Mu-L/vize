@@ -37,7 +37,7 @@ exports.run = async function run() {
   );
   assert.equal(document.languageId, "typescriptreact");
   await verifyDocument(document, enabled);
-  const jsx = await openWorkspaceDocument("App.jsx");
+  const jsx = await openWorkspaceDocument("Sibling.jsx");
   await vscode.window.showTextDocument(jsx);
   assert.equal(jsx.languageId, "javascriptreact");
   await verifyDocument(jsx, enabled);
@@ -188,7 +188,7 @@ function request(method, document, position, extra = {}) {
 
 function propertyLocations() {
   return sortLocations(
-    ["model.ts", "App.tsx", "App.jsx"].map((filename) => {
+    ["model.ts", "App.tsx", "Sibling.jsx"].map((filename) => {
       const filePath = path.join(getWorkspaceFolderPath(), filename);
       const source = fs.readFileSync(filePath, "utf8");
       const offset =
