@@ -13,7 +13,13 @@ use serde_json::json;
 use std::{env, fs, path::PathBuf};
 
 #[global_allocator]
+#[cfg(not(feature = "davinci-production-profile"))]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[global_allocator]
+#[cfg(feature = "davinci-production-profile")]
+static GLOBAL_ALLOCATOR: vize_s0::profiler::ProfilingAllocator<mimalloc::MiMalloc> =
+    vize_s0::profiler::ProfilingAllocator::from_allocator(mimalloc::MiMalloc);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -42,7 +48,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "manifest_sha256": corpus::manifest_hash(&corpus),
         "files": corpus.len(),
         "profile": "ci-opt (opt-level=3, thin LTO, 16 codegen units)",
-        "allocator": "mimalloc (same default as native CLI; allocation tracking disabled)",
+        "allocator": if cfg!(feature = "davinci-production-profile") {
+            "ProfilingAllocator<mimalloc> (attribution only; real allocation traffic, retained provenance capacities separately)"
+        } else { "mimalloc (same default as native CLI; allocation tracking disabled)" },
         "features": if cfg!(feature = "davinci-production-profile") { "native,davinci-production-profile; no retained-AST differential dual-run" }
             else { "native,davinci-production-bench; no retained-AST differential dual-run" },
         "options": "P3-17 shipping adapter shapes; Standard syntax, default codegen, default DOM compiler options, script/style ids=fixture path; scoped styles inferred; inline DOM/Vapor, separate DOM module/SSR",

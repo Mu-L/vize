@@ -21,6 +21,8 @@ description = "S1-to-S2 - the Davinci Vue template lowering (codename Ricalco, P
 metadata.vize.stability = "experimental"
 
 [features]
+# Separate production attribution executable only; absent from timed builds.
+davinci-benchmark-profile = []
 # Arms the corpus-runnable TS-20 lane (`tests/davinci_lowering_corpus.rs`),
 # the P1-6/P1-7 differential-lane shape: committed battery with pinned
 # counts, plus `VIZE_DAVINCI_DIFFERENTIAL_CORPUS=<dir>` widening.

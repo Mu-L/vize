@@ -7,11 +7,14 @@ use super::{
 };
 use serde_json::{Value, json};
 use std::hint::black_box;
-use vize_s0::profiler::{ProfileExportOptions, global_profiler};
+use vize_s0::profiler::{
+    ProfileExportOptions, allocation_snapshot, global_profiler, reset_allocation_counters,
+};
 
 pub(super) fn profile(inputs: &[&Input], shape: Shape, force_retained: bool) -> Value {
     let profiler = global_profiler();
     profiler.clear();
+    reset_allocation_counters();
     profiler.enable();
     let batch = || {
         for input in inputs {
@@ -26,7 +29,7 @@ pub(super) fn profile(inputs: &[&Input], shape: Shape, force_retained: bool) -> 
     profiler.disable();
     let report = profiler.export_report(&ProfileExportOptions {
         command: "davinci-production-perf-attribution",
-        allocation: None,
+        allocation: cfg!(feature = "davinci-production-profile").then(allocation_snapshot),
         budget: Default::default(),
     });
     profiler.clear();
@@ -80,6 +83,9 @@ pub fn run(inputs: &[Input], shape: Shape) -> Result<Value, Box<dyn std::error::
     }
     Ok(json!({
         "shape": shape.id(), "accepted_files": accepted.len(), "input_bridge_spans": input_spans,
+        "provenance_scope": if cfg!(feature = "davinci-production-profile") {
+            "Full default provenance at S1→S2 finish. Capacity counters are retained requested storage, not traffic or peak. Record span traffic excludes caller-preformatted after strings; total S1→S2 includes those. Later transform-pass provenance is outside finish counters."
+        } else { "not enabled in this build" },
         "selected_profile": profile(&all, shape, false),
         "retained_profile": profile(&all, shape, true),
         "accepted_selected_profile": profile(&accepted, shape, false),
