@@ -153,7 +153,7 @@ fn project_clean_preserves_a_foreign_canon_namespace_without_force() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         let current = vize_canon::project_virtual_root(root);
-        let foreign = current.parent().unwrap().join("foreign-project-key");
+        let foreign = vize_canon::project_virtual_root(&root.join("foreign"));
         let foreign_lock = foreign.with_extension("lock");
         let foreign_windows_lock = foreign.with_extension("materialize.lock");
         std::fs::create_dir_all(&current).unwrap();
@@ -183,6 +183,9 @@ fn project_clean_preserves_a_foreign_canon_namespace_without_force() {
             foreign_windows_lock.is_file(),
             "scope={scope:?} removed foreign Windows lock"
         );
+        std::fs::remove_dir_all(foreign).unwrap();
+        std::fs::remove_file(foreign_lock).unwrap();
+        std::fs::remove_file(foreign_windows_lock).unwrap();
     }
 }
 
@@ -212,10 +215,8 @@ fn force_clean_removes_selected_artifact_roots() {
     let root = dir.path();
     let unknown_project_artifact = root.join(".vize/custom/keep.txt");
     let current_canon_artifact = vize_canon::project_virtual_root(root).join("current.ts");
-    let foreign_canon_artifact = vize_canon::project_virtual_root(root)
-        .parent()
-        .unwrap()
-        .join("foreign-project-key/foreign.ts");
+    let foreign_canon_artifact =
+        vize_canon::project_virtual_root(&root.join("foreign")).join("foreign.ts");
     let unknown_node_modules_artifact = root.join("node_modules/.vize/custom/keep.txt");
     std::fs::create_dir_all(unknown_project_artifact.parent().unwrap()).unwrap();
     std::fs::write(&unknown_project_artifact, "keep").unwrap();
@@ -236,6 +237,7 @@ fn force_clean_removes_selected_artifact_roots() {
     assert!(!unknown_project_artifact.exists());
     assert!(!current_canon_artifact.exists());
     assert!(foreign_canon_artifact.exists());
+    std::fs::remove_dir_all(foreign_canon_artifact.parent().unwrap()).unwrap();
     assert!(unknown_node_modules_artifact.exists());
 }
 
@@ -244,10 +246,8 @@ fn force_all_preserves_foreign_project_canon_entries() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
     let current_canon_artifact = vize_canon::project_virtual_root(root).join("current.ts");
-    let foreign_canon_artifact = vize_canon::project_virtual_root(root)
-        .parent()
-        .unwrap()
-        .join("foreign-project-key/foreign.ts");
+    let foreign_canon_artifact =
+        vize_canon::project_virtual_root(&root.join("foreign")).join("foreign.ts");
     let node_modules_artifact = root.join("node_modules/.vize/custom/keep.txt");
     std::fs::create_dir_all(current_canon_artifact.parent().unwrap()).unwrap();
     std::fs::write(&current_canon_artifact, "current").unwrap();
@@ -265,6 +265,7 @@ fn force_all_preserves_foreign_project_canon_entries() {
     });
     assert!(!current_canon_artifact.exists());
     assert!(foreign_canon_artifact.exists());
+    std::fs::remove_dir_all(foreign_canon_artifact.parent().unwrap()).unwrap();
     assert!(!node_modules_artifact.exists());
 }
 
