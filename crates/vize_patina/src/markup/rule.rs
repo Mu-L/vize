@@ -29,6 +29,12 @@ pub trait MarkupRule {
     /// Called on entering each element / component / fragment / template / slot.
     fn enter_element<'a>(&self, _ctx: &mut MarkupContext<'_, 'a>, _element: &MarkupElement<'a>) {}
 
+    /// Called after all element-entry hooks, before per-binding/directive hooks.
+    /// Authored structural directives consumed into scopes are still available
+    /// through the element's retained source attributes at this point.
+    fn enter_attributes<'a>(&self, _ctx: &mut MarkupContext<'_, 'a>, _element: &MarkupElement<'a>) {
+    }
+
     /// Called on exiting each element.
     fn exit_element<'a>(&self, _ctx: &mut MarkupContext<'_, 'a>, _element: &MarkupElement<'a>) {}
 

@@ -240,7 +240,7 @@ fn relief_template_has_slot_directive(element: &ElementNode<'_>) -> bool {
 /// **and** over JSX/TSX. `v-for` has two shapes the facade normalizes over:
 ///
 /// - *Pre-transform* (a freshly parsed Vue template): the `v-for` is a
-///   directive on the repeated element — handled in [`Self::enter_element`].
+///   directive on the repeated element — handled in [`Self::enter_attributes`].
 /// - *Post-transform* (lowered JSX `items.map((i) => <li/>)`, or a transformed
 ///   template): the repeated element is wrapped by a list scope — handled in
 ///   [`Self::enter_list`].
@@ -252,7 +252,7 @@ impl MarkupRule for RequireVForKey {
         META.name
     }
 
-    fn enter_element<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
+    fn enter_attributes<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
         element.walk_authored_directive_ranges("for", &mut |range| {
             Self::check_keyed_element(ctx, element, range);
         });
