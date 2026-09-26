@@ -50,6 +50,7 @@ fn computed_outlet_names_use_native_s3_with_retained_expressions() {
 }
 
 #[test]
+#[expect(clippy::disallowed_macros, reason = "insta formats exact generated-code snapshots")]
 fn computed_outlet_name_is_owned_by_the_checked_graph() {
     let allocator = Allocator::new();
     let mut s3 = super::lowered_source(&allocator, r#"<slot :name="original"></slot>"#);
