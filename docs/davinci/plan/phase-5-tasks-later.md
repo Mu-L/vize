@@ -146,6 +146,8 @@
 
 ## P5-13 — JS plugin caching
 
+**Landed 2026-09-23; acceptance reconciled 2026-09-26** — [P5-13 record](./phase-5-records/p5-13.md).
+
 **Start gate:** gated on P4-16 — caching needs the spike's API shape.
 
 **Lane:** K
@@ -154,7 +156,7 @@
 
 **Steps:**
 
-- [ ] `crates/vize_vitrine/src/napi/plugin_cache.rs` keyed by P5-1b manifests
+- [x] `crates/vize_vitrine/src/napi/plugin_sdk/plugin_cache.rs` keyed by P5-1b manifests
 
 **Acceptance:** TS-51 pre-check — deterministic across runs and content-key cached, with the plugin version and declared demands in the key.
 
