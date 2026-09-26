@@ -79,9 +79,10 @@ function prepareWorkspace(workspacePath, serverPath, enabled) {
   for (const extension of ["tsx", "jsx"]) {
     const binding =
       extension === "tsx" ? "const wrong: string = 1;" : "/** @type {string} */ const wrong = 1;";
+    const sibling = extension === "tsx" ? "jsx" : "tsx";
     fs.writeFileSync(
       path.join(workspacePath, `App.${extension}`),
-      `import { account } from "./model";\n${binding}\nexport const view = <p>{account.label}{wrong}</p>;\n`,
+      `import { account } from "./model"; import "./App.${sibling}";\n${binding}\nexport const view = <p>{account.label}{wrong}</p>;\n`,
     );
   }
 }
