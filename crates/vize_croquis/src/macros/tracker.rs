@@ -171,6 +171,12 @@ impl MacroTracker {
             range.0 = range.0.saturating_add(delta);
             range.1 = range.1.saturating_add(delta);
         }
+        for binding in &mut self.expose_bindings {
+            if let Some((start, end)) = &mut binding.declaration_span {
+                *start = start.saturating_add(delta);
+                *end = end.saturating_add(delta);
+            }
+        }
         for call in &mut self.emit_calls {
             call.start = call.start.saturating_add(delta);
             call.end = call.end.saturating_add(delta);
