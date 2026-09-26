@@ -282,3 +282,36 @@ fn numeric_default_keys_use_javascript_number_to_string() {
         assert_eq!(actual, expected);
     }
 }
+
+#[test]
+fn getter_objects_and_getter_spreads_never_reuse_stale_initializer_defaults() {
+    for declarations in [
+        "const defaults = { count: 41 }; const base = { get label() { defaults.count = 42 } }; const next = { ...base, ...defaults };",
+        "const defaults = { count: 41 }; const next = { ...{ get label() { defaults.count = 42 } }, ...defaults };",
+        "const defaults = { count: 41 }; const next = { ...unknown, ...defaults };",
+        "const next = { count: 41, get label() { this.count = 42 } };",
+    ] {
+        let source = vize_carton::cstr!(
+            "{declarations} withDefaults(defineProps<{{ count?: number }}>(), next)"
+        );
+        assert_eq!(
+            props(&source),
+            vec![(CompactString::new("count"), false, None)]
+        );
+        assert_eq!(
+            parse_script_setup(&source)
+                .macros
+                .with_defaults_expression(),
+            Some("next")
+        );
+    }
+    let source = "const defaults = { count: 41 }; const base = { label: 'safe' }; const next = { ...base, ...defaults }; withDefaults(defineProps<{ count?: number }>(), next)";
+    assert_eq!(
+        props(source),
+        vec![(
+            CompactString::new("count"),
+            false,
+            Some(CompactString::new("41"))
+        )]
+    );
+}

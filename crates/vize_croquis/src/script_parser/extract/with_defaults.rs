@@ -11,6 +11,7 @@ use oxc_syntax::number::ToJsString;
 use vize_carton::CompactString;
 
 use super::super::ScriptParseResult;
+use crate::macros::MacroTracker;
 use crate::macros::defaults::StaticDefaultObject;
 use crate::scope::ScopeKind;
 
@@ -77,6 +78,11 @@ fn collect_object(
                 }
             }
             ObjectPropertyKind::ObjectProperty(property) => {
+                // Reading defaults or spreading this object can execute an
+                // accessor. Its effects are not initializer facts.
+                if property.kind != PropertyKind::Init {
+                    return None;
+                }
                 let name = match &property.key {
                     PropertyKey::StaticIdentifier(id) if !property.computed => {
                         CompactString::new(id.name.as_str())
@@ -92,11 +98,6 @@ fn collect_object(
                         continue;
                     }
                 };
-                if property.kind != PropertyKind::Init {
-                    output.values.remove(&name);
-                    output.removed.insert(name);
-                    continue;
-                }
                 output.removed.remove(&name);
                 output.values.insert(
                     name,
@@ -106,4 +107,21 @@ fn collect_object(
         }
     }
     Some(output)
+}
+
+fn spread_is_getter_free(macros: &MacroTracker, expression: &Expression<'_>) -> bool {
+    match expression.get_inner_expression() {
+        Expression::Identifier(identifier) => {
+            macros.default_object(identifier.name.as_str()).is_some()
+        }
+        Expression::ObjectExpression(object) => {
+            object.properties.iter().all(|property| match property {
+                ObjectPropertyKind::ObjectProperty(property) => property.kind == PropertyKind::Init,
+                ObjectPropertyKind::SpreadProperty(spread) => {
+                    spread_is_getter_free(macros, &spread.argument)
+                }
+            })
+        }
+        _ => false,
+    }
 }

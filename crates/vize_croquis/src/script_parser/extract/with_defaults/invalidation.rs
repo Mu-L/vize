@@ -2,7 +2,7 @@
 
 use oxc_ast::ast::{
     ArrowFunctionExpression, AssignmentExpression, CallExpression, Function, IdentifierReference,
-    NewExpression, Statement, TaggedTemplateExpression, UpdateExpression,
+    NewExpression, SpreadElement, Statement, TaggedTemplateExpression, UpdateExpression,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_syntax::scope::ScopeFlags;
@@ -45,6 +45,12 @@ struct Effects<'a> {
 impl<'a> Visit<'a> for Effects<'_> {
     fn visit_function(&mut self, _: &Function<'a>, _: ScopeFlags) {}
     fn visit_arrow_function_expression(&mut self, _: &ArrowFunctionExpression<'a>) {}
+    fn visit_spread_element(&mut self, spread: &SpreadElement<'a>) {
+        // Getter execution in an unknown spread may mutate any cached object,
+        // including one referenced by a later spread in this same initializer.
+        self.unknown |= !super::spread_is_getter_free(self.macros, &spread.argument);
+        walk::walk_spread_element(self, spread);
+    }
     fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
         if !matches!(&call.callee, oxc_ast::ast::Expression::Identifier(id) if MacroKind::from_name(id.name.as_str()).is_some())
         {
