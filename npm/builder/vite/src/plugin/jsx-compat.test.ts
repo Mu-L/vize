@@ -10,13 +10,19 @@ import { vize } from "./index.ts";
 
 const SOURCE = "const A = () => <input disabled/>;";
 const NATIVE_OUTPUT = `import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("input", { disabled: "" }))
-}`;
+})(undefined, [])
+})();`;
 const BABEL_OUTPUT = `import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
-export function render(_ctx, _cache) {
+
+const A = () => (() => {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("input", { disabled: true }))
-}`;
+})(undefined, [])
+})();`;
 
 function functionHook<T extends Function>(hook: T | { handler: T } | undefined, name: string): T {
   const handler = typeof hook === "function" ? hook : hook?.handler;
