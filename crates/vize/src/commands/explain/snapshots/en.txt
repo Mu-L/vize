@@ -5820,3 +5820,789 @@ valid:
   <div v-if="show"></div>
   <input v-model="value" />
   <button @click="onClick">Click</button>
+=== ts/2300
+ts/2300 · type diagnostic
+Duplicate identifier '{name}'
+
+help:
+  Duplicate declaration of {name}.
+  This identifier is already declared in this scope.
+  Solutions:
+  - Rename one of the declarations
+  - Remove the duplicate
+  - Check if you're accidentally importing the same thing twice
+=== ts/2304
+ts/2304 · type diagnostic
+Cannot find name '{name}'
+
+help:
+  {name} is not defined.
+  Possible causes:
+  - The variable is not imported or declared
+  - There's a typo in the name
+  - The variable is defined in a different scope
+  Solutions:
+    // 1. Import from a module
+    import { {name} } from './module';
+
+    // 2. Declare in script setup
+    const {name} = ...;
+
+    // 3. Check for typos in the name
+=== ts/2307
+ts/2307 · type diagnostic
+Cannot find module '{module}' or its corresponding type declarations
+
+help:
+  Module not found: {module}
+  Possible causes:
+  - The package is not installed
+  - The import path is incorrect
+  - Type declarations are missing
+  Solutions:
+    # 1. Install the package
+    npm install {module}
+
+    # 2. Install type declarations (if separate)
+    npm install -D @types/{module}
+  For local modules:
+  - Check the file path is correct
+  - Use relative paths: ./ or ../
+  - Check file extension
+=== ts/2322
+ts/2322 · type diagnostic
+Type '{source}' is not assignable to type '{target}'
+
+help:
+  Type mismatch detected.
+  You're trying to assign a value of type {source} to something that expects {target}.
+  Common fixes:
+  - Check if the value matches the expected type
+  - Use type assertion if you're sure: value as {target}
+  - Update the type definition to accept the actual type
+  Example:
+    // If target is 'number' but source is 'string'
+    const value = parseInt(stringValue); // Convert string to number
+=== ts/2339
+ts/2339 · type diagnostic
+Property '{name}' does not exist on type '{type}'
+
+help:
+  Property {name} not found on {type}.
+  Possible causes:
+  - The property name is misspelled
+  - The property doesn't exist on this type
+  - You need to narrow the type first
+  Solutions:
+    // 1. Check if property exists
+    if ('{name}' in obj) {
+    obj.{name};
+    }
+
+    // 2. Use optional chaining
+    obj?.{name};
+
+    // 3. Add property to type definition
+    interface MyType {
+    {name}: SomeType;
+    }
+=== ts/2344
+ts/2344 · type diagnostic
+Type '{type}' does not satisfy the constraint '{constraint}'
+
+help:
+  Type constraint violation.
+  The type {type} doesn't meet the requirements of {constraint}.
+  Solution:
+  Ensure your type extends or implements the required constraint:
+    // Example: T must extend SomeBase
+    function example<T extends SomeBase>(value: T) { }
+=== ts/2345
+ts/2345 · type diagnostic
+Argument of type '{source}' is not assignable to parameter of type '{target}'
+
+help:
+  Argument type mismatch.
+  The function expects {target} but received {source}.
+  Solutions:
+  - Convert the value to the expected type
+  - Check if you're passing the correct argument
+  - Update the function signature if needed
+
+    // Example: function expects number
+    func(Number(value)); // Convert to number
+=== ts/2349
+ts/2349 · type diagnostic
+This expression is not callable
+
+help:
+  Cannot call non-function value.
+  You're trying to call something that isn't a function.
+  Common causes:
+  - The value is undefined or null
+  - It's an object, not a function
+  - The property returns a value, not a method
+  Solutions:
+    // Check if it's a function before calling
+    if (typeof maybeFunc === 'function') {
+    maybeFunc();
+    }
+
+    // Or use optional chaining
+    maybeFunc?.();
+=== ts/2351
+ts/2351 · type diagnostic
+This expression is not constructable
+
+help:
+  Cannot use new on this value.
+  This expression cannot be used with new.
+  Common causes:
+  - It's not a class or constructor function
+  - You're trying to instantiate a type, not a class
+  Example:
+    // Wrong: type alias, not a class
+    type MyType = { x: number };
+    new MyType(); // Error!
+
+    // Correct: use class
+    class MyClass { x: number = 0; }
+    new MyClass(); // OK
+=== ts/2451
+ts/2451 · type diagnostic
+Cannot redeclare block-scoped variable '{name}'
+
+help:
+  Variable {name} already declared.
+  You cannot redeclare a let or const variable in the same scope.
+  Solutions:
+    // 1. Rename the variable
+    const {name}2 = ...;
+
+    // 2. Assign instead of redeclare
+    {name} = newValue; // if using let
+
+    // 3. Use different scope
+    {
+    const {name} = ...; // OK in new block
+    }
+=== ts/2531
+ts/2531 · type diagnostic
+Object is possibly 'null'
+
+help:
+  Possible null value detected.
+  TypeScript warns that this value might be null.
+  Solutions:
+    // 1. Use optional chaining
+    obj?.property;
+
+    // 2. Use nullish coalescing
+    const value = obj ?? defaultValue;
+
+    // 3. Add null check
+    if (obj !== null) {
+    obj.property;
+    }
+
+    // 4. Use non-null assertion (if certain)
+    obj!.property; // Only if you're 100% sure
+=== ts/2532
+ts/2532 · type diagnostic
+Object is possibly 'undefined'
+
+help:
+  Possible undefined value detected.
+  TypeScript warns that this value might be undefined.
+  Solutions:
+    // 1. Use optional chaining
+    obj?.property;
+
+    // 2. Provide default value
+    const value = obj ?? defaultValue;
+
+    // 3. Add undefined check
+    if (obj !== undefined) {
+    obj.property;
+    }
+
+    // 4. Initialize the value
+    const obj = ref<Type>(initialValue);
+=== ts/2554
+ts/2554 · type diagnostic
+Expected {expected} arguments, but got {actual}
+
+help:
+  Wrong number of arguments.
+  The function expects {expected} argument(s) but you provided {actual}.
+  Solutions:
+  - Add missing arguments
+  - Remove extra arguments
+  - Check the function signature
+
+    // Check function definition
+    function example(a: string, b?: number) { }
+    // Required: a (string)
+    // Optional: b (number)
+=== ts/2555
+ts/2555 · type diagnostic
+Expected {expected} arguments, but got {actual}
+
+help:
+  Too many arguments provided.
+  The function only accepts {expected} argument(s) but you passed {actual}.
+  Solution:
+  Remove the extra arguments or update the function to accept more parameters.
+=== ts/2741
+ts/2741 · type diagnostic
+Property '{name}' is missing in type '{source}' but required in type '{target}'
+
+help:
+  Missing required property: {name}
+  The type {target} requires property {name} but it's not present in {source}.
+  Solutions:
+    // 1. Add the missing property
+    const obj: {target} = {
+    ...existingProps,
+    {name}: value,
+    };
+
+    // 2. Make property optional in type definition
+    interface {target} {
+    {name}?: Type; // Optional
+    }
+=== ts/7006
+ts/7006 · type diagnostic
+Parameter '{name}' implicitly has an 'any' type
+
+help:
+  Missing type annotation for {name}.
+  TypeScript cannot infer the type of this parameter.
+  Solution - Add explicit type:
+    // Before
+    function example({name}) { }
+
+    // After
+    function example({name}: string) { }
+
+    // With default value (type inferred)
+    function example({name} = 'default') { }
+=== ts/vue/9001
+ts/vue/9001 · type diagnostic
+Invalid prop type for '{name}'
+
+help:
+  Prop type mismatch for {name}.
+  The prop value doesn't match the expected type defined in defineProps.
+  Solutions:
+    // Check prop definition
+    defineProps<{
+    {name}: string; // Expected type
+    }>();
+
+    // Ensure parent passes correct type
+    <MyComponent :{name}="stringValue" />
+=== ts/vue/9002
+ts/vue/9002 · type diagnostic
+Invalid emit call: '{event}'
+
+help:
+  Invalid emit usage for {event}.
+  The emit call doesn't match the defined events.
+  Solutions:
+    // Check emit definition
+    const emit = defineEmits<{
+    {event}: [payload: PayloadType];
+    }>();
+
+    // Call with correct payload
+    emit('{event}', payload);
+=== ts/vue/9003
+ts/vue/9003 · type diagnostic
+Unknown component: '{name}'
+
+help:
+  Component {name} not found.
+  Possible causes:
+  - Component is not imported
+  - Component name is misspelled
+  - Using kebab-case instead of PascalCase (or vice versa)
+  Solutions:
+    // Import the component
+    import {name} from './components/{name}.vue';
+
+    // Or register globally
+    app.component('{name}', {name});
+=== ts/vue/9004
+ts/vue/9004 · type diagnostic
+Invalid slot usage: '{name}'
+
+help:
+  Slot {name} usage error.
+  Common issues:
+  - Slot doesn't exist on the component
+  - Wrong slot props
+  Usage:
+    <template>
+    <MyComponent>
+    <template #{name}="{ prop }">
+    <!-- slot content -->
+    </template>
+    </MyComponent>
+    </template>
+=== ts/vue/9005
+ts/vue/9005 · type diagnostic
+Invalid directive: '{name}'
+
+help:
+  Directive {name} error.
+  Common causes:
+  - Directive is not registered
+  - Wrong directive syntax
+  Solutions:
+    // Register directive locally
+    import { v{name} } from './directives';
+
+    // Or globally
+    app.directive('{name}', {
+    mounted(el, binding) { ... }
+    });
+=== ts/vue/9006
+ts/vue/9006 · type diagnostic
+Reactivity issue detected
+
+help:
+  Possible reactivity loss.
+  Your code may lose reactivity due to how values are accessed or destructured.
+  Common issues and fixes:
+    // ❌ Destructuring loses reactivity
+    const { count } = props;
+
+    // ✅ Use toRefs
+    const { count } = toRefs(props);
+
+    // ❌ Assigning ref value
+    let x = ref(0).value;
+
+    // ✅ Keep the ref
+    const x = ref(0);
+=== S3V001
+S3V001 · S3 verification
+An op, region, or effect id is repeated.
+
+help:
+  Give every op, region, and effect its own id.
+=== S3V002
+S3V002 · S3 verification
+The program has no root region, or the root names a parent or owner.
+
+help:
+  Region r#0 must exist and must not name a parent or an owner.
+=== S3V003
+S3V003 · S3 verification
+An op names a region that does not exist.
+
+help:
+  Point the op at a region in this program.
+=== S3V004
+S3V004 · S3 verification
+A state edge names an endpoint that does not resolve.
+
+help:
+  Both ends of a state edge must be ops in this program.
+=== S3V005
+S3V005 · S3 verification
+A region names a parent or owner that does not resolve, or a non-root region omits them.
+
+help:
+  Every region except r#0 must name a parent region and an owner op that exist.
+=== S3V006
+S3V006 · S3 verification
+A region, op, or effect escapes the region that contains it, or regions form a parent cycle.
+
+help:
+  Keep each span inside its parent and owner, and do not cycle parent links.
+=== S3V007
+S3V007 · S3 verification
+An effect names a missing scope, owner, or region, or a state edge leaves its effect scope.
+
+help:
+  Keep the effect and its edges inside the region and effect scope it names.
+=== S3V008
+S3V008 · S3 verification
+A scheduled edge points backward or at itself.
+
+help:
+  Schedule edges toward a later op.
+=== S3V009
+S3V009 · S3 verification
+An operand is not valid for its op.
+
+help:
+  Use an operand the op's verifier accepts.
+=== S3V010
+S3V010 · S3 verification
+A placement alternative or committed choice does not match the placement rules.
+
+help:
+  Re-derive the placement; a hoist must not nest, and a group must stay contiguous.
+=== vize:croquis/cf/array-mutation
+vize:croquis/cf/array-mutation · cross-file diagnostic
+An array is mutated by index, which a reactive array does not track.
+
+help:
+  Use push, splice, or replace the array.
+=== vize:croquis/cf/async-boundary
+vize:croquis/cf/async-boundary · cross-file diagnostic
+Reactive state crosses an async boundary and can be observed stale.
+
+help:
+  Await inside the effect, or snapshot the value before the first await.
+=== vize:croquis/cf/async-no-suspense
+vize:croquis/cf/async-no-suspense · cross-file diagnostic
+An async component is rendered without a Suspense boundary.
+
+help:
+  Wrap the async component in <Suspense>.
+=== vize:croquis/cf/browser-api-ssr
+vize:croquis/cf/browser-api-ssr · cross-file diagnostic
+A browser-only API is used where the component can render on the server.
+
+help:
+  Guard the call with import.meta.client or move it into onMounted.
+=== vize:croquis/cf/circular-dep
+vize:croquis/cf/circular-dep · cross-file diagnostic
+Components import each other in a cycle.
+
+help:
+  Break the cycle by moving the shared piece into a third module.
+=== vize:croquis/cf/circular-reactive-dependency
+vize:croquis/cf/circular-reactive-dependency · cross-file diagnostic
+Reactive computations depend on each other in a cycle.
+
+help:
+  Break the cycle so one computation does not read the other.
+=== vize:croquis/cf/closure-captures-reactive
+vize:croquis/cf/closure-captures-reactive · cross-file diagnostic
+A closure captures a reactive value and will not see later updates.
+
+help:
+  Read the ref inside the closure, not before creating it.
+=== vize:croquis/cf/composable-outside-setup
+vize:croquis/cf/composable-outside-setup · cross-file diagnostic
+A composable is called outside `setup`.
+
+help:
+  Call the composable inside setup or another composable.
+=== vize:croquis/cf/computed-side-effects
+vize:croquis/cf/computed-side-effects · cross-file diagnostic
+A computed getter writes state or performs another side effect.
+
+help:
+  Keep the getter pure and move the effect into a watcher.
+=== vize:croquis/cf/deep-import
+vize:croquis/cf/deep-import · cross-file diagnostic
+An import chain is deeper than the project allows.
+
+help:
+  Import from a closer module, or re-export a public entry.
+=== vize:croquis/cf/destructuring-breaks-reactivity
+vize:croquis/cf/destructuring-breaks-reactivity · cross-file diagnostic
+Destructuring a reactive object copies the fields and drops tracking.
+
+help:
+  Use toRefs before destructuring.
+=== vize:croquis/cf/di-outside-setup
+vize:croquis/cf/di-outside-setup · cross-file diagnostic
+`provide` or `inject` is called outside `setup`.
+
+help:
+  Call it inside setup.
+=== vize:croquis/cf/dom-access-without-next-tick
+vize:croquis/cf/dom-access-without-next-tick · cross-file diagnostic
+The DOM is read before Vue has flushed the update.
+
+help:
+  Read the DOM inside nextTick or onMounted.
+=== vize:croquis/cf/duplicate-id
+vize:croquis/cf/duplicate-id · cross-file diagnostic
+The same element id is used in more than one component.
+
+help:
+  Give each element a distinct id.
+=== vize:croquis/cf/event-listener-leak
+vize:croquis/cf/event-listener-leak · cross-file diagnostic
+An event listener is registered and never removed.
+
+help:
+  Remove the listener in onUnmounted.
+=== vize:croquis/cf/event-modifier
+vize:croquis/cf/event-modifier · cross-file diagnostic
+An event listener uses a modifier the emit does not support.
+
+help:
+  Drop the modifier or emit the event in the form the modifier expects.
+=== vize:croquis/cf/hydration-risk
+vize:croquis/cf/hydration-risk · cross-file diagnostic
+The render can disagree between the server and the client.
+
+help:
+  Keep the first client render equal to the server HTML.
+=== vize:croquis/cf/inherit-attrs-unused
+vize:croquis/cf/inherit-attrs-unused · cross-file diagnostic
+`inheritAttrs: false` is set and the component never reads the attributes.
+
+help:
+  Apply $attrs on an element, or stop disabling inheritance.
+=== vize:croquis/cf/inject-without-symbol
+vize:croquis/cf/inject-without-symbol · cross-file diagnostic
+`inject` uses a plain key instead of an `InjectionKey` symbol.
+
+help:
+  Inject the InjectionKey symbol the provider uses.
+=== vize:croquis/cf/injected-async-mutation-race
+vize:croquis/cf/injected-async-mutation-race · cross-file diagnostic
+An injected value is mutated from an async task that can race.
+
+help:
+  Mutate it in a single synchronous turn, or serialize the writes.
+=== vize:croquis/cf/lifecycle-outside-setup
+vize:croquis/cf/lifecycle-outside-setup · cross-file diagnostic
+A lifecycle hook is registered outside `setup`.
+
+help:
+  Register the hook inside setup.
+=== vize:croquis/cf/lifecycle-without-cleanup
+vize:croquis/cf/lifecycle-without-cleanup · cross-file diagnostic
+A lifecycle hook starts work and never cleans it up.
+
+help:
+  Return a stop handle or register the matching unmount hook.
+=== vize:croquis/cf/missing-required-prop
+vize:croquis/cf/missing-required-prop · cross-file diagnostic
+A required prop is not passed.
+
+help:
+  Pass the prop, or stop marking it required.
+=== vize:croquis/cf/missing-suspense
+vize:croquis/cf/missing-suspense · cross-file diagnostic
+An async dependency is used outside a Suspense boundary.
+
+help:
+  Add a <Suspense> ancestor.
+=== vize:croquis/cf/module-scope-reactive
+vize:croquis/cf/module-scope-reactive · cross-file diagnostic
+Reactive state is created at module scope and shared by every caller.
+
+help:
+  Create the state inside setup so each component instance owns it.
+=== vize:croquis/cf/multi-root-attrs
+vize:croquis/cf/multi-root-attrs · cross-file diagnostic
+A multi-root component receives attributes and has nowhere to put them.
+
+help:
+  Give the component a single root or bind $attrs on one root.
+=== vize:croquis/cf/mutated-after-escape
+vize:croquis/cf/mutated-after-escape · cross-file diagnostic
+A reactive object is mutated after it has escaped its owner.
+
+help:
+  Mutate it before returning, or return a new value.
+=== vize:croquis/cf/non-reactive-provide
+vize:croquis/cf/non-reactive-provide · cross-file diagnostic
+A provided value is not reactive, so descendants will not see updates.
+
+help:
+  Provide a ref, reactive object, or computed.
+=== vize:croquis/cf/non-unique-id
+vize:croquis/cf/non-unique-id · cross-file diagnostic
+An element id inside a loop is not unique per item.
+
+help:
+  Include the item key in the id.
+=== vize:croquis/cf/object-identity-comparison
+vize:croquis/cf/object-identity-comparison · cross-file diagnostic
+A reactive object is compared by identity, which changes across unwraps.
+
+help:
+  Compare a stable id or the raw object from toRaw.
+=== vize:croquis/cf/pinia-getter
+vize:croquis/cf/pinia-getter · cross-file diagnostic
+A Pinia getter is read without `storeToRefs`, so it will not stay reactive.
+
+help:
+  Read the getter through storeToRefs.
+=== vize:croquis/cf/prop-type-mismatch
+vize:croquis/cf/prop-type-mismatch · cross-file diagnostic
+A passed prop value does not match the declared type.
+
+help:
+  Pass a value of the declared type.
+=== vize:croquis/cf/provide-inject-type
+vize:croquis/cf/provide-inject-type · cross-file diagnostic
+A provided value and its inject do not have the same type.
+
+help:
+  Provide a value of the type the inject declares.
+=== vize:croquis/cf/provide-without-symbol
+vize:croquis/cf/provide-without-symbol · cross-file diagnostic
+`provide` uses a plain key instead of an `InjectionKey` symbol.
+
+help:
+  Provide and inject with the same InjectionKey symbol.
+=== vize:croquis/cf/reactive-export
+vize:croquis/cf/reactive-export · cross-file diagnostic
+Reactive state is exported from the module.
+
+help:
+  Export a factory that creates the state per caller.
+=== vize:croquis/cf/reactivity-outside-setup
+vize:croquis/cf/reactivity-outside-setup · cross-file diagnostic
+A reactive API is called outside `setup`.
+
+help:
+  Call ref, reactive, or computed inside setup.
+=== vize:croquis/cf/reassignment-breaks-reactivity
+vize:croquis/cf/reassignment-breaks-reactivity · cross-file diagnostic
+Reassigning a reactive binding replaces it with a plain value.
+
+help:
+  Mutate the existing object, or reassign a ref's .value.
+=== vize:croquis/cf/reference-escapes-scope
+vize:croquis/cf/reference-escapes-scope · cross-file diagnostic
+A reactive reference escapes the scope that owns its lifetime.
+
+help:
+  Keep the reference inside that scope, or return a plain snapshot.
+=== vize:croquis/cf/setup-context-violation
+vize:croquis/cf/setup-context-violation · cross-file diagnostic
+Setup context is used in a way Vue does not allow.
+
+help:
+  Use the setup context only synchronously inside setup.
+=== vize:croquis/cf/shallow-deep-access
+vize:croquis/cf/shallow-deep-access · cross-file diagnostic
+A deep property of a `shallowReactive` or `shallowRef` value is read as if it were tracked.
+
+help:
+  Use reactive or ref when the nested fields must be tracked.
+=== vize:croquis/cf/spread-breaks-reactivity
+vize:croquis/cf/spread-breaks-reactivity · cross-file diagnostic
+Spreading a reactive object copies its values and drops the tracking.
+
+help:
+  Pass the reactive object itself, or use toRefs.
+=== vize:croquis/cf/suspense-no-fallback
+vize:croquis/cf/suspense-no-fallback · cross-file diagnostic
+`<Suspense>` has no fallback content.
+
+help:
+  Add a #fallback slot.
+=== vize:croquis/cf/template-ref-timing
+vize:croquis/cf/template-ref-timing · cross-file diagnostic
+A template ref is read before the component is mounted.
+
+help:
+  Read the ref inside onMounted or a later hook.
+=== vize:croquis/cf/toraw-mutation
+vize:croquis/cf/toraw-mutation · cross-file diagnostic
+`toRaw` is used and the raw object is then mutated.
+
+help:
+  Mutate the reactive proxy, and use toRaw only to read.
+=== vize:croquis/cf/uncaught-error
+vize:croquis/cf/uncaught-error · cross-file diagnostic
+A component can throw and no error boundary catches it.
+
+help:
+  Wrap it in an error boundary with an error slot or onErrorCaptured.
+=== vize:croquis/cf/undeclared-emit
+vize:croquis/cf/undeclared-emit · cross-file diagnostic
+The component emits an event that is not declared.
+
+help:
+  Add the event to the emits option or defineEmits.
+=== vize:croquis/cf/undeclared-prop
+vize:croquis/cf/undeclared-prop · cross-file diagnostic
+A parent passes a prop the child does not declare.
+
+help:
+  Declare the prop, or stop passing it.
+=== vize:croquis/cf/undefined-slot
+vize:croquis/cf/undefined-slot · cross-file diagnostic
+A parent fills a slot the child does not expose.
+
+help:
+  Use a slot the child declares, or add that slot to the child.
+=== vize:croquis/cf/unhandled-event
+vize:croquis/cf/unhandled-event · cross-file diagnostic
+A child emits an event that no parent handles.
+
+help:
+  Handle the event on the parent, or stop emitting it.
+=== vize:croquis/cf/unmatched-inject
+vize:croquis/cf/unmatched-inject · cross-file diagnostic
+`inject` names a key that no ancestor provides.
+
+help:
+  Provide the key from an ancestor, or inject a key that is provided.
+=== vize:croquis/cf/unmatched-listener
+vize:croquis/cf/unmatched-listener · cross-file diagnostic
+A parent listens for an event the child does not emit.
+
+help:
+  Listen for a declared emit, or declare the event on the child.
+=== vize:croquis/cf/unregistered-component
+vize:croquis/cf/unregistered-component · cross-file diagnostic
+A template uses a component that is not registered or imported.
+
+help:
+  Import the component or register it.
+=== vize:croquis/cf/unresolved-import
+vize:croquis/cf/unresolved-import · cross-file diagnostic
+An import does not resolve to a module.
+
+help:
+  Fix the specifier so it points at a file that exists.
+=== vize:croquis/cf/unused-attrs
+vize:croquis/cf/unused-attrs · cross-file diagnostic
+Fallthrough attributes are passed to a multi-root component that does not use them.
+
+help:
+  Bind $attrs explicitly or declare the attributes as props.
+=== vize:croquis/cf/unused-emit
+vize:croquis/cf/unused-emit · cross-file diagnostic
+A declared emit is never used.
+
+help:
+  Emit the event or remove it from the declaration.
+=== vize:croquis/cf/unused-provide
+vize:croquis/cf/unused-provide · cross-file diagnostic
+A provided key is never injected.
+
+help:
+  Inject the key in a descendant, or remove the provide.
+=== vize:croquis/cf/value-extraction-breaks-reactivity
+vize:croquis/cf/value-extraction-breaks-reactivity · cross-file diagnostic
+Reading a reactive value out into a local drops later updates.
+
+help:
+  Keep the ref or read it inside a computed or effect.
+=== vize:croquis/cf/watch-can-be-computed
+vize:croquis/cf/watch-can-be-computed · cross-file diagnostic
+A watcher only copies a value into state and can be a computed.
+
+help:
+  Replace the watcher with computed.
+=== vize:croquis/cf/watcheffect-async
+vize:croquis/cf/watcheffect-async · cross-file diagnostic
+`watchEffect` starts an async task and cannot clean up the previous run.
+
+help:
+  Use watch with an onCleanup handle, and await inside the callback.
+=== vize:croquis/cf/watcher-outside-setup
+vize:croquis/cf/watcher-outside-setup · cross-file diagnostic
+`watch` or `watchEffect` is called outside `setup`.
+
+help:
+  Call the watcher inside setup.

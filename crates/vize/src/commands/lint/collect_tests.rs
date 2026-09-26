@@ -154,7 +154,7 @@ fn explicit_inputs_can_select_files_under_normally_excluded_directories() {
         for pattern in [
             file.display().to_string(),
             file.parent().unwrap().display().to_string(),
-            root.join(format!("**/{excluded}/*.vue"))
+            root.join(vize_s0::cstr!("**/{excluded}/*.vue").as_str())
                 .display()
                 .to_string(),
         ] {

@@ -20,6 +20,20 @@ pub enum ViolationCode {
 }
 
 impl ViolationCode {
+    /// Every invariant code, in declaration order; catalog coverage checks this list.
+    pub const ALL: [Self; 10] = [
+        Self::DuplicateId,
+        Self::RootRegion,
+        Self::OpRegion,
+        Self::EdgeEndpoint,
+        Self::RegionResolution,
+        Self::RegionNesting,
+        Self::EffectScope,
+        Self::ScheduledOrder,
+        Self::Operand,
+        Self::Placement,
+    ];
+
     /// Stable rendering code.
     #[must_use]
     pub const fn as_str(self) -> &'static str {

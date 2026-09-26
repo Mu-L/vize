@@ -5659,3 +5659,789 @@ vue/warn-custom-directive · lint ルール
   <div v-if="show"></div>
   <input v-model="value" />
   <button @click="onClick">Click</button>
+=== ts/2300
+ts/2300 · 型検査の診断
+識別子'{name}'が重複しています
+
+ヒント:
+  {name}の宣言が重複しています。
+  この識別子は既にこのスコープで宣言されています。
+  解決方法:
+  - いずれかの宣言の名前を変更
+  - 重複を削除
+  - 同じものを2回インポートしていないか確認
+=== ts/2304
+ts/2304 · 型検査の診断
+'{name}'が見つかりません
+
+ヒント:
+  {name} が定義されていません。
+  考えられる原因:
+  - 変数がインポートまたは宣言されていない
+  - 名前にタイプミスがある
+  - 変数が別のスコープで定義されている
+  解決方法:
+    // 1. モジュールからインポート
+    import { {name} } from './module';
+
+    // 2. script setupで宣言
+    const {name} = ...;
+
+    // 3. 名前のタイプミスを確認
+=== ts/2307
+ts/2307 · 型検査の診断
+モジュール'{module}'またはその型宣言が見つかりません
+
+ヒント:
+  モジュールが見つかりません: {module}
+  考えられる原因:
+  - パッケージがインストールされていない
+  - インポートパスが間違っている
+  - 型宣言が不足している
+  解決方法:
+    # 1. パッケージをインストール
+    npm install {module}
+
+    # 2. 型宣言をインストール（別パッケージの場合）
+    npm install -D @types/{module}
+  ローカルモジュールの場合:
+  - ファイルパスが正しいか確認
+  - 相対パスを使用: ./ または ../
+  - ファイル拡張子を確認
+=== ts/2322
+ts/2322 · 型検査の診断
+型'{source}'を型'{target}'に割り当てることはできません
+
+ヒント:
+  型の不一致が検出されました。
+  {target}を期待する場所に{source}型の値を割り当てようとしています。
+  一般的な修正方法:
+  - 値が期待される型と一致するか確認
+  - 確信がある場合は型アサーションを使用: value as {target}
+  - 実際の型を受け入れるように型定義を更新
+  例:
+    // targetが'number'でsourceが'string'の場合
+    const value = parseInt(stringValue); // stringをnumberに変換
+=== ts/2339
+ts/2339 · 型検査の診断
+プロパティ'{name}'は型'{type}'に存在しません
+
+ヒント:
+  プロパティ{name}が{type}に見つかりません。
+  考えられる原因:
+  - プロパティ名のスペルミス
+  - この型にプロパティが存在しない
+  - 先に型を絞り込む必要がある
+  解決方法:
+    // 1. プロパティの存在確認
+    if ('{name}' in obj) {
+    obj.{name};
+    }
+
+    // 2. オプショナルチェーンを使用
+    obj?.{name};
+
+    // 3. 型定義にプロパティを追加
+    interface MyType {
+    {name}: SomeType;
+    }
+=== ts/2344
+ts/2344 · 型検査の診断
+型'{type}'は制約'{constraint}'を満たしていません
+
+ヒント:
+  型制約違反です。
+  型{type}は{constraint}の要件を満たしていません。
+  解決方法:
+  型が必要な制約を拡張または実装していることを確認してください:
+    // 例: TはSomeBaseを拡張する必要がある
+    function example<T extends SomeBase>(value: T) { }
+=== ts/2345
+ts/2345 · 型検査の診断
+型'{source}'の引数を型'{target}'のパラメータに割り当てることはできません
+
+ヒント:
+  引数の型が一致しません。
+  関数は{target}を期待していますが、{source}を受け取りました。
+  解決方法:
+  - 値を期待される型に変換
+  - 正しい引数を渡しているか確認
+  - 必要に応じて関数のシグネチャを更新
+
+    // 例: 関数がnumberを期待する場合
+    func(Number(value)); // numberに変換
+=== ts/2349
+ts/2349 · 型検査の診断
+この式は呼び出し可能ではありません
+
+ヒント:
+  関数ではない値を呼び出そうとしています。
+  関数ではないものを呼び出そうとしています。
+  一般的な原因:
+  - 値がundefinedまたはnull
+  - 関数ではなくオブジェクト
+  - プロパティがメソッドではなく値を返す
+  解決方法:
+    // 呼び出す前に関数かどうか確認
+    if (typeof maybeFunc === 'function') {
+    maybeFunc();
+    }
+
+    // またはオプショナルチェーンを使用
+    maybeFunc?.();
+=== ts/2351
+ts/2351 · 型検査の診断
+この式はコンストラクト可能ではありません
+
+ヒント:
+  この値にnewを使用できません。
+  この式はnewと一緒に使用できません。
+  一般的な原因:
+  - クラスやコンストラクタ関数ではない
+  - クラスではなく型をインスタンス化しようとしている
+  例:
+    // ❌ 間違い: 型エイリアスはクラスではない
+    type MyType = { x: number };
+    new MyType(); // エラー!
+
+    // ✅ 正しい: クラスを使用
+    class MyClass { x: number = 0; }
+    new MyClass(); // OK
+=== ts/2451
+ts/2451 · 型検査の診断
+ブロックスコープの変数'{name}'を再宣言できません
+
+ヒント:
+  変数{name}は既に宣言されています。
+  同じスコープでletまたはconst変数を再宣言することはできません。
+  解決方法:
+    // 1. 変数名を変更
+    const {name}2 = ...;
+
+    // 2. 再宣言ではなく代入（letの場合）
+    {name} = newValue;
+
+    // 3. 別のスコープを使用
+    {
+    const {name} = ...; // 新しいブロックではOK
+    }
+=== ts/2531
+ts/2531 · 型検査の診断
+オブジェクトは'null'である可能性があります
+
+ヒント:
+  null値の可能性が検出されました。
+  TypeScriptはこの値がnullである可能性を警告しています。
+  解決方法:
+    // 1. オプショナルチェーンを使用
+    obj?.property;
+
+    // 2. Null合体演算子を使用
+    const value = obj ?? defaultValue;
+
+    // 3. nullチェックを追加
+    if (obj !== null) {
+    obj.property;
+    }
+
+    // 4. 非nullアサーション（確実な場合のみ）
+    obj!.property; // 100%確実な場合のみ
+=== ts/2532
+ts/2532 · 型検査の診断
+オブジェクトは'undefined'である可能性があります
+
+ヒント:
+  undefined値の可能性が検出されました。
+  TypeScriptはこの値がundefinedである可能性を警告しています。
+  解決方法:
+    // 1. オプショナルチェーンを使用
+    obj?.property;
+
+    // 2. デフォルト値を提供
+    const value = obj ?? defaultValue;
+
+    // 3. undefinedチェックを追加
+    if (obj !== undefined) {
+    obj.property;
+    }
+
+    // 4. 値を初期化
+    const obj = ref<Type>(initialValue);
+=== ts/2554
+ts/2554 · 型検査の診断
+{expected}個の引数が必要ですが、{actual}個指定されました
+
+ヒント:
+  引数の数が間違っています。
+  関数は{expected}個の引数を期待していますが、{actual}個指定されました。
+  解決方法:
+  - 不足している引数を追加
+  - 余分な引数を削除
+  - 関数のシグネチャを確認
+
+    // 関数定義を確認
+    function example(a: string, b?: number) { }
+    // 必須: a (string)
+    // オプション: b (number)
+=== ts/2555
+ts/2555 · 型検査の診断
+{expected}個の引数が必要ですが、{actual}個指定されました
+
+ヒント:
+  引数が多すぎます。
+  関数は{expected}個の引数のみ受け付けますが、{actual}個渡されました。
+  解決方法:
+  余分な引数を削除するか、関数を更新してより多くのパラメータを受け入れるようにしてください。
+=== ts/2741
+ts/2741 · 型検査の診断
+プロパティ'{name}'は型'{source}'にありませんが、型'{target}'では必須です
+
+ヒント:
+  必須プロパティがありません: {name}
+  型{target}はプロパティ{name}を必要としていますが、{source}には存在しません。
+  解決方法:
+    // 1. 不足しているプロパティを追加
+    const obj: {target} = {
+    ...existingProps,
+    {name}: value,
+    };
+
+    // 2. 型定義でプロパティをオプショナルに
+    interface {target} {
+    {name}?: Type; // オプショナル
+    }
+=== ts/7006
+ts/7006 · 型検査の診断
+パラメータ'{name}'の型は暗黙的に'any'になります
+
+ヒント:
+  {name}の型注釈がありません。
+  TypeScriptはこのパラメータの型を推論できません。
+  解決方法 - 明示的な型を追加:
+    // 変更前
+    function example({name}) { }
+
+    // 変更後
+    function example({name}: string) { }
+
+    // デフォルト値あり（型推論される）
+    function example({name} = 'default') { }
+=== ts/vue/9001
+ts/vue/9001 · 型検査の診断
+'{name}'のprop型が無効です
+
+ヒント:
+  {name}のprop型が一致しません。
+  propの値がdefinePropsで定義された期待される型と一致しません。
+  解決方法:
+    // prop定義を確認
+    defineProps<{
+    {name}: string; // 期待される型
+    }>();
+
+    // 親が正しい型を渡しているか確認
+    <MyComponent :{name}="stringValue" />
+=== ts/vue/9002
+ts/vue/9002 · 型検査の診断
+無効なemit呼び出し: '{event}'
+
+ヒント:
+  {event}のemit使用が無効です。
+  emit呼び出しが定義されたイベントと一致しません。
+  解決方法:
+    // emit定義を確認
+    const emit = defineEmits<{
+    {event}: [payload: PayloadType];
+    }>();
+
+    // 正しいペイロードで呼び出し
+    emit('{event}', payload);
+=== ts/vue/9003
+ts/vue/9003 · 型検査の診断
+不明なコンポーネント: '{name}'
+
+ヒント:
+  コンポーネント{name}が見つかりません。
+  考えられる原因:
+  - コンポーネントがインポートされていない
+  - コンポーネント名のスペルミス
+  - ケバブケースとパスカルケースの違い
+  解決方法:
+    // コンポーネントをインポート
+    import {name} from './components/{name}.vue';
+
+    // またはグローバルに登録
+    app.component('{name}', {name});
+=== ts/vue/9004
+ts/vue/9004 · 型検査の診断
+無効なslot使用: '{name}'
+
+ヒント:
+  スロット{name}の使用エラー。
+  一般的な問題:
+  - コンポーネントにスロットが存在しない
+  - スロットpropsが間違っている
+  使用方法:
+    <template>
+    <MyComponent>
+    <template #{name}="{ prop }">
+    <!-- スロットコンテンツ -->
+    </template>
+    </MyComponent>
+    </template>
+=== ts/vue/9005
+ts/vue/9005 · 型検査の診断
+無効なディレクティブ: '{name}'
+
+ヒント:
+  ディレクティブ{name}エラー。
+  一般的な原因:
+  - ディレクティブが登録されていない
+  - ディレクティブの構文が間違っている
+  解決方法:
+    // ローカルにディレクティブを登録
+    import { v{name} } from './directives';
+
+    // またはグローバルに
+    app.directive('{name}', {
+    mounted(el, binding) { ... }
+    });
+=== ts/vue/9006
+ts/vue/9006 · 型検査の診断
+リアクティビティの問題が検出されました
+
+ヒント:
+  リアクティビティが失われる可能性があります。
+  値のアクセス方法や分割代入の方法により、リアクティビティが失われる可能性があります。
+  一般的な問題と修正:
+    // ❌ 分割代入でリアクティビティが失われる
+    const { count } = props;
+
+    // ✅ toRefsを使用
+    const { count } = toRefs(props);
+
+    // ❌ refの値を代入
+    let x = ref(0).value;
+
+    // ✅ refを保持
+    const x = ref(0);
+=== S3V001
+S3V001 · S3 検証
+op、region、effect の id が重複しています。
+
+ヒント:
+  op、region、effect にはそれぞれ別の id を付けてください。
+=== S3V002
+S3V002 · S3 検証
+ルート region がないか、ルートが parent または owner を持っています。
+
+ヒント:
+  region r#0 は存在し、parent も owner も持たない必要があります。
+=== S3V003
+S3V003 · S3 検証
+op が存在しない region を指しています。
+
+ヒント:
+  op の region はこのプログラムにある region にしてください。
+=== S3V004
+S3V004 · S3 検証
+state edge の端点が解決できません。
+
+ヒント:
+  state edge の両端はこのプログラムの op である必要があります。
+=== S3V005
+S3V005 · S3 検証
+region の parent または owner が解決できないか、ルート以外がそれらを欠いています。
+
+ヒント:
+  r#0 以外の region は、存在する parent region と owner op を指定してください。
+=== S3V006
+S3V006 · S3 検証
+region、op、effect が包含 region の外に出ているか、parent が循環しています。
+
+ヒント:
+  各スパンを parent と owner の内側に保ち、parent の循環を作らないでください。
+=== S3V007
+S3V007 · S3 検証
+effect が欠けた scope、owner、region を指すか、state edge が effect scope の外に出ています。
+
+ヒント:
+  effect とその edge を、指している region と effect scope の内側に保ってください。
+=== S3V008
+S3V008 · S3 検証
+スケジュールされた edge が後方または自分自身を指しています。
+
+ヒント:
+  edge はより後ろの op に向けてスケジュールしてください。
+=== S3V009
+S3V009 · S3 検証
+operand がその op に対して無効です。
+
+ヒント:
+  その op の検証が受け付ける operand を使ってください。
+=== S3V010
+S3V010 · S3 検証
+placement の候補または採用結果が placement 規則と一致しません。
+
+ヒント:
+  placement を再導出してください。hoist は入れ子にせず、group は連続させてください。
+=== vize:croquis/cf/array-mutation
+vize:croquis/cf/array-mutation · ファイル間の診断
+配列を添字で変更していますが、reactive な配列はそれを追跡しません。
+
+ヒント:
+  push か splice を使うか、配列自体を置き換えてください。
+=== vize:croquis/cf/async-boundary
+vize:croquis/cf/async-boundary · ファイル間の診断
+reactive な状態が async 境界を越え、古い値が見えることがあります。
+
+ヒント:
+  effect の中で await するか、最初の await の前に値をスナップショットしてください。
+=== vize:croquis/cf/async-no-suspense
+vize:croquis/cf/async-no-suspense · ファイル間の診断
+async コンポーネントが Suspense 境界なしで描画されています。
+
+ヒント:
+  async コンポーネントを <Suspense> で包んでください。
+=== vize:croquis/cf/browser-api-ssr
+vize:croquis/cf/browser-api-ssr · ファイル間の診断
+サーバーでも描画され得る場所で、ブラウザ専用 API を使っています。
+
+ヒント:
+  import.meta.client で守るか、onMounted に移してください。
+=== vize:croquis/cf/circular-dep
+vize:croquis/cf/circular-dep · ファイル間の診断
+コンポーネントの import が循環しています。
+
+ヒント:
+  共有部分を第三のモジュールへ移して循環を断ってください。
+=== vize:croquis/cf/circular-reactive-dependency
+vize:croquis/cf/circular-reactive-dependency · ファイル間の診断
+reactive な計算が互いに循環して依存しています。
+
+ヒント:
+  一方が他方を読まないよう循環を断ってください。
+=== vize:croquis/cf/closure-captures-reactive
+vize:croquis/cf/closure-captures-reactive · ファイル間の診断
+クロージャが reactive な値を捕捉しており、その後の更新が見えません。
+
+ヒント:
+  クロージャを作る前ではなく、クロージャの中で ref を読んでください。
+=== vize:croquis/cf/composable-outside-setup
+vize:croquis/cf/composable-outside-setup · ファイル間の診断
+composable が `setup` の外で呼ばれています。
+
+ヒント:
+  composable は setup か別の composable の中で呼んでください。
+=== vize:croquis/cf/computed-side-effects
+vize:croquis/cf/computed-side-effects · ファイル間の診断
+computed の getter が状態を書いたり、他の副作用を起こしています。
+
+ヒント:
+  getter は純粋に保ち、副作用はウォッチャへ移してください。
+=== vize:croquis/cf/deep-import
+vize:croquis/cf/deep-import · ファイル間の診断
+import の連鎖がプロジェクトの許す深さより深くなっています。
+
+ヒント:
+  より近いモジュールから import するか、公開入口を再エクスポートしてください。
+=== vize:croquis/cf/destructuring-breaks-reactivity
+vize:croquis/cf/destructuring-breaks-reactivity · ファイル間の診断
+reactive オブジェクトの分割代入はフィールドをコピーし、追跡を失います。
+
+ヒント:
+  分割代入の前に toRefs を使ってください。
+=== vize:croquis/cf/di-outside-setup
+vize:croquis/cf/di-outside-setup · ファイル間の診断
+`provide` または `inject` が `setup` の外で呼ばれています。
+
+ヒント:
+  setup の中で呼んでください。
+=== vize:croquis/cf/dom-access-without-next-tick
+vize:croquis/cf/dom-access-without-next-tick · ファイル間の診断
+Vue が更新を反映する前に DOM を読んでいます。
+
+ヒント:
+  DOM は nextTick か onMounted の中で読んでください。
+=== vize:croquis/cf/duplicate-id
+vize:croquis/cf/duplicate-id · ファイル間の診断
+同じ要素 id が複数のコンポーネントで使われています。
+
+ヒント:
+  各要素に別々の id を付けてください。
+=== vize:croquis/cf/event-listener-leak
+vize:croquis/cf/event-listener-leak · ファイル間の診断
+イベントリスナーが登録されたまま、解除されていません。
+
+ヒント:
+  onUnmounted でリスナーを解除してください。
+=== vize:croquis/cf/event-modifier
+vize:croquis/cf/event-modifier · ファイル間の診断
+emit が対応しない修飾子を、イベントリスナーが使っています。
+
+ヒント:
+  修飾子を外すか、修飾子が期待する形でイベントを emit してください。
+=== vize:croquis/cf/hydration-risk
+vize:croquis/cf/hydration-risk · ファイル間の診断
+サーバーとクライアントで描画結果が食い違う可能性があります。
+
+ヒント:
+  最初のクライアント描画をサーバー HTML と一致させてください。
+=== vize:croquis/cf/inherit-attrs-unused
+vize:croquis/cf/inherit-attrs-unused · ファイル間の診断
+`inheritAttrs: false` が設定されているのに、属性が読まれていません。
+
+ヒント:
+  要素に $attrs を付けるか、継承の無効化をやめてください。
+=== vize:croquis/cf/inject-without-symbol
+vize:croquis/cf/inject-without-symbol · ファイル間の診断
+`inject` が `InjectionKey` のシンボルではなく素のキーを使っています。
+
+ヒント:
+  提供者と同じ InjectionKey シンボルを inject してください。
+=== vize:croquis/cf/injected-async-mutation-race
+vize:croquis/cf/injected-async-mutation-race · ファイル間の診断
+inject した値が、競合し得る async タスクから変更されています。
+
+ヒント:
+  単一の同期ターンで変更するか、書き込みを直列化してください。
+=== vize:croquis/cf/lifecycle-outside-setup
+vize:croquis/cf/lifecycle-outside-setup · ファイル間の診断
+ライフサイクルフックが `setup` の外で登録されています。
+
+ヒント:
+  フックは setup の中で登録してください。
+=== vize:croquis/cf/lifecycle-without-cleanup
+vize:croquis/cf/lifecycle-without-cleanup · ファイル間の診断
+ライフサイクルフックが後片付けなしで処理を始めています。
+
+ヒント:
+  停止ハンドルを返すか、対応する unmount フックを登録してください。
+=== vize:croquis/cf/missing-required-prop
+vize:croquis/cf/missing-required-prop · ファイル間の診断
+必須 prop が渡されていません。
+
+ヒント:
+  その prop を渡すか、必須指定を外してください。
+=== vize:croquis/cf/missing-suspense
+vize:croquis/cf/missing-suspense · ファイル間の診断
+async な依存が Suspense 境界の外で使われています。
+
+ヒント:
+  祖先に <Suspense> を追加してください。
+=== vize:croquis/cf/module-scope-reactive
+vize:croquis/cf/module-scope-reactive · ファイル間の診断
+reactive な状態がモジュールスコープで作られ、すべての呼び出し元で共有されます。
+
+ヒント:
+  各コンポーネントインスタンスが持つよう、状態は setup の中で作ってください。
+=== vize:croquis/cf/multi-root-attrs
+vize:croquis/cf/multi-root-attrs · ファイル間の診断
+複数ルートのコンポーネントが属性を受け取りますが、付ける場所がありません。
+
+ヒント:
+  単一ルートにするか、どれか一つのルートに $attrs をバインドしてください。
+=== vize:croquis/cf/mutated-after-escape
+vize:croquis/cf/mutated-after-escape · ファイル間の診断
+reactive オブジェクトが、所有者から漏れた後に変更されています。
+
+ヒント:
+  返す前に変更するか、新しい値を返してください。
+=== vize:croquis/cf/non-reactive-provide
+vize:croquis/cf/non-reactive-provide · ファイル間の診断
+provide した値が reactive ではないため、子孫は更新を観測できません。
+
+ヒント:
+  ref、reactive なオブジェクト、または computed を provide してください。
+=== vize:croquis/cf/non-unique-id
+vize:croquis/cf/non-unique-id · ファイル間の診断
+ループ内の要素 id が項目ごとに一意ではありません。
+
+ヒント:
+  id に項目の key を含めてください。
+=== vize:croquis/cf/object-identity-comparison
+vize:croquis/cf/object-identity-comparison · ファイル間の診断
+reactive オブジェクトを同一性で比較していますが、unwrap のたびに同一性は変わります。
+
+ヒント:
+  安定した id か、toRaw した生のオブジェクトを比較してください。
+=== vize:croquis/cf/pinia-getter
+vize:croquis/cf/pinia-getter · ファイル間の診断
+Pinia の getter を `storeToRefs` なしで読んでおり、reactive のままになりません。
+
+ヒント:
+  getter は storeToRefs 経由で読んでください。
+=== vize:croquis/cf/prop-type-mismatch
+vize:croquis/cf/prop-type-mismatch · ファイル間の診断
+渡した prop の値が、宣言された型と一致しません。
+
+ヒント:
+  宣言された型の値を渡してください。
+=== vize:croquis/cf/provide-inject-type
+vize:croquis/cf/provide-inject-type · ファイル間の診断
+provide した値と inject の型が一致しません。
+
+ヒント:
+  inject が宣言する型の値を provide してください。
+=== vize:croquis/cf/provide-without-symbol
+vize:croquis/cf/provide-without-symbol · ファイル間の診断
+`provide` が `InjectionKey` のシンボルではなく素のキーを使っています。
+
+ヒント:
+  同じ InjectionKey シンボルで provide と inject してください。
+=== vize:croquis/cf/reactive-export
+vize:croquis/cf/reactive-export · ファイル間の診断
+reactive な状態がモジュールから export されています。
+
+ヒント:
+  呼び出し元ごとに状態を作るファクトリを export してください。
+=== vize:croquis/cf/reactivity-outside-setup
+vize:croquis/cf/reactivity-outside-setup · ファイル間の診断
+reactive API が `setup` の外で呼ばれています。
+
+ヒント:
+  ref、reactive、computed は setup の中で呼んでください。
+=== vize:croquis/cf/reassignment-breaks-reactivity
+vize:croquis/cf/reassignment-breaks-reactivity · ファイル間の診断
+reactive な束縛を再代入すると、ただの値に置き換わります。
+
+ヒント:
+  既存のオブジェクトを変更するか、ref の .value を再代入してください。
+=== vize:croquis/cf/reference-escapes-scope
+vize:croquis/cf/reference-escapes-scope · ファイル間の診断
+reactive な参照が、寿命を持つスコープの外へ漏れています。
+
+ヒント:
+  そのスコープ内に留めるか、ただのスナップショットを返してください。
+=== vize:croquis/cf/setup-context-violation
+vize:croquis/cf/setup-context-violation · ファイル間の診断
+Vue が許さない使い方で setup コンテキストを使っています。
+
+ヒント:
+  setup コンテキストは setup の中で同期的にだけ使ってください。
+=== vize:croquis/cf/shallow-deep-access
+vize:croquis/cf/shallow-deep-access · ファイル間の診断
+`shallowReactive` または `shallowRef` の深いプロパティを、追跡されるものとして読んでいます。
+
+ヒント:
+  ネストしたフィールドを追跡する必要があるときは reactive か ref を使ってください。
+=== vize:croquis/cf/spread-breaks-reactivity
+vize:croquis/cf/spread-breaks-reactivity · ファイル間の診断
+reactive オブジェクトのスプレッドは値をコピーし、追跡を失います。
+
+ヒント:
+  reactive オブジェクト自体を渡すか、toRefs を使ってください。
+=== vize:croquis/cf/suspense-no-fallback
+vize:croquis/cf/suspense-no-fallback · ファイル間の診断
+`<Suspense>` に fallback がありません。
+
+ヒント:
+  #fallback スロットを追加してください。
+=== vize:croquis/cf/template-ref-timing
+vize:croquis/cf/template-ref-timing · ファイル間の診断
+テンプレート ref が、コンポーネントのマウント前に読まれています。
+
+ヒント:
+  ref は onMounted かそれ以降のフックで読んでください。
+=== vize:croquis/cf/toraw-mutation
+vize:croquis/cf/toraw-mutation · ファイル間の診断
+`toRaw` した生のオブジェクトを変更しています。
+
+ヒント:
+  変更は reactive プロキシに対して行い、toRaw は読み取り専用にしてください。
+=== vize:croquis/cf/uncaught-error
+vize:croquis/cf/uncaught-error · ファイル間の診断
+コンポーネントが例外を投げても、受け止めるエラー境界がありません。
+
+ヒント:
+  エラー用スロットか onErrorCaptured を持つエラー境界で包んでください。
+=== vize:croquis/cf/undeclared-emit
+vize:croquis/cf/undeclared-emit · ファイル間の診断
+宣言されていないイベントを emit しています。
+
+ヒント:
+  emits オプションか defineEmits にそのイベントを追加してください。
+=== vize:croquis/cf/undeclared-prop
+vize:croquis/cf/undeclared-prop · ファイル間の診断
+親が、子が宣言していない prop を渡しています。
+
+ヒント:
+  その prop を宣言するか、渡すのをやめてください。
+=== vize:croquis/cf/undefined-slot
+vize:croquis/cf/undefined-slot · ファイル間の診断
+親が、子が公開していないスロットを埋めています。
+
+ヒント:
+  子が宣言するスロットを使うか、子にそのスロットを追加してください。
+=== vize:croquis/cf/unhandled-event
+vize:croquis/cf/unhandled-event · ファイル間の診断
+子が emit したイベントを、どの親も処理していません。
+
+ヒント:
+  親でそのイベントを処理するか、emit をやめてください。
+=== vize:croquis/cf/unmatched-inject
+vize:croquis/cf/unmatched-inject · ファイル間の診断
+`inject` が、どの祖先も provide していないキーを指定しています。
+
+ヒント:
+  祖先でそのキーを provide するか、provide されているキーを inject してください。
+=== vize:croquis/cf/unmatched-listener
+vize:croquis/cf/unmatched-listener · ファイル間の診断
+親が、子が emit しないイベントを購読しています。
+
+ヒント:
+  宣言された emit を購読するか、子にそのイベントを宣言してください。
+=== vize:croquis/cf/unregistered-component
+vize:croquis/cf/unregistered-component · ファイル間の診断
+テンプレートが、登録も import もされていないコンポーネントを使っています。
+
+ヒント:
+  コンポーネントを import するか、登録してください。
+=== vize:croquis/cf/unresolved-import
+vize:croquis/cf/unresolved-import · ファイル間の診断
+import がモジュールへ解決できません。
+
+ヒント:
+  実在するファイルを指すよう指定子を直してください。
+=== vize:croquis/cf/unused-attrs
+vize:croquis/cf/unused-attrs · ファイル間の診断
+複数ルートのコンポーネントに渡した fallthrough 属性が使われていません。
+
+ヒント:
+  $attrs を明示的にバインドするか、属性を props として宣言してください。
+=== vize:croquis/cf/unused-emit
+vize:croquis/cf/unused-emit · ファイル間の診断
+宣言した emit が一度も使われていません。
+
+ヒント:
+  そのイベントを emit するか、宣言から削除してください。
+=== vize:croquis/cf/unused-provide
+vize:croquis/cf/unused-provide · ファイル間の診断
+provide したキーが一度も inject されていません。
+
+ヒント:
+  子孫でそのキーを inject するか、provide を削除してください。
+=== vize:croquis/cf/value-extraction-breaks-reactivity
+vize:croquis/cf/value-extraction-breaks-reactivity · ファイル間の診断
+reactive な値をローカルへ取り出すと、その後の更新が失われます。
+
+ヒント:
+  ref のまま持つか、computed か effect の中で読んでください。
+=== vize:croquis/cf/watch-can-be-computed
+vize:croquis/cf/watch-can-be-computed · ファイル間の診断
+ウォッチャが値を状態へ写しているだけで、computed にできます。
+
+ヒント:
+  ウォッチャを computed に置き換えてください。
+=== vize:croquis/cf/watcheffect-async
+vize:croquis/cf/watcheffect-async · ファイル間の診断
+`watchEffect` が async タスクを始め、前回の実行を片付けられません。
+
+ヒント:
+  onCleanup ハンドル付きの watch を使い、コールバックの中で await してください。
+=== vize:croquis/cf/watcher-outside-setup
+vize:croquis/cf/watcher-outside-setup · ファイル間の診断
+`watch` または `watchEffect` が `setup` の外で呼ばれています。
+
+ヒント:
+  ウォッチャは setup の中で呼んでください。
