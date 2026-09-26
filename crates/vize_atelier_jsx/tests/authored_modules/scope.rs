@@ -177,6 +177,7 @@ fn block_setup_reports_lexical_contexts_it_cannot_retain() {
     for source in [
         "export const App = () => { return <p>{this.label}</p>; };",
         "function outer() { const App = () => { return <p>{arguments[0]}</p>; }; return App; }",
+        "function Outer() { const App = () => { return <p>{new.target}</p>; }; return App; }",
         "export const App = () => { function factory() { const Inner = () => { return <p>{this.label}</p>; }; return Inner; } return <p/>; };",
         "export const App = () => { class Model { [this.label] = 1; } return <p/>; };",
     ] {

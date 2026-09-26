@@ -1,7 +1,7 @@
 //! A Vue setup method cannot inherit an authored arrow's enclosing receiver.
 
 use oxc_ast::ast::{
-    Function, IdentifierReference, MetaProperty, Program, PropertyDefinition, StaticBlock,
+    Function, IdentifierReference, NewTarget, Program, PropertyDefinition, StaticBlock,
     ThisExpression,
 };
 use oxc_ast_visit::Visit;
@@ -95,9 +95,7 @@ impl<'a> Visit<'a> for Contexts<'_> {
         }
     }
 
-    fn visit_meta_property(&mut self, property: &MetaProperty<'a>) {
-        if property.meta.name == "new" {
-            self.record(property.span.start, property.span.end);
-        }
+    fn visit_new_target(&mut self, target: &NewTarget) {
+        self.record(target.span.start, target.span.end);
     }
 }
