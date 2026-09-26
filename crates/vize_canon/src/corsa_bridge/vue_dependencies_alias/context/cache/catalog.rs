@@ -36,7 +36,7 @@ impl SessionCache {
                 .insert(root.to_path_buf(), CorsaSourceCatalog::default());
         }
         let catalog = self.project_catalogs.entry(root.to_path_buf()).or_default();
-        catalog.include(sources);
+        *catalog = catalog.include(sources);
         catalog.clone()
     }
 }

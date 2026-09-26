@@ -2,7 +2,7 @@
 
 use vize_carton::String;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OffsetAdjustment {
     pub original_offset: u32,
     pub adjustment: i32,
@@ -14,7 +14,7 @@ pub struct RewriteResult {
     pub source_map: ImportSourceMap,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ImportSourceMap {
     adjustments: Vec<OffsetAdjustment>,
 }

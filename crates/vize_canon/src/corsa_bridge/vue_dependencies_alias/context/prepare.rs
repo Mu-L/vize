@@ -86,6 +86,7 @@ impl AliasContext {
         let mut materialized_changes = Default::default();
         let mut source_catalog = Default::default();
         if let Some(mirror) = context.mirror.as_ref() {
+            let previous_catalog = cache.source_catalog(mirror.virtual_root());
             source_catalog = cache.include_source_catalog(
                 mirror.virtual_root(),
                 fingerprint.overlay_identity(),
@@ -102,6 +103,9 @@ impl AliasContext {
                     fingerprint.overlay_identity(),
                 );
             query_paths.extend(member_query_paths.iter().cloned());
+            if !source_catalog.shares_revision_with(&previous_catalog) {
+                source_catalog.retain_live_files(&expected_files, &preserved_files);
+            }
             query_paths.sort();
             query_paths.dedup();
             let previous = cache.materialized_snapshot(mirror.virtual_root());

@@ -40,12 +40,42 @@ impl CorsaSourceCatalog {
         })
     }
 
-    pub(in crate::corsa_bridge) fn include(&self, sources: Vec<CorsaMaterializedSource>) {
+    pub(in crate::corsa_bridge) fn include(&self, sources: Vec<CorsaMaterializedSource>) -> Self {
         let mut retained = recover_lock(&self.sources);
+        if sources.iter().any(|source| {
+            retained.get(&source.materialized_path).is_some_and(|old| {
+                old.source_path != source.source_path
+                    || old.source != source.source
+                    || old.code != source.code
+                    || old.mapping != source.mapping
+                    || old.import_source_map != source.import_source_map
+                    || old.mapping_kind != source.mapping_kind
+            })
+        }) {
+            // A caller can change host text without including it in overlays.
+            // Fork only that revision; unchanged leaf data stays shared.
+            let mut refreshed = retained.clone();
+            for source in sources {
+                refreshed.insert(source.materialized_path.clone(), Arc::new(source));
+            }
+            return Self {
+                sources: Arc::new(Mutex::new(refreshed)),
+            };
+        }
         for source in sources {
             retained
                 .entry(source.materialized_path.clone())
                 .or_insert_with(|| Arc::new(source));
         }
+        self.clone()
+    }
+
+    pub(in crate::corsa_bridge) fn retain_live_files(
+        &self,
+        current: &vize_carton::FxHashSet<PathBuf>,
+        preserved: &vize_carton::FxHashSet<PathBuf>,
+    ) {
+        recover_lock(&self.sources)
+            .retain(|path, _| current.contains(path) || preserved.contains(path));
     }
 }
