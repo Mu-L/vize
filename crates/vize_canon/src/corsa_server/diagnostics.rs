@@ -220,6 +220,7 @@ mod tests {
                 dependencies: Vec::new(),
                 resolved_dependencies: Vec::new(),
                 materialized_sources: Vec::new(),
+                source_catalog: Default::default(),
                 session_project_root: None,
             },
             documents: Vec::new(),

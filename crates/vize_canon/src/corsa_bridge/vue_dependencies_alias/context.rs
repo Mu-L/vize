@@ -23,6 +23,7 @@ pub(in crate::corsa_bridge) struct PreparedAliasContext {
     context: std::sync::Arc<AliasContext>,
     pub(in crate::corsa_bridge) materialized_changes:
         crate::batch::virtual_project::MaterializedFileDelta,
+    pub(in crate::corsa_bridge) source_catalog: crate::corsa_bridge::CorsaSourceCatalog,
 }
 
 impl std::ops::Deref for PreparedAliasContext {

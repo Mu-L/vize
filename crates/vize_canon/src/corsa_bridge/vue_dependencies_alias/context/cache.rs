@@ -8,6 +8,7 @@ use vize_carton::FxHashMap;
 
 use super::AliasContext;
 
+mod catalog;
 mod fingerprint;
 pub(super) use fingerprint::ContextFingerprint;
 
@@ -19,6 +20,7 @@ pub(in crate::corsa_bridge) struct SessionCache {
     project_snapshots: FxHashMap<PathBuf, crate::batch::virtual_project::MaterializedFileSnapshot>,
     project_members: FxHashMap<PathBuf, FxHashMap<PathBuf, ProjectMember>>,
     project_overlay_identities: FxHashMap<PathBuf, u64>,
+    project_catalogs: FxHashMap<PathBuf, crate::corsa_bridge::CorsaSourceCatalog>,
     clock: u64,
 }
 
@@ -45,19 +47,7 @@ impl SessionCache {
         virtual_root: &Path,
         overlay_identity: u64,
     ) -> Vec<PathBuf> {
-        if self.project_overlay_identities.get(virtual_root) == Some(&overlay_identity)
-            && self
-                .project_members
-                .get(virtual_root)
-                .is_none_or(|members| {
-                    members.values().all(|member| {
-                        member
-                            .stamps
-                            .iter()
-                            .all(crate::package_route::stamp::InputStamp::is_current)
-                    })
-                })
-        {
+        if self.project_revision_is_current(virtual_root, overlay_identity) {
             return Vec::new();
         }
         self.project_source_paths(virtual_root)
@@ -81,6 +71,7 @@ impl SessionCache {
         self.project_snapshots.clear();
         self.project_members.clear();
         self.project_overlay_identities.clear();
+        self.project_catalogs.clear();
         self.clock = 0;
     }
 
@@ -90,7 +81,15 @@ impl SessionCache {
         fingerprint: &ContextFingerprint,
     ) -> Option<Arc<AliasContext>> {
         let valid = self.slots.get(source_path).is_some_and(|cached| {
-            cached.fingerprint == *fingerprint && cached.fingerprint.stamps_still_valid()
+            cached.fingerprint == *fingerprint
+                && cached.fingerprint.stamps_still_valid()
+                && cached.context.mirror.as_ref().is_none_or(|mirror| {
+                    !self.project_members.contains_key(mirror.virtual_root())
+                        || self.project_revision_is_current(
+                            mirror.virtual_root(),
+                            fingerprint.overlay_identity(),
+                        )
+                })
         });
         if !valid {
             self.slots.remove(source_path);
@@ -229,6 +228,8 @@ impl SessionCache {
             .retain(|root, _| self.project_members.contains_key(root));
         self.project_overlay_identities
             .retain(|root, _| self.project_members.contains_key(root));
+        self.project_catalogs
+            .retain(|root, _| self.project_members.contains_key(root));
     }
 
     pub(super) fn materialized_snapshot(
@@ -265,3 +266,6 @@ mod tests;
 
 #[cfg(test)]
 mod scaling_tests;
+
+#[cfg(test)]
+mod catalog_tests;

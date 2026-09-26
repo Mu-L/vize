@@ -13,7 +13,7 @@ use crate::corsa_bridge::vue_document::{CorsaProjectEnvironment, CorsaVueVirtual
 
 const VUE: &str = "<script setup lang='ts'>const label = 'é'; const token = 41;</script><template>{{ token }}</template>";
 
-fn open(
+pub(super) fn open(
     session: &EditorMirrorSession,
     path: &Path,
     source: &str,

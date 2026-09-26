@@ -67,6 +67,7 @@ pub(crate) async fn open_canonical_script_document(
             project.materialized_sources,
         ),
         session_project_roots: project.session_project_root.into_iter().collect(),
+        source_catalogs: vec![project.source_catalog],
     })
 }
 

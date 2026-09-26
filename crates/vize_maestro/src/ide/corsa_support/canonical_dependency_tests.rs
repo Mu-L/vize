@@ -29,6 +29,7 @@ pub(super) fn host_document(uri: &Url, source: &str) -> CanonicalVirtualDocument
         dependencies: Vec::new(),
         materialized_sources: Vec::new(),
         session_project_roots: Vec::new(),
+        source_catalogs: Vec::new(),
     }
 }
 

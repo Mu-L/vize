@@ -28,6 +28,7 @@ struct BuiltScriptVirtualProject {
     session_project_root: Option<PathBuf>,
     materialized_changes: crate::batch::virtual_project::MaterializedFileDelta,
     materialized_sources: Vec<super::CorsaMaterializedSource>,
+    source_catalog: super::CorsaSourceCatalog,
 }
 
 /// The exact native script overlay and its import-coordinate transform.
@@ -44,6 +45,7 @@ pub struct CorsaScriptVirtualDocument {
 pub struct CorsaScriptVirtualProject {
     pub document: CorsaScriptVirtualDocument,
     pub materialized_sources: Vec<super::CorsaMaterializedSource>,
+    pub source_catalog: super::CorsaSourceCatalog,
     pub session_project_root: Option<PathBuf>,
 }
 
@@ -84,6 +86,7 @@ impl CorsaBridge {
         Ok(CorsaScriptVirtualProject {
             document: project.host,
             materialized_sources: project.materialized_sources,
+            source_catalog: project.source_catalog,
             session_project_root: project.session_project_root,
         })
     }
@@ -198,5 +201,6 @@ fn build_script_virtual_project_with_package_routes(
         session_project_root,
         materialized_changes: alias_context.materialized_changes.clone(),
         materialized_sources,
+        source_catalog: alias_context.source_catalog.clone(),
     })
 }

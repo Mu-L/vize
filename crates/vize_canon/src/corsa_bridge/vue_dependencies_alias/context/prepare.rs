@@ -37,12 +37,21 @@ impl AliasContext {
             environment.tsconfig_path,
         );
         fingerprint.include_requested_sources(requested_sources);
-        if let Some(context) = environment
-            .editor_session
-            .cache()
-            .get(source_path, &fingerprint)
-        {
+        let cached = {
+            let mut cache = environment.editor_session.cache();
+            cache.get(source_path, &fingerprint).map(|context| {
+                let catalog = context
+                    .mirror
+                    .as_ref()
+                    .map_or_else(Default::default, |mirror| {
+                        cache.source_catalog(mirror.virtual_root())
+                    });
+                (context, catalog)
+            })
+        };
+        if let Some((context, source_catalog)) = cached {
             return Ok(PreparedAliasContext {
+                source_catalog,
                 context,
                 materialized_changes: Default::default(),
             });
@@ -64,12 +73,24 @@ impl AliasContext {
         let mut cache = environment.editor_session.cache();
         if let Some(context) = cache.get(source_path, &fingerprint) {
             return Ok(PreparedAliasContext {
+                source_catalog: context
+                    .mirror
+                    .as_ref()
+                    .map_or_else(Default::default, |mirror| {
+                        cache.source_catalog(mirror.virtual_root())
+                    }),
                 context,
                 materialized_changes: Default::default(),
             });
         }
         let mut materialized_changes = Default::default();
+        let mut source_catalog = Default::default();
         if let Some(mirror) = context.mirror.as_ref() {
+            source_catalog = cache.include_source_catalog(
+                mirror.virtual_root(),
+                fingerprint.overlay_identity(),
+                context.materialized_sources(),
+            );
             let source_path = vize_carton::path::canonicalize_non_verbatim(source_path);
             let expected_files = mirror.expected_materialized_files();
             let package_links = mirror.desired_package_links();
@@ -115,6 +136,7 @@ impl AliasContext {
         Ok(PreparedAliasContext {
             context,
             materialized_changes,
+            source_catalog,
         })
     }
 }
