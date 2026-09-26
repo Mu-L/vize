@@ -3,6 +3,7 @@ import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { Window } from "happy-dom";
 import { build } from "vite-plus";
+import { mountedScope } from "./davinci-mounted-scope.mjs";
 import { evaluateCompiledRender } from "./davinci-runtime-trace.mjs";
 import { vueVaporRuntimeEntry } from "./vue-vapor-release.mjs";
 
@@ -15,6 +16,7 @@ export async function traceMountedBackend({
   identities = false,
   slots = null,
   components = {},
+  externalTargets = [],
 }) {
   assert.ok(backend === "vdom" || backend === "vapor", `unknown backend: ${backend}`);
   if (slots !== null) validateSuppliedSlots(slots);
@@ -86,13 +88,14 @@ export async function traceMountedBackend({
   app.config.errorHandler = (error) => diagnostics.push(String(error));
   const host = window.document.createElement("div");
   window.document.body.append(host);
+  const scope = mountedScope(window, host, externalTargets, observeChildren);
   const snapshots = [];
   const nodeIdentities = new WeakMap();
   let nextIdentity = 0;
   let previousNodes = [];
 
   function observedIdentities() {
-    const nodes = [...host.querySelectorAll("*")];
+    const nodes = scope.elements();
     for (const previous of previousNodes) {
       if (!nodes.includes(previous))
         assert.equal(previous.isConnected, false, "removed node is still connected");
@@ -111,6 +114,7 @@ export async function traceMountedBackend({
     snapshots.push({
       tree: observeChildren(host),
       events: [...events],
+      ...scope.observations(),
       ...(identities ? { identities: observedIdentities() } : {}),
     });
   }
@@ -124,9 +128,9 @@ export async function traceMountedBackend({
         assert.equal(identities, true, "loop clicks require identity observations");
         assert.deepEqual(Object.keys(step), ["click"], "unexpected loop click fields");
         assert.equal(typeof step.click, "string", "loop target must be a data-id string");
-        const targets = [...host.querySelectorAll("[data-id]")].filter(
-          (node) => node.getAttribute("data-id") === step.click,
-        );
+        const targets = scope
+          .elements("[data-id]")
+          .filter((node) => node.getAttribute("data-id") === step.click);
         assert.equal(targets.length, 1, "expected one live interaction target");
         assert.ok(targets[0] instanceof window.HTMLButtonElement, "expected a native button");
         targets[0].click();
@@ -140,7 +144,7 @@ export async function traceMountedBackend({
       } else if (step.patch) {
         Object.assign(state, step.patch);
       } else if (step.event) {
-        const target = host.querySelector(step.selector);
+        const target = scope.elements(step.selector)[0];
         assert.ok(target, `missing interaction target: ${step.selector}`);
         if (Object.hasOwn(step, "value")) target.value = step.value;
         if (Object.hasOwn(step, "checked")) target.checked = step.checked;
@@ -170,11 +174,13 @@ export async function traceMountedBackend({
     app.unmount();
     await vue.nextTick();
     assert.equal(host.childNodes.length, 0, "unmount left DOM nodes behind");
+    scope.assertUnmounted();
     snapshot();
     return snapshots;
   } finally {
     if (host.childNodes.length) app.unmount();
     host.remove();
+    scope.dispose();
     await window.happyDOM.close();
   }
 }

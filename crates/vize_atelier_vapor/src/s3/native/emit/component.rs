@@ -25,6 +25,7 @@ impl<'a> Emitter<'a, '_> {
         let Some(Node {
             content:
                 Content::Component {
+                    kind,
                     tag,
                     tag_span,
                     props,
@@ -36,7 +37,7 @@ impl<'a> Emitter<'a, '_> {
         else {
             return self.invariant_broken();
         };
-        let (tag, tag_span, is) = (*tag, *tag_span, *is);
+        let (kind, tag, tag_span, is) = (*kind, *tag, *tag_span, *is);
         // Each node is emitted once, so its payload moves out of the artifact.
         let props = take(self.allocator, props);
         let children = take(self.allocator, children);
@@ -79,13 +80,13 @@ impl<'a> Emitter<'a, '_> {
                 tag,
                 props,
                 slots,
-                asset: is.is_none(),
+                asset: is.is_none() && kind == ComponentKind::Regular,
                 once: false,
                 dynamic_slots,
                 kind: if is.is_some() {
                     ComponentKind::Dynamic
                 } else {
-                    ComponentKind::Regular
+                    kind
                 },
                 is_expr: is.map(|is| self.expression(is, false)),
                 v_show: None,

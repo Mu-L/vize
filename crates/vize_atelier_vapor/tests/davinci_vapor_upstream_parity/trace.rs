@@ -55,6 +55,16 @@ pub(super) fn assert_native_upstream_trace(
     steps: Value,
     expected: Vec<Value>,
 ) {
+    assert_native_upstream_trace_with_targets(source, context, steps, expected, json!([]));
+}
+
+pub(super) fn assert_native_upstream_trace_with_targets(
+    source: &str,
+    context: Value,
+    steps: Value,
+    expected: Vec<Value>,
+    external_targets: Value,
+) {
     let allocator = Allocator::new();
     let before = WalkCounts::snapshot();
     let compiled = compile_vapor(
@@ -83,11 +93,12 @@ pub(super) fn assert_native_upstream_trace(
             "context": context.clone(),
             "steps": steps.clone(),
             "identities": true,
+            "externalTargets": external_targets.clone(),
         }),
     );
     let upstream = trace(
         "davinci-upstream-vapor-trace.mjs",
-        json!({"source": source, "context": context, "steps": steps}),
+        json!({"source": source, "context": context, "steps": steps, "externalTargets": external_targets}),
     );
     assert_eq!(vize, expected, "{source}: Vize native S3 trace");
     assert_eq!(
