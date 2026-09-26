@@ -38,8 +38,11 @@ fn extract_emits_from_runtime_expression(
         Expression::ArrayExpression(arr) => {
             let start = result.macros.emits().len();
             extract_emits_from_array(result, arr);
-            let names = result.macros.emits()[start..]
+            let names = result
+                .macros
+                .emits()
                 .iter()
+                .skip(start)
                 .map(|emit| emit.name.clone())
                 .collect::<Vec<_>>();
             for name in names {
