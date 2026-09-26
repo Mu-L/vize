@@ -15,6 +15,7 @@ use crate::macros::EmitDefinition;
 use vize_carton::{CompactString, String};
 
 use super::super::ScriptParseResult;
+use super::runtime_objects::{collect_runtime_object_expression, has_runtime_type_assertion};
 
 /// Extract emits from runtime arguments (array)
 pub fn extract_emits_from_runtime(
@@ -22,22 +23,8 @@ pub fn extract_emits_from_runtime(
     arg: &Argument<'_>,
     source: &str,
 ) {
-    match arg {
-        Argument::ArrayExpression(arr) => extract_emits_from_array(result, arr),
-        Argument::ObjectExpression(obj) => extract_emits_from_object(result, obj, source),
-        Argument::TSAsExpression(ts_as) => {
-            extract_emits_from_runtime_expression(result, &ts_as.expression, source);
-        }
-        Argument::TSSatisfiesExpression(ts_satisfies) => {
-            extract_emits_from_runtime_expression(result, &ts_satisfies.expression, source);
-        }
-        Argument::TSNonNullExpression(ts_non_null) => {
-            extract_emits_from_runtime_expression(result, &ts_non_null.expression, source);
-        }
-        Argument::ParenthesizedExpression(paren) => {
-            extract_emits_from_runtime_expression(result, &paren.expression, source);
-        }
-        _ => {}
+    if let Some(expression) = arg.as_expression() {
+        extract_emits_from_runtime_expression(result, expression, source);
     }
 }
 
@@ -46,20 +33,34 @@ fn extract_emits_from_runtime_expression(
     expr: &Expression<'_>,
     source: &str,
 ) {
-    match expr {
-        Expression::ArrayExpression(arr) => extract_emits_from_array(result, arr),
-        Expression::ObjectExpression(obj) => extract_emits_from_object(result, obj, source),
-        Expression::TSAsExpression(ts_as) => {
-            extract_emits_from_runtime_expression(result, &ts_as.expression, source);
+    let annotations = extract_runtime_emit_type_annotations(expr, source);
+    match expr.get_inner_expression() {
+        Expression::ArrayExpression(arr) => {
+            let start = result.macros.emits().len();
+            extract_emits_from_array(result, arr);
+            let names = result.macros.emits()[start..]
+                .iter()
+                .map(|emit| emit.name.clone())
+                .collect::<Vec<_>>();
+            for name in names {
+                for annotation in &annotations {
+                    result
+                        .macros
+                        .add_emit_validator_type_annotation(&name, annotation.clone());
+                }
+            }
         }
-        Expression::TSSatisfiesExpression(ts_satisfies) => {
-            extract_emits_from_runtime_expression(result, &ts_satisfies.expression, source);
-        }
-        Expression::TSNonNullExpression(ts_non_null) => {
-            extract_emits_from_runtime_expression(result, &ts_non_null.expression, source);
-        }
-        Expression::ParenthesizedExpression(paren) => {
-            extract_emits_from_runtime_expression(result, &paren.expression, source);
+        Expression::ObjectExpression(obj) => extract_emits_from_object(
+            result,
+            obj,
+            source,
+            &annotations,
+            has_runtime_type_assertion(expr),
+        ),
+        Expression::Identifier(_) => {
+            if let Some(literal) = collect_runtime_object_expression(result, expr, source) {
+                apply_runtime_literal(result, literal, &[], false);
+            }
         }
         _ => {}
     }
@@ -87,6 +88,8 @@ fn extract_emits_from_object(
     result: &mut ScriptParseResult,
     obj: &oxc_ast::ast::ObjectExpression<'_>,
     source: &str,
+    inherited_annotations: &[CompactString],
+    asserted: bool,
 ) {
     for prop in obj.properties.iter() {
         match prop {
@@ -100,11 +103,18 @@ fn extract_emits_from_object(
                 result.macros.add_emit_with_declaration(
                     EmitDefinition {
                         name: CompactString::new(name),
-                        payload_type: extract_runtime_emit_payload_type(&prop.value, source),
+                        payload_type: (!asserted)
+                            .then(|| extract_runtime_emit_payload_type(&prop.value, source))
+                            .flatten(),
                     },
                     span.start,
                     span.end,
                 );
+                for annotation in inherited_annotations {
+                    result
+                        .macros
+                        .add_emit_validator_type_annotation(name, annotation.clone());
+                }
                 if prop.kind == oxc_ast::ast::PropertyKind::Init
                     && let Some(signature) = extract_runtime_emit_signature(&prop.value, source)
                 {
@@ -119,32 +129,44 @@ fn extract_emits_from_object(
                 }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
-                let Expression::Identifier(identifier) = &spread.argument else {
-                    continue;
-                };
-                let Some(literal) = result
-                    .runtime_object_literals
-                    .get(identifier.name.as_str())
-                    .cloned()
+                let Some(literal) =
+                    collect_runtime_object_expression(result, &spread.argument, source)
                 else {
                     continue;
                 };
-                for emit in literal.emits {
-                    result.macros.add_emit(emit);
-                }
-                for (name, signatures) in literal.emit_validator_signatures {
-                    for signature in signatures {
-                        result.macros.add_emit_validator_signature(&name, signature);
-                    }
-                }
-                for (name, annotations) in literal.emit_validator_type_annotations {
-                    for annotation in annotations {
-                        result
-                            .macros
-                            .add_emit_validator_type_annotation(&name, annotation);
-                    }
-                }
+                apply_runtime_literal(result, literal, inherited_annotations, asserted);
             }
+        }
+    }
+}
+
+fn apply_runtime_literal(
+    result: &mut ScriptParseResult,
+    literal: super::super::RuntimeObjectLiteral,
+    inherited_annotations: &[CompactString],
+    asserted: bool,
+) {
+    for mut emit in literal.emits {
+        if asserted {
+            emit.payload_type = None;
+        }
+        for annotation in inherited_annotations {
+            result
+                .macros
+                .add_emit_validator_type_annotation(&emit.name, annotation.clone());
+        }
+        result.macros.add_emit(emit);
+    }
+    for (name, signatures) in literal.emit_validator_signatures {
+        for signature in signatures {
+            result.macros.add_emit_validator_signature(&name, signature);
+        }
+    }
+    for (name, annotations) in literal.emit_validator_type_annotations {
+        for annotation in annotations {
+            result
+                .macros
+                .add_emit_validator_type_annotation(&name, annotation);
         }
     }
 }

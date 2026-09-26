@@ -203,3 +203,59 @@ fn validator_cast_and_constraint_types_track_edits_without_bodies() {
         )
     );
 }
+
+#[test]
+fn whole_runtime_object_constraints_follow_active_events_and_nested_spreads() {
+    let source = "defineEmits(({ save: (value: Payload): boolean => true } satisfies Contract));";
+    let annotations = |source: &str, event: &str| {
+        parse_script_setup(source)
+            .macros
+            .emit_validator_type_annotations(event)
+            .to_vec()
+    };
+    assert_eq!(annotations(source, "save"), ["Contract"]);
+    assert_eq!(payload(source, "save").as_deref(), Some("[value: Payload]"));
+    assert_eq!(
+        annotations(source, "save"),
+        annotations(&source.replace("=> true", "=> { return false }"), "save")
+    );
+    assert_ne!(
+        annotations(source, "save"),
+        annotations(
+            &source.replace("satisfies Contract", "satisfies RevisedContract"),
+            "save"
+        )
+    );
+    let nested = "const unused = { save: (value: Private): boolean => false } satisfies PrivateContract; const validators = ({ save: ((value: Payload): boolean => true) as Validator } satisfies LocalContract); const copied = { ...(validators as SpreadContract), ...(<AngleContract>{ close: () => true }) }; defineEmits((copied satisfies Contract) as PublicContract);";
+    assert_eq!(
+        annotations(nested, "save"),
+        [
+            "PublicContract",
+            "Contract",
+            "SpreadContract",
+            "LocalContract",
+            "Validator"
+        ]
+    );
+    assert_eq!(
+        annotations(nested, "close"),
+        ["PublicContract", "Contract", "AngleContract"]
+    );
+    assert_eq!(payload(nested, "save"), None);
+    assert_eq!(payload(nested, "close"), None);
+    assert_eq!(
+        annotations(nested, "save"),
+        annotations(
+            &nested
+                .replace("PrivateContract", "OtherPrivateContract")
+                .replace("=> true", "=> false"),
+            "save"
+        )
+    );
+    assert!(
+        parse_script_setup("defineEmits((unknownCall() satisfies Contract))")
+            .macros
+            .emits()
+            .is_empty()
+    );
+}

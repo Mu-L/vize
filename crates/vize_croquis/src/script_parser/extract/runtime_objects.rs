@@ -12,14 +12,61 @@ pub(in crate::script_parser) fn record_static_runtime_object_literal(
     expr: &Expression<'_>,
     source: &str,
 ) {
-    let Some(object) = unwrap_runtime_object_expression(expr) else {
+    let Some(literal) = collect_runtime_object_expression(result, expr, source) else {
         return;
     };
-
-    let literal = collect_runtime_object_literal(result, object, source);
     result
         .runtime_object_literals
         .insert(CompactString::new(name), literal);
+}
+
+pub(super) fn collect_runtime_object_expression(
+    result: &ScriptParseResult,
+    expression: &Expression<'_>,
+    source: &str,
+) -> Option<RuntimeObjectLiteral> {
+    let mut literal = match expression.get_inner_expression() {
+        Expression::ObjectExpression(object) => {
+            collect_runtime_object_literal(result, object, source)
+        }
+        Expression::Identifier(identifier) => result
+            .runtime_object_literals
+            .get(identifier.name.as_str())?
+            .clone(),
+        _ => return None,
+    };
+    let annotations = emits::extract_runtime_emit_type_annotations(expression, source);
+    if has_runtime_type_assertion(expression) {
+        for emit in &mut literal.emits {
+            emit.payload_type = None;
+        }
+    }
+    if !annotations.is_empty() {
+        let names: vize_carton::FxHashSet<_> =
+            literal.emits.iter().map(|emit| emit.name.clone()).collect();
+        for name in names {
+            let existing = literal
+                .emit_validator_type_annotations
+                .entry(name)
+                .or_default();
+            let mut inherited = annotations.clone();
+            inherited.append(existing);
+            *existing = inherited;
+        }
+    }
+    Some(literal)
+}
+
+pub(super) fn has_runtime_type_assertion(mut expression: &Expression<'_>) -> bool {
+    loop {
+        expression = match expression {
+            Expression::TSAsExpression(_) | Expression::TSTypeAssertion(_) => return true,
+            Expression::TSSatisfiesExpression(wrapper) => &wrapper.expression,
+            Expression::TSNonNullExpression(wrapper) => &wrapper.expression,
+            Expression::ParenthesizedExpression(wrapper) => &wrapper.expression,
+            _ => return false,
+        };
+    }
 }
 
 fn collect_runtime_object_literal(
@@ -68,11 +115,8 @@ fn collect_runtime_object_literal(
                 }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
-                let Expression::Identifier(identifier) = &spread.argument else {
-                    continue;
-                };
                 let Some(spread_literal) =
-                    result.runtime_object_literals.get(identifier.name.as_str())
+                    collect_runtime_object_expression(result, &spread.argument, source)
                 else {
                     continue;
                 };
@@ -97,23 +141,4 @@ fn collect_runtime_object_literal(
     }
 
     literal
-}
-
-fn unwrap_runtime_object_expression<'a>(
-    expr: &'a Expression<'a>,
-) -> Option<&'a ObjectExpression<'a>> {
-    match expr {
-        Expression::ObjectExpression(object) => Some(object),
-        Expression::TSAsExpression(ts_as) => unwrap_runtime_object_expression(&ts_as.expression),
-        Expression::TSSatisfiesExpression(ts_satisfies) => {
-            unwrap_runtime_object_expression(&ts_satisfies.expression)
-        }
-        Expression::TSNonNullExpression(ts_non_null) => {
-            unwrap_runtime_object_expression(&ts_non_null.expression)
-        }
-        Expression::ParenthesizedExpression(paren) => {
-            unwrap_runtime_object_expression(&paren.expression)
-        }
-        _ => None,
-    }
 }
