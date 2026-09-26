@@ -70,7 +70,7 @@ fn module_code_wraps_block_body_component_setup_state() {
     assert!(module.contains("const count = ref(0);"));
     assert!(module.contains("const doubled = computed(() => count.value * 2);"));
     assert!(module.contains("count.value += 1;"));
-    assert!(module.contains("return (function(_ctx, _cache)"));
+    assert!(module.contains("return ((_ctx, _cache) =>"));
     assert!(!module.contains("export function render("));
     assert!(out.source_map().is_none());
 }

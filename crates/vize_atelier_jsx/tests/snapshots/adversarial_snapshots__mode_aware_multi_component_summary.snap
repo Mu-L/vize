@@ -3,7 +3,14 @@ source: crates/vize_atelier_jsx/tests/adversarial_snapshots.rs
 expression: "compile_output_summary(MIXED_MODES, &output)"
 ---
 CompileOutputSummary {
-    diagnostics: [],
+    diagnostics: [
+        DiagnosticSummary {
+            severity: "Error",
+            message: "Vapor/SSR authored module preservation is not supported for imports, exports or captured setup bindings; use VDOM output or consume the per-component renderer",
+            source: "export const DefaultMode = () => <main>default</main>;",
+            range: 1..55,
+        },
+    ],
     components: [
         RenderComponentSummary {
             name: Some(

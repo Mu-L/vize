@@ -10,7 +10,6 @@ title: JSX & TSX
 
 Vize compiles `.jsx` and `.tsx` Vue components through the compiler crates used by `.vue` files:
 VDOM/Vapor backends, Croquis analysis, Canon type checking, Patina lint, and the Maestro language server.
-The native compiler lowers JSX directly to Vue render functions or Vapor templates without Babel.
 VDOM modules retain authored imports, declarations, exports, parameters, and lexical component bindings.
 
 ## Enabling JSX/TSX
@@ -104,6 +103,7 @@ Vue-specific addition is the `<style scoped>` element described [below](#scoped-
 
 > VDOM block-body components declare runtime prop names from destructuring or inline object types.
 > Runtime validators, named type inference, and explicit `defineComponent` setup forms remain follow-ups.
+> Block setup with lexical `this`, `arguments`, or `new.target` produces a diagnostic.
 
 ## Supported JSX surface
 

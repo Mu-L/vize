@@ -26,7 +26,7 @@ const DYNAMIC_ARGUMENT_ERROR: &str =
     "v-model argument `bar` must be a string literal; dynamic arguments are not supported.";
 const REJECTED_ELEMENT_MODULE: &str = concat!(
     "import { openBlock as _openBlock, createElementBlock as _createElementBlock } from \"vue\"\n",
-    "\nconst A = () => (() => {\nreturn (function(_ctx, _cache) {\n",
+    "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n",
     "  return (_openBlock(), _createElementBlock(\"input\"))\n",
     "})(undefined, [])\n})();",
 );
@@ -38,7 +38,7 @@ fn babel_compat_plain_element_static_arguments_match_the_oracle() {
             ELEMENT_ARG,
             concat!(
                 "import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from \"vue\"\n",
-                "\nconst A = () => (() => {\nreturn (function(_ctx, _cache) {\n",
+                "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n",
                 "  return _withDirectives((_openBlock(), _createElementBlock(\"input\", {\n",
                 "    \"onUpdate:foo\": $event => ((val) = $event)\n",
                 "  }, null, 40 /* PROPS, NEED_HYDRATION */, [\"onUpdate:foo\"])), [\n",
@@ -51,7 +51,7 @@ fn babel_compat_plain_element_static_arguments_match_the_oracle() {
             ELEMENT_ARG_MODIFIER,
             concat!(
                 "import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from \"vue\"\n",
-                "\nconst A = () => (() => {\nreturn (function(_ctx, _cache) {\n",
+                "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n",
                 "  return _withDirectives((_openBlock(), _createElementBlock(\"input\", {\n",
                 "    \"onUpdate:foo\": $event => ((val) = $event)\n",
                 "  }, null, 40 /* PROPS, NEED_HYDRATION */, [\"onUpdate:foo\"])), [\n",
@@ -117,7 +117,7 @@ fn babel_compat_component_argument_behavior_is_unchanged() {
         output.module_code(),
         concat!(
             "import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from \"vue\"\n",
-            "\nconst A = () => (() => {\nreturn (function(_ctx, _cache) {\n",
+            "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n",
             "  const _component_B = _resolveComponent(\"B\")\n",
             "  \n",
             "  return (_openBlock(), _createBlock(_component_B, {\n",
@@ -151,7 +151,7 @@ fn babel_compat_dynamic_component_argument_emits_computed_prop_keys() {
         output.module_code(),
         concat!(
             "import { resolveComponent as _resolveComponent, normalizeProps as _normalizeProps, openBlock as _openBlock, createBlock as _createBlock } from \"vue\"\n",
-            "\nconst A = () => (() => {\nreturn (function(_ctx, _cache) {\n",
+            "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n",
             "  const _component_B = _resolveComponent(\"B\")\n",
             "  \n",
             "  return (_openBlock(), _createBlock(_component_B, _normalizeProps({ [(bar)]: foo,\n",
@@ -196,7 +196,7 @@ fn babel_compat_dynamic_component_argument_carries_modifiers_and_member_paths() 
             format!(
                 concat!(
                     "import {{ resolveComponent as _resolveComponent, normalizeProps as _normalizeProps, openBlock as _openBlock, createBlock as _createBlock }} from \"vue\"\n",
-                    "\nconst A = () => (() => {{\nreturn (function(_ctx, _cache) {{\n",
+                    "\nconst A = () => (() => {{\nreturn ((_ctx, _cache) => {{\n",
                     "  const _component_B = _resolveComponent(\"B\")\n",
                     "  \n",
                     "  return (_openBlock(), _createBlock(_component_B, _normalizeProps({}), null, 16 /* FULL_PROPS */))\n",

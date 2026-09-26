@@ -18,7 +18,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:modelValue": $event => ((val) = $event)
   }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [
@@ -43,7 +43,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:foo": $event => ((val) = $event)
   }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:foo"])), [
@@ -70,7 +70,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:modelValue": $event => ((val) = $event)
   }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [
@@ -102,7 +102,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:modelValue": $event => ((val) = $event)
   }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [
@@ -134,7 +134,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:foo": $event => ((val) = $event)
   }, null, 40 /* PROPS, NEED_HYDRATION */, ["onUpdate:foo"])), [
@@ -165,7 +165,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, {
@@ -195,7 +195,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, {
@@ -223,7 +223,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, normalizeProps as _normalizeProps, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, _normalizeProps({ [(bar)]: foo,
@@ -250,7 +250,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, {
@@ -287,7 +287,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, {
@@ -315,7 +315,7 @@ const A = () => _withDirectives(_createVNode("div", null, null), [[_vShow, vis]]
 import { withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock, vShow as _vShow } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("div", null, null, 512 /* NEED_PATCH */)), [
     [_vShow, vis]
   ])
@@ -336,7 +336,7 @@ const A = () => _withDirectives(_createVNode(_resolveComponent("B"), null, null)
 import { resolveComponent as _resolveComponent, withDirectives as _withDirectives, openBlock as _openBlock, createBlock as _createBlock, vShow as _vShow } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return _withDirectives((_openBlock(), _createBlock(_component_B, null, null, 512 /* NEED_PATCH */)), [
@@ -361,7 +361,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { innerHTML: h }, null, 8 /* PROPS */, ["innerHTML"]))
 })(undefined, [])
 })();
@@ -382,7 +382,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { innerHTML: h }, "ignored", 8 /* PROPS */, ["innerHTML"]))
 })(undefined, [])
 })();
@@ -403,7 +403,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { textContent: t }, null, 8 /* PROPS */, ["textContent"]))
 })(undefined, [])
 })();
@@ -422,7 +422,7 @@ const A = () => _withDirectives(_createVNode("a", null, null), [[_resolveDirecti
 import { resolveDirective as _resolveDirective, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _directive_custom = _resolveDirective("custom")
 
   return _withDirectives((_openBlock(), _createElementBlock("a", null, null, 512 /* NEED_PATCH */)), [
@@ -448,7 +448,7 @@ const A = () => _withDirectives(_createVNode("a", null, null), [[_resolveDirecti
 import { resolveDirective as _resolveDirective, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _directive_custom = _resolveDirective("custom")
 
   return _withDirectives((_openBlock(), _createElementBlock("a", null, null, 512 /* NEED_PATCH */)), [
@@ -471,7 +471,7 @@ const A = () => _withDirectives(_createVNode("div", null, null), [[_resolveDirec
 import { resolveDirective as _resolveDirective, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _directive_unknown_thing = _resolveDirective("unknown-thing")
 
   return _withDirectives((_openBlock(), _createElementBlock("div", null, null, 512 /* NEED_PATCH */)), [

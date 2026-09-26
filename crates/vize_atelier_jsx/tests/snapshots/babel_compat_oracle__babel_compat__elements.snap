@@ -16,7 +16,7 @@ const A = () => _createVNode("div", null, null);
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div"))
 })(undefined, [])
 })();
@@ -35,7 +35,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, null);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B))
@@ -56,7 +56,7 @@ const A = () => _createVNode(_resolveComponent("foo"), null, null);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_foo = _resolveComponent("foo")
 
   return (_openBlock(), _createBlock(_component_foo))
@@ -77,7 +77,7 @@ const A = () => _createVNode(_resolveComponent("my-el"), null, null);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_my_el = _resolveComponent("my-el")
 
   return (_openBlock(), _createBlock(_component_my_el))
@@ -100,7 +100,7 @@ const A = () => _createVNode("circle", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("circle", { cx: 1 }))
 })(undefined, [])
 })();
@@ -121,7 +121,7 @@ const A = () => _createVNode(_resolveComponent("mi"), null, {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock, createTextVNode as _createTextVNode, withCtx as _withCtx } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_mi = _resolveComponent("mi")
 
   return (_openBlock(), _createBlock(_component_mi, null, {
@@ -149,7 +149,7 @@ const A = () => _createVNode(a.b.c, {
 import { resolveDynamicComponent as _resolveDynamicComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createBlock(_resolveDynamicComponent(a.b.c), { foo: 1 }))
 })(undefined, [])
 })();
@@ -168,7 +168,7 @@ const A = () => <a:b foo={1}/>;
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("a:b", { foo: 1 }))
 })(undefined, [])
 })();
@@ -187,7 +187,7 @@ const A = () => _createVNode(_Fragment, null, [_createVNode("span", null, [_crea
 import { createElementVNode as _createElementVNode, openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
     _createElementVNode("span", null, "I"),
     _createElementVNode("span", null, "F")
@@ -209,7 +209,7 @@ const A = () => _createVNode("div", null, [_createVNode(_Fragment, null, [_creat
 import { createElementVNode as _createElementVNode, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", null, [
     _createElementVNode("i")
   ]))

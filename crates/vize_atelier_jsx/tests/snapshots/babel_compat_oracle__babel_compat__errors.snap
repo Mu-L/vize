@@ -16,7 +16,7 @@ const A = () => <input v-model={{a:1}}/>;
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("input"))
 })(undefined, [])
 })();
@@ -35,7 +35,7 @@ const A = () => <input v-model/>;
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("input"))
 })(undefined, [])
 })();
@@ -54,7 +54,7 @@ const A = () => <B v-models={foo}/>;
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B))
@@ -75,7 +75,7 @@ const A = () => <B v-models={[foo]}/>;
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B))
@@ -96,7 +96,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, 1);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, 1, 1024 /* DYNAMIC_SLOTS */))
@@ -117,7 +117,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, `text`);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, `text`, 1024 /* DYNAMIC_SLOTS */))
@@ -141,7 +141,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock, createTextVNode as _createTextVNode, withCtx as _withCtx } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {

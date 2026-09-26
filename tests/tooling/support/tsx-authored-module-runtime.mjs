@@ -94,10 +94,15 @@ for (const [scenario, module] of Object.entries(modules)) {
     assert.equal(host.textContent, "i");
   } else if (scenario === "typed") {
     assert.equal(vue.default(), "retained");
+    assert.equal(vue.afterTyped, "retained-after-setup");
     assert.equal(host.textContent, "first");
     state.label = "second";
     await vue.nextTick();
     assert.equal(host.textContent, "second");
+  } else if (scenario === "options") {
+    assert.equal(host.textContent, "lexical:lexical");
+    assert.equal(vue.widgets.marker, "kept");
+    assert.equal(vue.widgets.render().type, "i");
   } else {
     assert.fail(`unknown scenario ${scenario}`);
   }
@@ -106,5 +111,5 @@ for (const [scenario, module] of Object.entries(modules)) {
   host.remove();
 }
 assert.deepEqual(messages, []);
-window.happyDOM.abort();
-console.log("4 mounted TSX module scenarios passed");
+await window.happyDOM.abort();
+console.log("5 mounted TSX module scenarios passed");

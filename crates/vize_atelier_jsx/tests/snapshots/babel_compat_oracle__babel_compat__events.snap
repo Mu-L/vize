@@ -18,7 +18,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { onClick: h }, null, 8 /* PROPS */, ["onClick"]))
 })(undefined, [])
 })();
@@ -39,7 +39,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { onClickCapture: h }, null, 40 /* PROPS, NEED_HYDRATION */, ["onClickCapture"]))
 })(undefined, [])
 })();
@@ -60,7 +60,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { onClickOnce: h }, null, 40 /* PROPS, NEED_HYDRATION */, ["onClickOnce"]))
 })(undefined, [])
 })();
@@ -81,7 +81,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { onClickCapturePassive: h }, null, 40 /* PROPS, NEED_HYDRATION */, ["onClickCapturePassive"]))
 })(undefined, [])
 })();

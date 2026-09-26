@@ -20,7 +20,7 @@ setup({ label = "TSX" }: TsxCounterProps, _ctx: Ctx) {
           const count = ref(0);
           const increment = () => count.value++;
           return (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("button", {
     type: "button",
     class: "tsx-counter",
@@ -29,6 +29,6 @@ return (function(_ctx, _cache) {
 })
 })()
 }
-})
+});
 
         export default TsxCounter;

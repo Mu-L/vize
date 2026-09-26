@@ -6,6 +6,9 @@
     reason = "integration fixtures use process/JSON strings and assert compiler output"
 )]
 
+#[path = "authored_modules/scope.rs"]
+mod scope;
+
 use oxc_sourcemap::SourceMap;
 use std::{
     io::Write,
@@ -39,7 +42,7 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
             export const suffix = "!";
             export function Card(props: { label: string }) {
                 const label = props.label + suffix;
-                return <Child label={label}/>;
+                return <Child label={label + arguments[0].label.slice(0, 0)}/>;
             }
             export default <T extends string,>(props: { label: T }) => <Card label={props.label}/>;
         "#,
@@ -72,8 +75,21 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
             r#"
             export default function marker() { return "retained"; }
             export const Typed = (props: { label: string; amount?: number }) => {
-                const read = () => props.label;
+                function readLabel(this: { prefix: string }, label: string) {
+                    return this.prefix + arguments[0];
+                }
+                const read = () => readLabel.call({ prefix: "" }, props.label);
                 return <p>{read()}</p>;
+            }; export const afterTyped = "retained-after-setup";
+        "#,
+        ),
+        (
+            "options",
+            r#"
+            export const widgets = { marker: "kept", render: () => { return <i>helper</i>; } };
+            export default {
+                data() { return { label: "lexical" }; },
+                render() { return <p>{this.label}:{arguments[0].label}</p>; }
             };
         "#,
         ),
@@ -111,7 +127,7 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
     );
     assert_eq!(
         std::string::String::from_utf8_lossy(&output.stdout).trim(),
-        "4 mounted TSX module scenarios passed"
+        "5 mounted TSX module scenarios passed"
     );
 }
 
@@ -171,115 +187,4 @@ fn position(source: &str, offset: usize) -> (u32, u32) {
         .encode_utf16()
         .count() as u32;
     (line, column)
-}
-
-#[test]
-fn lexical_component_bindings_respect_shadowing_and_leave_unbound_globals() {
-    let module = compile(
-        "import Child from './Child'; export const App = (Child: any) => <Child/>; export const Global = () => <Unknown/>;",
-    );
-    assert!(
-        module.contains("_resolveDynamicComponent(Child)"),
-        "{module}"
-    );
-    assert!(
-        module.contains("_resolveComponent(\"Unknown\")"),
-        "{module}"
-    );
-    assert!(!module.contains("_resolveComponent(\"Child\")"), "{module}");
-}
-
-#[test]
-fn authored_runtime_helper_bindings_are_diagnosed_without_emitting_broken_modules() {
-    for source in [
-        "const _openBlock = 1; export const App = () => <p/>;",
-        "export default (_openBlock: number) => <p/>;",
-    ] {
-        let arena = Allocator::new();
-        let out = compile_jsx(&arena, source, JsxLang::Tsx, &JsxCompileConfig::default());
-        assert!(out.has_errors(), "{source}");
-        let diagnostic = out
-            .diagnostics
-            .iter()
-            .find(|d| d.message.contains("shadows a generated runtime helper"))
-            .expect("helper collision");
-        assert_eq!(
-            source.get(diagnostic.start as usize..diagnostic.end as usize),
-            Some("_openBlock")
-        );
-        assert!(out.module_code().is_empty());
-    }
-    let module = compile(
-        "// _openBlock\nconst metadata = { _openBlock: 'safe' }; export default () => <p>{metadata._openBlock}</p>;",
-    );
-    assert!(module.contains("const metadata = { _openBlock: 'safe' }"));
-}
-
-#[test]
-fn standalone_vapor_and_ssr_reject_authored_bindings_and_exports_they_would_drop() {
-    for source in [
-        "import { ref } from 'vue'; const App = () => <p/>;",
-        "export default () => <p/>;",
-        "const App = (props: {label:string}) => <p>{props.label}</p>;",
-        "const App = () => { const label = 'value'; return <p>{label}</p>; };",
-    ] {
-        for ssr in [false, true] {
-            let arena = Allocator::new();
-            let config = JsxCompileConfig {
-                ssr,
-                default_mode: vize_atelier_jsx::JsxOutputMode::Vapor,
-                ..Default::default()
-            };
-            let out = compile_jsx(&arena, source, JsxLang::Tsx, &config);
-            assert!(out.has_errors(), "{source} (ssr={ssr})");
-            assert!(
-                out.diagnostics
-                    .iter()
-                    .any(|d| d.message.contains("authored module preservation")),
-                "{:?}",
-                out.diagnostics
-            );
-            assert!(out.module_code().is_empty());
-            assert!(
-                !out.components[0].code().is_empty(),
-                "per-component backend remains available"
-            );
-        }
-    }
-    for ssr in [false, true] {
-        let arena = Allocator::new();
-        let out = compile_jsx(
-            &arena,
-            "const App = () => <p>static</p>;",
-            JsxLang::Tsx,
-            &JsxCompileConfig {
-                ssr,
-                default_mode: vize_atelier_jsx::JsxOutputMode::Vapor,
-                ..Default::default()
-            },
-        );
-        assert!(!out.has_errors(), "{:?}", out.diagnostics);
-        assert!(!out.module_code().is_empty());
-    }
-}
-
-#[test]
-fn renderer_parameters_do_not_silently_shadow_authored_context_references() {
-    let source = "export const App = (props: any, _ctx: any) => <p>{_ctx.attrs.title}</p>;";
-    let arena = Allocator::new();
-    let out = compile_jsx(&arena, source, JsxLang::Tsx, &JsxCompileConfig::default());
-    assert!(out.has_errors());
-    let diagnostic = out
-        .diagnostics
-        .iter()
-        .find(|d| {
-            d.message
-                .contains("shadowed by a generated renderer binding")
-        })
-        .expect("renderer capture");
-    assert_eq!(
-        source.get(diagnostic.start as usize..diagnostic.end as usize),
-        Some("_ctx")
-    );
-    assert!(out.module_code().is_empty());
 }

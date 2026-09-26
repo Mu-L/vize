@@ -18,7 +18,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { class: "a" }, "x"))
 })(undefined, [])
 })();
@@ -39,7 +39,7 @@ const A = () => _createVNode("div", {
 import { normalizeClass as _normalizeClass, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", {
     class: _normalizeClass(c)
   }, null, 2 /* CLASS */))
@@ -62,7 +62,7 @@ const A = () => _createVNode("div", {
 import { normalizeStyle as _normalizeStyle, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", {
     style: _normalizeStyle(s)
   }, null, 4 /* STYLE */))
@@ -83,7 +83,7 @@ const A = () => _createVNode("div", null, [t]);
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", null, [
     t
   ]))
@@ -107,7 +107,7 @@ const A = () => _createVNode("div", {
 import { normalizeClass as _normalizeClass, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", {
     class: _normalizeClass(c),
     id: i
@@ -131,7 +131,7 @@ const A = () => _createVNode("div", p, null, 16);
 import { normalizeProps as _normalizeProps, guardReactiveProps as _guardReactiveProps, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", _normalizeProps(_guardReactiveProps(p)), null, 16 /* FULL_PROPS */))
 })(undefined, [])
 })();
@@ -152,7 +152,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { ref: r }, null, 512 /* NEED_PATCH */))
 })(undefined, [])
 })();
@@ -173,7 +173,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { key: k }))
 })(undefined, [])
 })();
@@ -194,7 +194,7 @@ const A = () => _createVNode("div", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", { onClick: h }, null, 8 /* PROPS */, ["onClick"]))
 })(undefined, [])
 })();
@@ -215,7 +215,7 @@ const A = () => _createVNode(_resolveComponent("B"), {
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, { foo: f }, null, 8 /* PROPS */, ["foo"]))
@@ -238,7 +238,7 @@ const A = () => _withDirectives(_createVNode("input", {
 import { vModelText as _vModelText, withDirectives as _withDirectives, openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return _withDirectives((_openBlock(), _createElementBlock("input", {
     "onUpdate:modelValue": $event => ((val) = $event)
   }, null, 8 /* PROPS */, ["onUpdate:modelValue"])), [
@@ -265,7 +265,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 import { resolveComponent as _resolveComponent, createElementVNode as _createElementVNode, openBlock as _openBlock, createBlock as _createBlock, withCtx as _withCtx } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {
@@ -297,7 +297,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, {
 import { resolveComponent as _resolveComponent, createElementVNode as _createElementVNode, openBlock as _openBlock, createBlock as _createBlock, withCtx as _withCtx } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, {
@@ -325,7 +325,7 @@ const A = () => _createVNode(_resolveComponent("B"), null, slots);
 import { resolveComponent as _resolveComponent, openBlock as _openBlock, createBlock as _createBlock } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   const _component_B = _resolveComponent("B")
 
   return (_openBlock(), _createBlock(_component_B, null, slots, 1024 /* DYNAMIC_SLOTS */))
@@ -346,7 +346,7 @@ const A = () => _createVNode(_Fragment, null, [_createVNode("i", null, null), _c
 import { createElementVNode as _createElementVNode, openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock(_Fragment, null, [
     _createElementVNode("i"),
     _createElementVNode("b")
@@ -370,7 +370,7 @@ const A = () => _createVNode("div", null, [list.map(i => _createVNode("span", {
 import { openBlock as _openBlock, createElementBlock as _createElementBlock, Fragment as _Fragment, renderList as _renderList } from "vue"
 
 const A = () => (() => {
-return (function(_ctx, _cache) {
+return ((_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", null, [
     (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(list, (i) => {
       return (_openBlock(), _createElementBlock("span", { key: i }, [

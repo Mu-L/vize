@@ -17,6 +17,7 @@ pub(super) fn check(
     let allocator = oxc_allocator::Allocator::default();
     let generated = crate::parse_module(&allocator, preamble, JsxLang::Jsx);
     let authored = crate::parse_module(&allocator, source, lang);
+    super::contexts::check(&authored.program, components)?;
     let mut helpers = Bindings {
         top_level_only: true,
         ..Default::default()
@@ -89,7 +90,14 @@ fn renderer(parsed: &crate::ParsedModule<'_>) -> Result<Renderer, JsxDiagnostic>
             {
                 return Ok(Renderer {
                     prefix_end: export.span.start as usize,
-                    name_end: name.span.end as usize,
+                    params_start: function.params.span.start as usize,
+                    params_end: function.params.span.end as usize,
+                    body_start: function
+                        .body
+                        .as_ref()
+                        .ok_or_else(|| error(0, 0, "missing JSX render body"))?
+                        .span
+                        .start as usize,
                     function_end: function.span.end as usize,
                 });
             }

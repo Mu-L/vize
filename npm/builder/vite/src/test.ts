@@ -1,6 +1,7 @@
 import "./hmr.test.ts";
 import "./native-request-gates.test.ts";
 import "./compiler.test.ts";
+import "./compiler-jsx.test.ts";
 import "./compiler-src-imports.test.ts";
 import "./compiler-custom-elements.test.ts";
 import "./compile-options.test.ts";
@@ -28,6 +29,7 @@ import "./plugin/jsx-compat.test.ts";
 import "./plugin/load-jsx-passthrough.test.ts";
 import "./plugin/load-storybook.test.ts";
 import "./plugin/load.test.ts";
+import "./plugin/load-jsx.test.ts";
 import "./plugin/load-dependency-sfc.test.ts";
 import "./plugin/native.test.ts";
 import "./plugin/package-imports.test.ts";

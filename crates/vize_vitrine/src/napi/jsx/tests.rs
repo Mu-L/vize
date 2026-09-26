@@ -151,7 +151,7 @@ fn jsx_compile_result_wraps_block_body_setup_state() {
     );
     assert!(result.code.contains("const count = ref(0);"));
     assert!(result.code.contains("count.value += 1;"));
-    assert!(result.code.contains("return (function(_ctx, _cache)"));
+    assert!(result.code.contains("return ((_ctx, _cache) =>"));
     assert!(!result.code.contains("export function render("));
 }
 

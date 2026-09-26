@@ -1,6 +1,7 @@
 //! Assemble VDOM modules at OXC-authored spans, retaining their lexical scopes.
 
 mod collisions;
+mod contexts;
 mod mapped;
 mod unsupported;
 
@@ -12,7 +13,9 @@ use mapped::ModuleWriter;
 
 struct Renderer {
     prefix_end: usize,
-    name_end: usize,
+    params_start: usize,
+    params_end: usize,
+    body_start: usize,
     function_end: usize,
 }
 
@@ -109,8 +112,10 @@ impl Context<'_> {
             .ok_or_else(|| error(0, 0, "missing JSX renderer"))?;
         writer.synthetic("(() => {\n");
         writer.generated(index, 0, renderer.prefix_end)?;
-        writer.synthetic("return (function");
-        writer.generated(index, renderer.name_end, renderer.function_end)?;
+        writer.synthetic("return (");
+        writer.generated(index, renderer.params_start, renderer.params_end)?;
+        writer.synthetic(" => ");
+        writer.generated(index, renderer.body_start, renderer.function_end)?;
         writer.synthetic(if invoke {
             ")(undefined, [])\n})()"
         } else {
@@ -180,7 +185,7 @@ impl Context<'_> {
         self.authored_range(setup.setup_start, setup.setup_end, index, writer)?;
         writer.synthetic("return ");
         self.expression(index, false, writer)?;
-        writer.synthetic("\n}\n})");
+        writer.synthetic("\n}\n});");
         validate_contained_roots(self.spans, setup, index)
     }
 }
