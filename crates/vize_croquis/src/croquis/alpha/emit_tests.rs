@@ -258,3 +258,73 @@ fn runtime_validator_assertion_annotations_and_dependencies_remain_observable() 
             .any(|dependency| dependency.name == "Date")
     );
 }
+
+#[test]
+fn const_asserted_runtime_literals_and_spreads_keep_real_payload_dependencies() {
+    let prefix = "type Public = { id: string }; type Contract = { save: (value: Public) => boolean; ready: () => boolean };";
+    let literal = "{ save: (value: Public): boolean => true, ready: (): boolean => true }";
+    for source in [
+        format!("{prefix} defineEmits(({literal}) as const);"),
+        format!("{prefix} const shared = ({literal}) as const; defineEmits({{ ...shared }});"),
+    ] {
+        let before = draw(&source);
+        let pages = before.alpha_pages("Component", None).expect("pages");
+        let contracts: Vec<EmitContract> = pages
+            .emits
+            .iter()
+            .map(|entry| serde_json::from_str(&entry.contract).expect("contract"))
+            .collect();
+        assert_eq!(contracts.len(), 2);
+        for contract in &contracts {
+            assert!(contract.type_dependencies.complete);
+            assert!(
+                contract
+                    .validator_type_annotations
+                    .iter()
+                    .any(|annotation| annotation == "const")
+            );
+            assert!(
+                !contract
+                    .type_dependencies
+                    .declarations
+                    .iter()
+                    .any(|dependency| dependency.name == "const")
+            );
+            if contract.name == "save" {
+                assert_eq!(contract.payload.as_deref(), Some("[value: Public]"));
+                assert!(
+                    contract
+                        .type_dependencies
+                        .declarations
+                        .iter()
+                        .any(|dependency| dependency.name == "Public")
+                );
+            } else {
+                assert_eq!(contract.name, "ready");
+                assert_eq!(contract.payload.as_deref(), Some("[]"));
+            }
+        }
+        let changed = draw(&source.replace("id: string", "id: number"));
+        assert_ne!(
+            summary(&before).fingerprint(Facet::Emit, "save"),
+            summary(&changed).fingerprint(Facet::Emit, "save")
+        );
+        assert_eq!(
+            summary(&before).fingerprint(Facet::Emit, "ready"),
+            summary(&changed).fingerprint(Facet::Emit, "ready")
+        );
+        let cast = draw(&source.replace("as const", "as Contract"));
+        for entry in cast.alpha_pages("Component", None).expect("pages").emits {
+            let contract: EmitContract = serde_json::from_str(&entry.contract).expect("contract");
+            assert_eq!(contract.payload, None);
+            assert!(!contract.type_dependencies.complete);
+            assert!(
+                contract
+                    .type_dependencies
+                    .declarations
+                    .iter()
+                    .any(|dependency| dependency.name == "Contract")
+            );
+        }
+    }
+}

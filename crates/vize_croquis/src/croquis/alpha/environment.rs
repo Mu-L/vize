@@ -5,9 +5,12 @@ mod world;
 use super::type_refs::{self, TypeRef};
 use crate::Croquis;
 use crate::macros::ModelDefinition;
+use oxc_ast::ast::{Statement, TSType, TSTypeName};
+use oxc_parser::Parser;
+use oxc_span::SourceType;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use vize_carton::{CompactString, cstr};
+use vize_carton::{Allocator, CompactString, cstr};
 
 /// Reachable authored type declarations, resolved in their declaring modules.
 /// `complete` means this declaration closure is known; it does not assert
@@ -86,7 +89,8 @@ impl Croquis {
                     self.macros
                         .emit_validator_type_annotations(name)
                         .iter()
-                        .map(CompactString::as_str),
+                        .map(CompactString::as_str)
+                        .filter(|annotation| !is_const_assertion_marker(annotation)),
                 ),
             generic,
         );
@@ -286,4 +290,20 @@ fn type_arguments_body(arguments: &str) -> &str {
         .strip_prefix('<')
         .and_then(|body| body.strip_suffix('>'))
         .unwrap_or(arguments)
+}
+
+fn is_const_assertion_marker(annotation: &str) -> bool {
+    let allocator = Allocator::new();
+    let source = cstr!("type __Vize = {annotation};");
+    let parsed = Parser::new(&allocator, &source, SourceType::ts()).parse();
+    // The producer preserves the exact authored marker in the public contract.
+    // A bare const assertion is literal preservation, not a lexical type name.
+    !parsed.panicked
+        && parsed.diagnostics.is_empty()
+        && matches!(parsed.program.body.as_slice(),
+            [Statement::TSTypeAliasDeclaration(alias)]
+                if matches!(&alias.type_annotation, TSType::TSTypeReference(reference)
+                    if reference.type_arguments.is_none()
+                        && matches!(&reference.type_name, TSTypeName::IdentifierReference(name)
+                            if name.name == "const")))
 }
