@@ -19,6 +19,7 @@ fn quick_fixes_are_atomic_versioned_and_do_not_leak_backend_commands() {
         dependencies: vec![],
         materialized_sources: vec![],
         session_project_roots: vec![],
+        source_catalogs: Vec::new(),
     };
     document
         .virtual_result
