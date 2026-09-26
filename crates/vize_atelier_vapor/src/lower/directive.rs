@@ -109,11 +109,7 @@ pub(crate) fn transform_directive<'a>(
 
                     let set_prop = SetPropIRNode {
                         element: element_id,
-                        prop: IRProp {
-                            key,
-                            values: final_values,
-                            is_component: el.tag_type == ElementType::Component,
-                        },
+                        prop: IRProp::new(key, final_values, el.tag_type == ElementType::Component),
                         tag: el.tag,
                         camel: has_camel,
                         prop_modifier: has_prop,

@@ -3,23 +3,30 @@
 //! the owner kind. The shared generator realizes either the DOM directive or
 //! the component's prop, update listener, and modifiers prop.
 
-use vize_carton::{Allocator, Vec};
+use oxc_ast::ast::Expression;
+use vize_carton::Vec;
 use vize_s3::{
     op::OpId,
     operand::{Operand, OperandRole as Role, ValueKind},
 };
 
-use super::super::{Binding, BindingKind, Content, Expr, Node};
-use super::{Result, component::component_prop, ident::reference, operands::one};
-use crate::s3::{AdmissionFailure, LegacyReason};
+use super::super::{Binding, BindingKind, Content, Node};
+use super::{
+    Result,
+    component::component_prop,
+    operands::{js, one},
+};
+use crate::s3::{AdmissionFailure, LegacyReason, retained::Retained};
 
 pub(super) fn model<'a>(
     values: &[Operand<'a>],
-    alloc: &'a Allocator,
+    retained: &Retained<'_, 'a>,
 ) -> Result<(OpId, Binding<'a>)> {
+    let alloc = retained.allocator();
     let kind = one(values, Role::BindingKind)?;
     let target = kind.target.ok_or(LegacyReason::Structure)?;
-    let read = one(values, Role::ModelRead)?.value;
+    let read_operand = one(values, Role::ModelRead)?;
+    let read = read_operand.value;
     let write = one(values, Role::ModelWrite)?.value;
     let name = one(values, Role::Name)?.value;
     let mut element = None;
@@ -59,18 +66,27 @@ pub(super) fn model<'a>(
         (Some("input" | "textarea"), ValueKind::Absent) => "",
         _ => return Err(LegacyReason::Binding.into()),
     };
-    // A plain reference is read and assigned as authored; `$event`, reserved
-    // context roots and computed targets stay legacy.
+    // Reads and writes share the same authored assignment target. Retained
+    // member ASTs preserve computed keys without reparsing generated handlers.
     let text = read.text.trim();
     if read.kind != ValueKind::Js
         || write.kind != ValueKind::Js
         || write.text.trim() != text
-        || !reference(text)
         || text.starts_with('_')
         || text.starts_with('$')
+        || text.contains("$event")
         || !matches!(element, Some("input" | "textarea" | "component"))
     {
         return Err(LegacyReason::Binding.into());
+    }
+    let value = js(retained, read_operand)?;
+    if let Some(js) = value.js {
+        match js.ast {
+            Expression::Identifier(_) => {}
+            Expression::StaticMemberExpression(member) if !member.optional => {}
+            Expression::ComputedMemberExpression(member) if !member.optional => {}
+            _ => return Err(LegacyReason::Binding.into()),
+        }
     }
     Ok((
         target,
@@ -78,7 +94,7 @@ pub(super) fn model<'a>(
             kind: BindingKind::Model,
             name,
             dynamic_name: None,
-            value: Expr::plain(text),
+            value,
             modifiers,
             merge: None,
             model_element: element,

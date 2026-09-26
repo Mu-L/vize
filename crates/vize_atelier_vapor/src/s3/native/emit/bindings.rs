@@ -106,11 +106,7 @@ impl<'a> Emitter<'a, '_> {
                         tag,
                         camel: false,
                         prop_modifier: false,
-                        prop: IRProp {
-                            key,
-                            values,
-                            is_component: false,
-                        },
+                        prop: IRProp::new(key, values, false),
                     }),
                     block,
                 );

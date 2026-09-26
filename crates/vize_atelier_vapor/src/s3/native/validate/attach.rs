@@ -95,22 +95,22 @@ pub(super) fn bindings<'a>(
                 props.push(Prop {
                     key: "$",
                     value: Some(binding.value),
+                    value_kind: crate::ir::PropValueKind::Expression,
                     dynamic: true,
                     handler: binding.kind == BindingKind::Handlers,
                     position,
                 });
                 continue;
             }
-            Content::Component { tag, props, .. } if binding.kind == BindingKind::Model => {
-                // Built-ins and dynamic components retain their own model
-                // contracts. One ordinary component model contributes three
+            Content::Component { props, .. } if binding.kind == BindingKind::Model => {
+                // A resolved or dynamically selected component model contributes three
                 // adjacent props in the directive's authored position.
                 if binding.model_element != Some("component") {
                     return Err(AdmissionFailure::Invalid(
                         "model element kind disagrees with target",
                     ));
                 }
-                if *tag == "component" || !fresh {
+                if !fresh {
                     return Err(LegacyReason::Component.into());
                 }
                 component_model(props, &binding, position, &mut names, index, alloc)?;
@@ -219,14 +219,15 @@ fn component_model<'a>(
     props.push(Prop {
         key: prop,
         value: Some(binding.value),
+        value_kind: crate::ir::PropValueKind::Expression,
         dynamic: true,
         handler: false,
         position,
     });
-    let handler = alloc.alloc_str(&cstr!("$event => (({}) = $event)", binding.value.text));
     props.push(Prop {
         key: event,
-        value: Some(Expr::plain(handler)),
+        value: Some(binding.value),
+        value_kind: crate::ir::PropValueKind::ModelUpdate,
         dynamic: true,
         handler: true,
         position,
@@ -245,6 +246,7 @@ fn component_model<'a>(
         props.push(Prop {
             key: name,
             value: Some(Expr::plain(alloc.alloc_str(&object))),
+            value_kind: crate::ir::PropValueKind::ModelModifiers,
             dynamic: true,
             handler: false,
             position,
@@ -275,6 +277,7 @@ fn prop<'a>(
     props.push(Prop {
         key: binding.name,
         value: Some(binding.value),
+        value_kind: crate::ir::PropValueKind::Expression,
         dynamic: true,
         handler,
         position,

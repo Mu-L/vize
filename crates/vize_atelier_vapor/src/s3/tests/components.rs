@@ -88,7 +88,6 @@ fn unsupported_component_shapes_select_exact_legacy_reasons() {
         (r#"<MyComp v-show="ok" />"#, Component),
         (r#"<MyComp title="a" :title="b" />"#, Component),
         (r#"<slot @click="save" />"#, Component),
-        (r#"<component :is="view" v-model="value" />"#, Component),
         (r#"<slot v-bind="props" />"#, Component),
     ] {
         let allocator = Allocator::new();

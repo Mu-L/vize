@@ -29,11 +29,7 @@ pub(super) fn transform_component_v_model<'a>(
     let mut values = Vec::new_in(&ctx.allocator);
     let val_node = SimpleExpressionNode::from_node(binding);
     values.push(Box::new_in(val_node, &ctx.allocator));
-    props.push(IRProp {
-        key,
-        values,
-        is_component: true,
-    });
+    props.push(IRProp::new(key, values, true));
 
     let event_key = if is_static {
         cstr!("onUpdate:{prop_name}")
@@ -48,21 +44,15 @@ pub(super) fn transform_component_v_model<'a>(
     );
     event_key_node.is_handler_key = true;
     let event_key_box = Box::new_in(event_key_node, &ctx.allocator);
-    // Resolve the assignment through the normal expression pipeline so loop
-    // aliases and computed targets retain their lexical scope.
-    let handler_content = cstr!("$event => (({}) = $event)", binding.content);
-    let handler_node = SimpleExpressionNode::new(
-        ctx.allocator.alloc_str(&handler_content),
-        false,
-        SourceLocation::STUB,
-    );
+    // Keep the authored target and retained AST; the shared generator emits
+    // its assignment callback without parsing compiler-generated JavaScript.
+    let handler_node = SimpleExpressionNode::from_node(binding);
     let mut handler_values = Vec::new_in(&ctx.allocator);
     handler_values.push(Box::new_in(handler_node, &ctx.allocator));
-    props.push(IRProp {
-        key: event_key_box,
-        values: handler_values,
-        is_component: true,
-    });
+    props.push(
+        IRProp::new(event_key_box, handler_values, true)
+            .with_value_kind(crate::ir::PropValueKind::ModelUpdate),
+    );
 
     if !dir.modifiers.is_empty() {
         let mod_key_name = if is_static && matches!(prop_name, "modelValue" | "model-value") {
@@ -92,10 +82,9 @@ pub(super) fn transform_component_v_model<'a>(
         let mod_val_node = SimpleExpressionNode::new(mod_val, false, SourceLocation::STUB);
         let mut mod_values = Vec::new_in(&ctx.allocator);
         mod_values.push(Box::new_in(mod_val_node, &ctx.allocator));
-        props.push(IRProp {
-            key: mod_key,
-            values: mod_values,
-            is_component: true,
-        });
+        props.push(
+            IRProp::new(mod_key, mod_values, true)
+                .with_value_kind(crate::ir::PropValueKind::ModelModifiers),
+        );
     }
 }

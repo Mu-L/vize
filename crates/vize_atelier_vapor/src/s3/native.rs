@@ -68,6 +68,7 @@ enum Content<'a> {
 struct Prop<'a> {
     key: &'a str,
     value: Option<Expr<'a>>,
+    value_kind: crate::ir::PropValueKind,
     dynamic: bool,
     handler: bool,
     position: u32,

@@ -98,11 +98,7 @@ fn get_slot_outlet_props<'a>(
                 values.push(extract_expression(allocator, exp, source));
             }
 
-            props.push(crate::ir::IRProp {
-                key,
-                values,
-                is_component: false,
-            });
+            props.push(crate::ir::IRProp::new(key, values, false));
         }
     }
 
