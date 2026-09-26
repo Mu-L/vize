@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: string-storage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bounded-storage:
     runs-on: blacksmith-32vcpu-ubuntu-2404
@@ -95,7 +99,8 @@ jobs:
         run: |
           set -euo pipefail
           for side in base head; do
-            (cd "$side" && STRING_STORAGE_REPORT_DIR="$GITHUB_WORKSPACE/reports/$side" cargo bench -p vize_croquis_cf --bench cross_file --target-dir "$GITHUB_WORKSPACE/head/target/$side" -- string_storage --warm-up-time 0.5 --measurement-time 1 --sample-size 30 --save-baseline "$side")
+            rm -rf "$GITHUB_WORKSPACE/head/target/$side/criterion"
+            (cd "$side" && CRITERION_HOME="$GITHUB_WORKSPACE/head/target/$side/criterion" STRING_STORAGE_REPORT_DIR="$GITHUB_WORKSPACE/reports/$side" cargo bench -p vize_croquis_cf --bench cross_file --target-dir "$GITHUB_WORKSPACE/head/target/$side" -- string_storage --warm-up-time 0.5 --measurement-time 1 --sample-size 30 --save-baseline "$side")
           done
           python3 - <<'PY'
           import json
@@ -103,6 +108,12 @@ jobs:
           for before in Path('reports/base').glob('tree_*.json'):
               after = Path('reports/head') / before.name
               assert json.loads(before.read_text())['semantic'] == json.loads(after.read_text())['semantic'], before.name
+          for side in ('base', 'head'):
+              estimates = list(Path(f'head/target/{side}/criterion').glob(f'**/{side}/estimates.json'))
+              assert len(estimates) == 8, (side, len(estimates))
+              for estimate in estimates:
+                  assert json.loads(estimate.read_text())['median']['point_estimate'] > 0, estimate
+                  assert (estimate.parent / 'sample.json').is_file(), estimate
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
