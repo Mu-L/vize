@@ -111,7 +111,27 @@ fn merge_resolved(
         .iter()
         .map(|prop| prop.name.clone())
         .collect();
-    for prop in ctx.resolve_type_props(type_args) {
+    let resolved = croquis
+        .types
+        .resolved_world()
+        .map(|world| world.resolve_properties(type_args));
+    let properties = match resolved {
+        Some(resolved) => {
+            croquis.types.record_resolved_properties(&resolved);
+            resolved
+                .properties
+                .into_iter()
+                .map(|prop| vize_croquis::macros::PropDefinition {
+                    name: prop.name,
+                    prop_type: prop.prop_type,
+                    required: !prop.optional,
+                    default_value: None,
+                })
+                .collect()
+        }
+        None => ctx.resolve_type_props(type_args),
+    };
+    for prop in properties {
         if !known.insert(prop.name.clone()) {
             continue;
         }

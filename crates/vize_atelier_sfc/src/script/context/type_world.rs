@@ -9,6 +9,8 @@
 mod overlay_tests;
 mod parse;
 #[cfg(test)]
+mod scoped_props_tests;
+#[cfg(test)]
 mod tests;
 
 use oxc_span::SourceType;

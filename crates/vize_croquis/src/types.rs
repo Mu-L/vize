@@ -165,6 +165,8 @@ pub struct TypeResolver {
     /// Collected type definitions
     definitions: TypeDefinitions,
     resolved_world: Option<ResolvedTypeWorld>,
+    resolved_props_complete: Option<bool>,
+    resolved_prop_modules: FxHashMap<CompactString, CompactString>,
 }
 
 impl TypeResolver {

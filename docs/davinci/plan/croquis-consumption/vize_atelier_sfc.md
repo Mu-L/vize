@@ -11,16 +11,16 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | product                     | kind  | module    | files | sites |
 | --------------------------- | ----- | --------- | ----: | ----: |
 | `BindingMetadata`           | type  | `croquis` |    12 |    31 |
-| `Croquis`                   | type  | `croquis` |     8 |    19 |
+| `Croquis`                   | type  | `croquis` |     9 |    21 |
 | `Drawer`                    | type  | `drawer`  |     2 |     7 |
 | `DrawerOptions`             | type  | `drawer`  |     1 |     5 |
 | `ScopeKind`                 | type  | `scope`   |     1 |     2 |
 | `Croquis.binding_spans`     | field | `croquis` |     1 |     1 |
 | `Croquis.bindings`          | field | `croquis` |     6 |    16 |
 | `Croquis.import_statements` | field | `croquis` |     1 |     2 |
-| `Croquis.macros`            | field | `croquis` |     5 |    15 |
+| `Croquis.macros`            | field | `croquis` |     6 |    16 |
 | `Croquis.scopes`            | field | `croquis` |     1 |     2 |
-| `Croquis.types`             | field | `croquis` |     3 |     6 |
+| `Croquis.types`             | field | `croquis` |     4 |    15 |
 
 ## Non-product `vize_croquis` imports
 
@@ -37,14 +37,14 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `EmitDefinition`                          |     1 |     1 |
 | `ModelDefinition`                         |     1 |     1 |
 | `PadOption`                               |     1 |     1 |
-| `PropDefinition`                          |     2 |     4 |
+| `PropDefinition`                          |     3 |     5 |
 | `ResolvedTypeWorld`                       |     2 |     5 |
 | `ScriptParseResult`                       |     1 |     1 |
 | `ScriptParserOptions`                     |     1 |     1 |
 | `SfcCustomBlock`                          |     2 |     2 |
 | `SfcDescriptor`                           |    17 |    41 |
 | `SfcError`                                |    21 |    60 |
-| `SfcParseOptions`                         |    15 |   117 |
+| `SfcParseOptions`                         |    16 |   118 |
 | `SfcScriptBlock`                          |     2 |     2 |
 | `SfcStyleBlock`                           |     5 |     7 |
 | `SfcTemplateBlock`                        |     6 |     7 |
@@ -52,7 +52,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `TypeDeclarationKind`                     |     1 |     2 |
 | `TypeExportBinding`                       |     2 |     8 |
 | `TypeImport`                              |     1 |     1 |
-| `TypeLookup`                              |     2 |    16 |
+| `TypeLookup`                              |     3 |    18 |
 | `TypeModule`                              |     2 |     7 |
 | `TypeModuleReference`                     |     2 |     3 |
 | `UnknownTypeReason`                       |     1 |     1 |
@@ -80,7 +80,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | ------------------- | -------: | ---: |
 | `BindingMetadata`   |       31 |   51 |
 | `BlockKind`         |        0 |   10 |
-| `Croquis`           |       19 |   46 |
+| `Croquis`           |       21 |   48 |
 | `Drawer`            |        7 |    9 |
 | `DrawerOptions`     |        5 |    6 |
 | `ReactivityTracker` |        0 |    1 |
@@ -91,5 +91,5 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `SymbolFlags`       |        0 |    5 |
 | `Croquis.bindings`  |       16 |  229 |
 | `Croquis.hoists`    |        0 |    2 |
-| `Croquis.macros`    |       15 |  110 |
-| `Croquis.types`     |        6 |   18 |
+| `Croquis.macros`    |       16 |  111 |
+| `Croquis.types`     |       15 |   27 |
