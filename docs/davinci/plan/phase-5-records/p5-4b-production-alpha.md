@@ -90,8 +90,11 @@ payloads stay unknown; their authored type arguments still participate in the
 contract. Runtime validators retain parameter/return type headers and explicit
 assertion or `satisfies` type annotations. These facts include reachable scoped
 types while excluding function bodies and parameter default initializers.
-Assertions remain conservative unknown payloads, and `satisfies` is recorded
-as a constraint without claiming an inferred payload type.
+Callable type casts remain conservative unknown payloads. Literal-preserving
+`const` assertions retain known validator parameters; their authored marker
+remains in the contract and does not introduce a named type dependency.
+`satisfies` is recorded as a constraint without claiming an inferred payload
+type.
 
 ## Verification gates
 
