@@ -83,6 +83,10 @@ pub(super) fn extract_exposes(result: &mut ScriptParseResult, program: &Program<
                 && !property.shorthand
                 && !property.method
             {
+                // Vue's public-instance proxy also reads inherited members.
+                // The initializer is not an own property, but its prototype
+                // can supply additional public names we have not resolved.
+                result.macros.mark_expose_incomplete();
                 continue;
             }
             if !seen.insert(name.clone()) || unknown_override {

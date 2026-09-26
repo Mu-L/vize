@@ -15,7 +15,8 @@ production AlphaPages exporter; it does not close the full resident acceptance.
   Nested function calls do not declare the component's public instance.
 - Static string keys and property aliases are supported. Duplicate names use
   the last value. A non-computed `__proto__` initializer changes the object's
-  prototype and is not an exposed own property.
+  prototype and is not an exposed own property. Vue also reads inherited
+  properties, so that initializer marks the public surface incomplete.
 - Spreads, dynamic keys, unknown arguments, type-only declarations, unsupported
   call positions, and duplicate macro calls mark `expose_is_complete()` false.
   An unknown override removes claims about properties written before it.
