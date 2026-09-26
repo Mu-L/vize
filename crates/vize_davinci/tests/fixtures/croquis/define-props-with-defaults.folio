@@ -4,9 +4,9 @@ scopes=7
 bindings=4
 
 [surface.props]
-title?:string
-count?:number
-items?:string[]
+title?:string=
+count?:number=
+items?:string[]=
 
 [macros]
 @withDefaults @92:182

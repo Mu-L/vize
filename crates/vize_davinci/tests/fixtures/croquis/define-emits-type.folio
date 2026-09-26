@@ -4,8 +4,8 @@ scopes=8
 bindings=2
 
 [surface.emits]
-change
-update
+change:[value: string]
+update:[id: number, value: string]
 
 [macros]
 @defineEmits<<{
