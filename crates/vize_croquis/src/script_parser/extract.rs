@@ -12,6 +12,7 @@ mod race;
 mod reactivity;
 mod runtime_objects;
 mod slots;
+mod with_defaults;
 
 pub use common::{extract_call_expression, get_binding_type_from_kind};
 pub(in crate::script_parser) use emits::extract_runtime_emit_payload_type;

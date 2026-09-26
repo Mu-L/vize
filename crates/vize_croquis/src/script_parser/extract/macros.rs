@@ -175,6 +175,7 @@ pub fn process_call_expression(
             if let Some(Argument::CallExpression(inner_call)) = call.arguments.first() {
                 process_call_expression(result, inner_call, source);
             }
+            super::with_defaults::record_defaults(result, call, source);
         }
 
         MacroKind::DefineOptions => {

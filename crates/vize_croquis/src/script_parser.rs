@@ -76,3 +76,6 @@ mod options_api_emits_tests;
 
 #[cfg(test)]
 mod setup_context_scope_tests;
+
+#[cfg(test)]
+mod with_defaults_tests;

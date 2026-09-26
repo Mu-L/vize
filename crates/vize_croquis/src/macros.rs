@@ -1,3 +1,4 @@
+mod defaults;
 mod emits;
 mod expose;
 mod tracker;
@@ -5,7 +6,6 @@ mod tracker;
 pub use expose::{ExposeBinding, ExposeDefinition};
 
 use vize_carton::{CompactString, FxHashMap};
-
 pub const DEFINE_PROPS: &str = "defineProps";
 pub const DEFINE_EMITS: &str = "defineEmits";
 pub const DEFINE_EXPOSE: &str = "defineExpose";
@@ -357,6 +357,7 @@ pub struct MacroTracker {
     props: Vec<PropDefinition>,
     /// Written prop declarations, relative to the parsed script block.
     prop_declarations: FxHashMap<CompactString, (u32, u32)>,
+    with_defaults: defaults::WithDefaults,
     emits: Vec<EmitDefinition>,
     emit_declarations: FxHashMap<CompactString, (u32, u32)>,
     emit_validator_signatures: FxHashMap<CompactString, Vec<CompactString>>,
