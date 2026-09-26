@@ -153,3 +153,44 @@ fn imported_type_aliases_retain_exported_identity_and_remain_unresolved() {
     assert!(literal.type_dependencies.complete);
     assert!(literal.type_dependencies.declarations.is_empty());
 }
+
+#[test]
+fn generic_bounds_and_model_modifier_aliases_are_reachable_contracts() {
+    let mut before = draw(
+        "type Bound = string; type Flags = 'trim'; type T = 'private'; \
+        const model = defineModel<string, Flags>(); defineProps<{ value: T }>();",
+    );
+    let mut after = draw(
+        "type Bound = number; type Flags = 'trim'; type T = 'private'; \
+        const model = defineModel<string, Flags>(); defineProps<{ value: T }>();",
+    );
+    let before_pages = before
+        .alpha_pages("Component", Some("T extends Bound"))
+        .expect("pages");
+    let after_pages = after
+        .alpha_pages("Component", Some("T extends Bound"))
+        .expect("pages");
+    let before_summary = SfcSummary::from_alpha(before_pages).expect("summary");
+    let after_summary = SfcSummary::from_alpha(after_pages).expect("summary");
+    assert!(
+        before_summary
+            .changed(&after_summary)
+            .iter()
+            .any(|id| id.facet() == Facet::Prop && id.name() == "value")
+    );
+    // Use tracker facts directly as well: the modifier type is an independent
+    // authored annotation, even when a parser cannot elaborate its alias.
+    before
+        .macros
+        .set_model_modifier_type("modelValue".into(), "Flags".into());
+    after
+        .macros
+        .set_model_modifier_type("modelValue".into(), "Flags".into());
+    after.types.add_type_alias("Flags", "'capitalize'");
+    assert!(
+        summary(&before)
+            .changed(&summary(&after))
+            .iter()
+            .any(|id| id.facet() == Facet::Prop && id.name() == "modelValue")
+    );
+}

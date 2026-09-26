@@ -3,7 +3,7 @@
 use super::super::type_refs::{self, References};
 use super::{PendingTypeRef, TypeDependency};
 use crate::Croquis;
-use crate::types::{TypeDeclarationKind, TypeLookup, UnknownTypeReason};
+use crate::types::world::{TypeDeclarationKind, TypeLookup, UnknownTypeReason};
 use vize_carton::CompactString;
 
 impl Croquis {
@@ -78,6 +78,7 @@ fn reason_name(reason: UnknownTypeReason) -> &'static str {
         UnknownTypeReason::Unbound => "unbound",
         UnknownTypeReason::MissingModule => "missing-module",
         UnknownTypeReason::IncompleteModule => "incomplete-module",
+        UnknownTypeReason::UnsupportedDeclaration => "unsupported-declaration",
         UnknownTypeReason::UnsupportedQualification => "unsupported-qualification",
         UnknownTypeReason::AmbiguousExport => "ambiguous-export",
         UnknownTypeReason::ResolutionCycle => "resolution-cycle",

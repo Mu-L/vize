@@ -4,6 +4,7 @@ mod world;
 
 use super::type_refs::{self, TypeRef};
 use crate::Croquis;
+use crate::macros::ModelDefinition;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use vize_carton::CompactString;
@@ -36,6 +37,20 @@ struct PendingTypeRef {
 }
 
 impl Croquis {
+    pub(super) fn model_type_environment(
+        &self,
+        model: &ModelDefinition,
+        generic: Option<&str>,
+    ) -> TypeEnvironment {
+        let sources = model
+            .model_type
+            .as_deref()
+            .into_iter()
+            .chain(self.macros.model_modifier_type(&model.name));
+        let mut environment = self.collect_type_environment(sources, generic);
+        environment.complete &= model.model_type.is_some();
+        environment
+    }
     pub(super) fn type_environment(
         &self,
         source: Option<&str>,
@@ -55,17 +70,20 @@ impl Croquis {
             .chain(
                 self.macros
                     .define_props()
-                    .and_then(|call| call.type_args.as_deref()),
+                    .and_then(|call| call.type_args.as_deref())
+                    .map(type_arguments_body),
             )
             .chain(
                 self.macros
                     .define_emits()
-                    .and_then(|call| call.type_args.as_deref()),
+                    .and_then(|call| call.type_args.as_deref())
+                    .map(type_arguments_body),
             )
             .chain(
                 self.macros
                     .define_slots()
-                    .and_then(|call| call.type_args.as_deref()),
+                    .and_then(|call| call.type_args.as_deref())
+                    .map(type_arguments_body),
             );
         self.collect_type_environment(sources, generic)
     }
@@ -195,4 +213,13 @@ impl Croquis {
             declarations: declarations.into_values().collect(),
         }
     }
+}
+
+fn type_arguments_body(arguments: &str) -> &str {
+    // MacroCall records the parser's complete `<...>` span. Remove only
+    // these known outer delimiters; nested literal/type text is unchanged.
+    arguments
+        .strip_prefix('<')
+        .and_then(|body| body.strip_suffix('>'))
+        .unwrap_or(arguments)
 }

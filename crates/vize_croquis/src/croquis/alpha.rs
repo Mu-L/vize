@@ -8,6 +8,8 @@
 mod environment;
 #[cfg(test)]
 mod environment_tests;
+#[cfg(test)]
+mod environment_world_tests;
 mod exports;
 mod schema;
 #[cfg(test)]
@@ -88,7 +90,7 @@ impl Croquis {
                         .macros
                         .model_modifier_type(&model.name)
                         .map(CompactString::new),
-                    type_dependencies: self.type_environment(model.model_type.as_deref(), generic),
+                    type_dependencies: self.model_type_environment(model, generic),
                 });
             let name = cstr!("update:{}", model.name);
             emits.entry(name.clone()).or_insert_with(|| EmitContract {
