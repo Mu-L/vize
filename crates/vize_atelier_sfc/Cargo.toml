@@ -24,6 +24,18 @@ davinci-differential = [
 # gate can compile every `compile_sfc` shape on both DOM lanes and compare
 # the complete modules, without the P1-7 retained-AST dual-run panics.
 davinci-dom-differential = ["vize_atelier_dom/davinci-differential"]
+# Controlled selected/retained adapter comparisons, without the retained-AST
+# differential dual-run instrumentation used by semantic corpus tests.
+davinci-production-bench = [
+  "davinci-dom-differential",
+  "vize_atelier_vapor/davinci-benchmark",
+  "vize_atelier_ssr/davinci-differential",
+]
+# Separate attribution executable; detailed spans are absent from timed pairs.
+davinci-production-profile = [
+  "davinci-production-bench",
+  "vize_atelier_vapor/davinci-benchmark-profile",
+]
 
 [dependencies]
 vize_s0.workspace = true
@@ -66,6 +78,7 @@ toml = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 davinci_harness = { workspace = true }
 criterion = { workspace = true }
+mimalloc = { workspace = true }
 
 [[bench]]
 name = "sfc_parse"
@@ -90,6 +103,10 @@ required-features = ["davinci-dom-differential"]
 [[example]]
 name = "css_engine_recovery"
 required-features = ["native"]
+
+[[example]]
+name = "davinci_production_perf"
+required-features = ["davinci-production-bench"]
 
 [lints]
 workspace = true

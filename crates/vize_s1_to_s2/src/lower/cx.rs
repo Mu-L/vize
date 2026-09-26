@@ -313,6 +313,10 @@ impl<'a> Cx<'a> {
         after: String,
         span: Span,
     ) {
+        // Caller-side `after` formatting has already happened: this span only
+        // counts rule/before ownership and record-vector allocation traffic.
+        #[cfg(feature = "davinci-benchmark-profile")]
+        let _guard = super::benchmark::record_guard();
         self.provenance.push(ProvenanceRecord {
             rule: String::from(rule),
             node,

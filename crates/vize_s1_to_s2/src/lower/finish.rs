@@ -18,6 +18,8 @@ pub(super) fn lower_in_context<'a>(
         ));
     }
     let ops = structural::lower_children(&mut cx, &tree.children, Namespace::Html);
+    #[cfg(feature = "davinci-benchmark-profile")]
+    super::benchmark::retained(&cx.provenance, cx.provenance.capacity());
     Lowered {
         allocator: cx.allocator,
         source: block.root_source(),

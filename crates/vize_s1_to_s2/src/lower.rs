@@ -33,6 +33,8 @@ use vize_s2::op::Region;
 use vize_s2::provenance::ProvenanceRecord;
 use vize_s2::scope::ScopeFacts;
 
+#[cfg(feature = "davinci-benchmark-profile")]
+mod benchmark;
 mod binding;
 mod bindop;
 mod caps;
