@@ -1,5 +1,11 @@
+#[cfg(test)]
+mod tests;
+mod typed;
+
+pub use typed::extract_emits_from_type;
+
 use oxc_ast::ast::{
-    Argument, Expression, FormalParameters, ObjectPropertyKind, PropertyKey, TSSignature, TSType,
+    Argument, BindingPattern, Expression, FormalParameters, ObjectPropertyKind, PropertyKey,
 };
 use oxc_span::{GetSpan, Span};
 
@@ -7,55 +13,6 @@ use crate::macros::EmitDefinition;
 use vize_carton::{CompactString, String};
 
 use super::super::ScriptParseResult;
-
-pub fn extract_emits_from_type(
-    result: &mut ScriptParseResult,
-    type_params: &oxc_allocator::Vec<'_, TSType<'_>>,
-    _source: &str,
-) {
-    for tp in type_params.iter() {
-        if let TSType::TSTypeLiteral(lit) = tp {
-            for member in lit.members.iter() {
-                match member {
-                    // Call signatures: { (event: 'update', value: string): void }
-                    TSSignature::TSCallSignatureDeclaration(call_sig)
-                        if let Some(first_param) = call_sig.params.items.first()
-                            && let Some(type_ann) = &first_param.type_annotation
-                            && let TSType::TSLiteralType(lit_type) = &type_ann.type_annotation
-                            && let oxc_ast::ast::TSLiteral::StringLiteral(s) =
-                                &lit_type.literal =>
-                    {
-                        result.macros.add_emit_with_declaration(
-                            EmitDefinition {
-                                name: CompactString::new(s.value.as_str()),
-                                payload_type: None,
-                            },
-                            s.span.start,
-                            s.span.end,
-                        );
-                    }
-                    // Named tuples: { save: [value: string] }
-                    TSSignature::TSPropertySignature(property) => {
-                        let (name, span) = match &property.key {
-                            PropertyKey::StaticIdentifier(id) => (id.name.as_str(), id.span),
-                            PropertyKey::StringLiteral(s) => (s.value.as_str(), s.span),
-                            _ => continue,
-                        };
-                        result.macros.add_emit_with_declaration(
-                            EmitDefinition {
-                                name: CompactString::new(name),
-                                payload_type: None,
-                            },
-                            span.start,
-                            span.end,
-                        );
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-}
 
 /// Extract emits from runtime arguments (array)
 pub fn extract_emits_from_runtime(
@@ -171,10 +128,14 @@ pub(in crate::script_parser) fn extract_runtime_emit_payload_type(
     source: &str,
 ) -> Option<CompactString> {
     match value {
-        Expression::ArrowFunctionExpression(func) => {
-            extract_emit_payload_tuple(&func.params, source)
+        Expression::ArrowFunctionExpression(func) if func.type_parameters.is_none() => {
+            extract_emit_payload_tuple(&func.params, source, 0)
         }
-        Expression::FunctionExpression(func) => extract_emit_payload_tuple(&func.params, source),
+        Expression::FunctionExpression(func)
+            if func.type_parameters.is_none() && func.this_param.is_none() =>
+        {
+            extract_emit_payload_tuple(&func.params, source, 0)
+        }
         Expression::TSAsExpression(ts_as) => {
             extract_runtime_emit_payload_type(&ts_as.expression, source)
         }
@@ -194,40 +155,45 @@ pub(in crate::script_parser) fn extract_runtime_emit_payload_type(
 fn extract_emit_payload_tuple(
     params: &FormalParameters<'_>,
     source: &str,
+    skip: usize,
 ) -> Option<CompactString> {
     let mut payload = String::from("[");
     let mut first = true;
 
-    for param in params.items.iter() {
+    for param in params.items.iter().skip(skip) {
         let type_annotation = param.type_annotation.as_ref()?;
-        let ty = type_annotation_source(source, type_annotation.span)?;
+        let ty = type_annotation_source(source, type_annotation.type_annotation.span())?;
 
         if !first {
             payload.push_str(", ");
         }
         first = false;
 
-        if let Some(label) = simple_parameter_label(source, param.pattern.span()) {
-            payload.push_str(label.as_str());
-            if param.optional {
+        if let BindingPattern::BindingIdentifier(identifier) = &param.pattern {
+            payload.push_str(identifier.name.as_str());
+            if param.optional || param.initializer.is_some() {
                 payload.push('?');
             }
             payload.push_str(": ");
+        } else if param.optional || param.initializer.is_some() {
+            // Optional destructured parameters cannot become a labeled tuple
+            // without inventing a parameter name.
+            return None;
         }
         payload.push_str(ty);
     }
 
     if let Some(rest) = params.rest.as_ref() {
         let type_annotation = rest.type_annotation.as_ref()?;
-        let ty = type_annotation_source(source, type_annotation.span)?;
+        let ty = type_annotation_source(source, type_annotation.type_annotation.span())?;
 
         if !first {
             payload.push_str(", ");
         }
 
-        if let Some(label) = simple_parameter_label(source, rest.rest.argument.span()) {
+        if let BindingPattern::BindingIdentifier(identifier) = &rest.rest.argument {
             payload.push_str("...");
-            payload.push_str(label.as_str());
+            payload.push_str(identifier.name.as_str());
             payload.push_str(": ");
         } else {
             payload.push_str("...");
@@ -240,23 +206,6 @@ fn extract_emit_payload_tuple(
 }
 
 fn type_annotation_source(source: &str, span: Span) -> Option<&str> {
-    let ty = source
-        .get(span.start as usize..span.end as usize)?
-        .trim()
-        .trim_start_matches(':')
-        .trim();
+    let ty = source.get(span.start as usize..span.end as usize)?;
     (!ty.is_empty()).then_some(ty)
-}
-
-fn simple_parameter_label(source: &str, span: Span) -> Option<CompactString> {
-    let label = source.get(span.start as usize..span.end as usize)?.trim();
-    let mut chars = label.chars();
-    let first = chars.next()?;
-    if !(first.is_ascii_alphabetic() || first == '_' || first == '$') {
-        return None;
-    }
-    if !chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '$') {
-        return None;
-    }
-    Some(CompactString::new(label))
 }
