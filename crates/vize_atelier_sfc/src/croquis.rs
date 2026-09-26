@@ -5,12 +5,16 @@
 //! merging, generic extraction, and virtual-script offsets.
 
 mod drawer;
+mod resolved;
 mod source_offsets;
 
 use self::drawer::{analyze_scripts, apply_options_api_mode};
 use crate::types::SfcDescriptor;
+pub use resolved::{
+    merge_resolved_props_into_croquis, merge_resolved_props_into_croquis_with_sources,
+};
 use vize_atelier_core::RootNode;
-use vize_carton::{FxHashSet, String, ToCompactString, cstr, profile};
+use vize_carton::{String, ToCompactString, cstr, profile};
 use vize_croquis::{Croquis, Drawer, DrawerOptions};
 
 /// Options for descriptor-level Croquis analysis.
@@ -150,6 +154,7 @@ fn analyze_sfc_descriptor_with_context_impl(
         options_api,
         legacy_vue2,
         None,
+        None,
     )
 }
 
@@ -177,6 +182,29 @@ pub fn analyze_sfc_descriptor_resolved(
         options_api,
         legacy_vue2,
         Some(filename),
+        None,
+    )
+}
+
+/// Analyze a publication against one immutable source snapshot shared by
+/// compatibility props and the scoped public type world.
+pub fn analyze_sfc_descriptor_resolved_with_sources(
+    descriptor: &SfcDescriptor<'_>,
+    template_ast: Option<&RootNode<'_>>,
+    options: SfcCroquisOptions,
+    options_api: bool,
+    legacy_vue2: bool,
+    filename: &str,
+    sources: &crate::script::TypeSourceSnapshot,
+) -> SfcCroquisAnalysis {
+    analyze_sfc_descriptor_resolved_impl(
+        descriptor,
+        template_ast,
+        options,
+        options_api,
+        legacy_vue2,
+        Some(filename),
+        Some(sources),
     )
 }
 
@@ -187,13 +215,22 @@ fn analyze_sfc_descriptor_resolved_impl(
     options_api: bool,
     legacy_vue2: bool,
     resolve_filename: Option<&str>,
+    sources: Option<&crate::script::TypeSourceSnapshot>,
 ) -> SfcCroquisAnalysis {
     let drawer_options = options.analyzer_options;
     let script_analyzed = drawer_options.analyze_script
         && (descriptor.script.is_some() || descriptor.script_setup.is_some());
     let mut summary = analyze_scripts(descriptor, options, options_api, legacy_vue2);
     if let Some(filename) = resolve_filename {
-        merge_resolved_props_into_croquis(&mut summary, descriptor, filename);
+        match sources {
+            Some(sources) => merge_resolved_props_into_croquis_with_sources(
+                &mut summary,
+                descriptor,
+                filename,
+                sources,
+            ),
+            None => merge_resolved_props_into_croquis(&mut summary, descriptor, filename),
+        }
     }
     let drawer = Drawer::with_summary(drawer_options, summary, script_analyzed);
     let mut drawer = apply_options_api_mode(drawer, options_api, legacy_vue2);
@@ -229,100 +266,6 @@ pub fn script_content_for_descriptor(
             script.loc.start as u32,
         ),
         (None, None) => (None, 0),
-    }
-}
-
-/// Merge props resolved by the script compile context — which performs
-/// cross-file and node_modules type resolution — into a Croquis summary.
-///
-/// Croquis alone cannot resolve props inherited through imported or heritage
-/// types (`interface Props extends Omit<ImportedProps, ...>`), so
-/// template-binding checks and virtual TS generation would treat those props
-/// as undefined references. This mirrors the merge the compiler performs in
-/// `compile.rs`.
-pub fn merge_resolved_props_into_croquis(
-    croquis: &mut Croquis,
-    descriptor: &SfcDescriptor<'_>,
-    filename: &str,
-) {
-    use crate::compile::is_ts_lang;
-    use crate::script::ScriptCompileContext;
-    use crate::types::BindingType;
-
-    let Some(script_setup) = descriptor.script_setup.as_ref() else {
-        if let Some(script) = descriptor.script.as_ref() {
-            let ctx = ScriptCompileContext::new(&script.content);
-            croquis
-                .types
-                .set_resolved_world(ctx.resolve_type_world_with_syntax(
-                    filename,
-                    None,
-                    script.lang.as_deref() == Some("tsx"),
-                ));
-        }
-        return;
-    };
-
-    let mut ctx = ScriptCompileContext::new(&script_setup.content);
-    if let Some(ref script) = descriptor.script {
-        ctx.collect_types_from(&script.content);
-    }
-    if !filename.is_empty() {
-        ctx.collect_imported_types_from_path(
-            &script_setup.content,
-            filename,
-            is_ts_lang(script_setup.lang.as_deref()),
-        );
-        if let Some(ref script) = descriptor.script {
-            ctx.collect_imported_types_from_path(
-                &script.content,
-                filename,
-                is_ts_lang(script.lang.as_deref()),
-            );
-        }
-    }
-    ctx.analyze();
-
-    croquis.types.set_resolved_world(
-        ctx.resolve_type_world_with_syntax(
-            filename,
-            descriptor
-                .script
-                .as_ref()
-                .map(|script| script.content.as_ref()),
-            script_setup.lang.as_deref() == Some("tsx")
-                || descriptor
-                    .script
-                    .as_ref()
-                    .is_some_and(|script| script.lang.as_deref() == Some("tsx")),
-        ),
-    );
-
-    let Some(type_args) = croquis
-        .macros
-        .define_props()
-        .and_then(|call| call.type_args.as_deref())
-    else {
-        return;
-    };
-    let type_args = type_args
-        .strip_prefix('<')
-        .and_then(|value| value.strip_suffix('>'))
-        .unwrap_or(type_args);
-    let mut known: FxHashSet<_> = croquis
-        .macros
-        .props()
-        .iter()
-        .map(|prop| prop.name.clone())
-        .collect();
-    for prop in ctx.resolve_type_props(type_args) {
-        if !known.insert(prop.name.clone()) {
-            continue;
-        }
-        if !croquis.bindings.contains(prop.name.as_str()) {
-            croquis.bindings.add(prop.name.as_str(), BindingType::Props);
-        }
-        croquis.macros.add_prop(prop);
     }
 }
 

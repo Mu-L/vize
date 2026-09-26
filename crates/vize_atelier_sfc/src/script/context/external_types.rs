@@ -18,12 +18,12 @@ use super::batch_epoch::{NO_EPOCH, current_batch_epoch};
 use super::helpers::is_import_type_only;
 
 pub(super) mod resolution;
+mod sources;
 use resolution::{canonical_base_file, path_key, resolve_import_path};
 
-/// Type declarations and outgoing type-bearing specifiers extracted from one
-/// file on disk.
-#[derive(Default)]
-struct FileTypeSummary {
+/// Type declarations and outgoing specifiers extracted from a source module.
+#[derive(Debug, Default)]
+pub(super) struct FileTypeSummary {
     interfaces: Vec<(String, String)>,
     type_aliases: Vec<(String, String)>,
     /// Import/re-export specifiers to follow, in source order.

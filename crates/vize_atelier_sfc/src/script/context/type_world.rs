@@ -1,17 +1,26 @@
 //! Produce the scoped declaration world used by public Alpha summaries.
 
+#![expect(
+    clippy::disallowed_types,
+    reason = "source snapshots lend shared immutable Arc module text to the parser"
+)]
+
+#[cfg(test)]
+mod overlay_tests;
 mod parse;
 #[cfg(test)]
 mod tests;
 
 use oxc_span::SourceType;
 use std::path::{Path, PathBuf};
-use vize_carton::{CompactString, FxHashSet, String, cstr};
+use std::sync::Arc;
+use vize_carton::{FxHashSet, cstr};
 use vize_croquis::types::ResolvedTypeWorld;
 use vize_croquis::types::world::{TypeExportBinding, TypeModule, TypeModuleReference};
 
-use super::ScriptCompileContext;
-use super::external_types::resolution::{canonical_base_file, path_key, resolve_import_path};
+use super::external_types::resolution::path_key;
+use super::source_snapshot::source_path;
+use super::{ScriptCompileContext, TypeSourceSnapshot};
 
 const MAX_MODULES: usize = 512;
 
@@ -32,7 +41,22 @@ impl ScriptCompileContext {
         normal_script: Option<&str>,
         is_tsx: bool,
     ) -> ResolvedTypeWorld {
-        let path = canonical_base_file(filename);
+        self.resolve_type_world_with_sources(
+            filename,
+            normal_script,
+            is_tsx,
+            &TypeSourceSnapshot::default(),
+        )
+    }
+
+    pub fn resolve_type_world_with_sources(
+        &self,
+        filename: &str,
+        normal_script: Option<&str>,
+        is_tsx: bool,
+        sources: &TypeSourceSnapshot,
+    ) -> ResolvedTypeWorld {
+        let path = source_path(Path::new(filename));
         let root_module = path_key(&path);
         let source = normal_script.map_or_else(
             || self.source.clone(),
@@ -42,7 +66,7 @@ impl ScriptCompileContext {
             root_module: root_module.clone(),
             ..ResolvedTypeWorld::default()
         };
-        let mut pending = vec![(path, Some((source, is_tsx)))];
+        let mut pending = vec![(path, Some((Arc::<str>::from(source.as_str()), is_tsx)))];
         let mut visited = FxHashSet::default();
         while let Some((path, source)) = pending.pop() {
             let identity = path_key(&path);
@@ -53,7 +77,7 @@ impl ScriptCompileContext {
                 world.modules.insert(identity, TypeModule::default());
                 continue;
             }
-            let source = source.or_else(|| read_module_source(&path));
+            let source = source.or_else(|| read_module_source(&path, sources));
             let Some((source, is_tsx)) = source else {
                 world.modules.insert(identity, TypeModule::default());
                 continue;
@@ -70,13 +94,14 @@ impl ScriptCompileContext {
                     &path,
                     &mut pending,
                     needed_imports.contains(local),
+                    sources,
                 );
             }
             for export in module.exports.values_mut() {
                 match export {
                     TypeExportBinding::Forward { target, .. }
                     | TypeExportBinding::Namespace(target) => {
-                        resolve_target(target, &path, &mut pending, true);
+                        resolve_target(target, &path, &mut pending, true, sources);
                     }
                     TypeExportBinding::Local(local) => {
                         if let Some(import) = module.imports.get(local)
@@ -88,10 +113,10 @@ impl ScriptCompileContext {
                 }
             }
             for target in &mut module.star_exports {
-                resolve_target(target, &path, &mut pending, true);
+                resolve_target(target, &path, &mut pending, true, sources);
             }
             for target in module.direct_imports.values_mut() {
-                resolve_target(target, &path, &mut pending, true);
+                resolve_target(target, &path, &mut pending, true, sources);
             }
             world.modules.insert(identity, module);
         }
@@ -102,10 +127,11 @@ impl ScriptCompileContext {
 fn resolve_target(
     target: &mut TypeModuleReference,
     current: &Path,
-    pending: &mut Vec<(PathBuf, Option<(String, bool)>)>,
+    pending: &mut Vec<(PathBuf, Option<(Arc<str>, bool)>)>,
     follow: bool,
+    sources: &TypeSourceSnapshot,
 ) {
-    if let Some(path) = resolve_import_path(current, &target.specifier) {
+    if let Some(path) = sources.resolve_import(current, &target.specifier) {
         target.module = Some(path_key(&path));
         if follow {
             pending.push((path, None));
@@ -113,8 +139,8 @@ fn resolve_target(
     }
 }
 
-fn read_module_source(path: &Path) -> Option<(String, bool)> {
-    let source = std::fs::read_to_string(path).ok()?;
+fn read_module_source(path: &Path, sources: &TypeSourceSnapshot) -> Option<(Arc<str>, bool)> {
+    let source = sources.read(path)?;
     if path.extension().is_some_and(|ext| ext == "vue") {
         let descriptor = crate::parse_sfc(&source, crate::SfcParseOptions::default()).ok()?;
         let is_tsx = descriptor
@@ -126,22 +152,25 @@ fn read_module_source(path: &Path) -> Option<(String, bool)> {
                 .as_ref()
                 .is_some_and(|script| script.lang.as_deref() == Some("tsx"));
         return Some((
-            cstr!(
-                "{}\n{}",
-                descriptor
-                    .script
-                    .as_ref()
-                    .map_or("", |script| script.content.as_ref()),
-                descriptor
-                    .script_setup
-                    .as_ref()
-                    .map_or("", |script| script.content.as_ref()),
+            Arc::from(
+                cstr!(
+                    "{}\n{}",
+                    descriptor
+                        .script
+                        .as_ref()
+                        .map_or("", |script| script.content.as_ref()),
+                    descriptor
+                        .script_setup
+                        .as_ref()
+                        .map_or("", |script| script.content.as_ref()),
+                )
+                .as_str(),
             ),
             is_tsx,
         ));
     }
     Some((
-        CompactString::new(source),
+        source,
         path.extension()
             .is_some_and(|ext| ext == "tsx" || ext == "jsx"),
     ))
