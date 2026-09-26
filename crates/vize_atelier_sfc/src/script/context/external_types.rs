@@ -17,7 +17,7 @@ use super::ScriptCompileContext;
 use super::batch_epoch::{NO_EPOCH, current_batch_epoch};
 use super::helpers::is_import_type_only;
 
-mod resolution;
+pub(super) mod resolution;
 use resolution::{canonical_base_file, path_key, resolve_import_path};
 
 /// Type declarations and outgoing type-bearing specifiers extracted from one

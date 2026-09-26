@@ -8,6 +8,7 @@ mod external_types;
 mod helpers;
 mod parse;
 mod props;
+mod type_world;
 pub use batch_epoch::{TypeResolutionBatchGuard, begin_type_resolution_batch};
 
 use crate::types::{BindingMetadata, BindingType};
@@ -17,7 +18,6 @@ use vize_croquis::macros::{EmitDefinition, PropDefinition};
 
 use super::ScriptSetupMacros;
 
-/// Script compile context - holds all state during compilation
 #[derive(Debug)]
 pub struct ScriptCompileContext {
     /// Source content

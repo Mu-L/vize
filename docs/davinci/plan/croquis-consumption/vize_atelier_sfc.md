@@ -18,8 +18,9 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Croquis.binding_spans`     | field | `croquis` |     1 |     1 |
 | `Croquis.bindings`          | field | `croquis` |     6 |    16 |
 | `Croquis.import_statements` | field | `croquis` |     1 |     2 |
-| `Croquis.macros`            | field | `croquis` |     3 |    11 |
+| `Croquis.macros`            | field | `croquis` |     4 |    12 |
 | `Croquis.scopes`            | field | `croquis` |     1 |     2 |
+| `Croquis.types`             | field | `croquis` |     2 |     2 |
 
 ## Non-product `vize_croquis` imports
 
@@ -37,15 +38,23 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `ModelDefinition`                         |     1 |     1 |
 | `PadOption`                               |     1 |     1 |
 | `PropDefinition`                          |     2 |     4 |
+| `ResolvedTypeWorld`                       |     1 |     3 |
 | `ScriptParseResult`                       |     1 |     1 |
 | `ScriptParserOptions`                     |     1 |     1 |
 | `SfcCustomBlock`                          |     2 |     2 |
 | `SfcDescriptor`                           |    16 |    38 |
 | `SfcError`                                |    21 |    60 |
-| `SfcParseOptions`                         |    13 |   114 |
+| `SfcParseOptions`                         |    14 |   115 |
 | `SfcScriptBlock`                          |     2 |     2 |
 | `SfcStyleBlock`                           |     5 |     7 |
 | `SfcTemplateBlock`                        |     6 |     7 |
+| `TypeDeclaration`                         |     1 |     3 |
+| `TypeDeclarationKind`                     |     1 |     2 |
+| `TypeExportBinding`                       |     2 |     8 |
+| `TypeImport`                              |     1 |     1 |
+| `TypeLookup`                              |     1 |    10 |
+| `TypeModule`                              |     2 |     7 |
+| `TypeModuleReference`                     |     2 |     3 |
 | `WITH_DEFAULTS`                           |     1 |     1 |
 | `analyze_script_setup_program`            |     1 |     1 |
 | `artifact_macro_names`                    |     1 |     1 |
@@ -76,10 +85,10 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `ReactivityTracker` |        0 |    1 |
 | `Scope`             |        0 |    6 |
 | `ScopeKind`         |        2 |    3 |
-| `Span`              |        0 |    7 |
+| `Span`              |        0 |    9 |
 | `Symbol`            |        0 |    5 |
 | `SymbolFlags`       |        0 |    5 |
-| `Croquis.bindings`  |       16 |  225 |
+| `Croquis.bindings`  |       16 |  229 |
 | `Croquis.hoists`    |        0 |    2 |
-| `Croquis.macros`    |       11 |  106 |
-| `Croquis.types`     |        0 |   12 |
+| `Croquis.macros`    |       12 |  107 |
+| `Croquis.types`     |        2 |   14 |

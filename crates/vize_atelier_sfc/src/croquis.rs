@@ -273,6 +273,21 @@ pub fn merge_resolved_props_into_croquis(
     }
     ctx.analyze();
 
+    croquis.types.set_resolved_world(
+        ctx.resolve_type_world_with_syntax(
+            filename,
+            descriptor
+                .script
+                .as_ref()
+                .map(|script| script.content.as_str()),
+            script_setup.lang.as_deref() == Some("tsx")
+                || descriptor
+                    .script
+                    .as_ref()
+                    .is_some_and(|script| script.lang.as_deref() == Some("tsx")),
+        ),
+    );
+
     let Some(type_args) = croquis
         .macros
         .define_props()

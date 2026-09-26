@@ -7,6 +7,9 @@
 //! - External imports (future): `import type { Props } from './types'`
 
 mod props;
+pub mod world;
+
+pub use world::{ResolvedTypeWorld, TypeDeclaration, TypeDeclarationId, TypeLookup};
 
 use vize_carton::{CompactString, FxHashMap, cstr};
 
@@ -155,13 +158,22 @@ impl TypeDefinitions {
 }
 
 /// Type resolver for Vue compiler macros
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct TypeResolver {
     /// Collected type definitions
     definitions: TypeDefinitions,
+    resolved_world: Option<ResolvedTypeWorld>,
 }
 
 impl TypeResolver {
+    pub fn resolved_world(&self) -> Option<&ResolvedTypeWorld> {
+        self.resolved_world.as_ref()
+    }
+
+    pub fn set_resolved_world(&mut self, world: ResolvedTypeWorld) {
+        self.resolved_world = Some(world);
+    }
+
     /// Create a new type resolver
     #[inline]
     pub fn new() -> Self {
