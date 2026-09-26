@@ -39,7 +39,7 @@ fn graph(count: u32, stride: u32, offset: u32) -> DependencyGraph {
         ));
     }
     // Independent eight-node rings keep recursion bounded while visiting every
-    // node. The sparse case spans several Roaring containers without deriving
+    // node. The sparse case spans a large ID domain without deriving
     // a dense allocation from the largest external ID.
     for index in 0..count {
         let next = if index % 8 == 7 { index - 7 } else { index + 1 };

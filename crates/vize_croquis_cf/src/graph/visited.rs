@@ -13,27 +13,28 @@ impl VisitSet {
     pub(super) fn pair(nodes: &FxHashMap<FileId, ModuleNode>) -> (Self, Self) {
         // Edges may refer to absent nodes. Include their IDs so both sets can
         // mark them without growing or changing the previous traversal order.
-        let highest = nodes
-            .iter()
-            .flat_map(|(&id, node)| {
-                core::iter::once(id).chain(node.imports.iter().map(|(id, _)| *id))
-            })
-            .map(FileId::as_u32)
-            .max();
-        let domain = highest
-            .and_then(|highest| usize::try_from(highest).ok())
-            .and_then(|highest| highest.checked_add(1))
-            .unwrap_or(0);
-        // At this density the bit payload uses at most half a byte per node,
-        // versus at least four bytes per stored FileId in a hash set.
-        // A sparse/high FileId never drives a proportional dense allocation.
-        let dense = highest.is_none() || (domain > 0 && domain <= nodes.len().saturating_mul(4));
-        let make = || {
-            if dense {
-                Self::Dense(FixedBitSet::with_capacity(domain))
-            } else {
-                Self::Sparse(FxHashSet::default())
-            }
+        let domain = nodes.len().checked_mul(4).and_then(|limit| {
+            nodes
+                .iter()
+                .flat_map(|(&id, node)| {
+                    core::iter::once(id).chain(node.imports.iter().map(|(id, _)| *id))
+                })
+                .try_fold(0usize, |extent, id| {
+                    let index = usize::try_from(id.as_u32()).ok()?;
+                    // Stop on the first sparse ID: a sparse graph must not pay
+                    // for a complete additional node/edge scan before DFS.
+                    if index >= limit {
+                        return None;
+                    }
+                    index.checked_add(1).map(|next| extent.max(next))
+                })
+        });
+        // Before block rounding, a dense bit payload uses at most half a byte
+        // per node. Checked multiplication/addition and the early sparse exit
+        // keep an arbitrary external FileId from driving a dense allocation.
+        let make = || match domain {
+            Some(domain) => Self::Dense(FixedBitSet::with_capacity(domain)),
+            None => Self::Sparse(FxHashSet::default()),
         };
         (make(), make())
     }
