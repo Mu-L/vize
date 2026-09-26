@@ -129,3 +129,28 @@ P3-17 floor rather than replacing its gate. No diagnostic-message differences
 were observed. Clean accepted DOM/SSR pairs have no code differences; 23 Vapor
 pairs have different code. This comparison uses default maps disabled and
 does not establish TS-31 source-map or TS-33 runtime parity.
+
+## Repaired retained walk accounting control
+
+[Run 36242692012](https://github.com/ubugeeei-prod/vize/actions/runs/36242692012)
+completed successfully on exact benchmark head
+`887cc91a7c421dacfa6dd9dfcf7517e01ed7d784`, production parent
+`9eb3b0413857cecb3c17bd5c8ae9f46a4b60279c`. That parent repairs retained
+conditional-slot metadata node visit accounting, preserving the historical
+walk floor. Its atomic probe increments are active in the timed builds, so
+this is a new control rather than an assumed equivalent timing revision.
+The [raw timing record](./p3-6-production-repaired.samples.json) retains all
+paired arrays and runner provenance. Manifest, adoption and complete per-input
+output/diagnostic observations match the earlier control.
+
+| Shape      | Clean accepted files | Median ratio | Three runner ratios    | All-input median |
+| ---------- | -------------------: | -----------: | ---------------------- | ---------------: |
+| DOM inline |                  335 |       1.0244 | 1.0204, 1.0244, 1.0295 |           1.0647 |
+| DOM module |                  335 |       1.0233 | 1.0233, 1.0219, 1.0263 |           1.0603 |
+| SSR        |                  335 |       1.3345 | 1.3331, 1.3345, 1.3357 |           1.3220 |
+| Vapor      |                  207 |       1.0673 | 1.0629, 1.0681, 1.0673 |           1.1486 |
+
+The 128 clean Vapor fallback inputs have median ratio 1.2001, with runner
+ratios 1.2001, 1.1980 and 1.2010. These observations still do not meet P3-6
+performance acceptance. The fixed gates and the earlier slower evidence remain
+unchanged.
