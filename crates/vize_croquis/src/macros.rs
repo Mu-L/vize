@@ -1,5 +1,5 @@
-mod tracker;
 mod expose;
+mod tracker;
 
 pub use expose::{ExposeBinding, ExposeDefinition};
 
