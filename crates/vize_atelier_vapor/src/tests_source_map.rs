@@ -12,6 +12,7 @@
     reason = "test fixtures and insta snapshots use std strings and format"
 )]
 
+mod component_names;
 mod support;
 
 use super::{VaporCompilerOptions, compile_vapor};

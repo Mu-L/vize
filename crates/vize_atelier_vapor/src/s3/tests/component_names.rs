@@ -1,15 +1,19 @@
-//! A checked cache boundary preserves the runtime component kind.
+//! Computed component prop and event names retain their own expression AST.
 
 use super::{VaporS3BridgeStatus, lower_source_for_vapor, options};
 use crate::{VaporCompilerOptions, compile_vapor};
 use vize_carton::Allocator;
 
 #[test]
-fn cached_component_generation_matches_retained_lane() {
+fn computed_component_names_match_retained_generation() {
     for source in [
-        r#"<KeepAlive><MyComp /></KeepAlive>"#,
-        r#"<KeepAlive include="First" max="2"><component :is="view" :label="label" @send="record" /></KeepAlive>"#,
-        r#"<KeepAlive :include="names" :exclude="excluded" :max="limit"><component :is="views[selected]" v-model="value" /></KeepAlive>"#,
+        r#"<Child :[propName]="value" @[eventName]="record" />"#,
+        r#"<Child label="static" :[label]="value" @[eventName]="record" />"#,
+        r#"<component :is="view" :[is]="value" @[eventName]="record" />"#,
+        r#"<Child :[names[selected]]="value" @[events[selected]]="record(value)" />"#,
+        r#"<Child :[name.toLowerCase()]="value" @['saved-'+suffix]="(v) => record(v)" />"#,
+        r#"<Child v-slot="{ item }"><Other :[item.prop]="item.value" @[item.event]="save" /></Child>"#,
+        r#"<Child :[propName]="value" v-model:title="form.title" @[eventName]="record" />"#,
     ] {
         let allocator = Allocator::new();
         assert!(
@@ -48,19 +52,13 @@ fn cached_component_generation_matches_retained_lane() {
 }
 
 #[test]
-fn unproved_cache_boundaries_keep_explicit_legacy_routes() {
+fn unproved_computed_name_surfaces_remain_legacy() {
     for source in [
-        r#"<keep-alive><MyComp /></keep-alive>"#,
-        r#"<KeepAlive />"#,
-        r#"<KeepAlive><MyComp /><OtherComp /></KeepAlive>"#,
-        r#"<KeepAlive><div>content</div></KeepAlive>"#,
-        r#"<KeepAlive><MyComp v-if="visible" /></KeepAlive>"#,
-        r#"<KeepAlive><component :is="view" :key="key" /></KeepAlive>"#,
-        r#"<KeepAlive><template #default><MyComp /></template></KeepAlive>"#,
-        r#"<KeepAlive v-bind="props"><MyComp /></KeepAlive>"#,
-        r#"<KeepAlive @change="save"><MyComp /></KeepAlive>"#,
-        r#"<KeepAlive :unknown="value"><MyComp /></KeepAlive>"#,
-        r#"<KeepAlive :[include]="names"><MyComp /></KeepAlive>"#,
+        r#"<button :[name]="value">text</button>"#,
+        r#"<slot :[name]="value" />"#,
+        r#"<Child @[event].stop="save" />"#,
+        r#"<Child :[name].camel="value" />"#,
+        r#"<Child v-model:[name]="value" />"#,
     ] {
         let allocator = Allocator::new();
         assert!(
@@ -76,27 +74,26 @@ fn unproved_cache_boundaries_keep_explicit_legacy_routes() {
 #[test]
 #[expect(
     clippy::disallowed_macros,
-    reason = "insta formats exact generated-code snapshots"
+    reason = "insta formats generated-code snapshots"
 )]
-fn checked_cache_payload_owns_the_filter() {
+fn checked_component_name_payload_owns_generated_keys() {
     let allocator = Allocator::new();
     let mut s3 = super::lowered_source(
         &allocator,
-        r#"<KeepAlive include="First"><First /></KeepAlive>"#,
+        r#"<Child :[propName]="value" @[eventName]="save" />"#,
     );
-    let include = s3
-        .program
-        .operands
-        .iter_mut()
-        .find(|operand| {
-            operand.role == vize_s3::operand::OperandRole::Attribute
-                && operand.name == Some("include")
-        })
-        .unwrap();
-    include.value.text = "Second";
+    for operand in &mut s3.program.operands {
+        if operand.role == vize_s3::operand::OperandRole::Name {
+            match operand.value.text {
+                "propName" => operand.value.text = "otherProp",
+                "eventName" => operand.value.text = "otherEvent",
+                _ => {}
+            }
+        }
+    }
     let code = super::generated(
         crate::s3::admit(s3, &crate::s3::retained::Retained::new(&allocator)),
         &allocator,
     );
-    insta::assert_snapshot!("keep_alive_payload", code);
+    insta::assert_snapshot!("component_name_payload", code);
 }
