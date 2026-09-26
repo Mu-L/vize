@@ -98,8 +98,16 @@ async function render(code, fixture) {
     );
     const component = {
       ssrRender,
+      __scopeId: fixture.scopeId,
       directives,
-      components: { Foo },
+      components: {
+        Foo,
+        Forwarder: {
+          render() {
+            return this.$slots.default?.();
+          },
+        },
+      },
       data: () =>
         Object.fromEntries(Object.entries(data).filter(([key]) => !setupNames.includes(key))),
       setup: setupNames.length ? () => setupState : undefined,
@@ -107,7 +115,10 @@ async function render(code, fixture) {
     const parent = {
       render: () =>
         h(component, fixture.attrs ?? null, {
-          default: (props) => h("em", JSON.stringify(props)),
+          default: (props) =>
+            fixture.scopeId
+              ? h({ __scopeId: "data-v-page", render: () => h("div", { class: "posts" }, "page") })
+              : h("em", JSON.stringify(props)),
         }),
     };
     return { html: normalize(await serverRenderer.renderToString(createSSRApp(parent))) };
@@ -122,8 +133,12 @@ for (const fixture of cases) {
     filename: `${fixture.name}.vue`,
     id: fixture.name,
     ssr: true,
+    scoped: !!fixture.scopeId,
     ssrCssVars: [],
-    compilerOptions: fixture.bindings ? { bindingMetadata: fixture.bindings } : {},
+    compilerOptions: {
+      ...(fixture.bindings ? { bindingMetadata: fixture.bindings } : {}),
+      ...(fixture.scopeId ? { scopeId: fixture.scopeId } : {}),
+    },
   });
   const result = { name: fixture.name, vue_version: vue.version };
   if (upstream.errors.length) {
@@ -136,7 +151,10 @@ for (const fixture of cases) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
   const upstreamHtml = result.vue?.html;
   const aligned = upstreamHtml !== undefined && result.vize?.html === upstreamHtml;
-  const legacyWrong = result.legacy?.error !== undefined || result.legacy?.html !== upstreamHtml;
+  const legacyWrong =
+    fixture.expectLegacyMismatch === false ||
+    result.legacy?.error !== undefined ||
+    result.legacy?.html !== upstreamHtml;
   if (!aligned || !legacyWrong) failures.push(fixture.name);
 }
 

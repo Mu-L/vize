@@ -113,6 +113,50 @@ fn aligned_ssr_shapes_render_like_vue_while_the_old_output_did_not() {
         .collect::<Vec<_>>()
         .join(",");
     let input = format!("{{\"check\":true,\"cases\":[{cases}]}}");
+    let rendered = render_cases(&input);
+    assert_eq!(
+        rendered.lines().count(),
+        fixtures::FIXTURES.len(),
+        "one rendered result per fixture:\n{rendered}"
+    );
+}
+
+#[test]
+fn scoped_layout_slots_render_page_roots_like_vue() {
+    let cases = [
+        ("layout", "<div class=\"layout\"><slot /></div>"),
+        ("forwarded", "<Forwarder><slot /></Forwarder>"),
+    ]
+    .map(|(name, template)| {
+        let allocator = Allocator::new();
+        let options = SsrCompilerOptions {
+            scope_id: Some("data-v-layout".into()),
+            ..Default::default()
+        };
+        let (_, errors, result) = compile_ssr_with_options(&allocator, template, options);
+        assert!(errors.is_empty(), "{errors:?}");
+        let code = format!("{}{}", result.preamble, result.code);
+        insta::assert_snapshot!(format!("scoped_layout_{name}"), code);
+        let legacy = code.replace("\"data-v-layout-s\"", "({})");
+        format!(
+            "{{\"name\":{},\"template\":{},\"vize\":{},\"legacy\":{},\"scopeId\":\"data-v-layout\",\"expectLegacyMismatch\":{}}}",
+            json(name), json(template), json(&code), json(&legacy), name == "layout"
+        )
+    })
+    .join(",");
+    let rendered = render_cases(&format!("{{\"check\":true,\"cases\":[{cases}]}}"));
+    assert_eq!(rendered.lines().count(), 2);
+    let expected = [
+        r#"<div class="layout" data-v-layout><!--[--><div class="posts" data-v-layout-s data-v-page>page</div><!--]--></div>"#,
+        r#"<!--[--><!--[--><div class="posts" data-v-layout-s data-v-page>page</div><!--]--><!--]-->"#,
+    ];
+    for (line, expected) in rendered.lines().zip(expected) {
+        let result: serde_json::Value = serde_json::from_str(line).expect("render result JSON");
+        assert_eq!(result["vize"]["html"].as_str(), Some(expected));
+    }
+}
+
+fn render_cases(input: &str) -> String {
     let mut child = Command::new("node")
         .arg(
             Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -138,10 +182,5 @@ fn aligned_ssr_shapes_render_like_vue_while_the_old_output_did_not() {
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout),
     );
-    let rendered = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(
-        rendered.lines().count(),
-        fixtures::FIXTURES.len(),
-        "one rendered result per fixture:\n{rendered}"
-    );
+    String::from_utf8(output.stdout).expect("render results are UTF-8")
 }

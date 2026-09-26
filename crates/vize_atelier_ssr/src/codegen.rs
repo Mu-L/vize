@@ -153,9 +153,6 @@ impl<'a> SsrCodegenContext<'a> {
         if self.options.binding_metadata.is_some() {
             self.push(", $props, $setup, $data, $options");
         }
-        if self.options.scope_id.is_some() {
-            self.push(", _scopeId");
-        }
         self.push(") {\n");
         self.indent_level += 1;
 
