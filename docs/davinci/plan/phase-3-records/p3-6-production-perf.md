@@ -70,6 +70,16 @@ timings. The artifact records S1 parsing, S1-to-S2 and S2-to-S3 lowering,
 markup admission, retained-expression indexing, template carriers, text capture,
 generic verification, native admission, and IR projection separately.
 
+The separate attribution build wraps mimalloc in `ProfilingAllocator` and
+exports actual allocation calls and requested bytes. Timed builds retain plain
+mimalloc. A feature restricted to the attribution build measures the S1-to-S2
+provenance record span and counts the fully retained records, vector capacity,
+and heap-backed CompactString capacities at stage finish. These capacities
+describe retained storage, not allocation traffic or peak memory. The record
+span excludes caller-preformatted `after` strings; the enclosing S1-to-S2 span
+includes them. Transform-pass provenance appended later is outside the finish
+counters. These instrumented profile times are not acceptance medians.
+
 ## Acceptance limits
 
 The corpus excludes hydrated `_git` projects, `_git-worktrees`, and
@@ -154,3 +164,26 @@ The 128 clean Vapor fallback inputs have median ratio 1.2001, with runner
 ratios 1.2001, 1.1980 and 1.2010. These observations still do not meet P3-6
 performance acceptance. The fixed gates and the earlier slower evidence remain
 unchanged.
+
+## Rejected expression-reuse trial
+
+[Run 36242833278](https://github.com/ubugeeei-prod/vize/actions/runs/36242833278)
+completed successfully on trial head
+`82778683f42e88673e97e6e7237a790eb178726f`, using the repaired control above.
+The trial retained four recent successful JavaScript ASTs keyed by exact bytes,
+while keeping fresh authored wrappers and spans. Parser refusals, eviction,
+dialect and prefix settings, complexity coordinates and decoded Vapor maps
+passed the focused trial checks. The complete input output/diagnostic
+observations equal the repaired control.
+
+| Shape      | Control median | Trial median | Trial runner ratios    |
+| ---------- | -------------: | -----------: | ---------------------- |
+| DOM inline |         1.0244 |       1.0245 | 1.0111, 1.0355, 1.0245 |
+| DOM module |         1.0233 |       1.0259 | 1.0259, 1.0353, 1.0216 |
+| SSR        |         1.3345 |       1.3300 | 1.3300, 1.3302, 1.3135 |
+| Vapor      |         1.0673 |       1.0664 | 1.0664, 1.0667, 1.0603 |
+
+The runner ranges overlap the control. No meaningful improvement was measured,
+so the expression-reuse implementation remains a rejected trial and is not
+included in the production branch. The [raw trial record](./p3-6-expression-reuse.samples.json)
+preserves the paired arrays and provenance without changing any fixed gate.
