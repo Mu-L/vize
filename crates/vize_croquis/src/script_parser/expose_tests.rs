@@ -63,7 +63,7 @@ fn exposure_aliases_use_the_authoritative_lattice_row() {
     let source = "const count = ref(0); function nested() { const count = computed(() => 1); } defineExpose({ publicCount: count });";
     let mut drawer = Drawer::with_options(DrawerOptions::full());
     drawer.draw_script_setup(source);
-    let croquis = drawer.finish();
+    let mut croquis = drawer.finish();
     assert_eq!(croquis.semantic_summary().exposed_binding_count, 1);
     let alias = croquis.macros.expose_bindings().first().unwrap();
     let span = alias.declaration_span.unwrap();
@@ -73,6 +73,19 @@ fn exposure_aliases_use_the_authoritative_lattice_row() {
         .find(|row| {
             Some(row.name.as_str()) == alias.local_name.as_deref()
                 && span.0 == row.declaration_offset
+        })
+        .unwrap();
+    assert_eq!(source.class, ReactivityClass::Reactive);
+    assert_eq!(source.verdict, Verdict::Proven);
+    croquis.shift_script_offsets(17);
+    let alias = croquis.macros.expose_bindings().first().unwrap();
+    assert_eq!(alias.declaration_span, Some((span.0 + 17, span.1 + 17)));
+    let rows = reactivity_sources(&croquis);
+    let source = rows
+        .iter()
+        .find(|row| {
+            Some(row.name.as_str()) == alias.local_name.as_deref()
+                && Some(row.declaration_offset) == alias.declaration_span.map(|span| span.0)
         })
         .unwrap();
     assert_eq!(source.class, ReactivityClass::Reactive);

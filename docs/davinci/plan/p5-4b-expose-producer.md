@@ -10,7 +10,8 @@ production AlphaPages exporter; it does not close the full resident acceptance.
 - `ExposeDefinition` keeps its existing public fields, `name` and `expose_type`.
 - `expose_bindings()` records the public name, resolved local binding, and exact
   declaration identifier span. Consumers match both name and span against the
-  authoritative `Reactivity` source rows and their lattice verdicts.
+  authoritative `Reactivity` source rows and their lattice verdicts. Embedding
+  through `shift_script_offsets` shifts both declarations and source rows.
 - Local macro shadowing is resolved lexically, including later declarations.
   Nested function calls do not declare the component's public instance.
 - Static string keys and property aliases are supported. Duplicate names use
