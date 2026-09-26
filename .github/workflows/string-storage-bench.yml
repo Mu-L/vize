@@ -1,6 +1,10 @@
 name: String Storage Bench
 
 on:
+  pull_request:
+    paths:
+      - "crates/vize_croquis_cf/**"
+      - ".github/workflows/string-storage-bench.yml"
   workflow_dispatch:
     inputs:
       base_sha:
@@ -31,13 +35,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ inputs.head_sha }}
+          ref: ${{ inputs.head_sha || github.event.pull_request.head.sha }}
           path: head
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ inputs.base_sha }}
+          ref: ${{ inputs.base_sha || github.event.pull_request.base.sha }}
           path: base
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
@@ -53,9 +57,9 @@ jobs:
           target-path: head/target
       - name: Validate exact commits and use identical benchmark harness
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
-          HEAD_SHA: ${{ inputs.head_sha }}
-          DISPATCH_SHA: ${{ github.sha }}
+          BASE_SHA: ${{ inputs.base_sha || github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ inputs.head_sha || github.event.pull_request.head.sha }}
+          DISPATCH_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]

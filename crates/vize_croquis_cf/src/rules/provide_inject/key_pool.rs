@@ -32,7 +32,7 @@ pub(super) fn build_pool<'a>(keys: impl Iterator<Item = &'a ProvideKey>) -> Opti
     let mut pool = Pool::with_capacity_memory_limits_and_hasher(
         capacity,
         MemoryLimits::for_memory_usage(bytes.max(1)),
-        FxBuildHasher::default(),
+        FxBuildHasher,
     );
     for text in texts {
         pool.try_get_or_intern(text).ok()?;

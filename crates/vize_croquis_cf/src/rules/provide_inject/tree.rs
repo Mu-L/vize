@@ -114,10 +114,10 @@ fn build_roots<'a, K: Copy + Eq + Hash + Ord>(
             build_node(
                 file_id,
                 registry,
-                &child_map,
+                child_map,
                 index.provides(),
                 index.injects(),
-                &consumer_counts,
+                consumer_counts,
                 &FxHashMap::default(),
                 &mut active_nodes,
                 &mut expanded,
@@ -201,7 +201,7 @@ fn build_node<'a, K: Copy + Eq + Hash + Ord>(
         .iter()
         .map(|(key, provider)| (*key, *provider))
         .collect::<Vec<_>>();
-    provider_context.sort_by(|left, right| left.0.cmp(&right.0));
+    provider_context.sort_by_key(|entry| entry.0);
 
     // A shared DAG node needs one expanded subtree per provider context.
     // Repeated render paths in the same context retain the node but refer to
