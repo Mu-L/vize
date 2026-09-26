@@ -6,9 +6,11 @@ mod validate;
 
 use vize_davinci::fact::{AlphaDocument, ExpressionFact, ExpressionFacts, FactTable};
 use vize_davinci::folio::{Folio, FolioMode};
-use vize_extension_host::contract::{Capability, Diagnostic, GuestError, Page, Severity, Stage};
-use vize_extension_host::expression::{Analysis, ProjectionPage, ProjectionRow, Range};
-use vize_extension_host::typed_expression::{
+use vize_extension_contract::contract::{
+    Capability, Diagnostic, GuestError, Page, Severity, Stage,
+};
+use vize_extension_contract::expression::{Analysis, ProjectionPage, ProjectionRow, Range};
+use vize_extension_contract::typed_expression::{
     REQUIRED_FEATURES, TypedExpressionBatch, TypedExpressionGuest,
 };
 use vize_s0::{Allocator, String, cstr};
@@ -59,7 +61,7 @@ impl<H> MoonBitTypedGuest<H> {
 impl<H: MooncHost> TypedExpressionGuest for MoonBitTypedGuest<H> {
     fn get_capability(&mut self) -> Result<Capability, GuestError> {
         Ok(Capability {
-            protocol_version: vize_extension_host::contract::PROTOCOL_VERSION,
+            protocol_version: vize_extension_contract::contract::PROTOCOL_VERSION,
             features: REQUIRED_FEATURES
                 .iter()
                 .copied()

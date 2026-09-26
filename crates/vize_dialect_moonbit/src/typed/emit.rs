@@ -2,7 +2,7 @@
 
 use super::TypedProjection;
 use crate::projection::{Position, PositionKind, Projection, Role, SpanLink};
-use vize_extension_host::typed_expression::{Demand, TypedExpressionBatch};
+use vize_extension_contract::typed_expression::{Demand, TypedExpressionBatch};
 use vize_s0::{Allocator, Span, String, append};
 use vize_s2::expr::ForeignExpr;
 

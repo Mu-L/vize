@@ -1,7 +1,7 @@
 //! Guard scaffolding inputs without interpreting or inventing their types.
 
 use core::fmt;
-use vize_extension_host::typed_expression::{TypedBinding, TypedExpressionBatch};
+use vize_extension_contract::typed_expression::{TypedBinding, TypedExpressionBatch};
 use vize_s0::{String, cstr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -2,9 +2,9 @@
      Regenerate: rust-script tools/commands/davinci/croquis-consumers.rs --write
      Verify:     rust-script tools/commands/davinci/croquis-consumers.rs --check -->
 
-# Croquis consumption: `vize_extension_host`
+# Croquis consumption: `vize_extension_contract`
 
-One shard of the [Croquis consumption matrix](../croquis-consumption.md): every fact the matrix records about `crates/vize_extension_host/src`. The method and the product set live on that page.
+One shard of the [Croquis consumption matrix](../croquis-consumption.md): every fact the matrix records about `crates/vize_extension_contract/src`. The method and the product set live on that page.
 
 ## Resolved product sites
 
@@ -18,4 +18,4 @@ _None._
 
 | product | resolved | grep |
 | ------- | -------: | ---: |
-| `Span`  |        0 |   24 |
+| `Span`  |        0 |   22 |

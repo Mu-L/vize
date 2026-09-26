@@ -6,7 +6,7 @@ use vize_dialect_moonbit::cache::CachedMoonc;
 use vize_dialect_moonbit::host::{CheckUnit, MooncHost};
 use vize_dialect_moonbit::native::NativeMoonc;
 use vize_dialect_moonbit::typed::{MoonBitTypedGuest, project};
-use vize_extension_host::typed_expression::TypedExpressionSession;
+use vize_extension_contract::typed_expression::TypedExpressionSession;
 use vize_s0::Allocator;
 
 #[expect(
@@ -52,7 +52,10 @@ fn compiler_type_errors_map_to_the_authored_expressions_exactly() {
     let accepted = session.analyze(&batch).unwrap();
     assert_eq!(accepted.analysis.diagnostics.len(), 7);
     for (diagnostic, expression) in accepted.analysis.diagnostics.iter().zip(&batch.expressions) {
-        assert_eq!(diagnostic.severity, vize_extension_host::Severity::Error);
+        assert_eq!(
+            diagnostic.severity,
+            vize_extension_contract::Severity::Error
+        );
         assert!(
             expression.span.start <= diagnostic.span.start
                 && diagnostic.span.end <= expression.span.end

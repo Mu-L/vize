@@ -26,12 +26,16 @@ moonc = ["dep:sha2"]
 serde_json = { workspace = true }
 sha2 = { workspace = true, optional = true }
 vize_davinci = { workspace = true }
-vize_extension_host = { workspace = true }
+vize_extension_contract = { workspace = true }
 vize_croquis = { workspace = true }
 vize_s0 = { workspace = true }
 vize_s1 = { workspace = true }
 vize_s1_to_s2 = { workspace = true }
 vize_s2 = { workspace = true }
+
+[dev-dependencies]
+# Wire round-trip fixture only: shipped dialects cannot acquire wasmtime.
+vize_extension_host = { workspace = true }
 
 [[test]]
 name = "moonc_e2e"

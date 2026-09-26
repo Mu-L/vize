@@ -1,0 +1,21 @@
+[package]
+name = "vize_extension_contract"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Transport-free Vize extension records and canonical acceptance"
+publish = false
+metadata.vize.stability = "experimental"
+
+[dependencies]
+serde = { workspace = true }
+vize_davinci = { workspace = true }
+vize_s0 = { workspace = true }
+vize_s1 = { workspace = true }
+vize_s1_to_s2 = { workspace = true }
+vize_s2 = { workspace = true }
+
+[lints]
+workspace = true

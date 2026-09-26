@@ -24,6 +24,7 @@ metadata.vize.stability = "experimental"
 extension-host = ["dep:wasmtime"]
 
 [dependencies]
+vize_extension_contract = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 vize_davinci = { workspace = true }

@@ -1,8 +1,8 @@
 //! Exact typed-producer inputs; signatures are explicit, never inferred.
 #![expect(clippy::unwrap_used, reason = "fixture byte offsets fit u32")]
 
-use vize_extension_host::contract::Span;
-use vize_extension_host::typed_expression::{
+use vize_extension_contract::contract::Span;
+use vize_extension_contract::typed_expression::{
     Demand, TypedBinding, TypedExpression, TypedExpressionBatch,
 };
 

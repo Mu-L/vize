@@ -4,7 +4,7 @@ mod support;
 
 use vize_dialect_moonbit::host::Replay;
 use vize_dialect_moonbit::typed::{EnvironmentError, MoonBitTypedGuest, project};
-use vize_extension_host::typed_expression::{TypedExpressionGuest, TypedExpressionSession};
+use vize_extension_contract::typed_expression::{TypedExpressionGuest, TypedExpressionSession};
 use vize_extension_host::wire::{Request, read_message, write_message};
 use vize_s0::Allocator;
 
@@ -115,11 +115,11 @@ fn a_siblings_local_is_not_an_exact_binding_in_this_scope() {
     facts.alpha.references.insert(0, "item".into());
     facts.alpha.exact.insert(0, true);
     analysis.facts.text = facts.print_to_string(FolioMode::Full);
-    let error =
-        vize_extension_host::typed_expression::accept_typed_analysis(&batch, analysis).unwrap_err();
+    let error = vize_extension_contract::typed_expression::accept_typed_analysis(&batch, analysis)
+        .unwrap_err();
     assert_eq!(
         error,
-        vize_extension_host::expression::AnalysisError::UnknownBinding {
+        vize_extension_contract::expression::AnalysisError::UnknownBinding {
             id: 0,
             name: "item".into()
         }
@@ -132,7 +132,7 @@ fn a_large_typed_body_is_refused_before_projection_offset_conversion() {
     batch.expressions = vec![support::typed::expression(
         0,
         &"x".repeat(128 * 1024),
-        vize_extension_host::typed_expression::Demand::Value,
+        vize_extension_contract::typed_expression::Demand::Value,
     )];
     assert_eq!(
         project(&Allocator::new(), &batch).unwrap_err(),

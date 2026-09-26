@@ -15,7 +15,10 @@ signature. Expressions carry their authored bytes, exact span, typed demand
 and scope-local bindings. A local shadows a block binding only inside its own
 expression; a sibling's local cannot become an exact reference.
 
-The compiled-in `MoonBitTypedGuest` implements this same world. The component
+The compiled-in `MoonBitTypedGuest` implements this same world through the
+transport-free `vize_extension_contract` records and session. The host
+reexports those modules, retaining its public Rust paths, and owns the optional
+Wasmtime dependency. The shipped MoonBit dialect cannot acquire that runtime. The component
 host also carries it in process and out of process, under the existing fuel
 and memory limits. The SDK's transport probe observes changed signatures and
 local scopes; it retains the existing analysis-page goldens byte for byte.
