@@ -15,7 +15,9 @@ use crate::macros::EmitDefinition;
 use vize_carton::{CompactString, String};
 
 use super::super::ScriptParseResult;
-use super::runtime_objects::{collect_runtime_object_expression, has_runtime_type_assertion};
+use super::runtime_objects::{
+    collect_runtime_object_expression, has_runtime_type_assertion, is_const_type_assertion,
+};
 
 /// Extract emits from runtime arguments (array)
 pub fn extract_emits_from_runtime(
@@ -189,6 +191,16 @@ pub(in crate::script_parser) fn extract_runtime_emit_payload_type(
         }
         // Casts can override the underlying callable type. Retain their authored
         // annotations separately instead of inferring an effective payload.
+        Expression::TSAsExpression(wrapper)
+            if is_const_type_assertion(&wrapper.type_annotation) =>
+        {
+            extract_runtime_emit_payload_type(&wrapper.expression, source)
+        }
+        Expression::TSTypeAssertion(wrapper)
+            if is_const_type_assertion(&wrapper.type_annotation) =>
+        {
+            extract_runtime_emit_payload_type(&wrapper.expression, source)
+        }
         Expression::TSAsExpression(_) | Expression::TSTypeAssertion(_) => None,
         Expression::TSSatisfiesExpression(ts_satisfies) => {
             extract_runtime_emit_payload_type(&ts_satisfies.expression, source)

@@ -1,4 +1,6 @@
-use oxc_ast::ast::{Expression, ObjectExpression, ObjectPropertyKind, VariableDeclarationKind};
+use oxc_ast::ast::{
+    Expression, ObjectExpression, ObjectPropertyKind, TSType, TSTypeName, VariableDeclarationKind,
+};
 
 use crate::macros::{EmitDefinition, PropDefinition};
 use vize_carton::CompactString;
@@ -62,6 +64,16 @@ pub(super) fn collect_runtime_object_expression(
 pub(super) fn has_runtime_type_assertion(mut expression: &Expression<'_>) -> bool {
     loop {
         expression = match expression {
+            Expression::TSAsExpression(wrapper)
+                if is_const_type_assertion(&wrapper.type_annotation) =>
+            {
+                &wrapper.expression
+            }
+            Expression::TSTypeAssertion(wrapper)
+                if is_const_type_assertion(&wrapper.type_annotation) =>
+            {
+                &wrapper.expression
+            }
             Expression::TSAsExpression(_) | Expression::TSTypeAssertion(_) => return true,
             Expression::TSSatisfiesExpression(wrapper) => &wrapper.expression,
             Expression::TSNonNullExpression(wrapper) => &wrapper.expression,
@@ -69,6 +81,15 @@ pub(super) fn has_runtime_type_assertion(mut expression: &Expression<'_>) -> boo
             _ => return false,
         };
     }
+}
+
+pub(super) fn is_const_type_assertion(annotation: &TSType<'_>) -> bool {
+    // `as const`/`<const>` preserve the literal's callable annotations. They
+    // cannot replace them with an asserted function or object type.
+    matches!(annotation, TSType::TSTypeReference(reference)
+        if reference.type_arguments.is_none()
+            && matches!(&reference.type_name, TSTypeName::IdentifierReference(identifier)
+                if identifier.name == "const"))
 }
 
 fn collect_runtime_object_literal(

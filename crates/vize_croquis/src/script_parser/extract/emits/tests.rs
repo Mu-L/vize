@@ -259,3 +259,44 @@ fn whole_runtime_object_constraints_follow_active_events_and_nested_spreads() {
             .is_empty()
     );
 }
+
+#[test]
+fn const_object_assertions_preserve_known_validator_payloads_through_spreads() {
+    let source = "type SavePayload = { id: number }; const commonEmits = { save: (payload: SavePayload) => payload.id > 0, close() { return true } } as const; const copied = { ...(commonEmits as const) }; defineEmits(({ ...copied, cancel: null } satisfies Contract) as const);";
+    assert_eq!(
+        payload(source, "save").as_deref(),
+        Some("[payload: SavePayload]")
+    );
+    assert_eq!(payload(source, "close").as_deref(), Some("[]"));
+    assert_eq!(payload(source, "cancel"), None);
+    let annotations = parse_script_setup(source)
+        .macros
+        .emit_validator_type_annotations("save")
+        .to_vec();
+    assert!(
+        annotations
+            .iter()
+            .any(|annotation| annotation == "Contract")
+    );
+    for wrapped in [
+        "defineEmits(<const>{ save: (payload: SavePayload) => true, close() { return true } });",
+        "const commonEmits = <const>{ save: (payload: SavePayload) => true, close() { return true } }; defineEmits({ ...commonEmits });",
+    ] {
+        assert_eq!(
+            payload(wrapped, "save").as_deref(),
+            Some("[payload: SavePayload]")
+        );
+        assert_eq!(payload(wrapped, "close").as_deref(), Some("[]"));
+    }
+    assert_eq!(
+        payload(&source.replace("satisfies Contract", "as Contract"), "save"),
+        None
+    );
+    assert_eq!(
+        payload(
+            "defineEmits(<Contract>{ save: (payload: SavePayload) => true });",
+            "save"
+        ),
+        None
+    );
+}
