@@ -15,7 +15,7 @@
 //! comparators are disarmed here and the deltas are the production floor.
 
 use davinci_harness::fixtures::{LADDER, template_block};
-use vize_atelier_core::expr_parse_probe;
+use vize_atelier_core::{expr_parse_probe, walk_probe::WalkCounts};
 use vize_atelier_vapor::{VaporCompilerOptions, compile_vapor};
 use vize_carton::Allocator;
 
@@ -48,5 +48,35 @@ fn vapor_legacy_reparse_floor_holds() {
             "vapor {}: surviving legacy re-parses moved from the pinned P1-7 floor",
             fixture.name
         );
+    }
+    // Computed names retain their S2 expression AST. Keep this recorder in
+    // the same single-test binary so process-global probes cannot race.
+    for source in [
+        r#"<slot :name="name"></slot>"#,
+        r#"<slot :name="names[selected]" :value="count"><b>{{ fallback }}</b></slot>"#,
+        r#"<slot :name="enabled ? first : second"></slot>"#,
+        r#"<slot :name="'prefix-' + selected"></slot>"#,
+        r#"<slot :name="name.toLowerCase()"></slot>"#,
+    ] {
+        for prefix_identifiers in [false, true] {
+            let allocator = Allocator::new();
+            let walks = WalkCounts::snapshot();
+            let parses = expr_parse_probe::expr_parse_count();
+            let compiled = compile_vapor(
+                &allocator,
+                source,
+                VaporCompilerOptions {
+                    prefix_identifiers,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(compiled.error_messages.len(), 0, "{source}");
+            assert_eq!(
+                WalkCounts::snapshot().since(walks).total_walks(),
+                0,
+                "{source}"
+            );
+            assert_eq!(expr_parse_probe::expr_parse_count() - parses, 0, "{source}");
+        }
     }
 }

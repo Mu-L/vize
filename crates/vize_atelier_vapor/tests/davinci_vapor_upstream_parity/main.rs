@@ -11,6 +11,7 @@
     reason = "tests assert by panicking and compare std-string fixtures"
 )]
 
+mod dynamic_slots;
 mod trace;
 
 use serde::Deserialize;
@@ -19,7 +20,7 @@ use vize_atelier_core::walk_probe::WalkCounts;
 use vize_atelier_vapor::{VaporCompilerOptions, compile_vapor};
 use vize_carton::Allocator;
 
-use trace::trace;
+use trace::{assert_native_upstream_trace, trace};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -267,49 +268,6 @@ fn s3_component_models_match_official_vapor_updates() {
         }
         assert_eq!(vize[3]["tree"], json!([]), "{model}: unmount");
     }
-}
-
-fn assert_native_upstream_trace(source: &str, context: Value, steps: Value, expected: Vec<Value>) {
-    let allocator = Allocator::new();
-    let before = WalkCounts::snapshot();
-    let compiled = compile_vapor(
-        &allocator,
-        source,
-        VaporCompilerOptions {
-            prefix_identifiers: true,
-            ..Default::default()
-        },
-    );
-    assert!(
-        compiled.error_messages.is_empty(),
-        "{source}: {:?}",
-        compiled.error_messages
-    );
-    assert_eq!(
-        WalkCounts::snapshot().since(before).total_walks(),
-        0,
-        "{source}: TS-33 must exercise native S3"
-    );
-    let vize = trace(
-        "davinci-mounted-trace.mjs",
-        json!({
-            "backend": "vapor",
-            "code": compiled.code,
-            "context": context.clone(),
-            "steps": steps.clone(),
-            "identities": true,
-        }),
-    );
-    let upstream = trace(
-        "davinci-upstream-vapor-trace.mjs",
-        json!({"source": source, "context": context, "steps": steps}),
-    );
-    assert_eq!(vize, expected, "{source}: Vize native S3 trace");
-    assert_eq!(
-        upstream, expected,
-        "{source}: official compiler-vapor trace"
-    );
-    assert_eq!(vize, upstream, "{source}: TS-33 behavior-level parity");
 }
 
 #[test]

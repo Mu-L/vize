@@ -107,19 +107,24 @@ impl<'a> Emitter<'a, '_> {
     ) {
         // The caller checked the outlet payload.
         let Some(Node {
-            content: Content::Outlet { name, props },
+            content:
+                Content::Outlet {
+                    name,
+                    dynamic,
+                    props,
+                },
             children,
             ..
         }) = self.artifact.nodes.get_mut(index)
         else {
             return self.invariant_broken();
         };
-        let name = *name;
+        let (name, dynamic) = (*name, *dynamic);
         let props = take(self.allocator, props);
         let children = take(self.allocator, children);
         let fallback = (!children.is_empty()).then(|| self.block(&children));
         let props = self.props(&props, false);
-        let name = self.expression(Expr::plain(name), true);
+        let name = self.expression(name, !dynamic);
         block
             .operation
             .push(OperationNode::SlotOutlet(SlotOutletIRNode {

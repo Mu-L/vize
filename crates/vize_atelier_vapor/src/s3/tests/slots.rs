@@ -11,6 +11,62 @@ fn admitted(source: &str) -> bool {
     )
 }
 
+#[test]
+fn computed_outlet_names_use_native_s3_with_retained_expressions() {
+    for source in [
+        r#"<slot :name="name"></slot>"#,
+        r#"<slot :name="names[selected]" :value="count"><b>{{ fallback }}</b></slot>"#,
+        r#"<slot :name="enabled ? first : second"></slot>"#,
+        r#"<slot :name="'prefix-' + selected"></slot>"#,
+        r#"<slot :name="name.toLowerCase()"></slot>"#,
+    ] {
+        assert!(admitted(source), "{source}");
+        for prefix_identifiers in [false, true] {
+            let allocator = Allocator::new();
+            let native = compile_vapor(
+                &allocator,
+                source,
+                VaporCompilerOptions {
+                    prefix_identifiers,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(native.error_messages.len(), 0, "{source}");
+            let retained = compile_vapor(
+                &allocator,
+                source,
+                VaporCompilerOptions {
+                    prefix_identifiers,
+                    davinci_retained_lane: true,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(
+                native.code, retained.code,
+                "{source}: prefix={prefix_identifiers}"
+            );
+        }
+    }
+}
+
+#[test]
+fn computed_outlet_name_is_owned_by_the_checked_graph() {
+    let allocator = Allocator::new();
+    let mut s3 = super::lowered_source(&allocator, r#"<slot :name="original"></slot>"#);
+    let name = s3
+        .program
+        .operands
+        .iter_mut()
+        .find(|operand| operand.role == vize_s3::operand::OperandRole::Name)
+        .unwrap();
+    name.value.text = "replacement";
+    let code = super::generated(
+        crate::s3::admit(s3, &crate::s3::retained::Retained::new(&allocator)),
+        &allocator,
+    );
+    insta::assert_snapshot!("computed_outlet_payload", code);
+}
+
 /// Named and scoped slots at the template root match the retained lane byte
 /// for byte, including the shared generator's plain-identifier parameter.
 #[test]

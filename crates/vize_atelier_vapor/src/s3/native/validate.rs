@@ -127,7 +127,7 @@ pub(super) fn admit<'a>(
                 control::for_loop(values, retained, carrier, op.span)?
             }
             OpKind::CreateComponent => component::component(values, alloc)?,
-            OpKind::SlotOutlet => component::outlet(values, alloc)?,
+            OpKind::SlotOutlet => component::outlet(values, retained)?,
             _ => return Err(LegacyReason::Operation.into()),
         };
         let region = op.region.index() as usize;
