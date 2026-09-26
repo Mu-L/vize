@@ -98,7 +98,7 @@ fn compile_sfc_inner(
     };
     let auto_ssr_css_vars = options.template.ssr_css_vars.is_none();
     if auto_ssr_css_vars {
-        crate::css::vars::inject_ssr_values(
+        crate::css::transform::vars::inject_ssr_values(
             &mut options.template,
             &descriptor.css_vars,
             &scope_id,
@@ -254,7 +254,7 @@ fn compile_sfc_inner(
             } else {
                 let mut template_opts = options.template.clone();
                 if auto_ssr_css_vars {
-                    crate::css::vars::inject_ssr_values(
+                    crate::css::transform::vars::inject_ssr_values(
                         &mut template_opts,
                         &descriptor.css_vars,
                         &scope_id,
@@ -598,7 +598,7 @@ fn compile_sfc_inner(
             // can otherwise lose parent scoped attrs before the final DOM root.
             let mut template_opts = options.template.clone();
             if auto_ssr_css_vars {
-                crate::css::vars::inject_ssr_values(
+                crate::css::transform::vars::inject_ssr_values(
                     &mut template_opts,
                     &descriptor.css_vars,
                     &scope_id,

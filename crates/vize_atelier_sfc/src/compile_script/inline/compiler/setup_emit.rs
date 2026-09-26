@@ -56,7 +56,12 @@ fn transform_css_var_expression(
     var_expr: &str,
     source_is_ts: bool,
 ) -> String {
-    let code = crate::css::vars::transform_value(var_expr, Some(&ctx.bindings), true, source_is_ts);
+    let code = crate::css::transform::vars::transform_value(
+        var_expr,
+        Some(&ctx.bindings),
+        true,
+        source_is_ts,
+    );
 
     rewrite_props_aliases(code, &ctx.bindings)
 }

@@ -18,8 +18,7 @@ mod scoped;
 pub(crate) mod scoped_selector;
 #[cfg(test)]
 mod tests;
-mod transform;
-pub(crate) mod vars;
+pub(crate) mod transform;
 
 use serde::{Deserialize, Serialize};
 

@@ -173,15 +173,15 @@ compiler	Compiler	source	crates/vize_atelier_sfc/src/croquis/drawer.rs	3	s0	S0	s
 compiler	Compiler	source	crates/vize_atelier_sfc/src/croquis/drawer.rs	3	croquis	Croquis analysis	old	vize_croquis	legacy	1
 compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/croquis/tests.rs	6	croquis	Croquis analysis	old	vize_croquis	legacy	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css.rs	13	s0	S0	stage	vize_carton	compat	2
-compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/css.rs	33	s0	S0	stage	vize_carton	compat	3
+compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/css.rs	32	s0	S0	stage	vize_carton	compat	3
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css/parser.rs	14	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css/parser/engine_boundary.rs	30	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css/parser/engine_boundary/value_guard.rs	22	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css/scoped.rs	8	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/css/scoped/slotted.rs	3	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/css/tests.rs	8	s0	S0	stage	vize_carton	compat	4
-compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/css/transform.rs	4	croquis	Croquis analysis	old	vize_croquis	legacy	2
-compiler	Compiler	source	crates/vize_atelier_sfc/src/css/vars.rs	10	s0	S0	stage	vize_carton	compat	2
+compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/css/transform.rs	6	croquis	Croquis analysis	old	vize_croquis	legacy	2
+compiler	Compiler	source	crates/vize_atelier_sfc/src/css/transform/vars.rs	10	s0	S0	stage	vize_carton	compat	2
 compiler	Compiler	source	crates/vize_atelier_sfc/src/lib.rs	32	s0	S0	stage	vize_s0	preferred	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/lib.rs	32	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/lib.rs	32	croquis	Croquis analysis	old	vize_croquis	legacy	1
