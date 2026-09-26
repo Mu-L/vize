@@ -105,9 +105,7 @@ impl<'r, 'a> Emitter<'_, 'r, 'a, '_, '_, '_> {
             self.ctx.push("}");
         }
         self.ctx.push(", _push, _parent");
-        if self.ctx.with_slot_scope_id || self.ctx.options.scope_id.is_some() {
-            self.ctx.push(", _scopeId");
-        }
+        self.ctx.push_slot_scope_id();
         self.ctx.push(")\n");
         self.close(
             Kind::CloseSlot,

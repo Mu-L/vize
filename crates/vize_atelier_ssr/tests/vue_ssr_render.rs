@@ -113,6 +113,45 @@ fn aligned_ssr_shapes_render_like_vue_while_the_old_output_did_not() {
         .collect::<Vec<_>>()
         .join(",");
     let input = format!("{{\"check\":true,\"cases\":[{cases}]}}");
+    let rendered = render_cases(&input);
+    assert_eq!(
+        rendered.lines().count(),
+        fixtures::FIXTURES.len(),
+        "one rendered result per fixture:\n{rendered}"
+    );
+}
+
+#[test]
+fn scoped_layout_slots_render_page_roots_like_vue() {
+    let cases = [
+        ("layout", "<div class=\"layout\"><slot /></div>"),
+        ("forwarded", "<Forwarder><slot /></Forwarder>"),
+    ]
+    .map(|(name, template)| {
+        let allocator = Allocator::new();
+        let options = SsrCompilerOptions {
+            scope_id: Some("data-v-layout".into()),
+            ..Default::default()
+        };
+        let (_, errors, result) = compile_ssr_with_options(&allocator, template, options);
+        assert!(errors.is_empty(), "{errors:?}");
+        let code = format!("{}{}", result.preamble, result.code);
+        assert!(!code.contains("_attrs, _scopeId"));
+        assert!(code.contains("\"data-v-layout-s\""));
+        let legacy = code.replace("\"data-v-layout-s\"", "({})");
+        format!(
+            "{{\"name\":{},\"template\":{},\"vize\":{},\"legacy\":{},\"scopeId\":\"data-v-layout\"}}",
+            json(name), json(template), json(&code), json(&legacy)
+        )
+    })
+    .join(",");
+    let rendered = render_cases(&format!("{{\"check\":true,\"cases\":[{cases}]}}"));
+    assert_eq!(rendered.lines().count(), 2);
+    assert!(rendered.contains("data-v-page"));
+    assert!(rendered.contains("data-v-layout-s"));
+}
+
+fn render_cases(input: &str) -> String {
     let mut child = Command::new("node")
         .arg(
             Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -138,10 +177,5 @@ fn aligned_ssr_shapes_render_like_vue_while_the_old_output_did_not() {
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout),
     );
-    let rendered = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(
-        rendered.lines().count(),
-        fixtures::FIXTURES.len(),
-        "one rendered result per fixture:\n{rendered}"
-    );
+    String::from_utf8(output.stdout).expect("render results are UTF-8")
 }

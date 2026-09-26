@@ -47,12 +47,25 @@ impl<'a> SsrCodegenContext<'a> {
 
         self.push(", _push, _parent");
 
-        // Scope ID
-        if self.with_slot_scope_id || self.options.scope_id.is_some() {
-            self.push(", _scopeId");
-        }
+        self.push_slot_scope_id();
 
         self.push(")\n");
+    }
+
+    /// A scoped outlet contributes its own slotted ID; only a slot callback
+    /// receives `_scopeId` from the renderer and can forward it.
+    pub(crate) fn push_slot_scope_id(&mut self) {
+        if let Some(scope_id) = self.options.scope_id.as_deref() {
+            let mut slotted_id = String::from(scope_id);
+            slotted_id.push_str("-s");
+            self.push(", ");
+            self.push(&quoted_js_string(&slotted_id));
+            if self.with_slot_scope_id {
+                self.push(" + _scopeId");
+            }
+        } else if self.with_slot_scope_id {
+            self.push(", _scopeId");
+        }
     }
 
     pub(super) fn build_slot_outlet_props(&mut self, el: &ElementNode) -> String {
