@@ -46,8 +46,16 @@ ScriptParseResult {
     types: TypeResolver {
         definitions: TypeDefinitions {
             interfaces: {},
-            type_aliases: {},
-            imported_types: {},
+            type_aliases: {
+                "\0vize:imported_type_export:ref": "ref",
+                "\0vize:imported_type_export:computed": "computed",
+                "\0vize:imported_type_export:MyComponent": "default",
+            },
+            imported_types: {
+                "computed": "vue",
+                "ref": "vue",
+                "MyComponent": "./MyComponent.vue",
+            },
         },
     },
     type_exports: [],
