@@ -7,7 +7,7 @@ mod resolve;
 #[cfg(test)]
 mod tests;
 
-use vize_carton::{CompactString, FxHashMap};
+use vize_carton::{CompactString, FxHashMap, FxHashSet};
 
 #[derive(Debug, Clone, Default)]
 pub struct ResolvedTypeWorld {
@@ -18,6 +18,8 @@ pub struct ResolvedTypeWorld {
 #[derive(Debug, Clone, Default)]
 pub struct TypeModule {
     pub declarations: FxHashMap<CompactString, TypeDeclaration>,
+    /// Declaration merging needs semantic elaboration; never select one part.
+    pub unsupported_declarations: FxHashSet<CompactString>,
     pub imports: FxHashMap<CompactString, TypeImport>,
     pub exports: FxHashMap<CompactString, TypeExportBinding>,
     pub star_exports: Vec<TypeModuleReference>,
@@ -92,6 +94,7 @@ pub enum UnknownTypeReason {
     MissingModule,
     IncompleteModule,
     UnsupportedQualification,
+    UnsupportedDeclaration,
     AmbiguousExport,
     ResolutionCycle,
     ResolutionLimit,

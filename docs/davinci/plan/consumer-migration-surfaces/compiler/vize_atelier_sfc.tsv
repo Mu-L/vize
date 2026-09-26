@@ -234,7 +234,8 @@ compiler	Compiler	source	crates/vize_atelier_sfc/src/script/context/type_world/p
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/context/type_world/parse.rs	1	raw_oxc	raw OXC	raw	oxc_ast	raw	4
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/context/type_world/parse.rs	1	raw_oxc	raw OXC	raw	oxc_ast_visit	raw	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/context/type_world/parse.rs	1	raw_oxc	raw OXC	raw	oxc_parser	raw	1
-compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/script/context/type_world/tests.rs	6	croquis	Croquis analysis	old	vize_croquis	legacy	1
+compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/script/context/type_world/tests.rs	6	s0	S0	stage	vize_carton	compat	1
+compiler	Compiler	test/dev	crates/vize_atelier_sfc/src/script/context/type_world/tests.rs	6	croquis	Croquis analysis	old	vize_croquis	legacy	2
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/define_emits.rs	8	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/define_emits.rs	8	croquis	Croquis analysis	old	vize_croquis	legacy	1
 compiler	Compiler	source	crates/vize_atelier_sfc/src/script/define_emits.rs	8	raw_oxc	raw OXC	raw	oxc_ast	raw	1

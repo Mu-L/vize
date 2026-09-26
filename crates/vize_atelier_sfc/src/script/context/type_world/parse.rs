@@ -186,7 +186,11 @@ fn add_declaration(
     exported: bool,
 ) {
     let name = CompactString::new(name);
-    module.declarations.insert(name.clone(), declaration);
+    if module.declarations.contains_key(&name) {
+        module.unsupported_declarations.insert(name.clone());
+    } else {
+        module.declarations.insert(name.clone(), declaration);
+    }
     if exported {
         module
             .exports

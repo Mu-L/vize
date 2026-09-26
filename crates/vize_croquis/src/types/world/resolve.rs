@@ -49,6 +49,9 @@ impl ResolvedTypeWorld {
         if !scope.complete {
             return self.unknown(module, name, UnknownTypeReason::IncompleteModule);
         }
+        if scope.unsupported_declarations.contains(name) {
+            return self.unknown(module, name, UnknownTypeReason::UnsupportedDeclaration);
+        }
         if scope.declarations.contains_key(name) {
             return TypeLookup::Found(TypeDeclarationId {
                 module: CompactString::new(module),

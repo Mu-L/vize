@@ -201,3 +201,27 @@ fn imported_tsx_uses_its_declared_syntax_without_breaking_ts_assertions() {
         "{ value: string }"
     );
 }
+
+#[test]
+fn declaration_merging_is_unknown_without_hiding_a_part_or_poisoning_siblings() {
+    let dir = tempfile::tempdir().unwrap();
+    let api = dir.path().join("api.ts");
+    let source = "import type { Public, Sibling } from './api'; defineProps<{ value: Public; other: Sibling }>()";
+    let filename = dir.path().join("App.vue");
+    for field in ["first: string", "first: number"] {
+        std::fs::write(&api, vize_carton::cstr!("export interface Public<T = string> {{ {field} }}; export interface Public<T = string> {{ second: number }}; export type Sibling = boolean")).unwrap();
+        let world =
+            ScriptCompileContext::new(source).resolve_type_world(filename.to_str().unwrap(), None);
+        let TypeLookup::Unknown(reference) = world.resolve(&world.root_module, "Public") else {
+            panic!("merged interfaces cannot select one declaration part")
+        };
+        assert_eq!(
+            reference.reason,
+            vize_croquis::types::world::UnknownTypeReason::UnsupportedDeclaration
+        );
+        let TypeLookup::Found(sibling) = world.resolve(&world.root_module, "Sibling") else {
+            panic!("unrelated sibling remains resolved")
+        };
+        assert_eq!(world.declaration(&sibling).unwrap().body, "boolean");
+    }
+}

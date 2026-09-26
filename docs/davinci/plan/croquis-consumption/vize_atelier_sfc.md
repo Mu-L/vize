@@ -52,9 +52,10 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `TypeDeclarationKind`                     |     1 |     2 |
 | `TypeExportBinding`                       |     2 |     8 |
 | `TypeImport`                              |     1 |     1 |
-| `TypeLookup`                              |     1 |    10 |
+| `TypeLookup`                              |     1 |    12 |
 | `TypeModule`                              |     2 |     7 |
 | `TypeModuleReference`                     |     2 |     3 |
+| `UnknownTypeReason`                       |     1 |     1 |
 | `WITH_DEFAULTS`                           |     1 |     1 |
 | `analyze_script_setup_program`            |     1 |     1 |
 | `artifact_macro_names`                    |     1 |     1 |
