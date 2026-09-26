@@ -1,5 +1,6 @@
 [package]
 name = "vize_croquis_cf"
+autobenches = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -32,6 +33,7 @@ oxc_span.workspace = true
 serde.workspace = true
 lasso.workspace = true
 ecow.workspace = true
+fixedbitset.workspace = true
 
 [dev-dependencies]
 davinci_harness.workspace = true

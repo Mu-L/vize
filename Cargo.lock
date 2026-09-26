@@ -1232,6 +1232,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
+name = "fixedbitset"
+version = "0.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
+
+[[package]]
 name = "fluent-uri"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1649,6 +1655,12 @@ dependencies = [
  "walkdir",
  "winapi-util",
 ]
+
+[[package]]
+name = "index_vec"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44faf5bb8861a9c72e20d3fb0fdbd59233e43056e2b80475ab0aacdc2e781355"
 
 [[package]]
 name = "indexmap"
@@ -4388,6 +4400,7 @@ dependencies = [
  "dashmap 6.2.1",
  "davinci_harness",
  "davinci_test_support",
+ "index_vec",
  "insta",
  "memchr",
  "once_cell",
@@ -4404,6 +4417,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thin-vec",
  "vize_armature",
  "vize_atelier_sfc",
  "vize_carton",
@@ -4419,6 +4433,7 @@ dependencies = [
  "criterion",
  "davinci_harness",
  "ecow",
+ "fixedbitset",
  "insta",
  "lasso",
  "oxc_allocator",

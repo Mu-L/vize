@@ -4,6 +4,7 @@
 //! - CSRP (Cross-request State Pollution) in SSR
 //! - Memory leaks from watchers/effects not being cleaned up
 
+use thin_vec::ThinVec;
 use vize_carton::CompactString;
 
 /// Kind of setup context violation
@@ -138,7 +139,7 @@ pub struct SetupContextViolation {
 /// Tracks setup context violations during analysis
 #[derive(Debug, Default)]
 pub struct SetupContextTracker {
-    violations: Vec<SetupContextViolation>,
+    violations: ThinVec<SetupContextViolation>,
 }
 
 impl SetupContextTracker {
@@ -246,6 +247,33 @@ mod tests {
         assert_eq!(
             tracker.violations()[0].kind,
             SetupContextViolationKind::ModuleLevelState
+        );
+    }
+
+    #[test]
+    fn owned_violations_keep_merge_order_and_saturating_source_offsets() {
+        let mut first = SetupContextTracker::new();
+        let mut second = SetupContextTracker::new();
+        for (tracker, api_name, start) in [
+            (&mut first, "ref", 10),
+            (&mut second, "watch", u32::MAX - 1),
+        ] {
+            tracker.record_violation(
+                SetupContextViolationKind::ModuleLevelState,
+                api_name.into(),
+                start,
+                start,
+            );
+        }
+        first.extend(second);
+        first.shift_offsets(5);
+        assert_eq!(
+            first
+                .violations()
+                .iter()
+                .map(|item| (item.api_name.as_str(), item.start, item.end))
+                .collect::<Vec<_>>(),
+            vec![("ref", 15, 15), ("watch", u32::MAX, u32::MAX)]
         );
     }
 }

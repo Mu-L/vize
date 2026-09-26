@@ -24,7 +24,7 @@ impl ScopeChain {
             // are never synthesized from user input, so every queued id indexes
             // `self.scopes`. This keeps lexical lookup branch-light in the
             // compiler's busiest semantic-analysis loop.
-            let scope = unsafe { self.scopes.get_unchecked(id.as_u32() as usize) };
+            let scope = unsafe { self.scopes.raw.get_unchecked(id.as_u32() as usize) };
             if let Some(binding) = scope.get_binding(name) {
                 return Some((scope, binding));
             }
@@ -63,7 +63,7 @@ impl ScopeChain {
             }
             visited.push(id);
 
-            let Some(scope) = self.scopes.get_mut(id.as_u32() as usize) else {
+            let Some(scope) = self.scopes.get_mut(id) else {
                 continue;
             };
             if let Some(binding) = scope.get_binding_mut(name) {
@@ -100,7 +100,7 @@ impl ScopeChain {
             }
             visited.push(id);
 
-            let Some(scope) = self.scopes.get_mut(id.as_u32() as usize) else {
+            let Some(scope) = self.scopes.get_mut(id) else {
                 continue;
             };
             if let Some(binding) = scope.get_binding_mut(name) {
