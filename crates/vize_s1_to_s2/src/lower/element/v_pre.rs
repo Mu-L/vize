@@ -10,10 +10,9 @@
 //!   into head, argument and modifiers, and the `v-pre` rewrite
 //!   reassembles them — which is where [`frozen_name`] comes in.
 
-use vize_s0::StringBuilder;
+use vize_s0::{Allocator, StringBuilder};
 
-use super::super::cx::Cx;
-use super::super::directive::Directive;
+use super::super::directive::{AttrForm, Directive, classify};
 
 /// One attribute's name as the shipped lane freezes it on the element
 /// that *opens* a `v-pre` subtree.
@@ -27,7 +26,7 @@ use super::super::directive::Directive;
 /// prefix is part of the head and stays, so `:x`, `@c`, `.p` and `^a`
 /// are unchanged. `@vue/compiler-dom` does exactly the same.
 pub(super) fn frozen_name<'a>(
-    cx: &Cx<'a>,
+    allocator: &'a Allocator,
     authored: &'a str,
     directive: &Directive<'a>,
 ) -> &'a str {
@@ -47,7 +46,7 @@ pub(super) fn frozen_name<'a>(
             trimmed = rest;
         }
     }
-    let mut out = StringBuilder::with_capacity_in(trimmed.len(), cx.allocator);
+    let mut out = StringBuilder::with_capacity_in(trimmed.len(), allocator);
     for (index, ch) in trimmed.char_indices() {
         match ch {
             ':' if index > 0 => {}
@@ -56,4 +55,13 @@ pub(super) fn frozen_name<'a>(
         }
     }
     out.into_str()
+}
+
+/// The shipped parser's frozen attribute name on the element opening v-pre.
+/// Source-shaped consumers share this rewrite with the S1→S2 producer.
+pub fn frozen_attribute_name<'a>(allocator: &'a Allocator, authored: &'a str) -> &'a str {
+    match classify(authored) {
+        AttrForm::Directive(directive) => frozen_name(allocator, authored, &directive),
+        AttrForm::Static => authored,
+    }
 }

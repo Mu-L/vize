@@ -15,6 +15,9 @@ impl MarkupRule for Rules<'_> {
 
     fn enter_document(&self, ctx: &mut MarkupContext<'_, '_>, document: &MarkupDocument) {
         for (_, name, rule) in self.0 {
+            if *name == super::TEMPLATE_DOCUMENT_RULE {
+                continue;
+            }
             ctx.lint().current_rule = name;
             rule.enter_document(ctx, document);
         }

@@ -41,6 +41,8 @@ pub mod wasm;
 
 #[cfg(any(feature = "napi", feature = "wasm"))]
 mod parse_errors;
+#[cfg(any(test, feature = "napi"))]
+mod plugin_transform;
 #[cfg(any(feature = "napi", feature = "wasm"))]
 mod template_syntax;
 pub mod typecheck;

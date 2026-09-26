@@ -44,6 +44,8 @@
 //! checker exists to report.
 
 mod authored;
+#[cfg(test)]
+mod authored_facade_tests;
 mod authored_tests;
 mod build;
 mod build_helpers;
@@ -68,7 +70,7 @@ pub mod witness;
 mod witness_tests;
 
 pub use authored::{built_as_authored, template_skeleton};
-pub use build::{authored_skeleton, composable_skeleton, skeleton};
+pub use build::{authored_document_skeleton, authored_skeleton, composable_skeleton, skeleton};
 pub use chain::{Base, Chain, Frame, NsSet};
 pub use check::{Context, Report, Verdict, check, check_pruned, check_with};
 pub use class::{Family, ViolationClass};

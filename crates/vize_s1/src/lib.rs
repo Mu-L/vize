@@ -72,7 +72,9 @@ mod build;
 mod event;
 mod slice;
 
-pub use parse::{SurfaceError, SurfaceParseOptions, parse, parse_with_options};
+pub use parse::{
+    SurfaceError, SurfaceParseOptions, parse, parse_with_authored, parse_with_options,
+};
 pub use render::{HoleCounts, check_fidelity, hole_counts, render};
 pub use surface::{
     AttrValue, Attribute, CloseTag, Element, ElementClose, Interpolation, OpenTag, SurfaceChild,

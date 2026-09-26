@@ -58,7 +58,8 @@ pub(crate) fn build<'a>(
     allocator: &'a Allocator,
     src: &'a str,
     events: &[Event],
-) -> SurfaceTree<'a> {
+    repair_interactive: bool,
+) -> (SurfaceTree<'a>, bool) {
     let mut b = Builder {
         src,
         allocator,
@@ -68,6 +69,8 @@ pub(crate) fn build<'a>(
         root: Vec::new_in(&allocator),
         stack: Vec::new_in(&allocator),
         implicitly_closed_tags: Vec::new_in(&allocator),
+        repair_interactive,
+        repaired: false,
     };
     b.run();
     // EOF: bytes the tokenizer consumed without reporting structure
@@ -83,10 +86,13 @@ pub(crate) fn build<'a>(
         };
         b.attach(element);
     }
-    SurfaceTree {
-        source: src,
-        children: b.root,
-    }
+    (
+        SurfaceTree {
+            source: src,
+            children: b.root,
+        },
+        b.repaired,
+    )
 }
 
 struct Builder<'a, 'e> {
@@ -98,6 +104,8 @@ struct Builder<'a, 'e> {
     root: Vec<'a, SurfaceChild<'a>>,
     stack: Vec<'a, Frame<'a>>,
     implicitly_closed_tags: Vec<'a, ImplicitlyClosedTag<'a>>,
+    repair_interactive: bool,
+    repaired: bool,
 }
 
 impl<'a> Builder<'a, '_> {

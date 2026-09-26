@@ -7,7 +7,6 @@ use super::jsx_names::{
     jsx_attribute_arg_name, jsx_attribute_binding_kind, jsx_attribute_ref, jsx_element_ref,
 };
 use super::s2::binding::kind_of_directive;
-use super::s2::surface::SurfaceDirective;
 use oxc_ast::ast::{JSXAttributeName, JSXElementName};
 use vize_relief::ExpressionNode;
 
@@ -31,9 +30,9 @@ impl<'a> MarkupElement<'a> {
                 }
             }
             MarkupElementInner::JsxFragment { .. } => false,
-            MarkupElementInner::S2 { .. } | MarkupElementInner::S2Carrier { .. } => {
-                self.tag() == expected
-            }
+            MarkupElementInner::Authored { .. }
+            | MarkupElementInner::S2 { .. }
+            | MarkupElementInner::S2Carrier { .. } => self.tag() == expected,
         }
     }
 }
@@ -128,17 +127,17 @@ impl<'a> MarkupBinding<'a> {
                         .is_some_and(|(arg, is_static)| mode.matches(arg, is_static, expected)),
                 }
             }
-            MarkupBindingInner::Surface { attr, .. } => {
-                match SurfaceDirective::parse(attr.name.text) {
-                    None => mode.matches(attr.name.text, true, expected),
-                    Some(directive) => match kind_of_directive(directive.name) {
-                        MarkupBindingKind::Custom => mode.matches(directive.name, true, expected),
-                        _ => directive
-                            .arg
-                            .is_some_and(|arg| mode.matches(arg, directive.arg_static, expected)),
-                    },
-                }
-            }
+            MarkupBindingInner::Surface {
+                attr, static_name, ..
+            } => match super::binding::surface_directive(attr, static_name) {
+                None => mode.matches(static_name.unwrap_or(attr.name.text), true, expected),
+                Some(directive) => match kind_of_directive(directive.name) {
+                    MarkupBindingKind::Custom => mode.matches(directive.name, true, expected),
+                    _ => directive
+                        .arg
+                        .is_some_and(|arg| mode.matches(arg, directive.arg_static, expected)),
+                },
+            },
         }
     }
 }
