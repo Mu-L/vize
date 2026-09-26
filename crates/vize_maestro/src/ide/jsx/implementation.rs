@@ -5,8 +5,7 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::GotoDefinitionResponse;
 use vize_canon::CorsaBridge;
 
-use super::service_project::prepare_navigation_request;
-use crate::ide::corsa_support::map_canonical_corsa_locations;
+use super::service_project::{map_navigation_locations, prepare_navigation_request};
 use crate::ide::{IdeContext, TypeDefinitionService};
 
 /// Implementation navigation support for opt-in JSX/TSX virtual TypeScript.
@@ -30,7 +29,7 @@ impl JsxImplementationService {
             return None;
         }
 
-        let mapped = map_canonical_corsa_locations(ctx, &document, locations);
+        let mapped = map_navigation_locations(ctx, &document, locations);
 
         TypeDefinitionService::convert_locations(mapped)
     }

@@ -32,10 +32,10 @@ use vize_s0::cstr;
 use super::position::{
     source_cursor_to_virtual_position, source_offset_to_virtual_position, virtual_range_to_source,
 };
+use super::service_project::map_navigation_locations;
 use super::virtual_ts::JsxVirtualTs;
 use crate::ide::IdeContext;
 use crate::ide::completion::CompletionService;
-use crate::ide::corsa_support::map_canonical_corsa_locations;
 use crate::ide::hover::HoverService;
 
 /// Type-aware JSX/TSX LSP service.
@@ -149,7 +149,7 @@ impl JsxService {
             return None;
         }
 
-        let mapped = map_canonical_corsa_locations(ctx, &document, locations);
+        let mapped = map_navigation_locations(ctx, &document, locations);
 
         match mapped.len() {
             0 => None,

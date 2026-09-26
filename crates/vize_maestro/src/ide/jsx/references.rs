@@ -16,9 +16,8 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::Location;
 use vize_canon::CorsaBridge;
 
-use super::service_project::prepare_navigation_request;
+use super::service_project::{map_navigation_locations, prepare_navigation_request};
 use crate::ide::IdeContext;
-use crate::ide::corsa_support::map_canonical_corsa_locations;
 
 /// Find-all-references service for `.jsx`/`.tsx` components.
 pub struct JsxReferencesService;
@@ -42,7 +41,7 @@ impl JsxReferencesService {
             return None;
         }
 
-        let mapped = map_canonical_corsa_locations(ctx, &document, locations);
+        let mapped = map_navigation_locations(ctx, &document, locations);
 
         if mapped.is_empty() {
             None
