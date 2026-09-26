@@ -51,7 +51,7 @@ for (const [scenario, module] of Object.entries(modules)) {
           if (id === `\0${entry}`)
             return `${module}\nexport { createApp, h, reactive, nextTick } from "vue";`;
           if (id === `\0${child}`)
-            return `import { h } from "vue"; export default { props: ['label'], setup(props) { return () => h('strong', props.label); } };`;
+            return `import { h } from "vue"; export default { props: ['label'], setup(props, { slots }) { return () => h('strong', slots.default ? [slots.default({ label: props.label }), slots.footer?.({ label: props.label }), slots.outer?.()] : props.label); } };`;
           if (id === `\0${plain}`) return plainModule;
         },
       },
@@ -114,6 +114,15 @@ for (const [scenario, module] of Object.entries(modules)) {
     state.label = "second";
     await vue.nextTick();
     assert.equal(host.textContent, "retained-factory");
+  } else if (scenario === "slots") {
+    assert.equal(host.querySelector("i").textContent, "first");
+    assert.equal(host.querySelector("b").textContent, "first");
+    assert.equal(host.querySelector("u").textContent, "outer");
+    state.label = "second";
+    await vue.nextTick();
+    assert.equal(host.querySelector("i").textContent, "second");
+    assert.equal(host.querySelector("b").textContent, "second");
+    assert.equal(host.querySelector("u").textContent, "outer");
   } else {
     assert.fail(`unknown scenario ${scenario}`);
   }
@@ -123,4 +132,4 @@ for (const [scenario, module] of Object.entries(modules)) {
 }
 assert.deepEqual(messages, []);
 await window.happyDOM.abort();
-console.log("6 mounted TSX module scenarios passed");
+console.log("7 mounted TSX module scenarios passed");

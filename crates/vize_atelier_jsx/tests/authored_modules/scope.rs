@@ -125,21 +125,25 @@ fn standalone_vapor_and_ssr_reject_authored_bindings_and_exports_they_would_drop
 
 #[test]
 fn renderer_parameters_do_not_silently_shadow_authored_context_references() {
-    let source = "export const App = (props: any, _ctx: any) => <p>{_ctx.attrs.title}</p>;";
-    let arena = Allocator::new();
-    let out = compile_jsx(&arena, source, JsxLang::Tsx, &JsxCompileConfig::default());
-    assert!(out.has_errors());
-    assert_eq!(out.diagnostics.len(), 1);
-    let diagnostic = out.diagnostics.first().expect("renderer capture");
-    assert_eq!(
-        diagnostic.message.as_str(),
-        "JSX authored reference `_ctx` is shadowed by a generated renderer binding; rename the reference"
-    );
-    assert_eq!(
-        source.get(diagnostic.start as usize..diagnostic.end as usize),
-        Some("_ctx")
-    );
-    assert!(out.module_code().is_empty());
+    for source in [
+        "export const App = (props: any, _ctx: any) => <p>{_ctx.attrs.title}</p>;",
+        "export default () => <p>{_ctx.attrs.title}</p>;",
+    ] {
+        let arena = Allocator::new();
+        let out = compile_jsx(&arena, source, JsxLang::Tsx, &JsxCompileConfig::default());
+        assert!(out.has_errors());
+        assert_eq!(out.diagnostics.len(), 1);
+        let diagnostic = out.diagnostics.first().expect("renderer capture");
+        assert_eq!(
+            diagnostic.message.as_str(),
+            "JSX authored reference `_ctx` is shadowed by a generated renderer binding; rename the reference"
+        );
+        assert_eq!(
+            source.get(diagnostic.start as usize..diagnostic.end as usize),
+            Some("_ctx")
+        );
+        assert!(out.module_code().is_empty());
+    }
 }
 
 struct ComponentCalls<'a> {

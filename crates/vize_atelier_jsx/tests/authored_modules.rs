@@ -15,12 +15,16 @@ use std::{
     path::Path,
     process::{Command, Stdio},
 };
-use vize_atelier_jsx::{JsxCompileConfig, JsxLang, compile_jsx};
+use vize_atelier_jsx::{JsxCompatMode, JsxCompileConfig, JsxLang, compile_jsx};
 use vize_s0::Allocator;
 
 fn compile(source: &str) -> vize_s0::String {
+    compile_with_config(source, &JsxCompileConfig::default())
+}
+
+fn compile_with_config(source: &str, config: &JsxCompileConfig) -> vize_s0::String {
     let arena = Allocator::new();
-    let out = compile_jsx(&arena, source, JsxLang::Tsx, &JsxCompileConfig::default());
+    let out = compile_jsx(&arena, source, JsxLang::Tsx, config);
     assert!(!out.has_errors(), "{:?}", out.diagnostics);
     let module = out.module_code();
     let parsed = vize_atelier_jsx::parse_module(arena.as_oxc(), &module, JsxLang::Tsx);
@@ -107,6 +111,18 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
         "#,
         ),
         (
+            "slots",
+            r#"
+            import Child from "./Child";
+            const s = "outer";
+            export default (props: { label: string }) => <Child label={props.label}>{{
+                default: (s: {label:string}) => <i>{s.label}</i>,
+                footer: (_ctx: {label:string}) => <b>{_ctx.label}</b>,
+                outer: () => <u>{s}</u>
+            }}</Child>;
+        "#,
+        ),
+        (
             "plain",
             "export interface Props { label: string }\nexport const label: string = 'retained-factory';",
         ),
@@ -114,9 +130,17 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
     let modules: serde_json::Map<_, _> = cases
         .into_iter()
         .map(|(name, source)| {
+            let config = JsxCompileConfig {
+                compat: if name == "slots" {
+                    JsxCompatMode::Babel
+                } else {
+                    JsxCompatMode::Native
+                },
+                ..Default::default()
+            };
             (
                 name.to_owned(),
-                serde_json::Value::String(compile(source).to_string()),
+                serde_json::Value::String(compile_with_config(source, &config).to_string()),
             )
         })
         .collect();
@@ -144,7 +168,7 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
     );
     assert_eq!(
         std::string::String::from_utf8_lossy(&output.stdout).trim(),
-        "6 mounted TSX module scenarios passed"
+        "7 mounted TSX module scenarios passed"
     );
 }
 
