@@ -164,6 +164,7 @@ rustc-hash = "=2.1.3"
 bitflags = { version = "=2.13.1", features = ["serde"] }
 once_cell = "=1.21.4"
 compact_str = { version = "=0.10.0", features = ["serde"] }
+lasso = "=0.7.3"
 phf = { version = "=0.13.1", features = ["macros"] }
 memoffset = "=0.9.1"
 memchr = "=2.8.3"

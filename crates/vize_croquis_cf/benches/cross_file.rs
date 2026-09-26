@@ -21,6 +21,12 @@ use vize_carton::{CompactString, cstr};
 use vize_croquis::{Analyzer, AnalyzerOptions, Croquis};
 use vize_croquis_cf::{CrossFileAnalyzer, CrossFileOptions};
 
+mod string_storage;
+
+#[global_allocator]
+static STRING_STORAGE_ALLOCATOR: davinci_harness::alloc::CountingAllocator =
+    davinci_harness::alloc::CountingAllocator::mimalloc();
+
 #[derive(Clone)]
 struct FixtureFile {
     path: String,
@@ -161,6 +167,7 @@ criterion_group!(
     benches,
     bench_provide_inject_tree,
     bench_strict_reactivity_and_race,
-    bench_local_race_without_provider_tree
+    bench_local_race_without_provider_tree,
+    string_storage::bench
 );
 criterion_main!(benches);

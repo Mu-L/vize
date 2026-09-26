@@ -1,8 +1,9 @@
 use super::index::ProvideInjectIndex;
-use super::keys::provide_key_identity;
+use super::key_pool::{build_pool, key_parts};
 use super::types::{InjectInfo, ProvideInfo, ProvideInjectBranch, ProvideInjectTree, ProvideNode};
 use crate::registry::{FileId, ModuleRegistry};
-use vize_carton::{CompactString, FxHashMap, FxHashSet};
+use std::hash::Hash;
+use vize_carton::{FxHashMap, FxHashSet};
 use vize_croquis::provide::{InjectEntry, ProvideEntry, ProvideKey};
 
 pub(crate) fn build_provide_inject_tree_with_index(
@@ -59,7 +60,50 @@ pub(crate) fn build_provide_inject_tree_with_index(
         branches,
     );
 
-    let roots = root_ids
+    let keys = index
+        .provides()
+        .values()
+        .flatten()
+        .map(|provide| &provide.key)
+        .chain(index.injects().values().flatten().map(|inject| &inject.key));
+    let roots = if let Some(pool) = build_pool(keys) {
+        build_roots(
+            registry,
+            index,
+            &child_map,
+            &consumer_counts,
+            root_ids,
+            &nodes_with_parent,
+            &|key| {
+                let (namespace, text) = key_parts(key);
+                (namespace, pool.get(text))
+            },
+        )
+    } else {
+        build_roots(
+            registry,
+            index,
+            &child_map,
+            &consumer_counts,
+            root_ids,
+            &nodes_with_parent,
+            &key_parts,
+        )
+    };
+
+    ProvideInjectTree { roots }
+}
+
+fn build_roots<'a, K: Copy + Eq + Hash + Ord>(
+    registry: &ModuleRegistry,
+    index: &'a ProvideInjectIndex,
+    child_map: &FxHashMap<FileId, Vec<FileId>>,
+    consumer_counts: &FxHashMap<(FileId, u32), usize>,
+    root_ids: Vec<FileId>,
+    nodes_with_parent: &FxHashSet<FileId>,
+    key_identity: &impl Fn(&'a ProvideKey) -> K,
+) -> Vec<ProvideNode> {
+    root_ids
         .into_iter()
         .map(|file_id| {
             let mut active_nodes = FxHashSet::default();
@@ -70,33 +114,33 @@ pub(crate) fn build_provide_inject_tree_with_index(
             build_node(
                 file_id,
                 registry,
-                &child_map,
+                child_map,
                 index.provides(),
                 index.injects(),
-                &consumer_counts,
+                consumer_counts,
                 &FxHashMap::default(),
                 &mut active_nodes,
                 &mut expanded,
                 !nodes_with_parent.contains(&file_id),
+                key_identity,
             )
         })
-        .collect();
-
-    ProvideInjectTree { roots }
+        .collect()
 }
 
 #[expect(clippy::too_many_arguments, reason = "independent emitter inputs")]
-fn build_node(
+fn build_node<'a, K: Copy + Eq + Hash + Ord>(
     file_id: FileId,
     registry: &ModuleRegistry,
     child_map: &FxHashMap<FileId, Vec<FileId>>,
-    provides_map: &FxHashMap<FileId, Vec<ProvideEntry>>,
-    injects_map: &FxHashMap<FileId, Vec<InjectEntry>>,
+    provides_map: &'a FxHashMap<FileId, Vec<ProvideEntry>>,
+    injects_map: &'a FxHashMap<FileId, Vec<InjectEntry>>,
     consumer_counts: &FxHashMap<(FileId, u32), usize>,
-    active_providers: &FxHashMap<CompactString, FileId>,
+    active_providers: &FxHashMap<K, FileId>,
     active_nodes: &mut FxHashSet<FileId>,
-    expanded: &mut FxHashSet<(FileId, Vec<(CompactString, FileId)>)>,
+    expanded: &mut FxHashSet<(FileId, Vec<(K, FileId)>)>,
     show_injects: bool,
+    key_identity: &impl Fn(&'a ProvideKey) -> K,
 ) -> ProvideNode {
     active_nodes.insert(file_id);
 
@@ -135,8 +179,7 @@ fn build_node(
                         ProvideKey::String(s) => s.clone(),
                         ProvideKey::Symbol(s) => s.clone(),
                     };
-                    let key_identity = provide_key_identity(&i.key);
-                    let provider = active_providers.get(&key_identity).copied();
+                    let provider = active_providers.get(&key_identity(&i.key)).copied();
                     InjectInfo {
                         key,
                         has_default: i.default_value.is_some(),
@@ -151,14 +194,14 @@ fn build_node(
     let mut child_providers = active_providers.clone();
     if let Some(provides) = provides_map.get(&file_id) {
         for provide in provides {
-            child_providers.insert(provide_key_identity(&provide.key), file_id);
+            child_providers.insert(key_identity(&provide.key), file_id);
         }
     }
     let mut provider_context = child_providers
         .iter()
-        .map(|(key, provider)| (key.clone(), *provider))
+        .map(|(key, provider)| (*key, *provider))
         .collect::<Vec<_>>();
-    provider_context.sort_by(|left, right| left.0.cmp(&right.0));
+    provider_context.sort_by_key(|entry| entry.0);
 
     // A shared DAG node needs one expanded subtree per provider context.
     // Repeated render paths in the same context retain the node but refer to
@@ -182,6 +225,7 @@ fn build_node(
                 active_nodes,
                 expanded,
                 true,
+                key_identity,
             );
             children.push(child_node);
         }

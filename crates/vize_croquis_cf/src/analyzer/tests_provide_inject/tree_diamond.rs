@@ -1,4 +1,5 @@
 use super::*;
+use vize_carton::cstr;
 
 #[test]
 fn test_same_provider_diamond_preserves_each_path_deterministically() {
@@ -103,23 +104,23 @@ fn deep_diamond_counts_paths_without_expanding_each_path() {
         ),
     );
     for level in 0..=DEPTH {
-        let next_a = format!("A{}", level + 1);
-        let next_b = format!("B{}", level + 1);
+        let next_a = cstr!("A{}", level + 1);
+        let next_b = cstr!("B{}", level + 1);
         let children = if level == DEPTH {
             Vec::new()
         } else {
             vec![next_a.as_str(), next_b.as_str()]
         };
         for prefix in ["A", "B"] {
-            let component = format!("{prefix}{level}");
-            let path = format!("{component}.vue");
+            let component = cstr!("{prefix}{level}");
+            let path = cstr!("{component}.vue");
             let script = if level == DEPTH {
                 "import { inject } from 'vue'; const theme = inject('theme')"
             } else {
                 "// pass through"
             };
             analyzer.add_file_with_analysis(
-                Path::new(&path),
+                Path::new(path.as_str()),
                 "",
                 script_analysis(script, &children),
             );
@@ -180,16 +181,16 @@ fn partial_diamond_reports_logical_path_counts() {
     let mut analyzer =
         CrossFileAnalyzer::new(CrossFileOptions::default().with_provide_inject(true));
     for level in 0..=DEPTH {
-        let next_a = format!("A{}", level + 1);
-        let next_b = format!("B{}", level + 1);
+        let next_a = cstr!("A{}", level + 1);
+        let next_b = cstr!("B{}", level + 1);
         let children = if level == DEPTH {
             Vec::new()
         } else {
             vec![next_a.as_str(), next_b.as_str()]
         };
         for prefix in ["A", "B"] {
-            let component = format!("{prefix}{level}");
-            let path = format!("{component}.vue");
+            let component = cstr!("{prefix}{level}");
+            let path = cstr!("{component}.vue");
             let script = if level == 0 && prefix == "A" {
                 "import { provide } from 'vue'; provide('theme', 'dark')"
             } else if level == DEPTH {
@@ -198,7 +199,7 @@ fn partial_diamond_reports_logical_path_counts() {
                 "// pass through"
             };
             analyzer.add_file_with_analysis(
-                Path::new(&path),
+                Path::new(path.as_str()),
                 "",
                 script_analysis(script, &children),
             );

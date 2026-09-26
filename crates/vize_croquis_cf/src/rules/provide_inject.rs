@@ -4,6 +4,7 @@
 
 mod analysis;
 mod index;
+mod key_pool;
 mod keys;
 mod markdown;
 mod summary;
