@@ -23,7 +23,6 @@ use entry_rules::LinterRuleResolver;
 use fix::lint_source_with_optional_fix;
 use rayon::prelude::*;
 use routes::apply_cross_file_lint;
-use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -33,6 +32,7 @@ use vize_curator::profile::{
     ProfileFileRow, ProfilePhase, ProfilePhaseKind, ProfileReport, print_profile_report,
 };
 use vize_patina::{HelpLevel, LintPreset, OutputFormat};
+use vize_s0::source_io as fs;
 use vize_s0::{String, ToCompactString, cstr, profile, profiler::global_profiler};
 
 pub fn run(args: LintArgs) {

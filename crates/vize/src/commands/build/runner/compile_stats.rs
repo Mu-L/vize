@@ -1,7 +1,6 @@
 //! Stats-only per-file compilation with content-addressed cache reuse.
 
 use std::{
-    fs,
     path::PathBuf,
     sync::atomic::Ordering,
     time::{Duration, Instant},
@@ -43,7 +42,10 @@ pub(super) fn compile_file_stats_with_cache(
 ) -> Result<(usize, FileProfile), CompileError> {
     let file_start = Instant::now();
 
-    let source = match profile!("cli.build.file.read", fs::read_to_string(path)) {
+    let source = match profile!(
+        "cli.build.file.read",
+        vize_s0::source_io::read_to_string(path)
+    ) {
         Ok(source) => {
             global_profiler().record_fs_read_to_string(source.len());
             source

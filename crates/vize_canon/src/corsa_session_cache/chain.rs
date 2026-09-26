@@ -45,7 +45,7 @@ fn visit(path: &Path, hasher: &mut StableHasher128, seen: &mut Vec<PathBuf>) {
     };
     hasher.update(&[READ]);
     feed(hasher, &bytes);
-    let Some(config) = std::str::from_utf8(&bytes)
+    let Some(config) = vize_carton::source_io::decode_utf8(&bytes)
         .ok()
         .and_then(|text| parse_jsonc_value(text).ok())
     else {

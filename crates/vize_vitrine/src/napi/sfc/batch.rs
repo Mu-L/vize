@@ -2,7 +2,7 @@ use glob::glob;
 use napi::bindgen_prelude::{Error, Result, Status};
 use napi_derive::napi;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::{fs, time::Instant};
+use std::time::Instant;
 use vize_s0::FxHashMap;
 
 use super::{
@@ -95,7 +95,7 @@ fn compile_sfc_batch_inner(
     );
     let read_inputs: Vec<_> = files
         .par_iter()
-        .map(|path| match fs::read_to_string(path) {
+        .map(|path| match vize_s0::source_io::read_to_string(path) {
             Ok(source) => Ok((path.clone(), source)),
             Err(_) => Err(()),
         })

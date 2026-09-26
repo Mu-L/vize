@@ -318,7 +318,7 @@ typechecker	Typechecker	test/dev	crates/vize_canon/src/corsa_server/sessions.rs	
 typechecker	Typechecker	source	crates/vize_canon/src/corsa_server/sfc_semantics.rs	5	s0	S0	stage	vize_carton	compat	2
 typechecker	Typechecker	source	crates/vize_canon/src/corsa_session_cache.rs	26	davinci	Davinci	stage	vize_davinci	preferred	1
 typechecker	Typechecker	source	crates/vize_canon/src/corsa_session_cache.rs	26	s0	S0	stage	vize_carton	compat	1
-typechecker	Typechecker	source	crates/vize_canon/src/corsa_session_cache/chain.rs	7	s0	S0	stage	vize_carton	compat	2
+typechecker	Typechecker	source	crates/vize_canon/src/corsa_session_cache/chain.rs	7	s0	S0	stage	vize_carton	compat	3
 typechecker	Typechecker	source	crates/vize_canon/src/corsa_session_cache/lifecycle.rs	10	s0	S0	stage	vize_carton	compat	1
 typechecker	Typechecker	test/dev	crates/vize_canon/src/corsa_session_cache/lifecycle.rs	133	s0	S0	stage	vize_carton	compat	1
 typechecker	Typechecker	test/dev	crates/vize_canon/src/corsa_session_cache/tests.rs	3	davinci	Davinci	stage	vize_davinci	preferred	1

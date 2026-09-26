@@ -82,6 +82,7 @@ pub mod pool;
 pub mod profiler;
 pub mod recursion;
 pub mod source_frame;
+pub mod source_io;
 pub mod source_range;
 pub mod span;
 pub mod string_builder;
