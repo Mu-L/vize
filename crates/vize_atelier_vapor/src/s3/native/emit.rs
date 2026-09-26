@@ -27,8 +27,8 @@ use crate::ir::{BlockIRNode, ChildRefIRNode, IREffect, NextRefIRNode, OperationN
 
 /// The shared emitter IR for `artifact`; with `spans`, also the template and
 /// control-flow anchors a source map needs (Davinci P3-9). `None` when the
-/// payload breaks a shape admission checked; the caller then keeps the
-/// legacy lane instead of emitting a partial render.
+/// payload breaks a shape admission checked; the caller rejects the compile
+/// without code or a legacy fallback.
 pub(super) fn emit<'a>(
     mut artifact: NativeArtifact<'a>,
     allocator: &'a Allocator,
