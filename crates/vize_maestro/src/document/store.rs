@@ -135,6 +135,7 @@ impl Document {
 /// Thread-safe document store.
 pub struct DocumentStore {
     documents: DashMap<Url, Document>,
+    revision: AtomicU64,
 }
 
 impl Default for DocumentStore {
@@ -148,6 +149,7 @@ impl DocumentStore {
     pub fn new() -> Self {
         Self {
             documents: DashMap::new(),
+            revision: AtomicU64::new(0),
         }
     }
 
@@ -155,11 +157,14 @@ impl DocumentStore {
     pub fn open(&self, uri: Url, content: String, version: i32, language_id: String) {
         let doc = Document::new(uri.clone(), content, version, language_id);
         self.documents.insert(uri, doc);
+        self.revision.fetch_add(1, Ordering::Release);
     }
 
     /// Close a document.
     pub fn close(&self, uri: &Url) {
-        self.documents.remove(uri);
+        if self.documents.remove(uri).is_some() {
+            self.revision.fetch_add(1, Ordering::Release);
+        }
     }
 
     /// Rename an open document while preserving its content and version.
@@ -182,6 +187,7 @@ impl DocumentStore {
         // mistaken for this one; a fresh stamp keeps the two unrelatable.
         document.revision = next_revision();
         self.documents.insert(new_uri, document);
+        self.revision.fetch_add(1, Ordering::Release);
         true
     }
 
@@ -192,7 +198,10 @@ impl DocumentStore {
 
     /// Get a mutable reference to a document.
     pub fn get_mut(&self, uri: &Url) -> Option<dashmap::mapref::one::RefMut<'_, Url, Document>> {
-        self.documents.get_mut(uri)
+        let mut document = self.documents.get_mut(uri)?;
+        document.revision = next_revision();
+        self.revision.fetch_add(1, Ordering::Release);
+        Some(document)
     }
 
     /// Owned snapshot of a document's text, holding no lock on return.
@@ -235,7 +244,13 @@ impl DocumentStore {
         for change in changes {
             doc.apply_change(&change, version);
         }
+        self.revision.fetch_add(1, Ordering::Release);
         true
+    }
+
+    /// Stamp of the open source set, including close and rename operations.
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision.load(Ordering::Acquire)
     }
 
     /// Check if a document exists.

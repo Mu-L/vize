@@ -146,7 +146,7 @@ pub(in crate::script_parser) fn process_variable_declarator(
             };
 
             if let Some(init) = &declarator.init {
-                record_static_runtime_object_literal(result, name, init, source);
+                record_static_runtime_object_literal(result, name, init, kind, source);
             }
 
             // Walk other expression types for nested scopes

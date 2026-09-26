@@ -12,7 +12,6 @@ use vize_atelier_core::{CodegenOptions, TemplateSyntaxMode, options::CustomEleme
 #[test]
 fn scoped_vue_whitespace_strategy_reaches_sfc_client_ssr_and_vapor() {
     use vize_atelier_core::{WhitespaceStrategy, parser::with_whitespace_strategy};
-
     let descriptor = parse_sfc(
         "<template><p>foo  \n  bar <em></em></p></template>",
         Default::default(),
@@ -41,8 +40,10 @@ fn scoped_vue_whitespace_strategy_reaches_sfc_client_ssr_and_vapor() {
             default.code
         );
     }
-    let mut vapor_options = SfcCompileOptions::default();
-    vapor_options.vapor = true;
+    let vapor_options = SfcCompileOptions {
+        vapor: true,
+        ..SfcCompileOptions::default()
+    };
     let vapor_default = compile_sfc(&descriptor, vapor_options.clone()).unwrap();
     let vapor_preserved = with_whitespace_strategy(WhitespaceStrategy::Preserve, || {
         compile_sfc(&descriptor, vapor_options).unwrap()
@@ -59,7 +60,6 @@ fn scoped_vue_whitespace_strategy_reaches_sfc_client_ssr_and_vapor() {
 #[test]
 fn scoped_vue_whitespace_preserve_normalizes_pre_crlf_in_sfc_output() {
     use vize_atelier_core::{WhitespaceStrategy, parser::with_whitespace_strategy};
-
     let descriptor = parse_sfc(
         "<template><pre>one\r\ntwo<span>three\r\nfour</span></pre></template>",
         Default::default(),
@@ -93,7 +93,6 @@ fn scoped_vue_whitespace_preserve_normalizes_pre_crlf_in_sfc_output() {
 #[test]
 fn scoped_vue2_line_breaks_keep_issue_6518_text_before_icon() {
     use vize_atelier_core::{WhitespaceStrategy, parser::with_whitespace_mode};
-
     let descriptor = parse_sfc(
         "<template><p>\n  {{ name }}\n  <i />\n</p></template>",
         Default::default(),
@@ -114,9 +113,10 @@ fn scoped_vue2_line_breaks_keep_issue_6518_text_before_icon() {
         };
         assert!(legacy.code.contains(expected), "ssr={ssr}: {}", legacy.code);
     }
-
-    let mut vapor_options = SfcCompileOptions::default();
-    vapor_options.vapor = true;
+    let vapor_options = SfcCompileOptions {
+        vapor: true,
+        ..SfcCompileOptions::default()
+    };
     let vapor_default = compile_sfc(&descriptor, vapor_options.clone()).unwrap();
     let vapor_legacy = with_whitespace_mode(WhitespaceStrategy::Condense, true, || {
         compile_sfc(&descriptor, vapor_options).unwrap()

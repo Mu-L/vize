@@ -1,14 +1,15 @@
 //! Script compile context.
 //!
-//! Holds all state during script compilation.
-//! Uses OXC for proper AST-based parsing instead of regex.
 
 mod batch_epoch;
 mod external_types;
 mod helpers;
 mod parse;
 mod props;
+mod source_snapshot;
+mod type_world;
 pub use batch_epoch::{TypeResolutionBatchGuard, begin_type_resolution_batch};
+pub use source_snapshot::TypeSourceSnapshot;
 
 use crate::types::{BindingMetadata, BindingType};
 use vize_carton::{CompactString, String, ToCompactString};
@@ -17,7 +18,6 @@ use vize_croquis::macros::{EmitDefinition, PropDefinition};
 
 use super::ScriptSetupMacros;
 
-/// Script compile context - holds all state during compilation
 #[derive(Debug)]
 pub struct ScriptCompileContext {
     /// Source content

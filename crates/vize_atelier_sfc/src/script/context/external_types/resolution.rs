@@ -54,7 +54,7 @@ static BASE_CANON_CACHE: LazyLock<RwLock<FxHashMap<(PathBuf, String), CachedPath
 
 /// Canonicalize the compiled file's own path, falling back to the original
 /// path for virtual filenames that do not exist on disk.
-pub(super) fn canonical_base_file(filename: &str) -> PathBuf {
+pub(crate) fn canonical_base_file(filename: &str) -> PathBuf {
     let path = PathBuf::from(filename);
     let cwd = if path.is_absolute() {
         PathBuf::new()
@@ -92,7 +92,7 @@ pub(super) fn canonical_base_file(filename: &str) -> PathBuf {
 static RESOLVE_CACHE: LazyLock<RwLock<FxHashMap<(PathBuf, String), CachedPath>>> =
     LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
-pub(super) fn resolve_import_path(current_file: &Path, specifier: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_import_path(current_file: &Path, specifier: &str) -> Option<PathBuf> {
     let dir = current_file.parent()?.to_path_buf();
     let key = (dir, specifier.to_compact_string());
     let epoch = current_batch_epoch();
@@ -339,7 +339,7 @@ fn canonicalize_or_original(path: PathBuf) -> Option<PathBuf> {
     }
 }
 
-pub(super) fn path_key(path: &Path) -> String {
+pub(crate) fn path_key(path: &Path) -> String {
     path.to_string_lossy().as_ref().to_compact_string()
 }
 

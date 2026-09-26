@@ -27,6 +27,7 @@ use super::macros;
 
 /// Process a single statement
 pub fn process_statement(result: &mut ScriptParseResult, stmt: &Statement<'_>, source: &str) {
+    super::super::extract::invalidate_default_objects(result, stmt);
     match stmt {
         // Variable declarations: const, let, var
         Statement::VariableDeclaration(decl) => process_variable_declaration(result, decl, source),
@@ -173,6 +174,7 @@ fn process_variable_declaration(
     source: &str,
 ) {
     for declarator in decl.declarations.iter() {
+        super::super::extract::invalidate_default_expression(result, declarator.init.as_ref());
         macros::process_variable_declarator(result, declarator, decl.kind, source);
     }
 }

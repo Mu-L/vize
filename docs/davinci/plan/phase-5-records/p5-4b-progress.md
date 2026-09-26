@@ -2,6 +2,11 @@
 
 Contract: [phase-5-tasks.md](../phase-5-tasks.md#p5-4b--summary-firewalls-durability-and-memory-bounds).
 
+The production imported-component publication/consumer slice is recorded in
+[p5-4b-production-alpha.md](./p5-4b-production-alpha.md). The history below
+describes the earlier fixture-only boundary; full production scale acceptance
+remains open.
+
 `vize_resident::summary` now accepts P5-2 `AlphaPages` from the upstream fact
 producer. The resident `sfc_summary` query reads the source revision and
 tsconfig, then builds an `SfcSummary`. The declaration query returns only the

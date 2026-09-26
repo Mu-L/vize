@@ -12,6 +12,7 @@ mod race;
 mod reactivity;
 mod runtime_objects;
 mod slots;
+mod with_defaults;
 
 pub use common::{extract_call_expression, get_binding_type_from_kind};
 pub(in crate::script_parser) use emits::extract_runtime_emit_payload_type;
@@ -35,3 +36,6 @@ pub use provide::{detect_provide_inject_call, extract_argument_source, extract_p
 pub use race::detect_race_condition_call;
 pub use reactivity::{detect_reactivity_call, detect_setup_context_violation};
 pub(in crate::script_parser) use runtime_objects::record_static_runtime_object_literal;
+pub(in crate::script_parser) use with_defaults::{
+    invalidate_default_expression, invalidate_default_objects,
+};

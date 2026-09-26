@@ -77,6 +77,7 @@ impl ServerState {
 
     fn apply_type_checker_config(&self, config: TypeCheckerConfig, source: &str) {
         *self.type_checker_config.write() = config;
+        self.invalidate_component_interfaces();
         // The tsconfig and runtime this selects decide which project the
         // overlays are layered onto, so a reload retargets them even though no
         // document changed (#3442).

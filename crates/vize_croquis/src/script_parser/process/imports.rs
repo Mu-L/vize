@@ -53,6 +53,17 @@ pub(super) fn process_import(result: &mut ScriptParseResult, import: &ImportDecl
                     (specifier.local.name.as_str(), false, specifier.local.span)
                 }
             };
+            let exported = match spec {
+                ImportDeclarationSpecifier::ImportSpecifier(specifier) => {
+                    specifier.imported.name().as_str()
+                }
+                ImportDeclarationSpecifier::ImportDefaultSpecifier(_) => "default",
+                ImportDeclarationSpecifier::ImportNamespaceSpecifier(_) => "*",
+            };
+            result
+                .types
+                .definitions_mut()
+                .add_imported_identity(name, source_name, exported);
 
             if source_name == "vue"
                 && let ImportDeclarationSpecifier::ImportSpecifier(specifier) = spec

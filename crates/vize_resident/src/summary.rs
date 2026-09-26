@@ -68,6 +68,13 @@ pub struct TsConfig {
     pub text: String,
 }
 
+/// The editor's imported-source snapshot changes at buffer durability.
+#[salsa::input(singleton, debug)]
+pub(crate) struct SourceWorld {
+    #[returns(copy)]
+    pub revision: u64,
+}
+
 /// The upstream α producer's current pages for one SFC. The source is kept
 /// separately so body edits cannot be accidentally included in the summary.
 #[salsa::input(debug)]
@@ -80,6 +87,8 @@ pub struct SummaryInput {
     pub source_stamp: [u8; 16],
     #[returns(copy)]
     pub config_stamp: [u8; 16],
+    #[returns(copy)]
+    pub world_revision: u64,
 }
 
 /// A stale upstream α export is an error, not an unchanged interface.
@@ -99,12 +108,24 @@ fn stamp(domain: &[u8], text: &str) -> [u8; 16] {
     hasher.digest()
 }
 
-fn source_stamp(text: &str) -> [u8; 16] {
-    stamp(b"vize.resident.alpha.source\0", text)
+fn source_stamp(db: &dyn salsa::Database, file: SourceFile) -> [u8; 16] {
+    let mut hasher = StableHasher128::new();
+    hasher.update(b"vize.resident.alpha.source\0");
+    for value in [file.path(db).as_str(), file.text(db).as_str()] {
+        hasher.update(&(value.len() as u64).to_le_bytes());
+        hasher.update(value.as_bytes());
+    }
+    hasher.digest()
 }
 
 fn config_stamp(text: &str) -> [u8; 16] {
     stamp(b"vize.resident.alpha.config\0", text)
+}
+
+pub(crate) fn alpha_is_current(db: &ResidentDatabase, input: SummaryInput) -> bool {
+    source_stamp(db, input.file(db)) == input.source_stamp(db)
+        && config_stamp(TsConfig::get(db).text(db)) == input.config_stamp(db)
+        && SourceWorld::get(db).revision(db) == input.world_revision(db)
 }
 
 /// A declaration identity shared by users. Salsa reclaims interned names
@@ -122,10 +143,10 @@ pub fn sfc_summary(
     db: &dyn salsa::Database,
     input: SummaryInput,
 ) -> Result<SfcSummary, ResidentSummaryError> {
-    let source = input.file(db).text(db);
     let config = TsConfig::get(db).text(db);
-    if source_stamp(source) != input.source_stamp(db)
+    if source_stamp(db, input.file(db)) != input.source_stamp(db)
         || config_stamp(config) != input.config_stamp(db)
+        || SourceWorld::get(db).revision(db) != input.world_revision(db)
     {
         return Err(ResidentSummaryError::StaleAlpha);
     }
@@ -150,16 +171,17 @@ pub fn declaration_fingerprint<'db>(
 impl ResidentDatabase {
     /// Register the α pages produced for a resident file.
     pub fn publish_alpha(&self, file: SourceFile, pages: AlphaPages) -> SummaryInput {
-        let source_stamp = source_stamp(file.text(self));
+        let source_stamp = source_stamp(self, file);
         let config_stamp = config_stamp(TsConfig::get(self).text(self));
-        SummaryInput::builder(file, pages, source_stamp, config_stamp)
+        let world_revision = SourceWorld::get(self).revision(self);
+        SummaryInput::builder(file, pages, source_stamp, config_stamp, world_revision)
             .durability(Durability::LOW)
             .new(self)
     }
 
     /// Replace the α pages in the same revision as the corresponding edit.
     pub fn revise_alpha(&mut self, input: SummaryInput, pages: AlphaPages) {
-        let source_stamp = source_stamp(input.file(self).text(self));
+        let source_stamp = source_stamp(self, input.file(self));
         let config_stamp = config_stamp(TsConfig::get(self).text(self));
         input
             .set_pages(self)
@@ -173,6 +195,11 @@ impl ResidentDatabase {
             .set_config_stamp(self)
             .with_durability(Durability::LOW)
             .to(config_stamp);
+        let world_revision = SourceWorld::get(self).revision(self);
+        input
+            .set_world_revision(self)
+            .with_durability(Durability::LOW)
+            .to(world_revision);
     }
 
     /// Replace a buffer and its freshly exported α pages before any query

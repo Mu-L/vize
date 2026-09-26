@@ -6,7 +6,11 @@
 //! - Type references: `defineProps<Props>()`
 //! - External imports (future): `import type { Props } from './types'`
 
+mod declaration_metadata;
 mod props;
+pub mod world;
+
+pub use world::{ResolvedTypeWorld, TypeDeclaration, TypeDeclarationId, TypeLookup};
 
 use vize_carton::{CompactString, FxHashMap, cstr};
 
@@ -139,7 +143,8 @@ impl TypeDefinitions {
         }
     }
 
-    fn interface_extends(&self, name: &str) -> Vec<CompactString> {
+    /// Authored heritage clauses retained by the interface declaration producer.
+    pub fn interface_extends(&self, name: &str) -> Vec<CompactString> {
         let key = interface_extends_key(name);
         self.type_aliases
             .get(key.as_str())
@@ -155,13 +160,24 @@ impl TypeDefinitions {
 }
 
 /// Type resolver for Vue compiler macros
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct TypeResolver {
     /// Collected type definitions
     definitions: TypeDefinitions,
+    resolved_world: Option<ResolvedTypeWorld>,
+    resolved_props_complete: Option<bool>,
+    resolved_prop_modules: FxHashMap<CompactString, CompactString>,
 }
 
 impl TypeResolver {
+    pub fn resolved_world(&self) -> Option<&ResolvedTypeWorld> {
+        self.resolved_world.as_ref()
+    }
+
+    pub fn set_resolved_world(&mut self, world: ResolvedTypeWorld) {
+        self.resolved_world = Some(world);
+    }
+
     /// Create a new type resolver
     #[inline]
     pub fn new() -> Self {

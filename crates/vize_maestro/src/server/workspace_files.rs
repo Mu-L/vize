@@ -99,6 +99,7 @@ pub(super) async fn did_change_watched_files(
         if changes.is_empty() {
             return;
         }
+        server.state.invalidate_component_interfaces();
         if changes_invalidate_disk_project_state(&server.state, &changes) {
             invalidate_corsa_disk_state(&server.state);
         }

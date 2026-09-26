@@ -162,8 +162,9 @@ pub struct DescriptorStats {
 /// identity (a URI, or a path for a file read from disk).
 #[derive(Default)]
 pub struct ResidentDocuments {
-    db: ResidentDatabase,
+    pub(crate) db: ResidentDatabase,
     files: FxHashMap<String, SourceFile>,
+    pub(crate) interfaces: crate::interface::Interfaces,
     lookups: u32,
     parses: u32,
 }
@@ -198,11 +199,15 @@ impl ResidentDocuments {
     /// Release document `key`'s buffer: its text becomes empty and its memo
     /// is recomputed over the empty text, so the old descriptor is dropped.
     pub fn close(&mut self, key: &str) {
+        let interface = self.interfaces.remove(key);
         if let Some(&file) = self.files.get(key) {
             if !file.text(&self.db).is_empty() {
                 self.db.edit(file, "");
             }
             let _released = sfc_descriptor(&self.db, file);
+            if let Some(input) = interface {
+                crate::interface::release_alpha(&mut self.db, input);
+            }
             self.parses += executions(&self.db.take_accounting());
         }
     }
@@ -215,7 +220,7 @@ impl ResidentDocuments {
         }
     }
 
-    fn file(&mut self, key: &str, filename: &str, text: &str) -> SourceFile {
+    pub(crate) fn file(&mut self, key: &str, filename: &str, text: &str) -> SourceFile {
         if let Some(&file) = self.files.get(key) {
             if file.path(&self.db).as_str() != filename {
                 self.db.rename(file, filename);

@@ -1,12 +1,11 @@
 //! Imported-component metadata, caching, and prop/slot completion items.
 
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
 use oxc_ast::ast::{PropertyKey, Statement, TSSignature, TSType};
 use tower_lsp::lsp_types::{
     CompletionItem, CompletionItemKind, CompletionItemLabelDetails, InsertTextFormat,
 };
-use vize_relief::BindingType;
 
 use crate::ide::definition::helpers as definition_helpers;
 use crate::ide::{
@@ -65,13 +64,13 @@ pub(crate) fn component_surface_completions(ctx: &IdeContext) -> Vec<CompletionI
         .collect()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ComponentMetadata {
     pub(crate) props: Vec<ComponentProp>,
-    slots: Vec<ComponentSlot>,
+    pub(super) slots: Vec<ComponentSlot>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ComponentProp {
     pub(crate) name: String,
     pub(crate) type_detail: Option<String>,
@@ -80,10 +79,10 @@ pub(crate) struct ComponentProp {
     pub(crate) default_value: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-struct ComponentSlot {
-    name: String,
-    props_type: Option<String>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ComponentSlot {
+    pub(super) name: String,
+    pub(super) props_type: Option<String>,
 }
 
 pub(crate) fn component_metadata(
@@ -153,99 +152,6 @@ fn art_component_path(ctx: &IdeContext<'_>, component_name: &str) -> Option<Stri
     let pascal_component = kebab_to_pascal(component_name);
     let pascal_stem = kebab_to_pascal(stem);
     (component_name == stem || pascal_component == pascal_stem).then(|| component_path.to_string())
-}
-
-pub(super) fn extract_component_metadata(
-    descriptor: Option<&vize_atelier_sfc::SfcDescriptor<'_>>,
-    filename: &str,
-    options_api: bool,
-    legacy_vue2: bool,
-) -> ComponentMetadata {
-    let Some(descriptor) = descriptor else {
-        return ComponentMetadata {
-            props: Vec::new(),
-            slots: Vec::new(),
-        };
-    };
-
-    let mut props = Vec::new();
-    let mut slots = Vec::new();
-    let mut seen_props = BTreeSet::new();
-    let mut seen_slots = BTreeSet::new();
-
-    if descriptor.script_setup.is_some() || descriptor.script.is_some() {
-        let summary = vize_atelier_sfc::croquis::analyze_sfc_descriptor_resolved(
-            descriptor,
-            None,
-            vize_atelier_sfc::croquis::SfcCroquisOptions::full(),
-            options_api,
-            legacy_vue2,
-            filename,
-        )
-        .croquis;
-
-        for prop in summary.macros.props() {
-            if seen_props.insert(prop.name.to_string()) {
-                props.push(ComponentProp {
-                    name: prop.name.to_string(),
-                    type_detail: prop.prop_type.as_ref().map(|ty| ty.to_string()),
-                    required: prop.required,
-                    default_value: prop.default_value.as_ref().map(|d| d.to_string()),
-                });
-            }
-        }
-
-        // defineModel<T>() introduces a prop alongside an `update:NAME`
-        // event. Prop completion only knew about defineProps before, so
-        // child components using defineModel showed no prop suggestions.
-        // See #686.
-        for model in summary.macros.models() {
-            if seen_props.insert(model.name.to_string()) {
-                props.push(ComponentProp {
-                    name: model.name.to_string(),
-                    type_detail: model.model_type.as_ref().map(|ty| ty.to_string()),
-                    required: model.required,
-                    default_value: model.default_value.as_ref().map(|d| d.to_string()),
-                });
-            }
-        }
-
-        if options_api || legacy_vue2 {
-            for (name, binding_type) in summary.bindings.iter() {
-                if binding_type == BindingType::Props && seen_props.insert(name.to_string()) {
-                    props.push(ComponentProp {
-                        name: name.to_string(),
-                        type_detail: None,
-                        required: false,
-                        default_value: None,
-                    });
-                }
-            }
-        }
-
-        for slot in summary.macros.slots() {
-            let name = slot.name.to_string();
-            if seen_slots.insert(name.clone()) {
-                slots.push(ComponentSlot {
-                    name,
-                    props_type: slot.props_type.as_ref().map(|props| props.to_string()),
-                });
-            }
-        }
-    }
-
-    if let Some(template) = descriptor.template.as_ref() {
-        for name in super::slot_outlets::extract_template_slot_names(template.content.as_ref()) {
-            if seen_slots.insert(name.clone()) {
-                slots.push(ComponentSlot {
-                    name,
-                    props_type: None,
-                });
-            }
-        }
-    }
-
-    ComponentMetadata { props, slots }
 }
 
 fn prop_completion_item(prop: &ComponentProp, dynamic: bool) -> CompletionItem {

@@ -57,6 +57,7 @@ regex = { workspace = true }
 sha2 = { workspace = true }
 
 [dev-dependencies]
+tempfile = { workspace = true }
 davinci_test_support = { workspace = true }
 insta = { workspace = true }
 pklrust = { workspace = true }

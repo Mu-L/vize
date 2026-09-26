@@ -26,7 +26,7 @@ use crate::artifact::{
     BlockArtifacts, BlockKind, BlockSource, PageArtifact, StageConfig, SurfaceArtifact,
     page_artifact, split_blocks, surface_artifact,
 };
-use crate::summary::{SummaryCachePolicy, TsConfig};
+use crate::summary::{SourceWorld, SummaryCachePolicy, TsConfig};
 
 /// One open file: its path and its current text (an open buffer, so
 /// [`Durability::LOW`]).
@@ -126,6 +126,7 @@ impl ResidentDatabase {
         let _tsconfig = TsConfig::builder(String::from(""))
             .durability(Durability::HIGH)
             .new(&db);
+        let _source_world = SourceWorld::builder(0).durability(Durability::LOW).new(&db);
         // The bundled preset always parses (a unit test pins it); if it ever
         // stopped, the salsa default LRU capacities stay in force.
         if let Ok(policy) = SummaryCachePolicy::from_resource_preset("linux-x64-ci") {

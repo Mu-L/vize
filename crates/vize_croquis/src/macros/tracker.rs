@@ -48,7 +48,8 @@ impl MacroTracker {
 
     /// Add a prop definition.
     #[inline]
-    pub fn add_prop(&mut self, prop: PropDefinition) {
+    pub fn add_prop(&mut self, mut prop: PropDefinition) {
+        self.apply_with_default(&mut prop);
         self.props.push(prop);
     }
 
@@ -57,7 +58,7 @@ impl MacroTracker {
     pub fn add_prop_with_declaration(&mut self, prop: PropDefinition, start: u32, end: u32) {
         self.prop_declarations
             .insert(prop.name.clone(), (start, end));
-        self.props.push(prop);
+        self.add_prop(prop);
     }
 
     /// Get all props.

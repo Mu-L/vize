@@ -15,6 +15,7 @@ mod attribute_value_tests;
 mod bindings;
 mod component_cache;
 mod component_docs;
+mod component_interface;
 mod component_meta;
 #[cfg(feature = "native")]
 mod component_native;
