@@ -10,6 +10,7 @@ on:
   push:
     branches: [main, davinci]
     paths:
+      - "crates/vize_extension_contract/**"
       - "crates/vize_extension_host/**"
       - "crates/vize_extension_sdk/**"
       - "npm/extension-sdk/**"
