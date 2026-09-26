@@ -64,6 +64,10 @@
 
 ## P6-10 — Completion-metrics review
 
+Review input: [completion-metrics.md](../completion-metrics.md) collects recorded
+values and names outstanding measurements. P5-14 and the finished-substrate review
+remain open; this input does not mark acceptance.
+
 **Start gate:** gated on P5-14 — metrics are reviewed against the finished substrate.
 
 **Lane:** I
@@ -81,6 +85,10 @@
 **Non-goals:** moving any target after the fact.
 
 ## P6-11 — v1 go-no-go input package
+
+Review input: [the evidence package](../../release/davinci-v1-evidence.md) maps
+every release checklist item to evidence or a blocker. P6-10 and maintainer
+acceptance remain open; no go/no-go decision is recorded.
 
 **Start gate:** startable now — no open earlier-phase dependency (waits behind P6-10).
 
