@@ -96,6 +96,7 @@ jobs:
               base = json.loads(Path(f'measurements/base-{i}.json').read_text())
               head = json.loads(Path(f'measurements/head-{i}.json').read_text())
               assert base['cycle_fingerprints'] == head['cycle_fingerprints']
+              assert base['semantic_fingerprints'] == head['semantic_fingerprints']
               assert base['scope_id_bytes'] == head['scope_id_bytes'] == 4
           PY
       - name: Upload raw samples
