@@ -168,10 +168,20 @@ fn native_catalog_maps_independent_tsx_jsx_roots_and_retains_the_query_epoch() {
             (b.clone(), b_source),
             (model.clone(), model_source),
         ];
-        let document = open(&bridge, &a, a_source, &overlays).await;
+        let first = open(&bridge, &a, a_source, &overlays).await;
         let sibling = open(&bridge, &b, b_source, &overlays).await;
+        // Another root can reload the native project handle. Production
+        // providers reopen their query host before asking for coordinates.
+        let document = open(&bridge, &a, a_source, &overlays).await;
+        assert!(first.source_catalogs[0].shares_revision_with(&document.source_catalogs[0]));
         assert!(document.source_catalogs[0].shares_revision_with(&sibling.source_catalogs[0]));
         let (line, character) = canonical_source_offset_to_position(&document, ctx.offset).unwrap();
+        let generated =
+            crate::ide::position_to_offset(&document.virtual_result.code, line, character).unwrap();
+        assert_eq!(
+            document.virtual_result.code.get(generated..generated + 5),
+            Some("label")
+        );
         let raw = bridge
             .references(&document.request_uri, line, character, true)
             .await
