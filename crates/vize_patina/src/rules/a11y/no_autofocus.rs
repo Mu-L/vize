@@ -50,8 +50,11 @@ impl MarkupRule for NoAutofocus {
         if !matches!(
             binding.kind(),
             MarkupBindingKind::Attribute | MarkupBindingKind::Bind
-        ) || !binding.arg_name_eq("autofocus")
-        {
+        ) || if ctx.is_template() {
+            !binding.is_static_unqualified_arg_exact("autofocus")
+        } else {
+            !binding.arg_name_eq("autofocus")
+        } {
             return;
         }
         let message = ctx.lint().t("a11y/no-autofocus.message");

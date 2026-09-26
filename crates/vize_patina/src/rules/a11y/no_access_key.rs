@@ -50,8 +50,11 @@ impl MarkupRule for NoAccessKey {
         if !matches!(
             binding.kind(),
             MarkupBindingKind::Attribute | MarkupBindingKind::Bind
-        ) || !binding.arg_name_eq("accesskey")
-        {
+        ) || if ctx.is_template() {
+            !binding.is_static_unqualified_arg_exact("accesskey")
+        } else {
+            !binding.arg_name_eq("accesskey")
+        } {
             return;
         }
         let message = ctx.lint().t("a11y/no-access-key.message");

@@ -19,6 +19,9 @@ fn linter() -> Linter {
     linter
         .registry
         .register(Box::new(crate::rules::vue::NoStaticInlineStyles));
+    linter.registry.register(Box::new(
+        crate::rules::opinionated::vapor::PreferStaticClass,
+    ));
     linter
 }
 
@@ -88,6 +91,7 @@ const view = <button style="color:red">go</button>;
 }
 
 mod battery;
+mod stylesheet;
 
 struct FacadeOnly(&'static crate::rule::RuleMeta);
 

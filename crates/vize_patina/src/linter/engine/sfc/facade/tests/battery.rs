@@ -26,3 +26,30 @@ fn sfc_facade_matches_relief_on_the_committed_template_battery() {
         compare_template(&descriptor.template.unwrap().content);
     }
 }
+
+#[test]
+fn argument_names_and_authored_fix_ranges_match_the_template_contract() {
+    for source in [
+        r#"<div :[accesskey]="shortcut" :[autofocus]="enabled"/>"#,
+        r#"<input accessKey="x" autoFocus :accessKey="shortcut" :autoFocus="enabled"/>"#,
+        r#"<div accesskey="x"/><input :autofocus="true"/>"#,
+        r#"<div :class="'日本語😀'"/><div v-bind:class="`same`"/>"#,
+        r#"<div :[class]="'same'"/><div .class="'same'"/>"#,
+        r#"<div class="base" :class="'same'"/><div :Class="'same'"/>"#,
+        r#"<li v-for="item in items">{{ item }}</li>"#,
+        r#"<template v-for="(item, i) in items"><li>{{ item }}</li></template>"#,
+        r#"<template v-for="item in items"><li :key="item.id"/></template>"#,
+        r#"<li v-for="item in items" v-bind="{ key: item.id }"/>"#,
+        r#"<div id="lb" role="listbox"/><input aria-controls="lb" :aria-activedescendant="focused"/>"#,
+        r#"<div id="lb" role="listbox"/><input :aria-controls="'lb'" aria-activedescendant="opt"/>"#,
+        r#"<div id="lb" role="listbox"/><input aria-controls="lb" :[aria-activedescendant]="focused"/>"#,
+        r#"<div v-if="open"><div id="lb" role="listbox"/></div><input aria-controls="lb" :aria-activedescendant="focused"/>"#,
+        r#"<div :role="'button'"/><nav :[role]="'navigation'"/>"#,
+        r#"<li v-for="item in items" :Key="item"/><Comp v-for="item in items" KEY="x"/>"#,
+        r#"<template v-for="item in items"><li :Key="item"/></template>"#,
+        r#"<Template v-for="item in items"><li :key="item"/></Template>"#,
+        r#"<slot v-for="item in items" :name="item"/>"#,
+    ] {
+        compare_template(source);
+    }
+}

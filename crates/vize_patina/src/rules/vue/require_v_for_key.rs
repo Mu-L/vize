@@ -20,6 +20,7 @@
 
 use crate::context::LintContext;
 use crate::diagnostic::Severity;
+use crate::ir::ByteRange;
 use crate::markup::{
     MarkupBindingKind, MarkupContext, MarkupElement, MarkupList, MarkupNode, MarkupRule,
 };
@@ -43,19 +44,24 @@ pub struct RequireVForKey;
 
 impl RequireVForKey {
     /// Report when `element` (the repeated node of a `v-for`) lacks a key.
-    fn check_keyed_element<'a>(ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
+    fn check_keyed_element<'a>(
+        ctx: &mut MarkupContext<'_, 'a>,
+        element: &MarkupElement<'a>,
+        range: ByteRange,
+    ) {
         // petite-vue does not require a `:key` on `v-for`.
         if ctx.lint().is_petite_vue() {
             return;
         }
-        if element.is_tag("slot") {
+        let exact = ctx.is_template();
+        if element.tag() == "slot" || (!exact && element.is_tag("slot")) {
             return;
         }
-        if element.is_tag("template") {
-            if has_markup_template_v_for_key(element) {
+        if element.tag() == "template" || (!exact && element.is_tag("template")) {
+            if has_markup_template_v_for_key(element, exact) {
                 return;
             }
-        } else if has_markup_key(element) {
+        } else if has_markup_key(element, exact) {
             return;
         }
 
@@ -64,20 +70,30 @@ impl RequireVForKey {
             .lint()
             .t_fmt("vue/require-v-for-key.message", &[("tag", tag)]);
         let help = ctx.lint().t("vue/require-v-for-key.help");
-        ctx.lint()
-            .error_at_with_help(message, element.range(), help);
+        ctx.lint().error_at_with_help(message, range, help);
     }
 }
 
-fn has_markup_key(element: &MarkupElement<'_>) -> bool {
-    element.has_key_binding() || has_object_bound_key(element)
+fn has_markup_key(element: &MarkupElement<'_>, exact: bool) -> bool {
+    let mut found = false;
+    element.walk_bindings(&mut |binding| {
+        found |= matches!(
+            binding.kind(),
+            MarkupBindingKind::Attribute | MarkupBindingKind::Bind
+        ) && if exact {
+            binding.is_unqualified_arg_exact("key")
+        } else {
+            binding.arg_name_eq("key")
+        };
+    });
+    found || has_object_bound_key(element)
 }
 
-fn has_markup_template_v_for_key(element: &MarkupElement<'_>) -> bool {
+fn has_markup_template_v_for_key(element: &MarkupElement<'_>, exact: bool) -> bool {
     if element.has_directive("slot") {
         return true;
     }
-    if has_markup_key(element) {
+    if has_markup_key(element, exact) {
         return true;
     }
 
@@ -87,7 +103,14 @@ fn has_markup_template_v_for_key(element: &MarkupElement<'_>) -> bool {
             return;
         }
         if let MarkupNode::Element(child) = child {
-            found = child.binding(MarkupBindingKind::Bind, "key").is_some();
+            child.walk_bindings(&mut |binding| {
+                found |= binding.kind() == MarkupBindingKind::Bind
+                    && if exact {
+                        binding.is_unqualified_arg_exact("key")
+                    } else {
+                        binding.arg_name_eq("key")
+                    };
+            });
         }
     });
     found
@@ -230,16 +253,18 @@ impl MarkupRule for RequireVForKey {
     }
 
     fn enter_element<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
-        // Pre-transform shape: the element itself carries the `v-for` directive.
-        if element.has_directive("for") {
-            Self::check_keyed_element(ctx, element);
-        }
+        element.walk_authored_directive_ranges("for", &mut |range| {
+            Self::check_keyed_element(ctx, element, range);
+        });
     }
 
     fn enter_list<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, list: &MarkupList<'a>) {
-        // Post-transform shape: the list scope wraps the repeated element(s).
+        if list.has_authored_directive() {
+            return;
+        }
+        // Transformed scopes carry no authored directive attribute.
         list.walk_elements(&mut |element| {
-            Self::check_keyed_element(ctx, &element);
+            Self::check_keyed_element(ctx, &element, element.range());
         });
     }
 }

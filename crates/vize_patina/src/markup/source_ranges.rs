@@ -3,12 +3,58 @@
 use super::element::{MarkupElement, MarkupElementInner};
 use super::jsx_names::jsx_element_ref;
 use super::s2::binding::S2Item;
-use super::s2::surface::attr_span;
+use super::s2::surface::{SurfaceDirective, attr_span};
 use super::{loc_to_range, s2_range, span_to_range};
 use crate::ir::ByteRange;
 use oxc_ast::ast::JSXAttributeItem;
 
 impl MarkupElement<'_> {
+    /// Visit authored directive ranges, including malformed structural
+    /// directives that did not become a scope. Frozen `v-pre` attributes
+    /// remain plain attributes, matching the parser's raw-subtree contract.
+    pub fn walk_authored_directive_ranges(&self, name: &str, visitor: &mut impl FnMut(ByteRange)) {
+        match self.inner {
+            MarkupElementInner::Relief(node) => {
+                for prop in &node.props {
+                    if let vize_relief::PropNode::Directive(directive) = prop
+                        && directive.name == name
+                    {
+                        visitor(loc_to_range(&directive.loc));
+                    }
+                }
+            }
+            MarkupElementInner::S2 {
+                surface: Some(element),
+                doc,
+                op,
+            } => {
+                for attr in &element.open.attrs {
+                    let span = attr_span(doc.source, attr);
+                    if !op.attributes().iter().any(|kept| kept.span == span)
+                        && SurfaceDirective::parse(attr.name.text)
+                            .is_some_and(|directive| directive.name == name)
+                    {
+                        visitor(s2_range(span));
+                    }
+                }
+            }
+            MarkupElementInner::S2Carrier { element, doc, .. } => {
+                for attr in &element.open.attrs {
+                    if SurfaceDirective::parse(attr.name.text)
+                        .is_some_and(|directive| directive.name == name)
+                    {
+                        visitor(s2_range(attr_span(doc.source, attr)));
+                    }
+                }
+            }
+            _ => self.walk_directives(&mut |directive| {
+                if directive.name_eq(name) {
+                    visitor(directive.range());
+                }
+            }),
+        }
+    }
+
     /// Visit the byte ranges of every item written on the opening tag.
     ///
     /// Unlike [`Self::walk_bindings`], this is the *authored* surface: it

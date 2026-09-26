@@ -15,6 +15,8 @@ use std::marker::PhantomData;
 use vize_relief::{AttributeNode, DirectiveNode, ExpressionNode};
 use vize_s2::op::Attribute;
 
+mod argument;
+
 /// The normalized class of a [`MarkupBinding`] (and the directive a JSX
 /// attribute projects to).
 ///
