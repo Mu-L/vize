@@ -250,4 +250,3 @@ fn once_event_handlers_keep_authored_mapping_units() {
         insta::assert_debug_snapshot!(format!("once_event_{case}_map"), segments);
     }
 }
-
