@@ -69,6 +69,12 @@ The signature retains the exact `withDefaults` argument, including opaque
 expressions. Known static defaults also populate their prop contracts after
 imported declarations are expanded. Unknown spreads or dynamic keys discard
 preceding uncertain values while preserving later proven static defaults.
+Top-level constant object initializers, direct aliases and known spreads use
+the same public default values as literal arguments. Mutations and executed
+calls conservatively discard those initializer facts; unexecuted function bodies
+do not contribute defaults. Unused initializer objects are released after
+analysis. The authored identifier remains in the signature, and changing a
+consumed initializer changes the corresponding prop contract.
 Macro type arguments remain in the signature conservatively until extraction
 can prove completeness, so some interface edits also invalidate the signature.
 Inline object type arguments retain per-field reachable type closures. Expanded
