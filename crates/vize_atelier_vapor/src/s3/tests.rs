@@ -3,6 +3,7 @@ use super::{
     retained::Retained,
 };
 
+mod component_names;
 mod keep_alive;
 use vize_atelier_core::TemplateSyntaxMode;
 use vize_carton::Allocator;
