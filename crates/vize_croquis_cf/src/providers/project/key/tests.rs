@@ -38,7 +38,7 @@ fn borrowed_hash_lookup_survives_transition_and_cow_mutation() {
         original.as_str(),
         "src/components/application/共有状態/Module"
     );
-    assert!(map.get(key.as_str()).is_none());
+    assert!(!map.contains_key(key.as_str()));
     assert_eq!(map.get(original.as_str()), Some(&7));
     assert_ne!(key.as_ptr(), original.as_ptr());
 }
