@@ -1199,6 +1199,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fast-float2"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6e8948ce679d00a02a94739ea185595dca7118ed04feb991127e443bd3d761f"
+
+[[package]]
 name = "fast-glob"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4555,6 +4561,7 @@ dependencies = [
  "compact_str",
  "criterion",
  "crossterm",
+ "fast-float2",
  "insta",
  "libc",
  "napi",

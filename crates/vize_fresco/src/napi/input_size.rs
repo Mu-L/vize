@@ -1,4 +1,5 @@
 use super::types::{FlexStyleNapi, RenderNodeNapi};
+use crate::layout::dimensions::parse_positive_point_width;
 use crate::text::TextWidth;
 
 const DEFAULT_INPUT_WIDTH: usize = 30;
@@ -22,17 +23,4 @@ fn input_wrap_width(style: Option<&FlexStyleNapi>) -> usize {
         .and_then(|style| style.width.as_deref())
         .and_then(parse_positive_point_width)
         .unwrap_or(DEFAULT_INPUT_WIDTH)
-}
-
-fn parse_positive_point_width(value: &str) -> Option<usize> {
-    if value == "auto" || value.ends_with('%') {
-        return None;
-    }
-
-    let value = value.parse::<f32>().ok()?;
-    if value.is_finite() && value > 0.0 {
-        Some(value.ceil() as usize)
-    } else {
-        None
-    }
 }

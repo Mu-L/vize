@@ -169,6 +169,7 @@ phf = { version = "=0.13.1", features = ["macros"] }
 memoffset = "=0.9.1"
 memchr = "=2.8.3"
 simdutf8 = "=0.1.5"
+fast-float2 = "=0.2.4"
 regex = "=1.13.1"
 smallvec = { version = "=1.15.2", features = ["union"] }
 dashmap = "=6.2.1"

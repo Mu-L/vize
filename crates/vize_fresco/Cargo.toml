@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-napi = ["dep:napi", "dep:napi-derive"]
+napi = ["dep:napi", "dep:napi-derive", "dep:fast-float2"]
 
 [dependencies]
 vize_s0.workspace = true
@@ -32,6 +32,7 @@ unicode-segmentation.workspace = true
 # Efficient string handling
 compact_str = { workspace = true }
 smallvec = { workspace = true }
+fast-float2 = { workspace = true, optional = true }
 
 # Collections
 rustc-hash = { workspace = true }
@@ -62,6 +63,7 @@ windows-sys = { version = "=0.61.2", features = [
 napi-build.workspace = true
 
 [dev-dependencies]
+fast-float2.workspace = true
 insta.workspace = true
 criterion.workspace = true
 
