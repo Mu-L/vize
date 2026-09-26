@@ -32,8 +32,11 @@ impl<'a, 'm, 's: 'a> Lowerer<'a, 'm, 's> {
         });
         // A member-expression or bound predicate match is a value, so it becomes
         // the `:is` binding of a dynamic component rather than a tag string.
+        let bound_component = name::is_component(&opening.name, self.uses_babel_vdom_compat())
+            && name::identifier_name(&opening.name) != Some("Fragment")
+            && self.is_bound_jsx_identifier(&opening.name);
         let expression_tag = name::expression_tag_span(&opening.name)
-            .or_else(|| bound_custom_element.then(|| opening.name.span()));
+            .or_else(|| (bound_custom_element || bound_component).then(|| opening.name.span()));
         let tag = match expression_tag {
             Some(_) => String::from(DYNAMIC_COMPONENT_TAG),
             None => name::element_tag(&opening.name),

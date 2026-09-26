@@ -222,11 +222,23 @@ impl<'ast> Visit<'ast> for RootLowerer<'_, '_, '_, '_> {
     fn visit_variable_declarator(&mut self, it: &VariableDeclarator<'ast>) {
         // Capture `const App = ...` so an immediately-initialized function or
         // arrow can adopt the binding name.
-        if let Some(name) = it.id.get_identifier_name() {
-            self.pending_name = Some(String::from(name.as_str()));
+        let declaration = self.pending_declaration_span;
+        let direct_function = it.init.as_ref().is_some_and(|expression| {
+            matches!(
+                expression.get_inner_expression(),
+                Expression::ArrowFunctionExpression(_) | Expression::FunctionExpression(_)
+            )
+        });
+        if direct_function {
+            if let Some(name) = it.id.get_identifier_name() {
+                self.pending_name = Some(String::from(name.as_str()));
+            }
+        } else {
+            self.pending_declaration_span = None;
         }
         walk::walk_variable_declarator(self, it);
         self.pending_name = None;
+        self.pending_declaration_span = declaration;
     }
 
     fn visit_variable_declaration(&mut self, it: &VariableDeclaration<'ast>) {
@@ -237,11 +249,13 @@ impl<'ast> Visit<'ast> for RootLowerer<'_, '_, '_, '_> {
     }
 
     fn visit_function(&mut self, it: &Function<'ast>, flags: ScopeFlags) {
+        let pending_name = self.pending_name.take();
+        self.pending_declaration_span = None;
         let name = it
             .id
             .as_ref()
             .map(|id| String::from(id.name.as_str()))
-            .or_else(|| self.pending_name.take());
+            .or(pending_name);
         self.push_scope(it.body.as_deref(), name, None);
         walk::walk_function(self, it, flags);
         self.scopes.pop();
@@ -249,10 +263,11 @@ impl<'ast> Visit<'ast> for RootLowerer<'_, '_, '_, '_> {
 
     fn visit_arrow_function_expression(&mut self, it: &ArrowFunctionExpression<'ast>) {
         let name = self.pending_name.take();
+        let declaration = self.pending_declaration_span.take();
         let setup = if it.expression {
             None
         } else {
-            self.pending_declaration_span.and_then(|span| {
+            declaration.and_then(|span| {
                 self.block_body_setup_span(
                     it.type_parameters.as_deref(),
                     &it.params,

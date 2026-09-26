@@ -7,7 +7,9 @@
 //! recover exactly that, as byte ranges into the original source (re-emitted
 //! verbatim) or as plain names.
 
-use oxc_ast::ast::{BindingPattern, FormalParameters, PropertyKey, TSTypeParameterDeclaration};
+use oxc_ast::ast::{
+    BindingPattern, FormalParameters, PropertyKey, TSSignature, TSType, TSTypeParameterDeclaration,
+};
 use oxc_span::GetSpan;
 use vize_s0::String;
 
@@ -54,16 +56,35 @@ pub(super) fn type_parameters_range(
     }
 }
 
-/// Prop names declared by the first parameter's object destructuring pattern, in
-/// source order.
+/// Prop names declared by object destructuring or an inline TypeScript object
+/// annotation on the first parameter, in source order.
 ///
 /// Only a pattern whose every name is statically known is usable: the result
 /// becomes the wrapper's `props` option, and declaring a partial list would route
 /// the remaining props to `attrs` while looking authoritative. A rest element or
 /// a computed key therefore yields no names at all rather than a subset, and a
-/// plain `props` parameter carries no names to begin with.
+/// plain untyped `props` parameter carries no names to begin with.
 pub(super) fn destructured_prop_names(params: &FormalParameters<'_>) -> std::vec::Vec<String> {
     let mut names = std::vec::Vec::new();
+    if let Some(parameter) = params.items.first()
+        && matches!(parameter.pattern, BindingPattern::BindingIdentifier(_))
+        && let Some(annotation) = &parameter.type_annotation
+        && let TSType::TSTypeLiteral(literal) = &annotation.type_annotation
+    {
+        for member in &literal.members {
+            let TSSignature::TSPropertySignature(property) = member else {
+                return std::vec::Vec::new();
+            };
+            if property.computed {
+                return std::vec::Vec::new();
+            }
+            let Some(name) = property.key.static_name() else {
+                return std::vec::Vec::new();
+            };
+            names.push(String::from(name.as_ref()));
+        }
+        return names;
+    }
     let Some(BindingPattern::ObjectPattern(object)) =
         params.items.first().map(|param| &param.pattern)
     else {

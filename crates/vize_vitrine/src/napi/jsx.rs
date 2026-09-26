@@ -79,15 +79,14 @@ pub struct JsxScopedStyleNapi {
 /// Result of [`compile_jsx`].
 #[napi(object)]
 pub struct JsxCompileResultNapi {
-    /// Generated render code for the module: the deduplicated runtime-helper
-    /// preamble (`import { … } from "vue"`) followed by every component's render
-    /// code in source order. This is a self-contained module string, matching
-    /// the shape `compileSfc` returns, so a bundler can emit it directly
-    /// (the runtime-helper imports are no longer dropped, #1533).
+    /// Complete emitted module, including the deduplicated runtime helpers.
+    /// VDOM output retains authored imports, declarations and exports. Static
+    /// standalone Vapor output contains named renderer exports; unsupported
+    /// authored Vapor modules return diagnostics and an empty module.
     pub code: String,
-    /// v3 source map (JSON) for `code`, present only when `sourceMap` was
-    /// requested and the module is a single component (the per-file shape the
-    /// bundler plugins consume). `null` otherwise (#1533).
+    /// v3 source map (JSON) for `code`, present when requested for mappable
+    /// output. Authored spans and all VDOM JSX roots map against the complete
+    /// source. `null` for generated backends without map support.
     pub map: Option<String>,
     /// Error-severity diagnostic messages.
     pub errors: Vec<String>,

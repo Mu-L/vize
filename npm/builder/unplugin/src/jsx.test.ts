@@ -58,6 +58,7 @@ async function runTransform(
 }
 
 const APP_JSX = fs.readFileSync(resolveFixturePath("jsx", "App.jsx"), "utf8");
+const STANDALONE_VAPOR_JSX = 'const App = () => <div class="greeting">standalone</div>;';
 const SCOPED_APP_TSX = fs.readFileSync(resolveFixturePath("jsx", "ScopedApp.tsx"), "utf8");
 
 void test("an .jsx fixture flows through the transform and emits vdom render code", async (t) => {
@@ -77,9 +78,9 @@ void test("an .jsx fixture flows through the transform and emits vdom render cod
   );
 });
 
-void test("vapor:true compiles the .jsx fixture to vapor template output", async (t) => {
+void test("vapor:true compiles a standalone .jsx renderer to vapor template output", async (t) => {
   const id = resolveFixturePath("jsx", "App.jsx");
-  const { result, warnings } = await runTransform(true, APP_JSX, id);
+  const { result, warnings } = await runTransform(true, STANDALONE_VAPOR_JSX, id);
 
   t.assert.ok(result && typeof result === "object", "vapor transform returns a result object");
   t.assert.ok(result.code.length > 0, "emitted code is non-empty");
@@ -98,12 +99,20 @@ void test("jsxMode:'vapor' selects the vapor default and wins over vapor:false",
   // The explicit `jsxMode` option mirrors `compiler.jsxMode` and takes
   // precedence over the legacy `vapor` boolean (here left false).
   const id = resolveFixturePath("jsx", "App.jsx");
-  const { result, warnings } = await runTransform(false, APP_JSX, id, "vapor");
+  const { result, warnings } = await runTransform(false, STANDALONE_VAPOR_JSX, id, "vapor");
 
   t.assert.ok(result && typeof result === "object", "transform returns a result object");
   t.assert.ok(result.code.length > 0, "emitted code is non-empty");
   t.assert.deepStrictEqual(warnings, [], "no warnings are emitted");
   t.assert.match(result.code, /template\(/, "jsxMode:'vapor' produces vapor template output");
+});
+
+void test("Vapor authored exports fail explicitly through the unplugin transform", async (t) => {
+  await t.assert.rejects(() => runTransform(true, APP_JSX, resolveFixturePath("jsx", "App.jsx")), {
+    name: "Error",
+    message:
+      "Vapor/SSR authored module preservation is not supported for imports, exports or captured setup bindings; use VDOM output or consume the per-component renderer",
+  });
 });
 
 void test("jsxMode:'vdom' keeps the vdom default even when vapor:true", async (t) => {
@@ -129,16 +138,16 @@ void test("jsxCompat:'babel' reaches the unplugin compiler with complete output"
   t.assert.equal(
     native.result?.code,
     'import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"\n' +
-      "export function render(_ctx, _cache) {\n" +
+      "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n" +
       '  return (_openBlock(), _createElementBlock("input", { disabled: "" }))\n' +
-      "}",
+      "})(undefined, [])\n})();",
   );
   t.assert.equal(
     babel.result?.code,
     'import { openBlock as _openBlock, createElementBlock as _createElementBlock } from "vue"\n' +
-      "export function render(_ctx, _cache) {\n" +
+      "\nconst A = () => (() => {\nreturn ((_ctx, _cache) => {\n" +
       '  return (_openBlock(), _createElementBlock("input", { disabled: true }))\n' +
-      "}",
+      "})(undefined, [])\n})();",
   );
   t.assert.deepEqual(native.warnings, []);
   t.assert.deepEqual(babel.warnings, []);

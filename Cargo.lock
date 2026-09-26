@@ -4204,6 +4204,7 @@ dependencies = [
  "oxc_parser",
  "oxc_semantic",
  "oxc_span",
+ "oxc_sourcemap",
  "oxc_syntax",
  "serde",
  "serde_json",

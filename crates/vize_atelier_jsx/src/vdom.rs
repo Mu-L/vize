@@ -148,15 +148,15 @@ pub fn compile_to_vdom(
 /// any transform diagnostics. Shared by [`compile_to_vdom`] and the mode-aware
 /// dispatcher in [`crate::compile`].
 #[expect(clippy::too_many_arguments, reason = "independent compile inputs")]
-pub(crate) fn compile_root_to_vdom(
-    allocator: &Allocator,
-    lowered: LoweredRoot,
+pub(crate) fn compile_root_to_vdom<'a>(
+    allocator: &'a Allocator,
+    lowered: LoweredRoot<'a>,
     analysis: &Croquis,
     is_ts: bool,
     options: &VdomCompileOptions,
     compat: VdomCompatOptions<'_>,
     diagnostics: &mut Vec<JsxDiagnostic>,
-    source: &str,
+    source: &'a str,
 ) -> VdomComponent {
     let LoweredRoot {
         mut root,
@@ -231,6 +231,10 @@ pub(crate) fn compile_root_to_vdom(
         scope_id: scoped_style.as_ref().map(|style| style.scope_id.clone()),
         ..Default::default()
     };
+    // JSX spans address the complete authored module, not the root substring.
+    if options.source_map {
+        root.source = source;
+    }
     let result = generate_with_vnode_factory_and_merge_props(
         &root,
         codegen_opts,

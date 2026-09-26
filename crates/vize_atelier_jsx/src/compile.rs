@@ -3,6 +3,7 @@
 //! The module is lowered once, then each render root is routed to VDOM, Vapor,
 //! or SSR according to the configured default and any directive prologue.
 
+mod authored_module;
 mod babel;
 mod component;
 mod preamble;
@@ -76,8 +77,9 @@ pub struct JsxCompileConfig {
 pub struct JsxCompileOutput {
     /// One entry per outermost JSX render root, in source order.
     pub components: Vec<JsxComponent>,
-    /// Original JSX/TSX source used to rebuild stateful component wrappers.
-    source: String,
+    /// Authored module with JSX roots replaced at their original source spans.
+    module: String,
+    module_map: Option<String>,
     /// Parse, lowering, and transform diagnostics.
     pub diagnostics: Vec<JsxDiagnostic>,
 }
@@ -88,35 +90,18 @@ impl JsxCompileOutput {
         self.diagnostics.iter().any(JsxDiagnostic::is_error)
     }
 
-    /// Assemble a single self-contained module string: the module's deduplicated
-    /// runtime-helper preamble followed by every component's render code in
-    /// source order.
-    ///
-    /// This mirrors the shape the SFC compile result surfaces — one ready-to-emit
-    /// module with its imports inlined — so the bindings and bundler plugins
-    /// treat JSX/TSX output the same way (#1533). The per-component VDOM
-    /// preambles (`import { … } from "vue"`) are merged into one import per
-    /// source so concatenating several components never redeclares a helper
-    /// binding; Vapor and SSR components inline their own imports into `code`
-    /// and report an empty preamble, so they pass through untouched.
+    /// Emit a module with deduplicated runtime imports. VDOM output preserves
+    /// authored declarations, exports and lexical scopes; block-body components
+    /// reuse their setup statements. Per-component render code remains available
+    /// in `components`. Vapor and SSR retain their standalone render exports.
     pub fn module_code(&self) -> String {
-        let preamble = merge_preambles(self.components.iter().map(JsxComponent::preamble));
-        render_exports::module_code(&self.components, preamble, &self.source)
+        self.module.clone()
     }
 
-    /// The v3 source map for single-component modules when requested (#1533).
+    /// The composed v3 source map for VDOM modules when requested, including
+    /// authored source and every generated render root.
     pub fn source_map(&self) -> Option<&str> {
-        if self
-            .components
-            .iter()
-            .any(|c| c.component_setup().is_some())
-        {
-            return None;
-        }
-        match self.components.as_slice() {
-            [only] => only.map(),
-            _ => None,
-        }
+        self.module_map.as_deref()
     }
 }
 
@@ -194,7 +179,12 @@ pub(crate) fn compile_jsx_with_babel_customizations_inner(
     let analysis: &Croquis = allocator.alloc_owned(lowered.analysis);
 
     let mut components = Vec::with_capacity(lowered.roots.len());
+    let mut spans = Vec::with_capacity(lowered.roots.len());
     for lowered_root in lowered.roots {
+        spans.push((
+            lowered_root.root.loc.span.start,
+            lowered_root.root.loc.span.end,
+        ));
         let component = if config.ssr {
             // Only VDOM can forward an opaque slots object; the other backends
             // name the gap rather than drop the directive (#3467).
@@ -259,9 +249,26 @@ pub(crate) fn compile_jsx_with_babel_customizations_inner(
         components.push(component);
     }
 
+    let preamble = merge_preambles(components.iter().map(JsxComponent::preamble));
+    let (module, module_map) = match authored_module::emit(
+        &components,
+        &spans,
+        &preamble,
+        source,
+        lang,
+        config.vdom.source_map,
+    ) {
+        Ok(Some(module)) => module,
+        Ok(None) => (render_exports::module_code(&components, preamble), None),
+        Err(diagnostic) => {
+            diagnostics.push(diagnostic);
+            (String::default(), None)
+        }
+    };
     JsxCompileOutput {
         components,
-        source: String::from(source),
+        module,
+        module_map,
         diagnostics,
     }
 }

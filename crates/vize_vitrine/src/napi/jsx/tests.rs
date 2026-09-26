@@ -151,7 +151,7 @@ fn jsx_compile_result_wraps_block_body_setup_state() {
     );
     assert!(result.code.contains("const count = ref(0);"));
     assert!(result.code.contains("count.value += 1;"));
-    assert!(result.code.contains("function render(_ctx, _cache)"));
+    assert!(result.code.contains("return ((_ctx, _cache) =>"));
     assert!(!result.code.contains("export function render("));
 }
 
@@ -170,7 +170,29 @@ fn jsx_compile_result_surfaces_source_map_when_requested() {
     );
     assert!(with.errors.is_empty(), "errors: {:?}", with.errors);
     let map = with.map.expect("a map is surfaced when requested");
-    assert!(map.contains("\"version\":3"), "v3 source map: {map}");
+    let decoded: serde_json::Value = serde_json::from_str(&map).expect("valid v3 source map");
+    assert_eq!(decoded.get("version"), Some(&serde_json::json!(3)));
+    assert_eq!(
+        decoded.get("sourcesContent"),
+        Some(&serde_json::json!([source]))
+    );
+
+    let multiple =
+        "// 😀\r\nexport const A = () => <p>first</p>;\r\nexport default () => <i>second</i>;\r\n";
+    let result = compile_jsx_impl(
+        multiple.to_string(),
+        Some(JsxCompileOptionsNapi {
+            source_map: Some(true),
+            ..Default::default()
+        }),
+    );
+    assert_eq!(result.errors, Vec::<String>::new());
+    let decoded: serde_json::Value =
+        serde_json::from_str(&result.map.expect("composed native map")).expect("valid map");
+    assert_eq!(
+        decoded.get("sourcesContent"),
+        Some(&serde_json::json!([multiple]))
+    );
 }
 
 #[test]
