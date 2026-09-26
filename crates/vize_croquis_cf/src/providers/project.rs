@@ -13,7 +13,7 @@ use vize_carton::{CompactString, FxHashMap, SmallVec};
 use vize_croquis::sfc::{SfcParseOptions, parse_sfc_without_css_vars};
 
 mod key;
-use key::ModuleKey;
+use key::{KeyBuffer, ModuleKey};
 
 /// A module's index in its [`ProjectSources`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -155,7 +155,7 @@ impl ProjectSources {
     /// nor a `.vue` SFC, or a path already added.
     pub fn add(&mut self, path: &str, source: &str) -> Option<ModuleId> {
         let extension = Path::new(path).extension()?.to_str()?;
-        let key = normalize(Path::new(path));
+        let key: ModuleKey = normalize(Path::new(path));
         if self.by_key.contains_key(&key) {
             return None;
         }
@@ -224,14 +224,15 @@ impl ProjectSources {
             return None;
         }
         let base = Path::new(self.module(from)?.key.as_str()).parent()?;
-        let joined = normalize(&base.join(specifier));
-        if let Some(id) = self.by_key.get(&joined) {
+        // Resolution candidates have one owner and never enter the project.
+        let joined: CompactString = normalize(&base.join(specifier));
+        if let Some(id) = self.by_key.get(joined.as_str()) {
             return Some(*id);
         }
         for extension in RESOLVE_EXTENSIONS {
             let mut candidate = joined.clone();
             candidate.push_str(extension);
-            if let Some(id) = self.by_key.get(&candidate) {
+            if let Some(id) = self.by_key.get(candidate.as_str()) {
                 return Some(*id);
             }
         }
@@ -239,7 +240,7 @@ impl ProjectSources {
             let mut candidate = joined.clone();
             candidate.push_str("/index");
             candidate.push_str(extension);
-            self.by_key.get(&candidate).copied()
+            self.by_key.get(candidate.as_str()).copied()
         })
     }
 }
@@ -276,13 +277,13 @@ fn split_sfc(source: &str, path: &str) -> (SmallVec<[ScriptRange; 2]>, Option<(u
 }
 
 /// A path as a `/`-separated key with `.` and `..` folded lexically.
-fn normalize(path: &Path) -> ModuleKey {
+fn normalize<K: KeyBuffer>(path: &Path) -> K {
     let mut parts: Vec<PathBuf> = Vec::new();
-    let mut prefix = ModuleKey::default();
+    let mut prefix = K::default();
     for component in path.components() {
         match component {
             Component::Prefix(value) => prefix.push_str(&value.as_os_str().to_string_lossy()),
-            Component::RootDir => prefix.push('/'),
+            Component::RootDir => prefix.push_str("/"),
             Component::CurDir => {}
             Component::ParentDir => {
                 if parts.pop().is_none() {
@@ -295,7 +296,7 @@ fn normalize(path: &Path) -> ModuleKey {
     let mut key = prefix;
     for (index, part) in parts.iter().enumerate() {
         if index > 0 {
-            key.push('/');
+            key.push_str("/");
         }
         key.push_str(&part.to_string_lossy());
     }

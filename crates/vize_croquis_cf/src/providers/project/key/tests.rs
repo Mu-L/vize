@@ -18,7 +18,7 @@ fn compact_inline_capacity_is_preserved_before_sharing_long_keys() {
     }
     let mut key = ModuleKey::default();
     key.push_str(&"x".repeat(capacity));
-    key.push('🙂');
+    key.push_str("🙂");
     assert!(matches!(key, ModuleKey::Shared(_)));
     let cloned = key.clone();
     assert_eq!(key.as_ptr(), cloned.as_ptr());

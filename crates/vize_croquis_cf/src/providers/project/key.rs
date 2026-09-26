@@ -45,10 +45,22 @@ impl ModuleKey {
             Self::Shared(text) => text.push_str(suffix),
         }
     }
+}
 
-    pub(super) fn push(&mut self, character: char) {
-        let mut bytes = [0; 4];
-        self.push_str(character.encode_utf8(&mut bytes));
+/// The same lexical normalization builds either stored or temporary keys.
+pub(super) trait KeyBuffer: Default {
+    fn push_str(&mut self, suffix: &str);
+}
+
+impl KeyBuffer for ModuleKey {
+    fn push_str(&mut self, suffix: &str) {
+        Self::push_str(self, suffix);
+    }
+}
+
+impl KeyBuffer for CompactString {
+    fn push_str(&mut self, suffix: &str) {
+        Self::push_str(self, suffix);
     }
 }
 
