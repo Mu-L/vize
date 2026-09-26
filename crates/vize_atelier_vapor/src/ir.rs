@@ -2,8 +2,10 @@
 mod constructors;
 mod control_flow;
 mod events;
+mod props;
 
 pub use control_flow::{ForIRNode, IfIRNode, NegativeBranch};
+pub use props::{IRProp, PropValueKind};
 
 use serde::{Deserialize, Serialize};
 use vize_atelier_core::{Namespace, RootNode, SimpleExpressionNode, TemplateChildNode};
@@ -135,14 +137,6 @@ pub struct SetPropIRNode<'a> {
     pub camel: bool,
     /// `.prop` modifier was used
     pub prop_modifier: bool,
-}
-
-/// IR prop
-#[derive(Debug)]
-pub struct IRProp<'a> {
-    pub key: Box<'a, SimpleExpressionNode<'a>>,
-    pub values: Vec<'a, Box<'a, SimpleExpressionNode<'a>>>,
-    pub is_component: bool,
 }
 
 /// Set dynamic props operation

@@ -169,11 +169,7 @@ pub(crate) fn transform_element<'a>(
                                         values.push(Box::new_in(val_node, &ctx.allocator));
                                     }
 
-                                    props.push(IRProp {
-                                        key,
-                                        values,
-                                        is_component: true,
-                                    });
+                                    props.push(IRProp::new(key, values, true));
                                 }
                             } else if let Some(ref exp) = dir.exp
                                 && let ExpressionNode::Simple(val_exp) = exp
@@ -185,11 +181,7 @@ pub(crate) fn transform_element<'a>(
                                 let val_node = SimpleExpressionNode::from_node(val_exp);
                                 values.push(Box::new_in(val_node, &ctx.allocator));
 
-                                props.push(IRProp {
-                                    key,
-                                    values,
-                                    is_component: true,
-                                });
+                                props.push(IRProp::new(key, values, true));
                             }
                         } else if dir.name == "on" {
                             // v-on -> onXxx prop
@@ -226,11 +218,7 @@ pub(crate) fn transform_element<'a>(
                                     values.push(Box::new_in(val_node, &ctx.allocator));
                                 }
 
-                                props.push(IRProp {
-                                    key,
-                                    values,
-                                    is_component: true,
-                                });
+                                props.push(IRProp::new(key, values, true));
                             }
                         } else if dir.name == "model" {
                             // v-model -> modelValue + onUpdate:modelValue props
@@ -267,11 +255,7 @@ pub(crate) fn transform_element<'a>(
                                 SourceLocation::STUB,
                             );
                             values.push(Box::new_in(val_node, &ctx.allocator));
-                            props.push(IRProp {
-                                key,
-                                values,
-                                is_component: true,
-                            });
+                            props.push(IRProp::new(key, values, true));
 
                             // Add onUpdate:propName event prop
                             let event_key = {
@@ -300,11 +284,7 @@ pub(crate) fn transform_element<'a>(
                             );
                             let mut handler_values = Vec::new_in(&ctx.allocator);
                             handler_values.push(Box::new_in(handler_node, &ctx.allocator));
-                            props.push(IRProp {
-                                key: event_key_box,
-                                values: handler_values,
-                                is_component: true,
-                            });
+                            props.push(IRProp::new(event_key_box, handler_values, true));
 
                             // Add modifiers prop if present
                             if !dir.modifiers.is_empty() {
@@ -338,11 +318,7 @@ pub(crate) fn transform_element<'a>(
                                 );
                                 let mut mod_values = Vec::new_in(&ctx.allocator);
                                 mod_values.push(Box::new_in(mod_val_node, &ctx.allocator));
-                                props.push(IRProp {
-                                    key: mod_key,
-                                    values: mod_values,
-                                    is_component: true,
-                                });
+                                props.push(IRProp::new(mod_key, mod_values, true));
                             }
                         }
                     }
@@ -362,11 +338,7 @@ pub(crate) fn transform_element<'a>(
                             values.push(Box::new_in(val_node, &ctx.allocator));
                         }
 
-                        props.push(IRProp {
-                            key,
-                            values,
-                            is_component: true,
-                        });
+                        props.push(IRProp::new(key, values, true));
                     }
                 }
             }
@@ -535,11 +507,7 @@ fn get_slot_outlet_props<'a>(
                     ));
                 }
 
-                props.push(IRProp {
-                    key,
-                    values,
-                    is_component: false,
-                });
+                props.push(IRProp::new(key, values, false));
             }
             PropNode::Directive(dir) => {
                 if dir.name != "bind" {
@@ -559,11 +527,7 @@ fn get_slot_outlet_props<'a>(
                             &ctx.allocator,
                         ));
 
-                        props.push(IRProp {
-                            key,
-                            values,
-                            is_component: false,
-                        });
+                        props.push(IRProp::new(key, values, false));
                     }
                     (None, Some(ExpressionNode::Simple(exp))) => {
                         let key = Box::new_in(
@@ -576,11 +540,7 @@ fn get_slot_outlet_props<'a>(
                             &ctx.allocator,
                         ));
 
-                        props.push(IRProp {
-                            key,
-                            values,
-                            is_component: false,
-                        });
+                        props.push(IRProp::new(key, values, false));
                     }
                     _ => {}
                 }

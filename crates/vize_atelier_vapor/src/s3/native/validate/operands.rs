@@ -80,7 +80,7 @@ pub(super) fn binding<'a>(
     if (kind, binding.value.kind, binding.value.text)
         == (OpKind::SetProp, ValueKind::Literal, "model")
     {
-        return super::model::model(values, retained.allocator());
+        return super::model::model(values, retained);
     }
     if (kind, binding.value.kind, binding.value.text)
         == (OpKind::Directive, ValueKind::Literal, "vue.cloak")

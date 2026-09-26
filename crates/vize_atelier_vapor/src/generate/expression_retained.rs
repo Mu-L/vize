@@ -69,6 +69,35 @@ pub(super) fn resolve_expression_node(
     trimmed.to_compact_string()
 }
 
+/// Emit a model assignment callback from its authored target. Its implicit
+/// event parameter has the same scope as a parsed callback, even when a
+/// computed key itself mentions `$event`.
+pub(super) fn resolve_model_update_node(
+    ctx: &GenerateContext<'_>,
+    node: &SimpleExpressionNode<'_>,
+) -> String {
+    let target = node.content.trim();
+    if let Some(js) = vize_atelier_core::retained::retained_whole_expression(node)
+        && vize_atelier_core::retained::js_module_compatible(js)
+    {
+        let lead = node.content.len() - node.content.trim_start().len();
+        let mut collector = ExpressionRewriteCollector::new(ctx);
+        collector.add_event_parameter();
+        collector.visit_expression(js.ast);
+        let resolved = apply_rewrites(target, collector.rewrites, lead);
+        #[cfg(any(test, feature = "davinci-differential"))]
+        assert_resolve_agrees(ctx, target, &resolved, true);
+        return cstr!("$event => (({resolved}) = $event)");
+    }
+    if is_simple_path_expression(target) && !target.contains("$event") {
+        return cstr!(
+            "$event => (({}) = $event)",
+            ctx.resolve_simple_reference(target)
+        );
+    }
+    ctx.resolve_expression(&cstr!("$event => (({target}) = $event)"))
+}
+
 /// Resolve an inline body with its implicit parameter already bound. Retained
 /// expressions keep the parse-once path; authored callbacks never enter here.
 pub(super) fn resolve_inline_handler_node(

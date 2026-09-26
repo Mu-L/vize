@@ -109,11 +109,7 @@ pub(super) fn transform_component<'a>(
                                 let val_node = SimpleExpressionNode::from_node(val_exp);
                                 values.push(Box::new_in(val_node, &ctx.allocator));
                             }
-                            props.push(IRProp {
-                                key,
-                                values,
-                                is_component: true,
-                            });
+                            props.push(IRProp::new(key, values, true));
                         }
                     } else if let Some(ref exp) = dir.exp
                         && let ExpressionNode::Simple(val_exp) = exp
@@ -123,11 +119,7 @@ pub(super) fn transform_component<'a>(
                         let mut values = Vec::new_in(&ctx.allocator);
                         let val_node = SimpleExpressionNode::from_node(val_exp);
                         values.push(Box::new_in(val_node, &ctx.allocator));
-                        props.push(IRProp {
-                            key,
-                            values,
-                            is_component: true,
-                        });
+                        props.push(IRProp::new(key, values, true));
                     }
                 } else if dir.name == "on" {
                     if let Some(ref arg) = dir.arg
@@ -161,11 +153,7 @@ pub(super) fn transform_component<'a>(
                             let val_node = SimpleExpressionNode::from_node(val_exp);
                             values.push(Box::new_in(val_node, &ctx.allocator));
                         }
-                        props.push(IRProp {
-                            key,
-                            values,
-                            is_component: true,
-                        });
+                        props.push(IRProp::new(key, values, true));
                     }
                 } else if dir.name == "model" {
                     transform_component_v_model(ctx, dir, &mut props);
@@ -194,11 +182,7 @@ pub(super) fn transform_component<'a>(
                         SimpleExpressionNode::new(value.content, true, SourceLocation::STUB);
                     values.push(Box::new_in(val_node, &ctx.allocator));
                 }
-                props.push(IRProp {
-                    key,
-                    values,
-                    is_component: true,
-                });
+                props.push(IRProp::new(key, values, true));
             }
         }
     }

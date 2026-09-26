@@ -187,11 +187,7 @@ impl<'a> Emitter<'a, '_> {
             if let Some(value) = prop.value {
                 values.push(self.expression(value, !prop.dynamic));
             }
-            out.push(IRProp {
-                key,
-                values,
-                is_component: component,
-            });
+            out.push(IRProp::new(key, values, component).with_value_kind(prop.value_kind));
         }
         out
     }

@@ -73,11 +73,11 @@ impl<'a> Emitter<'a, '_> {
                     }
                     let mut values = Vec::new_in(&self.allocator);
                     values.push(value);
-                    group.push(IRProp {
-                        key: self.expression(Expr::plain(name), true),
+                    group.push(IRProp::new(
+                        self.expression(Expr::plain(name), true),
                         values,
-                        is_component: false,
-                    });
+                        false,
+                    ));
                 }
             }
         }

@@ -107,6 +107,17 @@ the commands that re-derive it, and the local measurements taken so far.
   exposed remounting through a fresh slot function; caching that function now
   preserves node identity and matches official Vapor.
 
+- Dynamic component models and computed model targets retain their read/write
+  operands and S2 member AST. The graph mutation snapshot proves both getter
+  and update listener follow the checked payload. Explicit IR provenance for
+  compiler-owned callbacks and modifier objects removes their expression
+  reparses; the single recorder holds zero walks and reparses in either prefix
+  mode. TS-33 independently specifies dynamic default/named child switches,
+  trimmed update payloads, external patches, stable siblings and unmount, plus
+  computed input/textarea key switches that leave the old property untouched.
+  All scenarios match official Vapor. Optional chains, non-assignable targets,
+  dynamic arguments and built-in models remain outside this admission contract.
+
 ## Mechanical witnesses
 
 - `cargo test -p vize_atelier_vapor --lib`

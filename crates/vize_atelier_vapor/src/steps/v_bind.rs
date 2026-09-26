@@ -22,11 +22,7 @@ pub fn transform_v_bind<'a>(
 
     let set_prop = SetPropIRNode {
         element: element_id,
-        prop: IRProp {
-            key,
-            values,
-            is_component: el.tag_type == ElementType::Component,
-        },
+        prop: IRProp::new(key, values, el.tag_type == ElementType::Component),
         tag: el.tag,
         camel: has_modifier(dir, "camel"),
         prop_modifier: has_modifier(dir, "prop"),

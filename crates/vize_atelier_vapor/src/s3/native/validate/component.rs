@@ -79,6 +79,7 @@ fn static_props<'a>(
                 props.push(Prop {
                     key: name,
                     value: literal,
+                    value_kind: crate::ir::PropValueKind::Expression,
                     dynamic: false,
                     handler: false,
                     position: value.value.span.start,

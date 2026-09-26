@@ -12,6 +12,8 @@ use vize_s3::operand::OperandRole;
 fn input_models_match_the_retained_lane() {
     for source in [
         r#"<input v-model="msg">"#,
+        r#"<input v-model="items[i]">"#,
+        r#"<input v-model="form[field]">"#,
         r#"<input type="checkbox" v-model.lazy.trim="form.agree">"#,
         r#"<input type="radio" value="a" v-model="picked">"#,
         r#"<input type="number" v-model.number="age">"#,
@@ -45,6 +47,7 @@ fn input_models_match_the_retained_lane() {
 fn empty_textarea_models_match_the_retained_lane() {
     for source in [
         r#"<textarea v-model="content"></textarea>"#,
+        r#"<textarea v-model="form[field]"></textarea>"#,
         r#"<textarea v-model.lazy.trim="form.message" placeholder="Type here"></textarea>"#,
     ] {
         let allocator = Allocator::new();
@@ -77,6 +80,12 @@ fn empty_textarea_models_match_the_retained_lane() {
 fn component_models_match_the_retained_lane() {
     for source in [
         r#"<MyComp v-model="value" />"#,
+        r#"<MyComp v-model="items[i]" />"#,
+        r#"<MyComp v-model:title.trim="form[field]" />"#,
+        r#"<component :is="view" v-model="items[i]" />"#,
+        r#"<component :is="view" v-model="value" />"#,
+        r#"<component :is="view" v-model:title.trim="form.title" />"#,
+        r#"<component :is="enabled ? Primary : Secondary" v-model="value">{{ label }}</component>"#,
         r#"<MyComp v-model:title="form.title" />"#,
         r#"<MyComp v-model.trim.number="value" />"#,
         r#"<MyComp v-model:title.capitalize="title" />"#,
@@ -172,13 +181,13 @@ fn component_model_prop_collisions_keep_the_legacy_route() {
 #[test]
 fn unsupported_models_select_exact_legacy_reasons() {
     for source in [
-        r#"<input v-model="items[i]">"#,
         r#"<input v-model="$event">"#,
+        r#"<input v-model="form?.title">"#,
+        r#"<MyComp v-model="form?.[field]" />"#,
         r#"<input v-model="_ctx.x">"#,
         r#"<input v-model.foo="x">"#,
         r#"<input :type="kind" v-model="x">"#,
         r#"<input v-model="a" v-model="b">"#,
-        r#"<MyComp v-model="items[i]" />"#,
         r#"<MyComp v-model:[field]="x" />"#,
         r#"<MyComp v-model="_ctx.x" />"#,
     ] {
@@ -190,6 +199,54 @@ fn unsupported_models_select_exact_legacy_reasons() {
                 VaporS3BridgeStatus::Legacy(LegacyReason::Binding | LegacyReason::SurfaceSemantics)
             ),
             "{source}: {status:?}"
+        );
+    }
+}
+
+#[test]
+#[expect(
+    clippy::disallowed_macros,
+    reason = "insta formats exact generated-code snapshots"
+)]
+fn dynamic_component_model_is_owned_by_the_checked_graph() {
+    let allocator = Allocator::new();
+    let mut s3 = lowered_source(
+        &allocator,
+        r#"<component :is="view" v-model.trim="original" />"#,
+    );
+    for operand in &mut s3.program.operands {
+        if matches!(
+            operand.role,
+            OperandRole::ModelRead | OperandRole::ModelWrite
+        ) {
+            operand.value.text = "replacement";
+        }
+    }
+    let code = super::generated(admit(s3, &Retained::new(&allocator)), &allocator);
+    insta::assert_snapshot!("dynamic_component_model_payload", code);
+}
+
+#[test]
+#[expect(
+    clippy::disallowed_macros,
+    reason = "insta formats exact generated-code snapshots"
+)]
+fn retained_model_callbacks_preserve_preprocessed_and_local_event_scope() {
+    let allocator = Allocator::new();
+    for prefix_identifiers in [false, true] {
+        let result = compile_vapor(
+            &allocator,
+            r#"<MyComp v-model="items[$event]" />"#,
+            VaporCompilerOptions {
+                prefix_identifiers,
+                davinci_retained_lane: true,
+                ..Default::default()
+            },
+        );
+        assert_eq!(result.error_messages.len(), 0);
+        insta::assert_snapshot!(
+            format!("model_callback_event_scope_prefix_{prefix_identifiers}"),
+            result.code
         );
     }
 }

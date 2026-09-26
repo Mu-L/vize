@@ -1,4 +1,4 @@
-use crate::ir::{CreateComponentIRNode, IRProp};
+use crate::ir::{CreateComponentIRNode, IRProp, PropValueKind};
 use vize_atelier_core::steps::{is_event_handler_reference_node, is_function_expression_node};
 use vize_carton::{String, ToCompactString, cstr};
 
@@ -218,6 +218,13 @@ fn component_prop_getter_value(ctx: &GenerateContext, prop: &IRProp<'_>) -> Stri
 
 fn component_prop_expression_value(ctx: &GenerateContext, prop: &IRProp<'_>) -> String {
     if let Some(first) = prop.values.first() {
+        match prop.value_kind {
+            PropValueKind::ModelUpdate => {
+                return super::super::expression_retained::resolve_model_update_node(ctx, first);
+            }
+            PropValueKind::ModelModifiers => return first.content.to_compact_string(),
+            PropValueKind::Expression => {}
+        }
         if let Some(raw) = first.content.strip_prefix("__RAW__") {
             return cstr!("({})()", raw);
         }
