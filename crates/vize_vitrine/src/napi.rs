@@ -22,6 +22,7 @@ mod plugin_sdk;
 mod sfc;
 mod template;
 mod tokens;
+mod transform_plugins;
 
 #[path = "napi_typecheck.rs"]
 mod napi_typecheck;
@@ -40,3 +41,4 @@ pub use plugin_sdk::*;
 pub use sfc::*;
 pub use template::*;
 pub use tokens::*;
+pub use transform_plugins::*;

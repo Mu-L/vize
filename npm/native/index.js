@@ -54,6 +54,7 @@ module.exports.isViteBareSpecifier = nativeBinding.isViteBareSpecifier;
 module.exports.lint = nativeBinding.lint;
 module.exports.lintPatinaSfc = nativeBinding.lintPatinaSfc;
 module.exports.lintWithPlugins = nativeBinding.lintWithPlugins;
+module.exports.compileWithTransformPlugins = nativeBinding.compileWithTransformPlugins;
 module.exports.normalizeViteCssModuleFilename = nativeBinding.normalizeViteCssModuleFilename;
 module.exports.normalizeViteDevMiddlewareUrl = nativeBinding.normalizeViteDevMiddlewareUrl;
 module.exports.normalizeViteFsIdForBuild = nativeBinding.normalizeViteFsIdForBuild;
