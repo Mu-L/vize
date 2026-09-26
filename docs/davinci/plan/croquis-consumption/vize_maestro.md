@@ -43,12 +43,12 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Demand`                      |     6 |    14 |
 | `FactConsumer`                |     6 |     8 |
 | `FactGroup`                   |     3 |     3 |
-| `PropContract`                |     2 |     2 |
+| `PropContract`                |     2 |     3 |
 | `ReactiveKind`                |     5 |    41 |
 | `SfcDescriptor`               |     7 |    25 |
 | `SfcScriptBlock`              |     2 |     5 |
 | `SfcStyleBlock`               |     2 |     8 |
-| `SignatureContract`           |     1 |     2 |
+| `SignatureContract`           |     2 |     4 |
 | `SlotContract`                |     1 |     2 |
 | `TypeEnvironment`             |     1 |     1 |
 | `component_usage_list`        |     6 |     7 |

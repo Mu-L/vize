@@ -38,14 +38,14 @@ Croquis JSON payload inside the generic AlphaPages contract strings. It does not
 change the generic summary/facet folio versions or accept a bare type spelling
 as a production JSON contract.
 
-| Facet      | Canonical production contract                                                                                                                                                                  |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Signature  | component identity, declared name, generic parameters, component/API shape, authored prop/slot order, exact macro type arguments, exposed names/types/completeness, reachable type environment |
-| Prop       | authored name, nullable type, nullable required flag, exact nullable default expression, nullable model modifier type, reachable type environment                                              |
-| Emit       | authored name, nullable payload and ordered overload payloads, unknown type arguments, runtime validator headers and type annotations, reachable type environment                            |
-| Slot       | declared/outlet name and nullable props type, reachable type environment                                                                                                                       |
-| Reactivity | public name, nullable type, authoritative kind/class/verdict/effects, reachable type environment                                                                                               |
-| Component  | resolved module specifier and exported identity, independent of a local alias                                                                                                                  |
+| Facet      | Canonical production contract                                                                                                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signature  | component identity, declared name, generic parameters, component/API shape, authored prop/slot order and catalog completeness, exact macro type arguments, exposed names/types/completeness, reachable type environment |
+| Prop       | authored name, nullable type, nullable required flag, exact nullable default expression, nullable model modifier type, reachable type environment                                                                       |
+| Emit       | authored name, nullable payload and ordered overload payloads, unknown type arguments, runtime validator headers and type annotations, reachable type environment                                                       |
+| Slot       | declared/outlet name and nullable props type, reachable type environment                                                                                                                                                |
+| Reactivity | public name, nullable type, authoritative kind/class/verdict/effects, reachable type environment                                                                                                                        |
+| Component  | resolved module specifier and exported identity, independent of a local alias                                                                                                                                           |
 
 JSON field order and declaration order are deterministic. Contract names retain
 their original spelling; a folio-unsafe identity is encoded injectively. Type
@@ -61,6 +61,14 @@ Reachable type declarations participate in their own consumer's fingerprint,
 so editing a public type alias changes the used prop/emit/slot/public-instance
 contract. Unused private aliases do not participate. The payload records
 resolution completeness; unresolved or inferred types are not claimed exact.
+Signature `props_complete` separately records whether the producer proves the
+entire prop catalog. It stays false for partial, unsupported or unproven
+catalogs; a complete reachable type closure alone does not prove every public
+prop name was extracted.
+The signature retains the exact `withDefaults` argument, including opaque
+expressions. Known static defaults also populate their prop contracts after
+imported declarations are expanded. Unknown spreads or dynamic keys discard
+preceding uncertain values while preserving later proven static defaults.
 Macro type arguments remain in the signature conservatively until extraction
 can prove completeness, so some interface edits also invalidate the signature.
 Inline object type arguments retain per-field reachable type closures. Expanded
@@ -97,6 +105,9 @@ as a constraint without claiming an inferred payload type.
 - Actual metadata tests observe unsaved external TypeScript public names/types
   on open and edit, then restore saved types on close or rename. Immutable snapshots are
   reused between reads at the same editor revision.
+- Watched file invalidation replaces the frozen disk snapshot even when no
+  open document revision changes; the next metadata read observes saved
+  external public names and types.
 - TS-42 uses this production exporter over the three hydrated corpus projects
   and both committed fixture directories, comparing every interface with the
   clean projection. Body edits use the SFC parser's template span. Controlled

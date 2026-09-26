@@ -94,4 +94,17 @@ fn external_type_overlay_refreshes_props_and_close_restores_disk() {
         &closed,
         &cached_component_metadata(&ctx, &component).unwrap()
     ));
+
+    let revision = state.documents.revision();
+    let (_, saved_sources) = state.component_type_sources().unwrap();
+    std::fs::write(&types, "export interface Public { saved: boolean }").unwrap();
+    // The watched-files handler invokes this invalidator without changing buffers.
+    state.invalidate_component_interfaces();
+    assert_eq!(state.documents.revision(), revision);
+    let saved = cached_component_metadata(&ctx, &component).unwrap();
+    assert_eq!(saved.props.len(), 1);
+    assert_eq!(saved.props[0].name, "saved");
+    assert_eq!(saved.props[0].type_detail.as_deref(), Some("boolean"));
+    let (_, refreshed_sources) = state.component_type_sources().unwrap();
+    assert!(!Arc::ptr_eq(&saved_sources, &refreshed_sources));
 }

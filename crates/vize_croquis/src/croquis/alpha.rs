@@ -193,7 +193,7 @@ impl Croquis {
                 )
             })
             .collect();
-        let fallback: BTreeSet<_> = self
+        let fallback: Vec<_> = self
             .bindings
             .iter()
             .filter(|(_, kind)| *kind == BindingType::Props)
@@ -219,11 +219,16 @@ impl Croquis {
             }),
             script_setup: self.bindings.is_script_setup,
             prop_order,
+            props_complete: self.types.resolved_props_complete().unwrap_or(false),
             slot_order,
             prop_type_arguments: self
                 .macros
                 .define_props()
                 .and_then(|call| call.type_args.clone()),
+            with_defaults: self
+                .macros
+                .with_defaults_expression()
+                .map(CompactString::new),
             emit_type_arguments: self
                 .macros
                 .define_emits()

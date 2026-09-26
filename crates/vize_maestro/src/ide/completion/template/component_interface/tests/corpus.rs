@@ -221,3 +221,35 @@ fn production_expanded_prop_tracks_its_external_module_helper() {
                 && dependency.body.as_deref() == Some("boolean"))
     );
 }
+
+#[test]
+fn production_prop_catalog_completeness_preserves_known_defaults() {
+    let source = "<script setup lang='ts'>withDefaults(defineProps<{ label: string; count?: number }>(), { count: 41 });</script>";
+    let descriptor = parse_descriptor("Known.vue", source).expect("descriptor");
+    let pages = export_component_interface(&descriptor, "Known.vue", true, false).expect("pages");
+    let signature: vize_croquis::croquis::alpha::SignatureContract =
+        serde_json::from_str(&pages.signature.params).expect("signature");
+    assert!(signature.props_complete);
+    assert_eq!(signature.with_defaults.as_deref(), Some("{ count: 41 }"));
+    let count: vize_croquis::croquis::alpha::PropContract = serde_json::from_str(
+        &pages
+            .props
+            .iter()
+            .find(|entry| entry.name == "count")
+            .expect("count")
+            .contract,
+    )
+    .expect("prop");
+    assert_eq!(count.prop_type.as_deref(), Some("number"));
+    assert_eq!(count.required, Some(false));
+    assert_eq!(count.default_value.as_deref(), Some("41"));
+
+    let source = "<script setup lang='ts'>defineProps<Missing>();</script>";
+    let descriptor = parse_descriptor("Unknown.vue", source).expect("descriptor");
+    let pages = export_component_interface(&descriptor, "Unknown.vue", true, false).expect("pages");
+    let signature: vize_croquis::croquis::alpha::SignatureContract =
+        serde_json::from_str(&pages.signature.params).expect("signature");
+    assert!(!signature.props_complete);
+    assert!(!signature.type_dependencies.complete);
+    assert_eq!(signature.with_defaults, None);
+}

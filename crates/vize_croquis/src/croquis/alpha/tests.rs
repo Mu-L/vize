@@ -286,7 +286,7 @@ fn check_schema<T: serde::de::DeserializeOwned>(contract: &str) {
 }
 
 #[test]
-fn signature_preserves_declared_completion_order_and_stable_fallbacks() {
+fn signature_preserves_existing_declared_and_binding_completion_order() {
     let mut croquis = draw(
         "defineProps<{ z: string; a: number }>(); defineSlots<{ z(props: {}): void; a(props: {}): void }>();",
         "<div></div>",
@@ -307,13 +307,20 @@ fn signature_preserves_declared_completion_order_and_stable_fallbacks() {
             default_value: None,
         });
     }
+    let mut expected = vec!["z", "a", "model"];
+    for (name, kind) in croquis.bindings.iter() {
+        if kind == crate::BindingType::Props && !expected.contains(&name) {
+            expected.push(name);
+        }
+    }
     let pages = croquis.alpha_pages("Component", None).expect("pages");
     let signature: SignatureContract =
         serde_json::from_str(&pages.signature.params).expect("signature");
-    assert_eq!(
-        signature.prop_order,
-        ["z", "a", "model", "unknownA", "unknownZ"]
-    );
+    assert_eq!(signature.prop_order, expected);
     assert_eq!(signature.slot_order, ["z", "a"]);
+    assert!(
+        !signature.props_complete,
+        "Drawer-only catalog has no completeness proof"
+    );
     assert_eq!(pages.props[0].name, "a");
 }
