@@ -78,7 +78,7 @@ function prepareWorkspace(workspacePath, serverPath, enabled) {
   );
   for (const extension of ["tsx", "jsx"]) {
     const binding =
-      extension === "tsx" ? "const wrong: string = 1;" : "/** @type {string} */ const wrong = 1;";
+      extension === "tsx" ? "const wrong: string = 1;" : "const wrong = account.missing;";
     const component = extension === "tsx" ? "App" : "Sibling";
     const sibling = extension === "tsx" ? "Sibling" : "App";
     fs.writeFileSync(

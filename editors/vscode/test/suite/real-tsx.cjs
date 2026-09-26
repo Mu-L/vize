@@ -57,19 +57,30 @@ async function verifyDocument(document, enabled) {
     );
     return;
   }
+  const isTypeScript = document.languageId === "typescriptreact";
+  const expectedError = isTypeScript
+    ? { code: 2322, marker: "wrong", message: "Type 'number' is not assignable to type 'string'." }
+    : {
+        code: 2339,
+        marker: "missing",
+        message: "Property 'missing' does not exist on type '{ label: string; visits: number; }'.",
+      };
   const diagnostics = await waitForDiagnostics(
     document.uri,
-    (next) => next.some((item) => item.source === "vize/types" && item.code === 2322),
+    (next) => next.some((item) => item.source === "vize/types" && item.code === expectedError.code),
     "real JSX type mismatch after didOpen",
     60_000,
   );
   const mismatch = diagnostics.filter((item) => item.source === "vize/types");
   assert.equal(mismatch.length, 1, JSON.stringify(diagnostics));
-  assert.equal(mismatch[0].message, "Type 'number' is not assignable to type 'string'.");
-  const wrong = document.getText().indexOf("wrong");
+  assert.equal(mismatch[0].message, expectedError.message);
+  const wrong = document.getText().indexOf(expectedError.marker);
   assert.deepEqual(
     mismatch[0].range,
-    new vscode.Range(document.positionAt(wrong), document.positionAt(wrong + "wrong".length)),
+    new vscode.Range(
+      document.positionAt(wrong),
+      document.positionAt(wrong + expectedError.marker.length),
+    ),
   );
 
   const completions = await completion(document);
@@ -131,13 +142,16 @@ async function verifyDocument(document, enabled) {
   );
 
   const editor = await vscode.window.showTextDocument(document);
-  const offset = document.getText().indexOf("= 1;") + 2;
+  const badText = isTypeScript ? "1" : "missing";
+  const offset = isTypeScript
+    ? document.getText().indexOf("= 1;") + 2
+    : document.getText().indexOf(badText);
   assert.ok(offset > 1);
   assert.equal(
     await editor.edit((edit) =>
       edit.replace(
-        new vscode.Range(document.positionAt(offset), document.positionAt(offset + 1)),
-        '"fixed"',
+        new vscode.Range(document.positionAt(offset), document.positionAt(offset + badText.length)),
+        isTypeScript ? '"fixed"' : "label",
       ),
     ),
     true,
@@ -158,7 +172,7 @@ async function verifyDocument(document, enabled) {
   await vscode.window.showTextDocument(reopened);
   await waitForDiagnostics(
     reopened.uri,
-    (next) => next.some((item) => item.source === "vize/types" && item.code === 2322),
+    (next) => next.some((item) => item.source === "vize/types" && item.code === expectedError.code),
     "didClose and reopen restore the authored disk error",
     60_000,
   );
