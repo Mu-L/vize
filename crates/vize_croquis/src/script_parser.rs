@@ -18,6 +18,7 @@
 //! - [`walk`] - Scope walking functions
 
 mod define_art;
+mod expose;
 mod extract;
 mod globals;
 mod parse;
@@ -44,6 +45,9 @@ mod tests;
 
 #[cfg(test)]
 mod binding_classification_tests;
+
+#[cfg(test)]
+mod expose_tests;
 
 #[cfg(test)]
 mod emits_ranges_tests;
