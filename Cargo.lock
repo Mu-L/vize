@@ -1144,6 +1144,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ecow"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dca6141d10838e13f9b166c190254a3f9b5d8379521f9b7510810061cef17a4"
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4403,6 +4409,7 @@ version = "0.428.1"
 dependencies = [
  "criterion",
  "davinci_harness",
+ "ecow",
  "insta",
  "lasso",
  "oxc_allocator",
