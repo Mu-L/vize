@@ -49,6 +49,7 @@ pub struct S2Markup<'a> {
     /// The artifact's compile arena, where a merged run's entity-bearing static
     /// part is decoded on demand (the one S2 decoder, never a second reading).
     allocator: Option<&'a Allocator>,
+    pub(super) authored: Option<&'a SurfaceTree<'a>>,
     pub(super) surface: Option<&'a SurfaceTree<'a>>,
 }
 
@@ -64,6 +65,7 @@ impl<'a> S2Markup<'a> {
             text_index: texts::index(lowered.allocator, &lowered.texts),
             allocator: Some(lowered.allocator),
             surface: Some(surface),
+            authored: None,
         }
     }
 
@@ -78,6 +80,7 @@ impl<'a> S2Markup<'a> {
             text_index: texts::EMPTY,
             allocator: None,
             surface: None,
+            authored: None,
         }
     }
 
@@ -118,6 +121,13 @@ impl<'a> S2Markup<'a> {
             Some(allocator) if value.contains('&') => allocator
                 .alloc_str(vize_s1_to_s2::emit::decode_html_attribute_entities(value).as_str()),
             _ => value,
+        }
+    }
+
+    pub(super) fn frozen_attribute_name(&self, name: &'a str) -> &'a str {
+        match self.allocator {
+            Some(allocator) => vize_s1_to_s2::lower::frozen_attribute_name(allocator, name),
+            None => name,
         }
     }
 
@@ -176,6 +186,7 @@ impl<'a> S2Markup<'a> {
 /// start from template source.
 pub struct S2Template<'a> {
     tree: SurfaceTree<'a>,
+    authored: Option<SurfaceTree<'a>>,
     errors: vize_s0::Vec<'a, SurfaceError>,
     lowered: Lowered<'a>,
 }
@@ -184,10 +195,11 @@ impl<'a> S2Template<'a> {
     /// Parse `source` into S1 and lower it into S2, keeping authored comments
     /// as `ui.comment` ops (the child list the lint parser sees).
     pub fn lower(allocator: &'a Allocator, source: &'a str) -> Self {
-        let (tree, errors) = vize_s1::parse(allocator, source);
+        let (tree, authored, errors) = vize_s1::parse_with_authored(allocator, source);
         let lowered = lower_preserving_comments(allocator, &tree, &errors);
         Self {
             tree,
+            authored,
             errors,
             lowered,
         }
@@ -195,7 +207,9 @@ impl<'a> S2Template<'a> {
 
     /// The borrowed facade view of this artifact.
     pub fn markup(&self) -> S2Markup<'_> {
-        S2Markup::from_lowered(&self.lowered, &self.tree)
+        let mut markup = S2Markup::from_lowered(&self.lowered, &self.tree);
+        markup.authored = self.authored.as_ref().or(Some(&self.tree));
+        markup
     }
 
     /// The tokenizer errors the S1 parse reported.

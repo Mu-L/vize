@@ -17,7 +17,11 @@ impl MarkupBinding<'_> {
                 };
             }
             MarkupBindingInner::S2Binding(binding) => binding.surface?,
-            MarkupBindingInner::Surface { attr, .. } => attr,
+            MarkupBindingInner::Surface {
+                attr,
+                static_name: None,
+                ..
+            } => attr,
             _ => return None,
         };
         let argument = SurfaceDirective::parse(attr.name.text)?.arg?;

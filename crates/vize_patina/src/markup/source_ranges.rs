@@ -38,6 +38,22 @@ impl MarkupElement<'_> {
                     }
                 }
             }
+            MarkupElementInner::Authored {
+                element,
+                doc,
+                frozen,
+                ..
+            } => {
+                if !frozen {
+                    for attr in &element.open.attrs {
+                        if SurfaceDirective::parse(attr.name.text)
+                            .is_some_and(|directive| directive.name == name)
+                        {
+                            visitor(s2_range(attr_span(doc.source, attr)));
+                        }
+                    }
+                }
+            }
             MarkupElementInner::S2Carrier { element, doc, .. } => {
                 for attr in &element.open.attrs {
                     if SurfaceDirective::parse(attr.name.text)
@@ -95,6 +111,18 @@ impl MarkupElement<'_> {
                         && !op.attributes().iter().any(|kept| kept.span == span);
                     if !opening_v_pre {
                         visitor(s2_range(span));
+                    }
+                }
+            }
+            MarkupElementInner::Authored {
+                element,
+                doc,
+                opens_v_pre,
+                ..
+            } => {
+                for attr in &element.open.attrs {
+                    if !opens_v_pre || attr.name.text != "v-pre" {
+                        visitor(s2_range(attr_span(doc.source, attr)));
                     }
                 }
             }

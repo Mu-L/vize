@@ -68,6 +68,7 @@ use vize_croquis::Croquis;
 use vize_relief::{RootNode, SourceLocation};
 
 mod attribute;
+mod authored;
 mod binding;
 mod context;
 #[cfg(any(test, feature = "davinci-differential"))]
@@ -227,6 +228,26 @@ impl<'a> MarkupDocument<'a> {
                 jsx_roots::walk_jsx_program(program, offset, enter, exit)
             }
             MarkupDocumentInner::S2(markup) => s2::walk::walk_tree(markup, enter, exit),
+        }
+    }
+
+    /// Walk the template's authored S1 element tree, before HTML repairs or
+    /// S2's implicit table owners. Every element keeps its real classification
+    /// and bindings; JSX/Relief documents use their existing element view.
+    ///
+    /// Source-shaped rules request this explicitly rather than replacing the
+    /// document's semantic S2 traversal or constructing a synthetic AST.
+    pub fn walk_authored_tree(
+        &self,
+        enter: &mut impl FnMut(MarkupElement<'a>),
+        exit: &mut impl FnMut(MarkupElement<'a>),
+    ) {
+        if let MarkupDocumentInner::S2(doc) = self.inner
+            && let Some(tree) = doc.authored
+        {
+            authored::walk_tree(&tree.children, doc, false, enter, exit);
+        } else {
+            self.walk_tree(enter, exit);
         }
     }
 

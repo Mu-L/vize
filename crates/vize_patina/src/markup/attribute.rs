@@ -26,6 +26,7 @@ enum MarkupAttributeInner<'a> {
     Surface {
         attr: &'a vize_s1::Attribute<'a>,
         doc: &'a S2Markup<'a>,
+        name: &'a str,
     },
 }
 
@@ -60,7 +61,19 @@ impl<'a> MarkupAttribute<'a> {
         attr: &'a vize_s1::Attribute<'a>,
         doc: &'a S2Markup<'a>,
     ) -> Self {
-        Self::from_inner(MarkupAttributeInner::Surface { attr, doc })
+        Self::from_inner(MarkupAttributeInner::Surface {
+            attr,
+            doc,
+            name: attr.name.text,
+        })
+    }
+
+    pub(super) const fn from_authored(
+        attr: &'a vize_s1::Attribute<'a>,
+        doc: &'a S2Markup<'a>,
+        name: &'a str,
+    ) -> Self {
+        Self::from_inner(MarkupAttributeInner::Surface { attr, doc, name })
     }
 
     /// Attribute name as written in source.
@@ -71,7 +84,7 @@ impl<'a> MarkupAttribute<'a> {
                 jsx_attribute_name(&jsx_attribute_ref(node).name)
             }
             MarkupAttributeInner::S2 { attribute, .. } => attribute.name,
-            MarkupAttributeInner::Surface { attr, .. } => attr.name.text,
+            MarkupAttributeInner::Surface { name, .. } => name,
         }
     }
 
@@ -88,7 +101,7 @@ impl<'a> MarkupAttribute<'a> {
             MarkupAttributeInner::S2 { attribute, doc } => {
                 attribute.value.map(|value| doc.decode_attribute(value))
             }
-            MarkupAttributeInner::Surface { attr, doc } => {
+            MarkupAttributeInner::Surface { attr, doc, .. } => {
                 attr_value(attr).map(|value| doc.decode_attribute(value))
             }
         }
@@ -114,7 +127,9 @@ impl<'a> MarkupAttribute<'a> {
                 span_to_range(jsx_attribute_ref(node).span, offset)
             }
             MarkupAttributeInner::S2 { attribute, .. } => s2_range(attribute.span),
-            MarkupAttributeInner::Surface { attr, doc } => s2_range(attr_span(doc.source, attr)),
+            MarkupAttributeInner::Surface { attr, doc, .. } => {
+                s2_range(attr_span(doc.source, attr))
+            }
         }
     }
 }

@@ -61,6 +61,7 @@ mod vfor;
 mod vtext;
 
 pub use caps::LegacyCaps;
+pub use element::frozen_attribute_name;
 pub use features::{LoweringFeatures, OpFamily};
 pub use foreign::{ForeignDialect, lower_source_block_with_foreign_expressions};
 pub use if_keys::{BranchKey, BranchKeyKind, IfFacts, SAME_KEY_MESSAGE};

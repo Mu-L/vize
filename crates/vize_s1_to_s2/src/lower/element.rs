@@ -18,6 +18,7 @@ use vize_s1::Element;
 use vize_s2::op::{Attribute, BindingOp, ComponentOp, ElementOp, Namespace, Op, Region};
 
 mod v_pre;
+pub use v_pre::frozen_attribute_name;
 
 use super::binding::{Owner, lower_attr};
 use super::cx::{Cx, attr_slice, attr_span, element_span};
@@ -281,7 +282,7 @@ pub(crate) fn element_core<'a>(
             }),
             AttrForm::Directive(directive) if analyzed.opens_v_pre => {
                 attributes.push(Attribute {
-                    name: frozen_name(cx, attr.name.text, directive),
+                    name: frozen_name(cx.allocator, attr.name.text, directive),
                     value: attr.value.as_ref().map(|value| value.content.text),
                     span: attr_span(cx, attr),
                 });

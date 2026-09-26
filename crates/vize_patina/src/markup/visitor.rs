@@ -174,6 +174,14 @@ impl<'rule, 'ctx, 'mc, 'a, R: MarkupRule + ?Sized> MarkupDocumentVisitor<'rule, 
         });
 
         match element.inner {
+            MarkupElementInner::Authored { .. } => {
+                element.walk_children(&mut |child| match child {
+                    MarkupNode::Element(child) => self.visit_element(child),
+                    MarkupNode::Text(text) => self.text(text),
+                    MarkupNode::Interpolation(range) => self.interpolation(range),
+                    _ => {}
+                })
+            }
             MarkupElementInner::Relief(node) => self.visit_relief_children(&node.children),
             MarkupElementInner::JsxElement { node, offset } => {
                 self.ctx.push_jsx_attribute_value();

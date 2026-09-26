@@ -43,15 +43,24 @@ fn authored(allocator: &Allocator, source: &str, props: bool) -> Skeleton {
         TemplateSyntaxMode::Quirks,
     );
     let (root, _errors) = parser.parse();
-    build(&MarkupDocument::new(&root, TemplateSyntax::Vue), props)
+    build(
+        &MarkupDocument::new(&root, TemplateSyntax::Vue),
+        props,
+        false,
+    )
 }
 
 /// Build the skeleton of a markup document.
 pub fn skeleton(document: &MarkupDocument<'_>) -> Skeleton {
-    build(document, false)
+    build(document, false, false)
 }
 
-fn build(document: &MarkupDocument<'_>, props: bool) -> Skeleton {
+/// Build from the retained authored S1 projection of an S2 template document.
+pub fn authored_document_skeleton(document: &MarkupDocument<'_>) -> Skeleton {
+    build(document, false, true)
+}
+
+fn build(document: &MarkupDocument<'_>, props: bool, authored: bool) -> Skeleton {
     // `walk_tree` takes two callbacks; the builder is shared between them.
     // Capacities sized for a typical template: the builder runs on every
     // linted template, and regrowing these is a measurable share of it.
@@ -65,31 +74,34 @@ fn build(document: &MarkupDocument<'_>, props: bool) -> Skeleton {
         namespaces: Vec::with_capacity(32),
         props: props.then(PropRecorder::default),
     });
-    document.walk_tree(
-        &mut |element| {
-            let mut builder = builder.borrow_mut();
-            let first = builder.skeleton.nodes.len() as u32;
-            let opened = builder.enter(element);
-            let builder = &mut *builder;
-            if let Some(props) = builder.props.as_mut() {
-                props.enter(&element, first, opened, &builder.skeleton);
+    let mut enter = |element| {
+        let mut builder = builder.borrow_mut();
+        let first = builder.skeleton.nodes.len() as u32;
+        let opened = builder.enter(element);
+        let builder = &mut *builder;
+        if let Some(props) = builder.props.as_mut() {
+            props.enter(&element, first, opened, &builder.skeleton);
+        }
+        builder.exits.push(opened);
+    };
+    let mut exit = |_| {
+        let mut builder = builder.borrow_mut();
+        if let Some(props) = builder.props.as_mut() {
+            props.exit();
+        }
+        builder.namespaces.pop();
+        let opened = builder.exits.pop().unwrap_or(0);
+        for _ in 0..opened {
+            if let Some(index) = builder.open.pop() {
+                builder.skeleton.close(index);
             }
-            builder.exits.push(opened);
-        },
-        &mut |_| {
-            let mut builder = builder.borrow_mut();
-            if let Some(props) = builder.props.as_mut() {
-                props.exit();
-            }
-            builder.namespaces.pop();
-            let opened = builder.exits.pop().unwrap_or(0);
-            for _ in 0..opened {
-                if let Some(index) = builder.open.pop() {
-                    builder.skeleton.close(index);
-                }
-            }
-        },
-    );
+        }
+    };
+    if authored {
+        document.walk_authored_tree(&mut enter, &mut exit);
+    } else {
+        document.walk_tree(&mut enter, &mut exit);
+    }
     let builder = builder.into_inner();
     let mut skeleton = builder.skeleton;
     if let Some(props) = builder.props {

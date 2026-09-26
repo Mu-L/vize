@@ -200,7 +200,7 @@ impl<'a> Builder<'a, '_> {
     }
 
     fn handle_nested_interactive_start_tag(&mut self, tag: &'a str, ns: Namespace) {
-        if ns != Namespace::Html {
+        if !self.repair_interactive || ns != Namespace::Html {
             return;
         }
         if !is_interactive_html_tree_tag(tag) {
@@ -213,6 +213,7 @@ impl<'a> Builder<'a, '_> {
         }) else {
             return;
         };
+        self.repaired = true;
         self.note_implicitly_closed_stack_entries_from(depth);
         self.implicitly_close_stack_element_at(depth);
     }

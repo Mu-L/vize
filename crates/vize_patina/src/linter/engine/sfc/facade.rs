@@ -14,6 +14,10 @@ use vize_s0::{Allocator, profile};
 
 mod batch;
 
+// This rule's whole-document check replaces a legacy template-level callback.
+// Keep that callback at its registry position before the element visitor.
+const TEMPLATE_DOCUMENT_RULE: &str = "vue/permitted-contents";
+
 /// Exact diagnostic, help, label and fix parity is checked by the SFC battery.
 pub(in crate::linter::engine) const RULES: &[&str] = &[
     "vue/no-textarea-mustache",
@@ -55,6 +59,7 @@ pub(in crate::linter::engine) const RULES: &[&str] = &[
     "a11y/no-redundant-roles",
     "a11y/interactive-supports-focus",
     "vue/no-bare-strings-in-template",
+    "vue/permitted-contents",
 ];
 
 pub(in crate::linter::engine) struct Dispatch<'a> {
@@ -99,10 +104,6 @@ pub(in crate::linter::engine) fn dispatch_template_rules<'a>(
             *slot = false;
         }
     }
-    {
-        let mut visitor = LintVisitor::with_rule_filter(ctx, rules, names, exit, &keep);
-        profile!("patina.template.visit", visitor.visit_root(input.root));
-    }
     let lowered = profile!(
         "patina.sfc.facade.lower",
         S2Template::lower(input.allocator, input.source)
@@ -112,6 +113,25 @@ pub(in crate::linter::engine) fn dispatch_template_rules<'a>(
     let mut document = MarkupDocument::from_s2(markup, TemplateSyntax::Vue);
     if let Some(analysis) = input.analysis {
         document = document.with_analysis(analysis);
+    }
+    let document_rule = selected
+        .iter()
+        .find(|(_, name, _)| *name == TEMPLATE_DOCUMENT_RULE);
+    {
+        let mut visitor = LintVisitor::with_rule_filter(ctx, rules, names, exit, &keep);
+        profile!("patina.template.visit", {
+            visitor.visit_root_with_template_hook(input.root, &mut |index, ctx| {
+                let Some((selected_index, _, rule)) = document_rule else {
+                    return false;
+                };
+                if index != *selected_index {
+                    return false;
+                }
+                let mut markup_ctx = MarkupContext::new(ctx, &document);
+                rule.enter_document(&mut markup_ctx, &document);
+                true
+            });
+        });
     }
     profile!("patina.sfc.facade.visit", {
         let mut markup_ctx = MarkupContext::new(ctx, &document);
