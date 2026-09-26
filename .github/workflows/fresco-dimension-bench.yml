@@ -62,7 +62,7 @@ jobs:
         run: cargo clippy --locked -p vize_fresco --lib --tests -- -D warnings
       - name: Compare actual parsing and 1k/10k node layout workloads
         env:
-          FRESCO_DIMENSION_BENCH_OUT: fresco-dimension-bench.json
+          FRESCO_DIMENSION_BENCH_OUT: ${{ github.workspace }}/fresco-dimension-bench.json
           REPLICA: ${{ matrix.replica }}
         run: cargo test --locked --profile ci-opt -p vize_fresco --lib paired_parse_and_layout -- --ignored --test-threads=1
       - name: Upload raw paired timings

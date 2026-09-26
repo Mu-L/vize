@@ -42,7 +42,7 @@ impl Parser for Candidate {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Serialize)]
 struct AuthoredStyle {
     width: &'static str,
     height: &'static str,
@@ -197,7 +197,11 @@ fn paired_parse_and_layout() {
                 layout_nodes::<Candidate>(&nodes)
             );
             for layout in [false, true] {
-                let iterations = if layout { 3 } else { 200_000 / count };
+                let iterations = if layout {
+                    300_000 / count
+                } else {
+                    1_000_000 / count
+                };
                 let baseline = || {
                     if layout {
                         layout_nodes::<Standard>(&nodes)
@@ -238,7 +242,9 @@ fn paired_parse_and_layout() {
                 rows.push(json!({
                     "nodes": count, "profile": if decimal { "decimal" } else { "integer" },
                     "stage": if layout { "parse_build_compute_layout" } else { "parse_only" },
-                    "iterations_per_sample": iterations, "pairs": pairs,
+                    "iterations_per_sample": iterations,
+                    "authored_pattern": nodes.iter().take(4).collect::<Vec<_>>(),
+                    "pairs": pairs,
                 }));
             }
         }
