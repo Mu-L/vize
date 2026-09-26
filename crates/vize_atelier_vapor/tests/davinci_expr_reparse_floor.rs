@@ -57,6 +57,11 @@ fn vapor_legacy_reparse_floor_holds() {
         r#"<slot :name="enabled ? first : second"></slot>"#,
         r#"<slot :name="'prefix-' + selected"></slot>"#,
         r#"<slot :name="name.toLowerCase()"></slot>"#,
+        r#"<MyComponent v-slot:head="p">{{ p.x }}</MyComponent>"#,
+        r#"<MyComponent v-slot:[name]="{ item }">{{ item }}</MyComponent>"#,
+        r#"<MyComponent><template #[name]>x</template></MyComponent>"#,
+        r#"<MyComponent><template #[names[selected]]="{ item }">{{ item }}</template><template #fixed>fixed</template></MyComponent>"#,
+        r#"<MyComponent><template #['slot-'+selected]>x</template><template #[selected.toLowerCase()]>y</template></MyComponent>"#,
     ] {
         for prefix_identifiers in [false, true] {
             let allocator = Allocator::new();

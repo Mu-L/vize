@@ -77,6 +77,7 @@ pub(super) fn model<'a>(
         Binding {
             kind: BindingKind::Model,
             name,
+            dynamic_name: None,
             value: Expr::plain(text),
             modifiers,
             merge: None,

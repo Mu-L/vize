@@ -1,21 +1,25 @@
 //! Slot content: `v-slot` / `#name[="params"]` on a `<template>` or on its
-//! component. The name is static (absent means `default`) and the parameter
+//! component. The name is static or computed and the parameter
 //! pattern is one the shared generator scopes exactly.
 
 use vize_atelier_core::steps::expression::is_template_global;
-use vize_carton::{Allocator, Vec};
+use vize_carton::Vec;
 use vize_s3::{
     op::OpId,
     operand::{Operand, OperandRole as Role, ValueKind},
 };
 
 use super::super::{Binding, BindingKind, Content, Expr, Node};
-use super::{Result, component::component_prop, operands::one};
-use crate::s3::LegacyReason;
+use super::{
+    Result,
+    component::component_prop,
+    operands::{js, one},
+};
+use crate::s3::{LegacyReason, retained::Retained};
 
 pub(super) fn slot<'a>(
     values: &[Operand<'a>],
-    alloc: &'a Allocator,
+    retained: &Retained<'_, 'a>,
 ) -> Result<(OpId, Binding<'a>)> {
     let kind = one(values, Role::BindingKind)?;
     let name = one(values, Role::Name)?;
@@ -35,9 +39,10 @@ pub(super) fn slot<'a>(
         (name.value.span.start, name.value.span.end),
         (params.value.span.start, params.value.span.end),
     ];
-    let name = match name.value.kind {
-        ValueKind::Absent => "default",
-        ValueKind::Literal if component_prop(name.value.text) => name.value.text,
+    let (name, dynamic_name) = match name.value.kind {
+        ValueKind::Absent => ("default", None),
+        ValueKind::Literal if component_prop(name.value.text) => (name.value.text, None),
+        ValueKind::Js => (name.value.text, Some(js(retained, name)?)),
         _ => return Err(LegacyReason::Component.into()),
     };
     let params = match params.value.kind {
@@ -50,8 +55,9 @@ pub(super) fn slot<'a>(
         Binding {
             kind: BindingKind::Slot,
             name,
+            dynamic_name,
             value: Expr::plain(params),
-            modifiers: Vec::new_in(&alloc),
+            modifiers: Vec::new_in(&retained.allocator()),
             merge: None,
             model_element: None,
             position: 0,
@@ -92,7 +98,14 @@ fn slot_name<'a>(node: &Node<'a>) -> Option<&'a str> {
     node.bindings
         .iter()
         .find(|binding| binding.kind == BindingKind::Slot)
+        .filter(|binding| binding.dynamic_name.is_none())
         .map(|binding| binding.name)
+}
+
+fn has_slot(node: &Node<'_>) -> bool {
+    node.bindings
+        .iter()
+        .any(|binding| binding.kind == BindingKind::Slot)
 }
 
 /// A `<template>` is slot content only, directly under a component. A
@@ -107,7 +120,7 @@ pub(super) fn check(nodes: &[Node<'_>], parents: &[Option<usize>]) -> Result<()>
                 let parent = (parents.get(index).copied().flatten())
                     .and_then(|parent| nodes.get(parent))
                     .map(|parent| &parent.content);
-                if slot_name(node).is_none() || !matches!(parent, Some(Content::Component { .. })) {
+                if !has_slot(node) || !matches!(parent, Some(Content::Component { .. })) {
                     return Err(LegacyReason::Element.into());
                 }
             }
@@ -117,8 +130,15 @@ pub(super) fn check(nodes: &[Node<'_>], parents: &[Option<usize>]) -> Result<()>
                     .iter()
                     .filter_map(|child| nodes.get(*child).and_then(slot_name))
                     .collect();
-                let mixed = !named.is_empty()
-                    && (slot_name(node).is_some() || named.len() != node.children.len());
+                let mixed = node
+                    .children
+                    .iter()
+                    .any(|child| nodes.get(*child).is_some_and(has_slot))
+                    && (has_slot(node)
+                        || node
+                            .children
+                            .iter()
+                            .any(|child| nodes.get(*child).is_none_or(|node| !has_slot(node))));
                 if mixed || has_repeat(&named) {
                     return Err(LegacyReason::Component.into());
                 }

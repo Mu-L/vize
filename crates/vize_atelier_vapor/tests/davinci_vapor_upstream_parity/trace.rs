@@ -7,10 +7,20 @@ use std::{
     process::{Command, Stdio},
 };
 
+use serde::Deserialize;
 use serde_json::{Value, json};
 use vize_atelier_core::walk_probe::WalkCounts;
 use vize_atelier_vapor::{VaporCompilerOptions, compile_vapor};
 use vize_carton::Allocator;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Fixture {
+    pub(super) source: String,
+    pub(super) context: Value,
+    pub(super) steps: Vec<Value>,
+    pub(super) expected: Vec<Value>,
+}
 
 pub(super) fn trace(runner: &str, input: Value) -> Vec<Value> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))

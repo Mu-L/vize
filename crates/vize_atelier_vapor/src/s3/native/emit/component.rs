@@ -4,7 +4,7 @@
 use vize_atelier_core::{SimpleExpressionNode, SourceLocation};
 use vize_carton::{Box, String, Vec};
 
-use super::super::{BindingKind, Content, Expr, Node, Prop};
+use super::super::{Binding, BindingKind, Content, Expr, Node, Prop};
 use super::{Emitter, take};
 use crate::ir::{
     BlockIRNode, ComponentKind, CreateComponentIRNode, IRProp, IRSlot, InsertionAnchor,
@@ -63,12 +63,13 @@ impl<'a> Emitter<'a, '_> {
                 let content = take(self.allocator, &mut node.children);
                 let block = self.block(&content);
                 self.id();
-                slots.push(self.slot(child, slot, block));
+                slots.push(self.slot(child, Some(slot), block));
             }
         } else if own.is_some() || !children.is_empty() {
             let block = self.block(&children);
-            slots.push(self.slot(index, own.unwrap_or(("default", "")), block));
+            slots.push(self.slot(index, own, block));
         }
+        let dynamic_slots = slots.iter().any(|slot| !slot.name.is_static);
         let id = existing.unwrap_or_else(|| self.id());
         let props = self.props(&props, true);
         block
@@ -80,7 +81,7 @@ impl<'a> Emitter<'a, '_> {
                 slots,
                 asset: is.is_none(),
                 once: false,
-                dynamic_slots: false,
+                dynamic_slots,
                 kind: if is.is_some() {
                     ComponentKind::Dynamic
                 } else {
@@ -137,17 +138,20 @@ impl<'a> Emitter<'a, '_> {
             }));
     }
 
-    /// One slot function: its static name, parameter pattern and block.
+    /// One slot function: its checked name, parameter pattern and block.
     /// A `<template #name>` keeps `name`'s authored span; other slots stay stubs.
     fn slot(
         &mut self,
         carrier: usize,
-        (name, params): (&'a str, &'a str),
+        slot: Option<Slot<'a>>,
         block: BlockIRNode<'a>,
     ) -> IRSlot<'a> {
-        let name_span = self.slot_name_anchor(carrier, name);
+        let (name, dynamic, params) = slot.map_or((Expr::plain("default"), false, ""), |slot| {
+            (slot.name, slot.dynamic, slot.params)
+        });
+        let name_span = self.slot_name_anchor(carrier, name.text);
         IRSlot {
-            name: self.spanned(Expr::plain(name), true, name_span),
+            name: self.spanned(name, !dynamic, name_span),
             fn_exp: (!params.is_empty()).then(|| self.expression(Expr::plain(params), false)),
             block,
         }
@@ -194,9 +198,27 @@ impl<'a> Emitter<'a, '_> {
 }
 
 /// The slot a template or component binds: its name and parameter pattern.
-fn slot_of<'a>(node: &Node<'a>) -> Option<(&'a str, &'a str)> {
+#[derive(Clone, Copy)]
+struct Slot<'a> {
+    name: Expr<'a>,
+    dynamic: bool,
+    params: &'a str,
+}
+
+fn slot_of<'a>(node: &Node<'a>) -> Option<Slot<'a>> {
     node.bindings
         .iter()
         .find(|binding| binding.kind == BindingKind::Slot)
-        .map(|binding| (binding.name, binding.value.text))
+        .map(
+            |Binding {
+                 name,
+                 dynamic_name,
+                 value,
+                 ..
+             }| Slot {
+                name: dynamic_name.unwrap_or_else(|| Expr::plain(name)),
+                dynamic: dynamic_name.is_some(),
+                params: value.text,
+            },
+        )
 }

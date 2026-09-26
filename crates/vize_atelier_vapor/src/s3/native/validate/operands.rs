@@ -9,10 +9,8 @@ use vize_s3::{
 };
 
 use super::super::{Binding, BindingKind, Content, Expr, TextPart};
-use super::{
-    Result,
-    ident::{Folded, path_root, reference, trimmed},
-};
+pub(super) use super::expressions::{handler, js};
+use super::{Result, ident::Folded};
 use crate::s3::{AdmissionFailure, LegacyReason, retained::Retained};
 
 pub(super) fn element<'a>(values: &[Operand<'a>], alloc: &'a Allocator) -> Result<Content<'a>> {
@@ -97,6 +95,7 @@ pub(super) fn binding<'a>(
             Binding {
                 kind: BindingKind::Cloak,
                 name: "",
+                dynamic_name: None,
                 value: Expr::plain(""),
                 modifiers: Vec::new_in(&retained.allocator()),
                 merge: None,
@@ -119,6 +118,7 @@ pub(super) fn binding<'a>(
             Binding {
                 kind: BindingKind::Once,
                 name: "",
+                dynamic_name: None,
                 value: Expr::plain(""),
                 modifiers: Vec::new_in(&retained.allocator()),
                 merge: None,
@@ -190,6 +190,7 @@ pub(super) fn binding<'a>(
         Binding {
             kind: family,
             name,
+            dynamic_name: None,
             value,
             modifiers,
             merge: None,
@@ -273,66 +274,6 @@ pub(super) fn one<'b, 'a>(values: &'b [Operand<'a>], role: Role) -> Result<&'b O
         return Err(AdmissionFailure::Invalid("duplicate native operand role"));
     }
     Ok(value)
-}
-
-/// A JavaScript operand the generator can resolve without reparsing: a direct
-/// reference, or an expression whose retained AST moved into the output arena.
-pub(super) fn js<'a>(retained: &Retained<'_, 'a>, operand: &Operand<'a>) -> Result<Expr<'a>> {
-    expression(retained, operand, false)
-}
-
-/// [`js`] for an event handler. A direct reference takes the generator's
-/// simple-path fast path elsewhere, but a component handler is classified
-/// first; its retained AST, when S2 has one, keeps that parse-free.
-fn handler<'a>(retained: &Retained<'_, 'a>, operand: &Operand<'a>) -> Result<Expr<'a>> {
-    expression(retained, operand, true)
-}
-
-fn expression<'a>(
-    retained: &Retained<'_, 'a>,
-    operand: &Operand<'a>,
-    classified: bool,
-) -> Result<Expr<'a>> {
-    let value = operand.value;
-    if value.kind != ValueKind::Js || context_reserved(value.text) {
-        return Err(LegacyReason::ExpressionOrEncoding.into());
-    }
-    if reference(value.text) {
-        return Ok(
-            match classified
-                .then(|| retained.expression(value.text, value.span))
-                .flatten()
-            {
-                Some(js) => Expr {
-                    text: value.text,
-                    js: Some(js),
-                },
-                None => Expr::plain(trimmed(value.text)),
-            },
-        );
-    }
-    // `$event`-rooted paths stay on the legacy lane (see the P3-6 record).
-    if path_root(value.text) == Some("$event") {
-        return Err(LegacyReason::ExpressionOrEncoding.into());
-    }
-    let js = retained
-        .expression(value.text, value.span)
-        .ok_or(LegacyReason::ExpressionOrEncoding)?;
-    Ok(Expr {
-        text: value.text,
-        js: Some(js),
-    })
-}
-
-/// The shared generator leaves these roots bare while the retained lane's
-/// prefixing rewrites them onto `_ctx`; the lanes would observe different
-/// bindings. The textual test over-approximates (it also matches strings).
-fn context_reserved(text: &str) -> bool {
-    // Every reserved root starts with `_` or `$`; most expressions have none.
-    text.bytes().any(|b| b == b'_' || b == b'$')
-        && ["_ctx", "$props", "$attrs", "$slots", "$emit"]
-            .iter()
-            .any(|name| text.contains(name))
 }
 
 fn event_name(name: &str) -> bool {

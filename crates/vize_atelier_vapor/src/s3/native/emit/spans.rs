@@ -78,25 +78,34 @@ impl Emitter<'_, '_> {
     /// from that token to the carrier's `<`. `None` when maps are off or
     /// `name` is not that token (a synthesized `default` stays a stub).
     pub(super) fn slot_name_anchor(&mut self, carrier: usize, name: &str) -> Option<AuthoredSpan> {
-        let (directive, open) = {
+        let (directive, open, computed) = {
             let node = self.artifact.nodes.get(carrier)?;
             let open = match node.content {
                 Content::Element {
                     tag: "template",
                     tag_span,
                     ..
-                } => tag_span.0,
+                }
+                | Content::Component { tag_span, .. } => tag_span.0,
                 _ => return None,
             };
             let directive = node
                 .bindings
                 .iter()
                 .find(|binding| binding.kind == BindingKind::Slot)
-                .map(|binding| binding.spans)?;
-            let [directive, _] = directive;
-            (directive, open)
+                .map(|binding| (binding.spans, binding.dynamic_name.is_some()))?;
+            let ([directive, _], computed) = directive;
+            (directive, open, computed)
         };
-        let (start, _) = self.token(directive, |raw| slot_name_offset(raw, name))?;
+        let (start, _) = if computed {
+            let span = self.trimmed(directive);
+            if self.source?.get(span.0 as usize..span.1 as usize)? != name.trim() {
+                return None;
+            }
+            span
+        } else {
+            self.token(directive, |raw| slot_name_offset(raw, name))?
+        };
         self.units.insert(start, open);
         Some((start, start + name.len() as u32))
     }
@@ -131,7 +140,7 @@ pub(super) fn value_offset(raw: &str, name: &str, value: &str) -> Option<usize> 
     rest.starts_with(value).then(|| raw.len() - rest.len())
 }
 
-/// Offset of a static slot name in `#name` / `v-slot:name` authored text.
+/// Offset of a literal or bracketed computed slot name in authored text.
 pub(super) fn slot_name_offset(raw: &str, name: &str) -> Option<usize> {
     if name.is_empty() {
         return None;
@@ -139,6 +148,12 @@ pub(super) fn slot_name_offset(raw: &str, name: &str) -> Option<usize> {
     let rest = raw
         .strip_prefix('#')
         .or_else(|| raw.strip_prefix("v-slot:"))?;
+    if let Some(expression) = rest.strip_prefix('[') {
+        return expression
+            .strip_prefix(name)?
+            .starts_with(']')
+            .then_some(raw.len() - expression.len());
+    }
     let tail = rest.strip_prefix(name)?;
     // A modifier dot or `="params"` ends the token; a longer name does not.
     tail.chars()
