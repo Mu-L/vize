@@ -1,5 +1,6 @@
 [package]
 name = "vize_croquis_cf"
+autobenches = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
