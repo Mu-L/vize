@@ -8,13 +8,11 @@ css vars:
 
 css:
 .header[data-v-test]{
-  background-color: color(from var(--test-parentBg\ \?\?\ \'var\(--bg\)\') srgb r g b / 0.85);
-}
-
-.textCountGraph {
+  background-color: color(from var(--e77fb598) srgb r g b / 0.85);
+}.textCountGraph[data-v-test]{
   background-image: conic-gradient(
-    var(--countColor) 0% var(--test-Math\.min\(100\,\ textCountPercentage\)\ \+\ \'\%\'),
-    rgba(0, 0, 0, .2) var(--test-Math\.min\(100\,\ textCountPercentage\)\ \+\ \'\%\') 100%
+    var(--countColor) 0% var(--v11cb5912),
+    rgba(0, 0, 0, .2) var(--v11cb5912) 100%
   );
 }
 
@@ -33,8 +31,8 @@ export default {
   setup(__props) {
 
 _useCssVars(_ctx => ({
-  "test-parentBg\ \?\?\ \'var\(--bg\)\'": (parentBg ?? 'var(--bg)'),
-  "test-Math\.min\(100\,\ textCountPercentage\)\ \+\ \'\%\'": (Math.min(100, textCountPercentage) + '%')
+  "e77fb598": (parentBg ?? 'var(--bg)'),
+  "v11cb5912": (Math.min(100, textCountPercentage) + '%')
 }))
 
 

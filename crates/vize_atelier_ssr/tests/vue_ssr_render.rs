@@ -140,8 +140,8 @@ fn scoped_layout_slots_render_page_roots_like_vue() {
         assert!(code.contains("\"data-v-layout-s\""));
         let legacy = code.replace("\"data-v-layout-s\"", "({})");
         format!(
-            "{{\"name\":{},\"template\":{},\"vize\":{},\"legacy\":{},\"scopeId\":\"data-v-layout\"}}",
-            json(name), json(template), json(&code), json(&legacy)
+            "{{\"name\":{},\"template\":{},\"vize\":{},\"legacy\":{},\"scopeId\":\"data-v-layout\",\"expectLegacyMismatch\":{}}}",
+            json(name), json(template), json(&code), json(&legacy), name == "layout"
         )
     })
     .join(",");

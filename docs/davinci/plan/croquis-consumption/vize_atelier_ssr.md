@@ -29,7 +29,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | ------------------ | -------: | ---: |
 | `BindingMetadata`  |        0 |   11 |
 | `Croquis`          |        4 |   19 |
-| `Scope`            |        0 |    3 |
+| `Scope`            |        0 |    2 |
 | `Span`             |        0 |   43 |
 | `Symbol`           |        0 |    2 |
 | `Croquis.bindings` |        1 |   29 |

@@ -11,7 +11,7 @@ css:
   background: linear-gradient(180deg,
     color(from var(--test-color) srgb r g b / .1),
     color(from var(--test-color) srgb r g b / 0));
-  padding-top: var(--test-offset\ \+\ \'px\');
+  padding-top: var(--b53f3fdc);
 }
 
 
@@ -39,7 +39,7 @@ export default {
   setup(__props) {
     _useCssVars((_ctx) => ({
       "test-color": __props.color,
-      "test-offset + 'px'": __props.offset + "px"
+      "b53f3fdc": __props.offset + "px"
     }));
     const $style = _useCssModule();
     return (_ctx, _cache) => {

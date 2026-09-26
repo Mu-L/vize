@@ -161,6 +161,9 @@ impl<'a> SsrCodegenContext<'a> {
             self.push("const _cssVars = { style: ");
             self.push(css_vars);
             self.push(" }\n");
+            self.use_core_helper(RuntimeHelper::MergeProps);
+            self.push_indent();
+            self.push("_attrs = _mergeProps(_attrs, _cssVars)\n");
         }
         self.mark_body_start();
     }

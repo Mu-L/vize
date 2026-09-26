@@ -119,11 +119,24 @@ pub(crate) fn trim_outer_quotes(expr: &str) -> &str {
 #[doc(hidden)]
 pub fn scoped_v_bind_name(scope_id: &str, expr: &str) -> String {
     let scope_id = scope_id.strip_prefix("data-v-").unwrap_or(scope_id);
+    // Escaped expression punctuation can be interpreted again by downstream
+    // CSS processors. Keep arbitrary JavaScript out of property names, and use
+    // this same name for both stylesheet references and runtime values.
+    if !is_css_var_identifier(expr) {
+        return prod_scoped_v_bind_name(scope_id, expr);
+    }
     let mut result = String::with_capacity(scope_id.len() + expr.len() + 1);
     result.push_str(scope_id);
     result.push('-');
     write_escaped_css_var_suffix(&mut result, expr);
     result
+}
+
+fn is_css_var_identifier(expr: &str) -> bool {
+    !expr.is_empty()
+        && expr
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
 }
 
 /// Generate Vue's production CSS variable name for a scoped SFC v-bind().
@@ -224,6 +237,10 @@ fn normalize_hash_sum_i32(hash: u32) -> u64 {
 
 /// Write v-bind variable hash to output
 fn write_v_bind_hash(out: &mut ArenaVec<u8>, expr: &str) {
+    if !is_css_var_identifier(expr) {
+        out.extend_from_slice(prod_scoped_v_bind_name("", expr).as_bytes());
+        return;
+    }
     let hash: u32 = expr
         .bytes()
         .fold(0u32, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u32));
