@@ -1,11 +1,8 @@
 //! [`ForeignExpr`] - the non-JS expression dialect payload.
 //!
-//! **Type-only until phase 6** (charter #28, the MoonBit dialect): the
-//! type exists so [`super::ExprRef`] is closed and the folio grammar is
-//! total, but no dialect implementation ships, no lowering constructs a
-//! value, and the [`super::capability::ExprDialect`] contract has no
-//! implementor. Phase 6 owns the first dialect and with it the first
-//! real values of this type.
+//! First-party expression dialects construct these payloads during S1→S2
+//! lowering. The MoonBit implementation supplies the capability answers and
+//! preserves exact source spans without invoking the JavaScript parser.
 
 use vize_s0::{Span, Vec};
 

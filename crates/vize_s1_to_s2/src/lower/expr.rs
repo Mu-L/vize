@@ -18,7 +18,7 @@ use oxc_parser::Parser;
 use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
 use vize_s0::{Span, String, cstr};
-use vize_s2::expr::{ExprRef, OpaqueExpr, OpaqueReason, VueFilterExpr};
+use vize_s2::expr::{ExprRef, ForeignExpr, OpaqueExpr, OpaqueReason, VueFilterExpr};
 
 use super::cx::Cx;
 
@@ -33,6 +33,20 @@ pub(crate) fn trimmed<'a>(cx: &Cx<'a>, text: &'a str) -> (&'a str, Span) {
 /// JS rule. Total — refused text comes back as the classified escape.
 pub(crate) fn expr_at<'a>(cx: &Cx<'a>, text: &'a str) -> ExprRef<'a> {
     let (slice, span) = trimmed(cx, text);
+    expression_in(cx, slice, span)
+}
+
+/// The same dialect selection for synthesized shorthand text at an authored
+/// argument span. Such text may be arena-owned rather than an S0 slice.
+pub(crate) fn expression_in<'a>(cx: &Cx<'a>, slice: &'a str, span: Span) -> ExprRef<'a> {
+    if let Some(dialect) = cx.foreign_dialect {
+        return ExprRef::Foreign(cx.allocator.alloc(ForeignExpr {
+            dialect: dialect.name,
+            source: slice,
+            span,
+            facts: vize_s0::Vec::new_in(&cx.allocator),
+        }));
+    }
     ExprRef::parse_js_in(cx.allocator, slice, span)
 }
 
@@ -96,6 +110,9 @@ fn contains_module_declaration(cx: &Cx<'_>, source: &str) -> bool {
 /// when the dialect asks, so `|` is not bitwise-OR. Other directive
 /// expressions stay on [`expr_at`].
 pub(crate) fn filter_expr_at<'a>(cx: &Cx<'a>, text: &'a str) -> ExprRef<'a> {
+    if cx.foreign_dialect.is_some() {
+        return expr_at(cx, text);
+    }
     let (slice, span) = trimmed(cx, text);
     if cx.caps.supports_filters
         && let Some(filter) = VueFilterExpr::parse_in(cx.allocator, slice, span)

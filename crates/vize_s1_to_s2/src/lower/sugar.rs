@@ -19,7 +19,7 @@ use vize_s2::scope::{ScopeBinding, ScopeFacts, ScopeOrigin};
 use super::cx::{Cx, attr_slice, attr_span};
 use super::directive::{AttrForm, Head};
 use super::element::{Analyzed, attr_text, attr_value_text};
-use super::expr::{expr_at, simple_identifier};
+use super::expr::expr_at;
 
 /// Whether this element should consume `slot-scope`/`scope` (and the
 /// companion static `slot`) into a dialect binding.
@@ -85,7 +85,7 @@ pub(crate) fn lower_slot_scope<'a>(
     if let Some(expr) = &params {
         let tag = cx.mint_scope();
         let mut scope_bindings = StdVec::new();
-        if let Some(bound) = simple_identifier(expr) {
+        if let Some(bound) = super::foreign::simple_identifier(expr, cx.foreign_dialect) {
             scope_bindings.push(ScopeBinding {
                 name: String::from(bound),
                 origin: ScopeOrigin::Authored { span: expr.span() },

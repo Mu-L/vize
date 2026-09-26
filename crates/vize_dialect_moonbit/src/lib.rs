@@ -9,7 +9,7 @@
 //! 1. [`sfc::split`] — S0: a file is a MoonBit file when its script block
 //!    says `lang="moonbit"`; the dialect resolves once per file.
 //! 2. [`projection::project`] — S1 → S2 lowering as for any Vue template,
-//!    every expression position re-read as `ExprRef::Foreign` and emitted
+//!    every expression position lowered as `ExprRef::Foreign` and emitted
 //!    by [`dialect::MoonBitDialect`] (the first
 //!    `vize_s2::expr::capability::ExprDialect` implementor) into one
 //!    virtual `.mbt` file with span links — charter #14's virtual
@@ -20,12 +20,11 @@
 //! 4. [`diagnostic`] and [`render`] — `moonc`'s diagnostics mapped back
 //!    through the links to authored, file-absolute spans.
 //!
-//! What P6-4b replaces: the S2 lowering constructing `Foreign` directly
-//! (instead of the re-read), a generated `.mbti` environment from S2
-//! scope facts (instead of the script block verbatim), the P6-1b
-//! expression world as the transport, and the toolchain version in the
-//! fact cache key.
+//! The direct foreign lowering and bounded, toolchain-keyed checker cache
+//! are implemented. P6-4b still requires a generated `.mbti` environment
+//! from typed scope facts and the P6-1b expression-world exchange.
 
+pub mod cache;
 pub mod diagnostic;
 pub mod dialect;
 pub mod host;

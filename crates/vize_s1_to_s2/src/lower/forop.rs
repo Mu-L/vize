@@ -14,7 +14,7 @@ use vize_s2::scope::{ScopeBinding, ScopeFacts, ScopeOrigin, ScopeTag};
 
 use super::cx::{Cx, attr_slice, attr_span, element_span};
 use super::element::{Analyzed, attr_text, element_core};
-use super::expr::{desc, expr_at, opaque_at, simple_identifier, trimmed};
+use super::expr::{desc, expr_at, opaque_at, trimmed};
 use super::structural::{
     ForWrapper, capture_wrapper_attrs, capture_wrapper_key, lower_children,
     record_template_drops_except,
@@ -127,7 +127,7 @@ pub(crate) fn lower_for<'a>(
                 tag,
                 bindings: StdVec::new(),
             };
-            let parts = derive_for_parts(tag, &binding, &scope);
+            let parts = derive_for_parts(tag, &binding, &scope, cx.foreign_dialect);
             cx.attach_scope(node, scope);
             cx.attach_for_parts(node, parts, 0, text_span);
             binding
@@ -148,7 +148,7 @@ pub(crate) fn lower_for<'a>(
                 .into_iter()
                 .flatten()
             {
-                if let Some(name) = simple_identifier(expr) {
+                if let Some(name) = super::foreign::simple_identifier(expr, cx.foreign_dialect) {
                     bindings.push(ScopeBinding {
                         name: String::from(name),
                         origin: ScopeOrigin::Authored { span: expr.span() },
@@ -169,7 +169,7 @@ pub(crate) fn lower_for<'a>(
                 index,
             };
             let scope = ScopeFacts { tag, bindings };
-            let parts = derive_for_parts(tag, &binding, &scope);
+            let parts = derive_for_parts(tag, &binding, &scope, cx.foreign_dialect);
             let binding_count = scope.bindings.len();
             cx.attach_scope(node, scope);
             cx.attach_for_parts(node, parts, binding_count, text_span);
@@ -233,7 +233,12 @@ fn alias_position<'a>(cx: &mut Cx<'a>, slice: Option<&&'a str>) -> Option<ExprRe
 
 /// Re-derive the consumed scope view from the just-built `ForBinding`, then
 /// assert it byte-equals the `ScopeFacts` the lowering recorded.
-fn derive_for_parts(tag: ScopeTag, binding: &ForBinding<'_>, recorded: &ScopeFacts) -> ForParts {
+fn derive_for_parts(
+    tag: ScopeTag,
+    binding: &ForBinding<'_>,
+    recorded: &ScopeFacts,
+    dialect: Option<super::foreign::ForeignDialect<'_>>,
+) -> ForParts {
     debug_assert!(
         recorded.tag == tag,
         "hygiene law broken: ui.for scope recorded tag {} but lowering minted {tag}",
@@ -246,10 +251,10 @@ fn derive_for_parts(tag: ScopeTag, binding: &ForBinding<'_>, recorded: &ScopeFac
     let value = if undecomposable {
         ForName::Pending
     } else {
-        position(Some(&binding.value))
+        position(Some(&binding.value), dialect)
     };
-    let key = position(binding.key.as_ref());
-    let index = position(binding.index.as_ref());
+    let key = position(binding.key.as_ref(), dialect);
+    let index = position(binding.index.as_ref(), dialect);
     #[cfg(debug_assertions)]
     {
         let expected: StdVec<ScopeBinding> = [
@@ -282,11 +287,14 @@ fn derive_for_parts(tag: ScopeTag, binding: &ForBinding<'_>, recorded: &ScopeFac
 }
 
 /// Classify one binding position.
-fn position(expr: Option<&ExprRef<'_>>) -> ForName {
+fn position(
+    expr: Option<&ExprRef<'_>>,
+    dialect: Option<super::foreign::ForeignDialect<'_>>,
+) -> ForName {
     let Some(expr) = expr else {
         return ForName::Absent;
     };
-    if let Some(name) = simple_identifier(expr) {
+    if let Some(name) = super::foreign::simple_identifier(expr, dialect) {
         return ForName::Named(String::from(name));
     }
     if expr.source().is_empty() {
