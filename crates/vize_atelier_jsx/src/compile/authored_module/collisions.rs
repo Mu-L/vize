@@ -81,10 +81,10 @@ impl<'a> Visit<'a> for Bindings<'a> {
         if self.top_level_only || (self.renderer_only && !renderer) {
             // Nested callbacks own their parameters and locals. Only normal
             // declarations add a binding to the containing renderer scope.
-            if function.r#type == FunctionType::FunctionDeclaration {
-                if let Some(identifier) = &function.id {
-                    self.visit_binding_identifier(identifier);
-                }
+            if function.r#type == FunctionType::FunctionDeclaration
+                && let Some(identifier) = &function.id
+            {
+                self.visit_binding_identifier(identifier);
             }
         } else {
             self.in_renderer = renderer;
