@@ -1,3 +1,4 @@
+mod emits;
 mod expose;
 mod tracker;
 
@@ -358,6 +359,7 @@ pub struct MacroTracker {
     prop_declarations: FxHashMap<CompactString, (u32, u32)>,
     emits: Vec<EmitDefinition>,
     emit_declarations: FxHashMap<CompactString, (u32, u32)>,
+    emit_validator_signatures: FxHashMap<CompactString, Vec<CompactString>>,
     emit_calls: Vec<EmitCall>,
     models: Vec<ModelDefinition>,
     model_declarations: FxHashMap<CompactString, (u32, u32)>,
@@ -468,18 +470,6 @@ impl MacroTracker {
     #[inline]
     pub fn set_define_art(&mut self, art: ArtDefinition) {
         self.art = Some(art);
-    }
-
-    /// Add an emit definition
-    #[inline]
-    pub fn add_emit(&mut self, emit: EmitDefinition) {
-        self.emits.push(emit);
-    }
-
-    /// Get all emits
-    #[inline]
-    pub fn emits(&self) -> &[EmitDefinition] {
-        &self.emits
     }
 
     /// Add an emit call (actual emit() invocation in code)

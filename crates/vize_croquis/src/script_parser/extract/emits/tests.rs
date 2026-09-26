@@ -99,3 +99,64 @@ fn runtime_payloads_omit_bodies_defaults_and_generic_binders() {
     );
     assert_eq!(payload(source, "generic"), None);
 }
+
+#[test]
+fn runtime_validator_headers_track_type_edits_and_exclude_implementation() {
+    let source = "defineEmits({ save: <T extends 'a  b'>(value: T, count: number = 1): boolean => { return true }, untyped: (value) => true, destructured: function(this: Context, { value = privateCall() }: Payload, ...rest: string[]): boolean { return true } });";
+    let signatures = |source: &str, event: &str| {
+        parse_script_setup(source)
+            .macros
+            .emit_validator_signatures(event)
+            .to_vec()
+    };
+    assert_eq!(
+        signatures(source, "save"),
+        ["<T extends 'a  b'>(value: T, count?: number): boolean"]
+    );
+    assert_eq!(signatures(source, "untyped"), ["(value)"]);
+    assert_eq!(
+        signatures(source, "destructured"),
+        ["(this: Context, __destructured: Payload, ...rest: string[]): boolean"]
+    );
+    let implementation = source
+        .replace("return true", "return false")
+        .replace("= 1", "= 2")
+        .replace("privateCall()", "anotherPrivateCall()");
+    for event in ["save", "untyped", "destructured"] {
+        assert_eq!(
+            signatures(source, event),
+            signatures(&implementation, event)
+        );
+    }
+    assert_ne!(
+        signatures(source, "save"),
+        signatures(&source.replace("value: T", "value: string"), "save")
+    );
+    assert_ne!(
+        signatures(source, "untyped"),
+        signatures(&source.replace("(value)", "(value: string)"), "untyped")
+    );
+}
+
+#[test]
+fn spread_validator_headers_follow_only_the_exposed_runtime_literal() {
+    let source = "const unused = { save: <T>(value: T) => false }; const events = { save: <T>(value: T): boolean => true }; const copied = { ...events }; defineEmits({ ...copied });";
+    let signatures = |source: &str| {
+        parse_script_setup(source)
+            .macros
+            .emit_validator_signatures("save")
+            .to_vec()
+    };
+    assert_eq!(signatures(source), ["<T>(value: T): boolean"]);
+    assert_eq!(
+        signatures(source),
+        signatures(&source.replace(
+            "<T>(value: T) => false",
+            "<T>(value: string) => { return false }"
+        ))
+    );
+    assert_ne!(
+        signatures(source),
+        signatures(&source.replace("value: T): boolean", "value: string): boolean"))
+    );
+}

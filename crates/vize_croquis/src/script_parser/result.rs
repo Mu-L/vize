@@ -53,6 +53,7 @@ pub(crate) struct ReactiveGetterContext {
 pub(crate) struct RuntimeObjectLiteral {
     pub props: Vec<PropDefinition>,
     pub emits: Vec<EmitDefinition>,
+    pub emit_validator_signatures: FxHashMap<CompactString, Vec<CompactString>>,
 }
 
 /// Result of parsing a script setup block

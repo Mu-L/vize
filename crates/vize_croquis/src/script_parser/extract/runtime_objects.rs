@@ -45,6 +45,16 @@ fn collect_runtime_object_literal(
                     name: CompactString::new(name),
                     payload_type: emits::extract_runtime_emit_payload_type(&property.value, source),
                 });
+                if property.kind == oxc_ast::ast::PropertyKind::Init
+                    && let Some(signature) =
+                        emits::extract_runtime_emit_signature(&property.value, source)
+                {
+                    literal
+                        .emit_validator_signatures
+                        .entry(CompactString::new(name))
+                        .or_default()
+                        .push(signature);
+                }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
                 let Expression::Identifier(identifier) = &spread.argument else {
@@ -57,6 +67,13 @@ fn collect_runtime_object_literal(
                 };
                 literal.props.extend(spread_literal.props.iter().cloned());
                 literal.emits.extend(spread_literal.emits.iter().cloned());
+                for (name, signatures) in &spread_literal.emit_validator_signatures {
+                    literal
+                        .emit_validator_signatures
+                        .entry(name.clone())
+                        .or_default()
+                        .extend(signatures.iter().cloned());
+                }
             }
         }
     }

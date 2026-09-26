@@ -1,7 +1,9 @@
+mod signature;
 #[cfg(test)]
 mod tests;
 mod typed;
 
+pub(super) use signature::extract_runtime_emit_signature;
 pub use typed::extract_emits_from_type;
 
 use oxc_ast::ast::{
@@ -103,20 +105,30 @@ fn extract_emits_from_object(
                     span.start,
                     span.end,
                 );
+                if prop.kind == oxc_ast::ast::PropertyKind::Init
+                    && let Some(signature) = extract_runtime_emit_signature(&prop.value, source)
+                {
+                    result.macros.add_emit_validator_signature(name, signature);
+                }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
                 let Expression::Identifier(identifier) = &spread.argument else {
                     continue;
                 };
-                let Some(emits) = result
+                let Some(literal) = result
                     .runtime_object_literals
                     .get(identifier.name.as_str())
-                    .map(|literal| literal.emits.clone())
+                    .cloned()
                 else {
                     continue;
                 };
-                for emit in emits {
+                for emit in literal.emits {
                     result.macros.add_emit(emit);
+                }
+                for (name, signatures) in literal.emit_validator_signatures {
+                    for signature in signatures {
+                        result.macros.add_emit_validator_signature(&name, signature);
+                    }
                 }
             }
         }
