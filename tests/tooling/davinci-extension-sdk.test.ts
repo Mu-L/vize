@@ -282,7 +282,7 @@ test("the compiled legacy guests use the exact frozen SDK/WIT 0.1.2 sources", ()
   const files = ["src", "wit"]
     .flatMap((dir) =>
       fs
-        .readdirSync(path.join(archive, dir), { recursive: true })
+        .readdirSync(path.join(archive, dir), { recursive: true, encoding: "utf8" })
         .map((file) => `${dir}/${file}`)
         .filter((file) => fs.statSync(path.join(archive, file)).isFile()),
     )
