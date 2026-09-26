@@ -101,3 +101,46 @@ jobs:
           name: resource-${{ env.RESOURCE_PRESET }}
           path: ${{ runner.temp }}/resource.json
           retention-days: 30
+
+  resident-resource:
+    name: Synthetic 10k-file resident resources (P5-4b)
+    runs-on: blacksmith-32vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install the repository Rust toolchain
+        run: rustup toolchain install || rustup show active-toolchain
+      - uses: wild-linker/action@0bbbfa5df4380cab8e63cb8505a1ce65e1d10203 # v0.9.0
+        with:
+          wild-version: "0.9.0"
+      - uses: ./.github/actions/setup-rust-sticky-cache
+        with:
+          key: davinci-resident-resource
+          cache-key-suffix: ${{ runner.os }}-${{ runner.arch }}
+      - uses: ./.github/actions/setup-rust-script
+      - name: Build the isolated resident session
+        run: >-
+          cargo build --profile ci-opt -p vize_resident --example resource_session
+          --config 'profile.ci-opt.inherits="release"'
+          --config 'profile.ci-opt.lto="thin"'
+          --config 'profile.ci-opt.codegen-units=16'
+      - name: Measure and enforce the unchanged reference RSS ceilings
+        run: >-
+          rust-script tools/commands/davinci/resident-resources.rs
+          --server target/ci-opt/examples/resource_session --files 10000 --edits 32
+          --runs 3 --out "${RUNNER_TEMP}/resident-resource.json"
+      - name: Summarize the isolated session
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo '### Synthetic resident database (fixture alpha inputs; no LSP or Corsa)'
+            echo '```json'
+            cat "${RUNNER_TEMP}/resident-resource.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: resident-resource-${{ env.RESOURCE_PRESET }}
+          path: ${{ runner.temp }}/resident-resource.json
+          retention-days: 30

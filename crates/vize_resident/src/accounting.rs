@@ -27,8 +27,8 @@ pub struct QueryCounts {
 /// Per-query counts, keyed by the query's name.
 pub type Accounting = BTreeMap<String, QueryCounts>;
 
-/// Execution (`true`) or reuse (`false`) of one ingredient.
-pub(crate) type Record = (IngredientIndex, bool);
+/// One bounded row per registered query ingredient, independent of event volume.
+pub(crate) type Records = BTreeMap<IngredientIndex, QueryCounts>;
 
 /// The event sink the database installs in its storage. The records are
 /// shared between the storage's callback and the database handle, which
@@ -41,7 +41,7 @@ pub(crate) struct Recorder {
                   (salsa clones the handle per snapshot); a scoped reference cannot outlive \
                   the storage that owns the callback"
     )]
-    records: std::sync::Arc<Mutex<Vec<Record>>>,
+    records: std::sync::Arc<Mutex<Records>>,
 }
 
 impl Recorder {
@@ -56,29 +56,32 @@ impl Recorder {
                 }
                 _ => return,
             };
-            records
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .push(record);
+            let mut records = records.lock().unwrap_or_else(PoisonError::into_inner);
+            let counts = records.entry(record.0).or_default();
+            if record.1 {
+                counts.executed = counts.executed.saturating_add(1);
+            } else {
+                counts.reused = counts.reused.saturating_add(1);
+            }
         })
     }
 
     /// Take every record since the last drain.
-    pub(crate) fn drain(&self) -> Vec<Record> {
+    pub(crate) fn drain(&self) -> Records {
         core::mem::take(&mut *self.records.lock().unwrap_or_else(PoisonError::into_inner))
     }
 }
 
 /// Fold records into per-query counts, naming each ingredient with `name`.
-pub(crate) fn tally(records: Vec<Record>, name: impl Fn(IngredientIndex) -> String) -> Accounting {
+pub(crate) fn tally(records: Records, name: impl Fn(IngredientIndex) -> String) -> Accounting {
     let mut accounting = Accounting::new();
-    for (ingredient, executed) in records {
+    for (ingredient, recorded) in records {
         let counts = accounting.entry(name(ingredient)).or_default();
-        if executed {
-            counts.executed += 1;
-        } else {
-            counts.reused += 1;
-        }
+        counts.executed = counts.executed.saturating_add(recorded.executed);
+        counts.reused = counts.reused.saturating_add(recorded.reused);
     }
     accounting
 }
+
+#[cfg(test)]
+mod tests;
