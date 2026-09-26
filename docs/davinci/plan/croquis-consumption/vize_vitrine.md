@@ -55,5 +55,5 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `ScopeId`           |        0 |    2 |
 | `Span`              |        0 |    3 |
 | `Symbol`            |        0 |    3 |
-| `Croquis.bindings`  |        0 |   11 |
+| `Croquis.bindings`  |        0 |   14 |
 | `Croquis.scopes`    |        3 |    8 |

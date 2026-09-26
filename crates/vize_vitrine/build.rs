@@ -40,6 +40,9 @@ fn main() -> BuildResult {
         "crates/vize_vitrine/src/napi.rs",
         "crates/vize_vitrine/src/napi/plugin_sdk.rs",
         "crates/vize_vitrine/src/napi/plugin_sdk",
+        "crates/vize_vitrine/src/napi/transform_plugins.rs",
+        "crates/vize_vitrine/src/plugin_transform.rs",
+        "crates/vize_vitrine/src/plugin_transform",
         "crates/vize_davinci/src",
         "crates/vize_carton/src",
         "crates/vize_s1/src",
@@ -48,6 +51,7 @@ fn main() -> BuildResult {
         "crates/vize_croquis/src",
         "crates/vize_relief/src",
         "crates/vize_armature/src",
+        "crates/vize_atelier_core/src",
     ] {
         let path = root.join(relative);
         hash_source(root, &path, &mut hasher)?;

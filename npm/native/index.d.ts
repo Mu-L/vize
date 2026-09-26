@@ -1311,3 +1311,37 @@ export declare function wrapSfcScopedPreprocessorStyle(
   scoped?: string | undefined | null,
   lang?: string | undefined | null,
 ): string;
+
+/** Bounded edits to existing static HTML attributes before S2 canonical passes. */
+export interface TransformPluginNapi {
+  name: string;
+  version: string;
+  fingerprint: string;
+  cacheInputs?: Array<PluginCacheInputNapi>;
+  run: (batchJson: string) => string;
+}
+export interface TransformCompileOptionsNapi {
+  filename?: string;
+  sourceMap?: boolean;
+  hoistStatic?: boolean;
+  cache?: boolean;
+  cacheDir?: string;
+}
+export interface TransformPluginCostNapi {
+  name: string;
+  contentKey: string;
+  nodes: number;
+  edits: number;
+  cached: boolean;
+  elapsedNs: number;
+  jsNs: number;
+}
+export interface TransformCompileOutputNapi {
+  result: CompileResult;
+  plugins: Array<TransformPluginCostNapi>;
+}
+export declare function compileWithTransformPlugins(
+  template: string,
+  plugins: Array<TransformPluginNapi>,
+  options?: TransformCompileOptionsNapi | null,
+): TransformCompileOutputNapi;
