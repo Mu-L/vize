@@ -54,6 +54,7 @@ pub(crate) struct RuntimeObjectLiteral {
     pub props: Vec<PropDefinition>,
     pub emits: Vec<EmitDefinition>,
     pub emit_validator_signatures: FxHashMap<CompactString, Vec<CompactString>>,
+    pub emit_validator_type_annotations: FxHashMap<CompactString, Vec<CompactString>>,
 }
 
 /// Result of parsing a script setup block

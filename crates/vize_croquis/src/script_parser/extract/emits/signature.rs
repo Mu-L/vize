@@ -32,6 +32,9 @@ pub(in crate::script_parser::extract) fn extract_runtime_emit_signature(
         Expression::TSAsExpression(expression) => {
             return extract_runtime_emit_signature(&expression.expression, source);
         }
+        Expression::TSTypeAssertion(expression) => {
+            return extract_runtime_emit_signature(&expression.expression, source);
+        }
         Expression::TSSatisfiesExpression(expression) => {
             return extract_runtime_emit_signature(&expression.expression, source);
         }
@@ -44,6 +47,42 @@ pub(in crate::script_parser::extract) fn extract_runtime_emit_signature(
         _ => return None,
     };
     header(parameters, generics, this_parameter, returns, source)
+}
+
+pub(in crate::script_parser::extract) fn extract_runtime_emit_type_annotations(
+    mut value: &Expression<'_>,
+    source: &str,
+) -> Vec<CompactString> {
+    use oxc_span::GetSpan;
+    let mut annotations = Vec::new();
+    loop {
+        let (inner, annotation) = match value {
+            Expression::TSAsExpression(expression) => {
+                (&expression.expression, &expression.type_annotation)
+            }
+            Expression::TSTypeAssertion(expression) => {
+                (&expression.expression, &expression.type_annotation)
+            }
+            Expression::TSSatisfiesExpression(expression) => {
+                (&expression.expression, &expression.type_annotation)
+            }
+            Expression::TSNonNullExpression(expression) => {
+                value = &expression.expression;
+                continue;
+            }
+            Expression::ParenthesizedExpression(expression) => {
+                value = &expression.expression;
+                continue;
+            }
+            _ => break,
+        };
+        let span = annotation.span();
+        if let Some(text) = source.get(span.start as usize..span.end as usize) {
+            annotations.push(CompactString::new(text));
+        }
+        value = inner;
+    }
+    annotations
 }
 
 fn header(

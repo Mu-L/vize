@@ -55,6 +55,17 @@ fn collect_runtime_object_literal(
                         .or_default()
                         .push(signature);
                 }
+                if property.kind == oxc_ast::ast::PropertyKind::Init {
+                    let annotations =
+                        emits::extract_runtime_emit_type_annotations(&property.value, source);
+                    if !annotations.is_empty() {
+                        literal
+                            .emit_validator_type_annotations
+                            .entry(CompactString::new(name))
+                            .or_default()
+                            .extend(annotations);
+                    }
+                }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
                 let Expression::Identifier(identifier) = &spread.argument else {
@@ -73,6 +84,13 @@ fn collect_runtime_object_literal(
                         .entry(name.clone())
                         .or_default()
                         .extend(signatures.iter().cloned());
+                }
+                for (name, annotations) in &spread_literal.emit_validator_type_annotations {
+                    literal
+                        .emit_validator_type_annotations
+                        .entry(name.clone())
+                        .or_default()
+                        .extend(annotations.iter().cloned());
                 }
             }
         }

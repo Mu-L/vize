@@ -3,7 +3,7 @@ mod signature;
 mod tests;
 mod typed;
 
-pub(super) use signature::extract_runtime_emit_signature;
+pub(super) use signature::{extract_runtime_emit_signature, extract_runtime_emit_type_annotations};
 pub use typed::extract_emits_from_type;
 
 use oxc_ast::ast::{
@@ -110,6 +110,13 @@ fn extract_emits_from_object(
                 {
                     result.macros.add_emit_validator_signature(name, signature);
                 }
+                if prop.kind == oxc_ast::ast::PropertyKind::Init {
+                    for annotation in extract_runtime_emit_type_annotations(&prop.value, source) {
+                        result
+                            .macros
+                            .add_emit_validator_type_annotation(name, annotation);
+                    }
+                }
             }
             ObjectPropertyKind::SpreadProperty(spread) => {
                 let Expression::Identifier(identifier) = &spread.argument else {
@@ -130,6 +137,13 @@ fn extract_emits_from_object(
                         result.macros.add_emit_validator_signature(&name, signature);
                     }
                 }
+                for (name, annotations) in literal.emit_validator_type_annotations {
+                    for annotation in annotations {
+                        result
+                            .macros
+                            .add_emit_validator_type_annotation(&name, annotation);
+                    }
+                }
             }
         }
     }
@@ -148,9 +162,9 @@ pub(in crate::script_parser) fn extract_runtime_emit_payload_type(
         {
             extract_emit_payload_tuple(&func.params, source, 0)
         }
-        Expression::TSAsExpression(ts_as) => {
-            extract_runtime_emit_payload_type(&ts_as.expression, source)
-        }
+        // Casts can override the underlying callable type. Retain their authored
+        // annotations separately instead of inferring an effective payload.
+        Expression::TSAsExpression(_) | Expression::TSTypeAssertion(_) => None,
         Expression::TSSatisfiesExpression(ts_satisfies) => {
             extract_runtime_emit_payload_type(&ts_satisfies.expression, source)
         }

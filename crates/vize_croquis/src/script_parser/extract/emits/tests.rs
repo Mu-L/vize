@@ -160,3 +160,46 @@ fn spread_validator_headers_follow_only_the_exposed_runtime_literal() {
         signatures(&source.replace("value: T): boolean", "value: string): boolean"))
     );
 }
+
+#[test]
+fn validator_cast_and_constraint_types_track_edits_without_bodies() {
+    let source = "const unused = { save: ((value) => false) as (value: boolean) => boolean }; const validators = { save: ((value) => true) as (value: 'a  b') => boolean, angle: <(value: number) => boolean>((value) => true), constrained: ((value: string) => true) satisfies (value: string) => boolean }; defineEmits({ ...validators });";
+    let annotations = |source: &str, event: &str| {
+        parse_script_setup(source)
+            .macros
+            .emit_validator_type_annotations(event)
+            .to_vec()
+    };
+    assert_eq!(annotations(source, "save"), ["(value: 'a  b') => boolean"]);
+    assert_eq!(annotations(source, "angle"), ["(value: number) => boolean"]);
+    assert_eq!(
+        annotations(source, "constrained"),
+        ["(value: string) => boolean"]
+    );
+    assert_eq!(payload(source, "save"), None);
+    assert_eq!(payload(source, "angle"), None);
+    assert_eq!(
+        payload(source, "constrained").as_deref(),
+        Some("[value: string]")
+    );
+    let implementation = source
+        .replace("=> true", "=> { return false }")
+        .replace("value: boolean", "value: Date");
+    for event in ["save", "angle", "constrained"] {
+        assert_eq!(
+            annotations(source, event),
+            annotations(&implementation, event)
+        );
+    }
+    assert_ne!(
+        annotations(source, "save"),
+        annotations(&source.replace("'a  b'", "number"), "save")
+    );
+    assert_ne!(
+        annotations(source, "constrained"),
+        annotations(
+            &source.replace("satisfies (value: string)", "satisfies (value: number)"),
+            "constrained"
+        )
+    );
+}
