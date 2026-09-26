@@ -151,7 +151,10 @@ for (const fixture of cases) {
   process.stdout.write(`${JSON.stringify(result)}\n`);
   const upstreamHtml = result.vue?.html;
   const aligned = upstreamHtml !== undefined && result.vize?.html === upstreamHtml;
-  const legacyWrong = result.legacy?.error !== undefined || result.legacy?.html !== upstreamHtml;
+  const legacyWrong =
+    fixture.expectLegacyMismatch === false ||
+    result.legacy?.error !== undefined ||
+    result.legacy?.html !== upstreamHtml;
   if (!aligned || !legacyWrong) failures.push(fixture.name);
 }
 
