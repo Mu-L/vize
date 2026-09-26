@@ -100,7 +100,14 @@ async function render(code, fixture) {
       ssrRender,
       __scopeId: fixture.scopeId,
       directives,
-      components: { Foo, Forwarder: { render() { return this.$slots.default?.(); } } },
+      components: {
+        Foo,
+        Forwarder: {
+          render() {
+            return this.$slots.default?.();
+          },
+        },
+      },
       data: () =>
         Object.fromEntries(Object.entries(data).filter(([key]) => !setupNames.includes(key))),
       setup: setupNames.length ? () => setupState : undefined,
@@ -108,9 +115,10 @@ async function render(code, fixture) {
     const parent = {
       render: () =>
         h(component, fixture.attrs ?? null, {
-          default: (props) => fixture.scopeId
-            ? h({ __scopeId: "data-v-page", render: () => h("div", { class: "posts" }, "page") })
-            : h("em", JSON.stringify(props)),
+          default: (props) =>
+            fixture.scopeId
+              ? h({ __scopeId: "data-v-page", render: () => h("div", { class: "posts" }, "page") })
+              : h("em", JSON.stringify(props)),
         }),
     };
     return { html: normalize(await serverRenderer.renderToString(createSSRApp(parent))) };
