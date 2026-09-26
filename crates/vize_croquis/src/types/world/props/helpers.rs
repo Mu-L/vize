@@ -2,7 +2,8 @@ use oxc_allocator::Allocator;
 use oxc_ast::ast::{PropertyKey, Statement, TSLiteral, TSSignature, TSType};
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
-use vize_carton::{CompactString, FxHashSet, ToCompactString, cstr};
+use oxc_syntax::number::ToJsString;
+use vize_carton::{CompactString, FxHashSet, cstr};
 
 use super::{ScopedTypeProperties, ScopedTypeProperty};
 
@@ -33,7 +34,9 @@ pub(super) fn members(
                 CompactString::new(id.name.as_str())
             }
             PropertyKey::StringLiteral(literal) => CompactString::new(literal.value.as_str()),
-            PropertyKey::NumericLiteral(literal) => literal.value.to_compact_string(),
+            PropertyKey::NumericLiteral(literal) => {
+                CompactString::new(literal.value.to_js_string())
+            }
             _ => {
                 output.complete = false;
                 continue;

@@ -7,7 +7,8 @@ use oxc_ast::ast::{
     VariableDeclarationKind,
 };
 use oxc_span::GetSpan;
-use vize_carton::{CompactString, ToCompactString};
+use oxc_syntax::number::ToJsString;
+use vize_carton::CompactString;
 
 use super::super::ScriptParseResult;
 use crate::macros::defaults::StaticDefaultObject;
@@ -83,7 +84,9 @@ fn collect_object(
                     PropertyKey::StringLiteral(literal) => {
                         CompactString::new(literal.value.as_str())
                     }
-                    PropertyKey::NumericLiteral(literal) => literal.value.to_compact_string(),
+                    PropertyKey::NumericLiteral(literal) => {
+                        CompactString::new(literal.value.to_js_string())
+                    }
                     _ => {
                         output.clear();
                         continue;

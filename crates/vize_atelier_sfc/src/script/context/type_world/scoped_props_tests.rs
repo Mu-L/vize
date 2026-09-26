@@ -154,3 +154,59 @@ fn scoped_numeric_property_names_use_the_cooked_key_and_inline_catalog_is_comple
     );
     assert!(properties.complete);
 }
+
+#[test]
+fn scoped_numeric_keys_follow_javascript_exponent_thresholds() {
+    let ctx = crate::script::ScriptCompileContext::new(
+        "defineProps<{ 0x2a: string; 1.50: string; 1e20: string; 1e21: string; 1e-6: string; 1e-7: string; 0: string }>()",
+    );
+    let world = ctx.resolve_type_world("App.vue", None);
+    let properties = world.resolve_properties("{ 0x2a: string; 1.50: string; 1e20: string; 1e21: string; 1e-6: string; 1e-7: string; 0: string }");
+    let names: Vec<_> = properties
+        .properties
+        .iter()
+        .map(|prop| prop.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "42",
+            "1.5",
+            "100000000000000000000",
+            "1e+21",
+            "0.000001",
+            "1e-7",
+            "0"
+        ]
+    );
+    assert!(properties.complete);
+    let croquis = analyze(
+        "<script setup lang='ts'>withDefaults(defineProps<{ 0x2a?: number; 1.50?: number; 1e20?: number; 1e21?: number; 1e-6?: number; 1e-7?: number; 0?: number }>(), { 0x2a: 1, 1.50: 2, 1e20: 3, 1e21: 4, 1e-6: 5, 1e-7: 6, 0: 7 })</script>",
+        "App.vue",
+    );
+    let actual: Vec<_> = croquis
+        .macros
+        .props()
+        .iter()
+        .map(|prop| {
+            (
+                prop.name.as_str(),
+                prop.required,
+                prop.prop_type.as_deref(),
+                prop.default_value.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        actual,
+        vec![
+            ("42", false, Some("number"), Some("1")),
+            ("1.5", false, Some("number"), Some("2")),
+            ("100000000000000000000", false, Some("number"), Some("3")),
+            ("1e+21", false, Some("number"), Some("4")),
+            ("0.000001", false, Some("number"), Some("5")),
+            ("1e-7", false, Some("number"), Some("6")),
+            ("0", false, Some("number"), Some("7"))
+        ]
+    );
+}

@@ -218,3 +218,67 @@ fn unused_nested_same_named_objects_never_replace_top_level_defaults() {
         vec![(CompactString::new("count"), false, None)]
     );
 }
+
+#[test]
+fn numeric_default_keys_use_javascript_number_to_string() {
+    let declaration = "defineProps<Public>()";
+    let defaults = "{ 0x2a: 1, 1.50: 2, 1e20: 3, 1e21: 4, 1e-6: 5, 1e-7: 6, 0: 7 }";
+    let expected = vec![
+        (
+            CompactString::new("42"),
+            false,
+            Some(CompactString::new("1")),
+        ),
+        (
+            CompactString::new("1.5"),
+            false,
+            Some(CompactString::new("2")),
+        ),
+        (
+            CompactString::new("100000000000000000000"),
+            false,
+            Some(CompactString::new("3")),
+        ),
+        (
+            CompactString::new("1e+21"),
+            false,
+            Some(CompactString::new("4")),
+        ),
+        (
+            CompactString::new("0.000001"),
+            false,
+            Some(CompactString::new("5")),
+        ),
+        (
+            CompactString::new("1e-7"),
+            false,
+            Some(CompactString::new("6")),
+        ),
+        (
+            CompactString::new("0"),
+            false,
+            Some(CompactString::new("7")),
+        ),
+    ];
+    for source in [
+        vize_carton::cstr!("withDefaults({declaration}, {defaults})"),
+        vize_carton::cstr!("const defaults = {defaults}; withDefaults({declaration}, defaults)"),
+    ] {
+        let mut result = parse_script_setup(&source);
+        for (name, _, _) in &expected {
+            result.macros.add_prop(PropDefinition {
+                name: name.clone(),
+                prop_type: None,
+                required: false,
+                default_value: None,
+            });
+        }
+        let actual: Vec<_> = result
+            .macros
+            .props()
+            .iter()
+            .map(|prop| (prop.name.clone(), prop.required, prop.default_value.clone()))
+            .collect();
+        assert_eq!(actual, expected);
+    }
+}
