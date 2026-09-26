@@ -188,6 +188,16 @@ impl<'a> MarkupList<'a> {
             MarkupListInner::S2 { op, doc } => doc.open_tag_range(op.span),
         }
     }
+
+    /// Whether the repeated element retains an authored `v-for` directive.
+    /// Transformed Relief and JSX scopes have no directive on their carrier.
+    pub fn has_authored_directive(&self) -> bool {
+        match self.inner {
+            MarkupListInner::ReliefDirective { .. } => true,
+            MarkupListInner::S2 { doc, .. } => doc.surface.is_some(),
+            MarkupListInner::Relief(_) => false,
+        }
+    }
 }
 
 /// A raw `v-for` directive's value alias and source, split with the

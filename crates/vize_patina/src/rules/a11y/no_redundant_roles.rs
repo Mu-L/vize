@@ -81,14 +81,15 @@ impl NoRedundantRoles {
 
     fn keeps_markerless_list_role(
         ctx: &LintContext<'_>,
-        element: &ElementNode<'_>,
+        tag: &str,
+        class: Option<&str>,
         role: &str,
     ) -> bool {
-        if role != "list" || !matches!(element.tag, "ol" | "ul") {
+        if role != "list" || !matches!(tag, "ol" | "ul") {
             return false;
         }
 
-        let Some(class) = get_static_or_bound_literal_attribute_value(element, "class") else {
+        let Some(class) = class else {
             return false;
         };
         let classes = class
@@ -196,7 +197,14 @@ impl MarkupRule for NoRedundantRoles {
             return;
         };
 
-        if implicit != role_value {
+        if implicit != role_value
+            || Self::keeps_markerless_list_role(
+                ctx.lint(),
+                element.tag(),
+                super::markup_helpers::get_static_or_bound_literal_markup_value(element, "class"),
+                role_value,
+            )
+        {
             return;
         }
 
@@ -232,7 +240,12 @@ impl Rule for NoRedundantRoles {
 
         if let Some(implicit) = implicit_role
             && implicit == role_value
-            && !Self::keeps_markerless_list_role(ctx, element, role_value)
+            && !Self::keeps_markerless_list_role(
+                ctx,
+                element.tag,
+                get_static_or_bound_literal_attribute_value(element, "class"),
+                role_value,
+            )
         {
             ctx.warn_with_help(
                 ctx.t_fmt(

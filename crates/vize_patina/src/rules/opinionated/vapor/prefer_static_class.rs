@@ -45,9 +45,8 @@ pub struct PreferStaticClass;
 /// `:class="'a'"` and a JSX `class={'a'}` both project to a
 /// [`MarkupBindingKind::Bind`] whose argument is `class` and whose
 /// [`MarkupBinding::expression`] is the string literal `'a'`. The rule warns
-/// when that literal could be a plain static `class` instead. (The auto-fix
-/// stays on the legacy [`Rule`] path; the IR entry point reports through
-/// `ByteRange`s that map to the original syntax.)
+/// when that literal could be a plain static `class` instead. Authored Vue
+/// bindings retain the same diagnostic and fix ranges on both paths.
 impl MarkupRule for PreferStaticClass {
     fn name(&self) -> &'static str {
         META.name
@@ -59,7 +58,13 @@ impl MarkupRule for PreferStaticClass {
         element: &MarkupElement<'a>,
         binding: &MarkupBinding<'a>,
     ) {
-        if binding.kind() != MarkupBindingKind::Bind || !binding.arg_name_eq("class") {
+        if binding.kind() != MarkupBindingKind::Bind
+            || if ctx.is_template() {
+                binding.arg_name() != Some("class")
+            } else {
+                !binding.arg_name_eq("class")
+            }
+        {
             return;
         }
         let Some(expression) = binding.expression() else {
@@ -81,6 +86,19 @@ impl MarkupRule for PreferStaticClass {
         if has_static_class {
             let help = ctx.lint().t("vapor/prefer-static-class.help");
             ctx.lint().warn_at_with_help(message, binding.range(), help);
+        } else if ctx.is_template() {
+            let Some(argument) = binding.argument_range() else {
+                return;
+            };
+            let range = binding.range();
+            report_static_class(
+                ctx.lint(),
+                message.as_ref(),
+                expression.trim(),
+                argument.start,
+                range.start,
+                range.end,
+            );
         } else {
             ctx.lint().warn_at(message, binding.range());
         }
@@ -125,9 +143,6 @@ impl Rule for PreferStaticClass {
         // Check if it's a simple string literal like "'foo'" or "`foo`" or "\"foo\""
         let trimmed = exp_content.trim();
         if is_string_literal(trimmed) {
-            // Extract the string value
-            let inner = trimmed.get(1..trimmed.len() - 1).unwrap_or_default();
-
             // Check if element already has a static class attribute
             let has_static_class = element.props.iter().any(|p| {
                 matches!(p, PropNode::Attribute(attr) if attr.name.eq_ignore_ascii_case("class"))
@@ -137,26 +152,13 @@ impl Rule for PreferStaticClass {
 
             // Create fix: replace :class="'value'" with class="value"
             if !has_static_class {
-                let mut replacement = String::from("class=\"");
-                replacement.push_str(inner);
-                replacement.push('"');
-                let fix = Fix::new(
-                    "Replace with static class attribute",
-                    TextEdit::replace(
-                        directive.loc.span.start,
-                        directive.loc.span.end + 1, // Include closing quote
-                        replacement,
-                    ),
-                );
-
-                ctx.report(
-                    crate::diagnostic::LintDiagnostic::warn(
-                        META.name,
-                        message.as_ref(),
-                        arg.loc.span.start,
-                        directive.loc.span.end,
-                    )
-                    .with_fix(fix),
+                report_static_class(
+                    ctx,
+                    message.as_ref(),
+                    trimmed,
+                    arg.loc.span.start,
+                    directive.loc.span.start,
+                    directive.loc.span.end,
                 );
             } else {
                 ctx.warn_with_help(
@@ -167,6 +169,28 @@ impl Rule for PreferStaticClass {
             }
         }
     }
+}
+
+fn report_static_class(
+    ctx: &mut LintContext<'_>,
+    message: &str,
+    expression: &str,
+    argument_start: u32,
+    binding_start: u32,
+    binding_end: u32,
+) {
+    let inner = expression.get(1..expression.len() - 1).unwrap_or_default();
+    let mut replacement = String::from("class=\"");
+    replacement.push_str(inner);
+    replacement.push('"');
+    let fix = Fix::new(
+        "Replace with static class attribute",
+        TextEdit::replace(binding_start, binding_end + 1, replacement),
+    );
+    ctx.report(
+        crate::diagnostic::LintDiagnostic::warn(META.name, message, argument_start, binding_end)
+            .with_fix(fix),
+    );
 }
 
 /// Check if a string is a simple string literal

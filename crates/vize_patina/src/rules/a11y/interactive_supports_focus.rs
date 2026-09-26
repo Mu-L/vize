@@ -20,18 +20,13 @@
 
 use crate::context::LintContext;
 use crate::diagnostic::Severity;
-use crate::markup::{MarkupContext, MarkupElement, MarkupRule};
+use crate::ir::TemplateSyntax;
+use crate::markup::{MarkupContext, MarkupDocument, MarkupElement, MarkupRule};
 use crate::rule::{Rule, RuleCategory, RuleMeta};
-use vize_relief::{ElementNode, RootNode, TemplateChildNode};
+use vize_relief::RootNode;
 use vize_s0::FxHashSet;
 
-use super::{
-    helpers::{
-        get_static_or_bound_literal_attribute_value, has_named_attribute_or_bind,
-        is_interactive_role,
-    },
-    markup_helpers,
-};
+use super::{helpers::is_interactive_role, markup_helpers};
 
 static META: RuleMeta = RuleMeta {
     name: "a11y/interactive-supports-focus",
@@ -89,12 +84,21 @@ impl InteractiveSupportsFocus {
         }
     }
 
-    fn collect_controlled_listboxes<'a>(root: &'a RootNode<'a>) -> FxHashSet<&'a str> {
+    fn check_document(ctx: &mut LintContext<'_>, document: &MarkupDocument<'_>) {
+        let controlled = Self::collect_controlled_listboxes(document);
+        document.walk_elements(&mut |element| {
+            Self::check_element(ctx, &element, Some(&controlled));
+        });
+    }
+
+    fn collect_controlled_listboxes<'a>(document: &MarkupDocument<'a>) -> FxHashSet<&'a str> {
         let mut controlled = FxHashSet::default();
-        walk_template_elements(root, &mut |element| {
-            if has_named_attribute_or_bind(element, "aria-activedescendant")
-                && let Some(id) =
-                    get_static_or_bound_literal_attribute_value(element, "aria-controls")
+        document.walk_elements(&mut |element| {
+            if markup_helpers::has_named_markup_attribute_or_bind(&element, "aria-activedescendant")
+                && let Some(id) = markup_helpers::get_static_or_bound_literal_markup_value(
+                    &element,
+                    "aria-controls",
+                )
             {
                 controlled.insert(id);
             }
@@ -103,34 +107,22 @@ impl InteractiveSupportsFocus {
     }
 }
 
-fn walk_template_elements<'a>(
-    root: &'a RootNode<'a>,
-    visitor: &mut impl FnMut(&'a ElementNode<'a>),
-) {
-    for child in &root.children {
-        walk_template_child(child, visitor);
-    }
-}
-
-fn walk_template_child<'a>(
-    child: &'a TemplateChildNode<'a>,
-    visitor: &mut impl FnMut(&'a ElementNode<'a>),
-) {
-    if let TemplateChildNode::Element(element) = child {
-        visitor(element);
-        for child in &element.children {
-            walk_template_child(child, visitor);
-        }
-    }
-}
-
 impl MarkupRule for InteractiveSupportsFocus {
     fn name(&self) -> &'static str {
         META.name
     }
 
+    fn enter_document(&self, ctx: &mut MarkupContext<'_, '_>, document: &MarkupDocument) {
+        if !document.is_template() {
+            return;
+        }
+        Self::check_document(ctx.lint(), document);
+    }
+
     fn enter_element<'a>(&self, ctx: &mut MarkupContext<'_, 'a>, element: &MarkupElement<'a>) {
-        Self::check_element(ctx.lint(), element, None);
+        if ctx.is_jsx() {
+            Self::check_element(ctx.lint(), element, None);
+        }
     }
 }
 
@@ -144,18 +136,8 @@ impl Rule for InteractiveSupportsFocus {
     }
 
     fn run_on_template<'a>(&self, ctx: &mut LintContext<'a>, root: &RootNode<'a>) {
-        let controlled_listboxes = Self::collect_controlled_listboxes(root);
-        walk_template_elements(root, &mut |element| {
-            Self::check_element(
-                ctx,
-                &MarkupElement::new(element),
-                Some(&controlled_listboxes),
-            );
-        });
-    }
-
-    fn enter_element<'a>(&self, ctx: &mut LintContext<'a>, element: &ElementNode<'a>) {
-        let _ = (ctx, element);
+        let document = MarkupDocument::new(root, TemplateSyntax::Vue);
+        Self::check_document(ctx, &document);
     }
 }
 

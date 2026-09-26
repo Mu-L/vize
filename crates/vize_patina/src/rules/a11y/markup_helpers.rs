@@ -83,3 +83,41 @@ pub fn get_static_markup_attribute_value<'a>(
     });
     value
 }
+
+/// First exact attribute or literal-valued bind, preserving authored order.
+/// As on the template path, a matching static attribute ends the search even
+/// when valueless; a nonliteral bind does not hide a later literal binding.
+pub fn get_static_or_bound_literal_markup_value<'a>(
+    element: &MarkupElement<'a>,
+    name: &str,
+) -> Option<&'a str> {
+    let mut seen = false;
+    let mut value = None;
+    element.walk_bindings(&mut |binding| {
+        if seen || !binding.is_unqualified_arg_exact(name) {
+            return;
+        }
+        match binding.kind() {
+            MarkupBindingKind::Attribute => {
+                seen = true;
+                value = binding.static_value();
+            }
+            MarkupBindingKind::Bind => {
+                if let Some(literal) = binding
+                    .expression()
+                    .and_then(super::helpers::string_literal_value)
+                {
+                    seen = true;
+                    value = Some(literal);
+                }
+            }
+            _ => {}
+        }
+    });
+    value
+}
+
+/// Whether a static attribute or statically named bind is present.
+pub fn has_named_markup_attribute_or_bind(element: &MarkupElement<'_>, name: &str) -> bool {
+    has_named_markup_prop(element, name)
+}

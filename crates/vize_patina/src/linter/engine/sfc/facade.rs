@@ -48,6 +48,12 @@ pub(in crate::linter::engine) const RULES: &[&str] = &[
     "html/no-dupe-style-properties",
     "vapor/no-vue-lifecycle-events",
     "vue/no-static-inline-styles",
+    "a11y/no-access-key",
+    "a11y/no-autofocus",
+    "vue/require-v-for-key",
+    "vapor/prefer-static-class",
+    "a11y/no-redundant-roles",
+    "a11y/interactive-supports-focus",
 ];
 
 pub(in crate::linter::engine) struct Dispatch<'a> {
