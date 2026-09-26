@@ -124,7 +124,7 @@
 
 **Deps:** P4-12a.
 
-**Non-goals:** pug formatting (P4-12c); an OXC lossless script wrapper.
+**Non-goals:** pug formatting (P4-12c); an OXC lossless script wrapper (P4-12d).
 
 ## P4-12c — Pug as an S1 dialect
 
@@ -147,6 +147,31 @@
 **Non-goals:** pug-specific lint rules; pug mixins beyond Vue's documented support.
 
 _Slices 2026-09-22 (surface, lowering, compile lanes; corpus compile oracle; lint):_ see [P4-12c record](./phase-4-records/p4-12c.md)
+
+## P4-12d — Lossless script and JSX S1
+
+**Start gate:** startable now — P3-independent.
+
+**Lane:** P
+
+**Deliverable:** the source-owning OXC-backed JS/TS/JSX/TSX S1 wrapper promised by [the architecture](../architecture.md#s1--surface-trees-input-dialects) and deferred by [P2-7](./phase-2-tasks.md#p2-7--s1-vue-surface-tree), with distinct compiler and formatter parse profiles, structural recovery and S1 consumers. P4-12b and P4-13 do not own this migration.
+
+**Steps:**
+
+- [ ] Implement `vize_s1::script` against the pinned OXC parser `0.142.0` / `fc702c1fa9f0412d06ec6908b58cd395b826cf7f`: enable `oxc_parser::config::TokensParserConfig` through `Parser::with_config`; retain `Program.comments` (already collected by OXC), the entire source and every gap between tokens. Token collection is opt-in; source gaps and comments must always survive the wrapper.
+- [ ] Make profile identity explicit in parsing and cache keys. Preserve the compiler's `preserve_parens: true` and the formatter's `parse_for_format` contract (`preserve_parens: false`, feature-dependent identifier hashing and JSX source-type handling); retain each profile's existing options and never pass a compiler-profile AST to `format_program`.
+- [ ] Represent unexpected source structurally, with original spans and bytes. On `ParserReturn.panicked`, retain the **whole input** as `Unexpected`, including unlexed suffixes; an empty OXC program is not an empty S1 tree. Add zero-width `Missing` nodes with expected kinds only from an actual typed recovery API or adapter at the parser recovery site; never infer kinds from diagnostic strings.
+- [ ] Route script/JSX compile, lint, format and autofix parse consumers through the appropriate S1 profile, coordinating Glyph call-site changes with lane J. Lower JSX to S2 from S1 instead of treating the current OXC → legacy `RootNode` → S2 projection as a lossless S1 implementation; preserve existing compatibility gates and functional S2 behavior.
+- [ ] Extend TS-19 byte-fidelity and TS-20 total-lowering batteries to JS/TS/JSX/TSX, comments, whitespace gaps, Unicode, CRLF and every truncation; include both recoverable malformed input and fatal parses, with typed expected-kind recovery witnesses.
+- [ ] Record exact-head Actions evidence and consumer scope under `phase-4-records/`, including formatter idempotence/parse preservation and compiler byte parity before retiring the corresponding private parsing bridges.
+
+**Acceptance:** TS-19 has `render(parse(src)) == src` for both profiles, including malformed inputs; TS-20 lowering is total and retains unexpected fragments; structural `Missing` fixtures prove typed expected kinds. TS-5 formatting/parse preservation, TS-11 compiler byte parity and TS-13 assertion lint stay green with unchanged waiver ledgers. The wrapper is consumed by the named production paths, and no legacy `RootNode` reconstruction or diagnostic-string guessing satisfies the S1 gate.
+
+**Known blocker:** the pinned public [`ParserReturn`](https://github.com/oxc-project/oxc/blob/fc702c1fa9f0412d06ec6908b58cd395b826cf7f/crates/oxc_parser/src/lib.rs) exposes diagnostics and `panicked`, but no structural recovery events carrying expected kinds. A typed parser recovery API/adapter must be implemented and exercised before this task can be accepted; token retention alone does not close it.
+
+**Deps:** none (phase-2 exit).
+
+**Non-goals:** new script/JSX language features; changing formatter style or compatibility semantics; reopening functional P2-16 S2 support; moving a target, ratchet or waiver to accommodate the migration.
 
 ## P4-13 — Musea onto S0 and S1
 
