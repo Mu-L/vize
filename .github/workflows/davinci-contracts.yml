@@ -62,6 +62,8 @@ jobs:
         run: cargo test -p vize_extension_host --features extension-host --test wit_golden
       - name: Run TS-48 (expression world, both hosting modes) (P6-1b)
         run: cargo test -p vize_extension_host --features extension-host --test wit_golden_expression --test wit_golden_typed_expression --test expression_contract
+      - name: Run compiled SDK/WIT 0.1.2 guests against the current host (both modes)
+        run: cargo test -p vize_extension_host --features extension-host --test wit_legacy
       - name: Build the hello dialect from the packed SDK and run it (P6-2)
         run: cargo test -p vize_extension_host --features extension-host --test sdk_hello
       - name: Stop runaway and hoarding guests at their limits in both modes (P6-3)

@@ -53,6 +53,10 @@ name = "wit_golden"
 required-features = ["extension-host"]
 
 [[test]]
+name = "wit_legacy"
+required-features = ["extension-host"]
+
+[[test]]
 name = "sdk_hello"
 required-features = ["extension-host"]
 

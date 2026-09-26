@@ -65,6 +65,10 @@ content and interface-name changes invalidate it.
   bindings/ids and non-exact authored spans are refused explicitly.
 - Cache tests keep the virtual source fixed while changing only `.mbti` or
   dependency contents, and cover an oversized interface's uncached answers.
+- Frozen 0.1.2 SDK sources and WIT build actual input and expression components.
+  Their historical imports/exports are checked, and both worlds exchange exact
+  existing pages with the 0.1.3 host in Wasmtime and the sidecar. The old default
+  SDK export macro is exercised; archived source hashes are pinned separately.
 - The release-surface policy classifies the new world as additive; the
   original MoonBit script fixtures and original WIT page payloads remain
   unchanged. The canonical immutable release JSON is explicitly outside the
@@ -77,6 +81,8 @@ content and interface-name changes invalidate it.
   `MOON_HOME` (TS-49 / Davinci MoonBit Actions).
 - `cargo test -p vize_extension_host --features extension-host --test wit_golden_typed_expression`
   (TS-48 / Davinci Contracts Actions).
+- `cargo test -p vize_extension_host --features extension-host --test wit_legacy`
+  (compiled 0.1.2 compatibility / Davinci Contracts Actions).
 - `cargo test -p vize_extension_host --test contract_surface`.
 
 These are repository-owned typed-producer and transport fixtures. They do not

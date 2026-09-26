@@ -4,7 +4,7 @@ extern crate alloc;
 use alloc::string::String;
 use alloc::vec::Vec;
 use vize_extension_sdk::typed_bindings::exports::vize::contracts::typed_expression_analysis;
-use vize_extension_sdk::handshake;
+use vize_extension_sdk::typed_handshake as handshake;
 use typed_expression_analysis::TypedAnalysis as Analysis;
 use vize_extension_sdk::types::Page;
 

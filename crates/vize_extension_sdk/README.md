@@ -16,7 +16,8 @@ Support and deprecation guarantees are defined in the
 
 Enable the `typed-expression` feature to select the
 `typed-expression-dialect` export world and its
-`export_typed_expression_dialect!` macro. The default selects the existing
+`export_typed_expression_dialect!` macro. Implement `typed_handshake::Guest`
+and `typed_bindings::exports::vize::contracts::typed_expression_analysis::Guest`. The default selects the existing
 input world. World selection avoids duplicate public handshake macros in
 `wit-bindgen`; each component exports one selected world.
 
