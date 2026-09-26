@@ -1,5 +1,5 @@
 use globset::{GlobBuilder, GlobMatcher};
-use vize_s0::{String, cstr};
+use vize_s0::{String, ToCompactString, cstr};
 
 use super::{DoctorFilterDimension, PatternSet};
 use crate::DoctorFilterSpec;
@@ -132,7 +132,7 @@ fn invalid_pattern_priority_and_normalized_dimension_errors_are_unchanged() {
         .backslash_escape(false)
         .build()
         .unwrap_err()
-        .to_string();
+        .to_compact_string();
     assert_eq!(error.dimension(), DoctorFilterDimension::Route);
     assert_eq!(error.pattern(), "[broken");
     assert_eq!(error.reason(), expected_reason);
@@ -147,7 +147,7 @@ fn invalid_pattern_priority_and_normalized_dimension_errors_are_unchanged() {
     assert_eq!(error.dimension(), DoctorFilterDimension::Target);
     assert_eq!(error.pattern(), "[aaa");
     assert_eq!(
-        error.to_string(),
+        error.to_compact_string(),
         cstr!(
             "invalid target filter pattern {:?}: {}",
             "[aaa",

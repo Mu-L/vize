@@ -33,7 +33,8 @@ function run(side, pair) {
 }
 
 function assertParity(base, head) {
-  const shape = (sample) => sample.rows.map(({ elapsed_ns, compile_ns, ...row }) => row);
+  const shape = (sample) =>
+    sample.rows.map(({ elapsed_ns: _elapsed, compile_ns: _compile, ...row }) => row);
   assert.deepEqual(shape(head), shape(base), "Doctor verdicts or timed workload differ");
 }
 
