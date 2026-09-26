@@ -85,8 +85,33 @@ pub(crate) fn page(subject: &Subject, catalog: &LocaleCatalog, color: bool) -> S
             }
         }
         Subject::Rule(rule) => rule_page(&mut out, paint, catalog, rule, color),
+        Subject::Canon(_) | Subject::S3(_) | Subject::CrossFile(_) => {
+            producer_page(&mut out, paint, catalog, subject, color)
+        }
     }
     out
+}
+
+fn producer_page(
+    out: &mut String,
+    paint: Paint,
+    catalog: &LocaleCatalog,
+    subject: &Subject,
+    color: bool,
+) {
+    let (kind, key) = match subject {
+        Subject::Canon(_) => ("explain.kind.type", String::from(subject.code())),
+        Subject::S3(_) => ("explain.kind.verifier", cstr!("s3/{}", subject.code())),
+        Subject::CrossFile(_) => ("explain.kind.cross-file", String::from(subject.code())),
+        _ => return,
+    };
+    heading(out, paint, subject.code(), &catalog.format(kind, &[]));
+    if let Some(message) = catalog.text(&cstr!("{key}.message")) {
+        line(out, paint, message);
+    }
+    if let Some(help) = catalog.text(&cstr!("{key}.help")) {
+        help_section(out, paint, catalog, help, color);
+    }
 }
 
 fn rule_page(out: &mut String, paint: Paint, catalog: &LocaleCatalog, rule: &Rule, color: bool) {

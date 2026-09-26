@@ -47,6 +47,7 @@ vize_davinci = { workspace = true }
 vize_s1 = { workspace = true }
 vize_s1_to_s2 = { workspace = true }
 vize_s2 = { workspace = true }
+vize_s3 = { workspace = true }
 vize_doctor = { workspace = true, features = ["application-analysis"] }
 vize_fresco = { workspace = true }
 vize_musea = { workspace = true }

@@ -6006,3 +6006,789 @@ vue/warn-custom-directive · lint 规则
   <div v-if="show"></div>
   <input v-model="value" />
   <button @click="onClick">Click</button>
+=== ts/2300
+ts/2300 · 类型检查诊断
+重复的标识符'{name}'
+
+帮助:
+  {name}的重复声明。
+  此标识符已在此作用域中声明。
+  解决方案:
+  - 重命名其中一个声明
+  - 删除重复项
+  - 检查是否意外导入了同一内容两次
+=== ts/2304
+ts/2304 · 类型检查诊断
+找不到名称'{name}'
+
+帮助:
+  {name} 未定义。
+  可能原因:
+  - 变量未导入或声明
+  - 名称拼写错误
+  - 变量定义在不同作用域
+  解决方案:
+    // 1. 从模块导入
+    import { {name} } from './module';
+
+    // 2. 在script setup中声明
+    const {name} = ...;
+
+    // 3. 检查名称拼写
+=== ts/2307
+ts/2307 · 类型检查诊断
+找不到模块'{module}'或其对应的类型声明
+
+帮助:
+  找不到模块: {module}
+  可能原因:
+  - 包未安装
+  - 导入路径不正确
+  - 缺少类型声明
+  解决方案:
+    # 1. 安装包
+    npm install {module}
+
+    # 2. 安装类型声明（如果单独）
+    npm install -D @types/{module}
+  对于本地模块:
+  - 检查文件路径是否正确
+  - 使用相对路径: ./ 或 ../
+  - 检查文件扩展名
+=== ts/2322
+ts/2322 · 类型检查诊断
+类型'{source}'不能分配给类型'{target}'
+
+帮助:
+  检测到类型不匹配。
+  您正尝试将{source}类型的值分配给期望{target}的目标。
+  常见修复:
+  - 检查值是否匹配期望的类型
+  - 如果确定，使用类型断言: value as {target}
+  - 更新类型定义以接受实际类型
+  示例:
+    // 如果目标是'number'但源是'string'
+    const value = parseInt(stringValue); // 将string转换为number
+=== ts/2339
+ts/2339 · 类型检查诊断
+类型'{type}'上不存在属性'{name}'
+
+帮助:
+  在{type}上找不到属性{name}。
+  可能原因:
+  - 属性名拼写错误
+  - 该类型上不存在此属性
+  - 需要先缩窄类型
+  解决方案:
+    // 1. 检查属性是否存在
+    if ('{name}' in obj) {
+    obj.{name};
+    }
+
+    // 2. 使用可选链
+    obj?.{name};
+
+    // 3. 在类型定义中添加属性
+    interface MyType {
+    {name}: SomeType;
+    }
+=== ts/2344
+ts/2344 · 类型检查诊断
+类型'{type}'不满足约束'{constraint}'
+
+帮助:
+  类型约束违规。
+  类型{type}不满足{constraint}的要求。
+  解决方案:
+  确保您的类型扩展或实现所需的约束:
+    // 示例: T必须扩展SomeBase
+    function example<T extends SomeBase>(value: T) { }
+=== ts/2345
+ts/2345 · 类型检查诊断
+类型'{source}'的参数不能分配给类型'{target}'的参数
+
+帮助:
+  参数类型不匹配。
+  函数期望{target}但收到{source}。
+  解决方案:
+  - 将值转换为期望的类型
+  - 检查是否传递了正确的参数
+  - 如需要更新函数签名
+
+    // 示例：函数期望number
+    func(Number(value)); // 转换为number
+=== ts/2349
+ts/2349 · 类型检查诊断
+此表达式不可调用
+
+帮助:
+  无法调用非函数值。
+  您正尝试调用不是函数的东西。
+  常见原因:
+  - 值是undefined或null
+  - 它是对象，不是函数
+  - 属性返回值，而非方法
+  解决方案:
+    // 调用前检查是否是函数
+    if (typeof maybeFunc === 'function') {
+    maybeFunc();
+    }
+
+    // 或使用可选链
+    maybeFunc?.();
+=== ts/2351
+ts/2351 · 类型检查诊断
+此表达式不可构造
+
+帮助:
+  无法对此值使用new。
+  此表达式不能与new一起使用。
+  常见原因:
+  - 它不是类或构造函数
+  - 您试图实例化类型，而非类
+  示例:
+    // 错误: 类型别名，不是类
+    type MyType = { x: number };
+    new MyType(); // 错误！
+
+    // 正确: 使用类
+    class MyClass { x: number = 0; }
+    new MyClass(); // 可以
+=== ts/2451
+ts/2451 · 类型检查诊断
+无法重新声明块作用域变量'{name}'
+
+帮助:
+  变量{name}已声明。
+  不能在同一作用域中重新声明let或const变量。
+  解决方案:
+    // 1. 重命名变量
+    const {name}2 = ...;
+
+    // 2. 赋值而非重新声明
+    {name} = newValue; // 如果使用let
+
+    // 3. 使用不同作用域
+    {
+    const {name} = ...; // 在新块中可以
+    }
+=== ts/2531
+ts/2531 · 类型检查诊断
+对象可能为'null'
+
+帮助:
+  检测到可能的null值。
+  TypeScript警告此值可能为null。
+  解决方案:
+    // 1. 使用可选链
+    obj?.property;
+
+    // 2. 使用空值合并
+    const value = obj ?? defaultValue;
+
+    // 3. 添加null检查
+    if (obj !== null) {
+    obj.property;
+    }
+
+    // 4. 使用非空断言（仅在确定时）
+    obj!.property; // 仅在100%确定时使用
+=== ts/2532
+ts/2532 · 类型检查诊断
+对象可能为'undefined'
+
+帮助:
+  检测到可能的undefined值。
+  TypeScript警告此值可能为undefined。
+  解决方案:
+    // 1. 使用可选链
+    obj?.property;
+
+    // 2. 提供默认值
+    const value = obj ?? defaultValue;
+
+    // 3. 添加undefined检查
+    if (obj !== undefined) {
+    obj.property;
+    }
+
+    // 4. 初始化值
+    const obj = ref<Type>(initialValue);
+=== ts/2554
+ts/2554 · 类型检查诊断
+期望{expected}个参数，但获得{actual}个
+
+帮助:
+  参数数量错误。
+  函数期望{expected}个参数，但您提供了{actual}个。
+  解决方案:
+  - 添加缺少的参数
+  - 删除多余的参数
+  - 检查函数签名
+
+    // 检查函数定义
+    function example(a: string, b?: number) { }
+    // 必需: a (string)
+    // 可选: b (number)
+=== ts/2555
+ts/2555 · 类型检查诊断
+期望{expected}个参数，但获得{actual}个
+
+帮助:
+  提供了过多参数。
+  函数只接受{expected}个参数，但您传递了{actual}个。
+  解决方案:
+  删除多余的参数或更新函数以接受更多参数。
+=== ts/2741
+ts/2741 · 类型检查诊断
+类型'{source}'中缺少属性'{name}'，但类型'{target}'中需要该属性
+
+帮助:
+  缺少必需属性: {name}
+  类型{target}需要属性{name}，但它在{source}中不存在。
+  解决方案:
+    // 1. 添加缺少的属性
+    const obj: {target} = {
+    ...existingProps,
+    {name}: value,
+    };
+
+    // 2. 在类型定义中使属性可选
+    interface {target} {
+    {name}?: Type; // 可选
+    }
+=== ts/7006
+ts/7006 · 类型检查诊断
+参数'{name}'隐式具有'any'类型
+
+帮助:
+  {name}缺少类型注解。
+  TypeScript无法推断此参数的类型。
+  解决方案 - 添加显式类型:
+    // 之前
+    function example({name}) { }
+
+    // 之后
+    function example({name}: string) { }
+
+    // 带默认值（类型推断）
+    function example({name} = 'default') { }
+=== ts/vue/9001
+ts/vue/9001 · 类型检查诊断
+'{name}'的prop类型无效
+
+帮助:
+  {name}的Prop类型不匹配。
+  prop值与defineProps中定义的期望类型不匹配。
+  解决方案:
+    // 检查prop定义
+    defineProps<{
+    {name}: string; // 期望类型
+    }>();
+
+    // 确保父组件传递正确类型
+    <MyComponent :{name}="stringValue" />
+=== ts/vue/9002
+ts/vue/9002 · 类型检查诊断
+无效的emit调用: '{event}'
+
+帮助:
+  {event}的emit用法无效。
+  emit调用与定义的事件不匹配。
+  解决方案:
+    // 检查emit定义
+    const emit = defineEmits<{
+    {event}: [payload: PayloadType];
+    }>();
+
+    // 用正确的payload调用
+    emit('{event}', payload);
+=== ts/vue/9003
+ts/vue/9003 · 类型检查诊断
+未知组件: '{name}'
+
+帮助:
+  找不到组件{name}。
+  可能原因:
+  - 组件未导入
+  - 组件名拼写错误
+  - 使用了kebab-case而非PascalCase（或反之）
+  解决方案:
+    // 导入组件
+    import {name} from './components/{name}.vue';
+
+    // 或全局注册
+    app.component('{name}', {name});
+=== ts/vue/9004
+ts/vue/9004 · 类型检查诊断
+无效的slot用法: '{name}'
+
+帮助:
+  Slot {name} 用法错误。
+  常见问题:
+  - 组件上不存在此slot
+  - slot props错误
+  用法:
+    <template>
+    <MyComponent>
+    <template #{name}="{ prop }">
+    <!-- slot内容 -->
+    </template>
+    </MyComponent>
+    </template>
+=== ts/vue/9005
+ts/vue/9005 · 类型检查诊断
+无效的指令: '{name}'
+
+帮助:
+  指令{name}错误。
+  常见原因:
+  - 指令未注册
+  - 指令语法错误
+  解决方案:
+    // 局部注册指令
+    import { v{name} } from './directives';
+
+    // 或全局注册
+    app.directive('{name}', {
+    mounted(el, binding) { ... }
+    });
+=== ts/vue/9006
+ts/vue/9006 · 类型检查诊断
+检测到响应性问题
+
+帮助:
+  可能丢失响应性。
+  您的代码可能因值的访问或解构方式而丢失响应性。
+  常见问题和修复:
+    // 错误 - 解构丢失响应性
+    const { count } = props;
+
+    // 正确 - 使用toRefs
+    const { count } = toRefs(props);
+
+    // 错误 - 赋值ref的value
+    let x = ref(0).value;
+
+    // 正确 - 保持ref
+    const x = ref(0);
+=== S3V001
+S3V001 · S3 验证
+op、region 或 effect 的 id 重复了。
+
+帮助:
+  请为每个 op、region 和 effect 分配不同的 id。
+=== S3V002
+S3V002 · S3 验证
+缺少根 region，或根 region 带有 parent 或 owner。
+
+帮助:
+  region r#0 必须存在，且不能指定 parent 或 owner。
+=== S3V003
+S3V003 · S3 验证
+op 指向了不存在的 region。
+
+帮助:
+  请让 op 的 region 指向本程序中的 region。
+=== S3V004
+S3V004 · S3 验证
+state edge 的端点无法解析。
+
+帮助:
+  state edge 的两端都必须是本程序中的 op。
+=== S3V005
+S3V005 · S3 验证
+region 的 parent 或 owner 无法解析，或非根 region 没有指定它们。
+
+帮助:
+  除 r#0 外，每个 region 都必须指定存在的 parent region 和 owner op。
+=== S3V006
+S3V006 · S3 验证
+region、op 或 effect 超出了包含它的 region，或 parent 形成了环。
+
+帮助:
+  请把每个 span 保持在 parent 和 owner 之内，不要让 parent 成环。
+=== S3V007
+S3V007 · S3 验证
+effect 指向了不存在的 scope、owner 或 region，或 state edge 离开了 effect scope。
+
+帮助:
+  请把 effect 及其 edge 保持在它指定的 region 和 effect scope 之内。
+=== S3V008
+S3V008 · S3 验证
+被调度的 edge 指向了后方或它自己。
+
+帮助:
+  请把 edge 调度到更靠后的 op。
+=== S3V009
+S3V009 · S3 验证
+operand 对其 op 无效。
+
+帮助:
+  请使用该 op 的验证器接受的 operand。
+=== S3V010
+S3V010 · S3 验证
+placement 的候选或已提交选择不符合 placement 规则。
+
+帮助:
+  请重新推导 placement。hoist 不能嵌套，group 必须保持连续。
+=== vize:croquis/cf/array-mutation
+vize:croquis/cf/array-mutation · 跨文件诊断
+通过下标修改数组，响应式数组不会追踪这种修改。
+
+帮助:
+  请使用 push、splice，或替换整个数组。
+=== vize:croquis/cf/async-boundary
+vize:croquis/cf/async-boundary · 跨文件诊断
+响应式状态跨越了异步边界，可能读到过期的值。
+
+帮助:
+  请在 effect 内 await，或在第一个 await 之前快照该值。
+=== vize:croquis/cf/async-no-suspense
+vize:croquis/cf/async-no-suspense · 跨文件诊断
+异步组件在没有 Suspense 边界的情况下被渲染。
+
+帮助:
+  请用 <Suspense> 包住该异步组件。
+=== vize:croquis/cf/browser-api-ssr
+vize:croquis/cf/browser-api-ssr · 跨文件诊断
+在可能于服务端渲染的位置使用了仅浏览器可用的 API。
+
+帮助:
+  请用 import.meta.client 保护该调用，或把它移到 onMounted。
+=== vize:croquis/cf/circular-dep
+vize:croquis/cf/circular-dep · 跨文件诊断
+组件的 import 形成了环。
+
+帮助:
+  请把共享部分移到第三个模块来打断循环。
+=== vize:croquis/cf/circular-reactive-dependency
+vize:croquis/cf/circular-reactive-dependency · 跨文件诊断
+响应式计算彼此循环依赖。
+
+帮助:
+  请打断循环，使其中一个计算不再读取另一个。
+=== vize:croquis/cf/closure-captures-reactive
+vize:croquis/cf/closure-captures-reactive · 跨文件诊断
+闭包捕获了响应式值，因而看不到后续更新。
+
+帮助:
+  请在闭包内部读取 ref，而不是在创建闭包之前。
+=== vize:croquis/cf/composable-outside-setup
+vize:croquis/cf/composable-outside-setup · 跨文件诊断
+组合式函数在 `setup` 之外被调用。
+
+帮助:
+  请在 setup 或其他组合式函数内调用它。
+=== vize:croquis/cf/computed-side-effects
+vize:croquis/cf/computed-side-effects · 跨文件诊断
+computed 的 getter 写入了状态或产生了其他副作用。
+
+帮助:
+  请保持 getter 纯净，把副作用移到侦听器中。
+=== vize:croquis/cf/deep-import
+vize:croquis/cf/deep-import · 跨文件诊断
+import 链深于项目允许的深度。
+
+帮助:
+  请从更近的模块 import，或重新导出一个公开入口。
+=== vize:croquis/cf/destructuring-breaks-reactivity
+vize:croquis/cf/destructuring-breaks-reactivity · 跨文件诊断
+解构响应式对象会复制字段并丢失追踪。
+
+帮助:
+  请在解构前使用 toRefs。
+=== vize:croquis/cf/di-outside-setup
+vize:croquis/cf/di-outside-setup · 跨文件诊断
+`provide` 或 `inject` 在 `setup` 之外被调用。
+
+帮助:
+  请在 setup 内调用。
+=== vize:croquis/cf/dom-access-without-next-tick
+vize:croquis/cf/dom-access-without-next-tick · 跨文件诊断
+在 Vue 刷新更新之前读取了 DOM。
+
+帮助:
+  请在 nextTick 或 onMounted 中读取 DOM。
+=== vize:croquis/cf/duplicate-id
+vize:croquis/cf/duplicate-id · 跨文件诊断
+同一个元素 id 被用在了多个组件中。
+
+帮助:
+  请为每个元素使用不同的 id。
+=== vize:croquis/cf/event-listener-leak
+vize:croquis/cf/event-listener-leak · 跨文件诊断
+事件监听器被注册后从未移除。
+
+帮助:
+  请在 onUnmounted 中移除该监听器。
+=== vize:croquis/cf/event-modifier
+vize:croquis/cf/event-modifier · 跨文件诊断
+事件监听使用了该 emit 不支持的修饰符。
+
+帮助:
+  请去掉修饰符，或按修饰符所期望的形式 emit 事件。
+=== vize:croquis/cf/hydration-risk
+vize:croquis/cf/hydration-risk · 跨文件诊断
+服务端与客户端的渲染结果可能不一致。
+
+帮助:
+  请让客户端的首次渲染与服务端 HTML 一致。
+=== vize:croquis/cf/inherit-attrs-unused
+vize:croquis/cf/inherit-attrs-unused · 跨文件诊断
+设置了 `inheritAttrs: false`，但组件从未读取这些属性。
+
+帮助:
+  请在元素上应用 $attrs，或不要禁用继承。
+=== vize:croquis/cf/inject-without-symbol
+vize:croquis/cf/inject-without-symbol · 跨文件诊断
+`inject` 使用了普通键，而不是 `InjectionKey` 符号。
+
+帮助:
+  请 inject 提供者所使用的 InjectionKey 符号。
+=== vize:croquis/cf/injected-async-mutation-race
+vize:croquis/cf/injected-async-mutation-race · 跨文件诊断
+被 inject 的值由可能发生竞争的异步任务修改。
+
+帮助:
+  请在单个同步回合中修改，或把写入串行化。
+=== vize:croquis/cf/lifecycle-outside-setup
+vize:croquis/cf/lifecycle-outside-setup · 跨文件诊断
+生命周期钩子在 `setup` 之外注册。
+
+帮助:
+  请在 setup 内注册该钩子。
+=== vize:croquis/cf/lifecycle-without-cleanup
+vize:croquis/cf/lifecycle-without-cleanup · 跨文件诊断
+生命周期钩子启动了工作但从未清理。
+
+帮助:
+  请返回停止句柄，或注册对应的卸载钩子。
+=== vize:croquis/cf/missing-required-prop
+vize:croquis/cf/missing-required-prop · 跨文件诊断
+未传递必填 prop。
+
+帮助:
+  请传递该 prop，或取消必填。
+=== vize:croquis/cf/missing-suspense
+vize:croquis/cf/missing-suspense · 跨文件诊断
+异步依赖被用在了 Suspense 边界之外。
+
+帮助:
+  请添加一个 <Suspense> 祖先。
+=== vize:croquis/cf/module-scope-reactive
+vize:croquis/cf/module-scope-reactive · 跨文件诊断
+响应式状态创建在模块作用域，会被所有调用方共享。
+
+帮助:
+  请在 setup 中创建状态，让每个组件实例各自拥有它。
+=== vize:croquis/cf/multi-root-attrs
+vize:croquis/cf/multi-root-attrs · 跨文件诊断
+多根组件收到了属性，但没有可以放置它们的位置。
+
+帮助:
+  请改成单根，或在其中一个根上绑定 $attrs。
+=== vize:croquis/cf/mutated-after-escape
+vize:croquis/cf/mutated-after-escape · 跨文件诊断
+响应式对象在逃出所有者之后被修改。
+
+帮助:
+  请在返回前修改，或返回一个新值。
+=== vize:croquis/cf/non-reactive-provide
+vize:croquis/cf/non-reactive-provide · 跨文件诊断
+provide 的值不是响应式的，后代看不到更新。
+
+帮助:
+  请 provide ref、reactive 对象或 computed。
+=== vize:croquis/cf/non-unique-id
+vize:croquis/cf/non-unique-id · 跨文件诊断
+循环中的元素 id 对每一项并不唯一。
+
+帮助:
+  请把项的 key 包含进 id。
+=== vize:croquis/cf/object-identity-comparison
+vize:croquis/cf/object-identity-comparison · 跨文件诊断
+响应式对象按同一性比较，而每次解包后同一性都会变化。
+
+帮助:
+  请比较稳定的 id，或 toRaw 之后的原始对象。
+=== vize:croquis/cf/pinia-getter
+vize:croquis/cf/pinia-getter · 跨文件诊断
+Pinia 的 getter 没有通过 `storeToRefs` 读取，因此不会保持响应式。
+
+帮助:
+  请通过 storeToRefs 读取该 getter。
+=== vize:croquis/cf/prop-type-mismatch
+vize:croquis/cf/prop-type-mismatch · 跨文件诊断
+传递的 prop 值与声明的类型不符。
+
+帮助:
+  请传递声明类型的值。
+=== vize:croquis/cf/provide-inject-type
+vize:croquis/cf/provide-inject-type · 跨文件诊断
+provide 的值与 inject 的类型不一致。
+
+帮助:
+  请 provide inject 所声明类型的值。
+=== vize:croquis/cf/provide-without-symbol
+vize:croquis/cf/provide-without-symbol · 跨文件诊断
+`provide` 使用了普通键，而不是 `InjectionKey` 符号。
+
+帮助:
+  请用同一个 InjectionKey 符号进行 provide 和 inject。
+=== vize:croquis/cf/reactive-export
+vize:croquis/cf/reactive-export · 跨文件诊断
+响应式状态被从模块中 export。
+
+帮助:
+  请 export 一个为每个调用方创建状态的工厂。
+=== vize:croquis/cf/reactivity-outside-setup
+vize:croquis/cf/reactivity-outside-setup · 跨文件诊断
+响应式 API 在 `setup` 之外被调用。
+
+帮助:
+  请在 setup 内调用 ref、reactive 或 computed。
+=== vize:croquis/cf/reassignment-breaks-reactivity
+vize:croquis/cf/reassignment-breaks-reactivity · 跨文件诊断
+重新赋值响应式绑定会把它换成普通值。
+
+帮助:
+  请修改现有对象，或重新赋值 ref 的 .value。
+=== vize:croquis/cf/reference-escapes-scope
+vize:croquis/cf/reference-escapes-scope · 跨文件诊断
+响应式引用逃出了拥有其生命周期的作用域。
+
+帮助:
+  请把引用留在该作用域内，或返回普通快照。
+=== vize:croquis/cf/setup-context-violation
+vize:croquis/cf/setup-context-violation · 跨文件诊断
+setup 上下文的用法是 Vue 不允许的。
+
+帮助:
+  请只在 setup 内同步使用 setup 上下文。
+=== vize:croquis/cf/shallow-deep-access
+vize:croquis/cf/shallow-deep-access · 跨文件诊断
+深层属性被当作已追踪的值，从 `shallowReactive` 或 `shallowRef` 中读取。
+
+帮助:
+  需要追踪嵌套字段时，请使用 reactive 或 ref。
+=== vize:croquis/cf/spread-breaks-reactivity
+vize:croquis/cf/spread-breaks-reactivity · 跨文件诊断
+展开响应式对象会复制其值并丢失追踪。
+
+帮助:
+  请传递响应式对象本身，或使用 toRefs。
+=== vize:croquis/cf/suspense-no-fallback
+vize:croquis/cf/suspense-no-fallback · 跨文件诊断
+`<Suspense>` 没有 fallback 内容。
+
+帮助:
+  请添加 #fallback 插槽。
+=== vize:croquis/cf/template-ref-timing
+vize:croquis/cf/template-ref-timing · 跨文件诊断
+模板 ref 在组件挂载之前被读取。
+
+帮助:
+  请在 onMounted 或更晚的钩子中读取该 ref。
+=== vize:croquis/cf/toraw-mutation
+vize:croquis/cf/toraw-mutation · 跨文件诊断
+使用 `toRaw` 之后又修改了原始对象。
+
+帮助:
+  请修改响应式代理，toRaw 只用于读取。
+=== vize:croquis/cf/uncaught-error
+vize:croquis/cf/uncaught-error · 跨文件诊断
+组件可能抛出错误，且没有错误边界捕获它。
+
+帮助:
+  请用带错误插槽或 onErrorCaptured 的错误边界包住它。
+=== vize:croquis/cf/undeclared-emit
+vize:croquis/cf/undeclared-emit · 跨文件诊断
+组件 emit 了未声明的事件。
+
+帮助:
+  请把该事件加入 emits 选项或 defineEmits。
+=== vize:croquis/cf/undeclared-prop
+vize:croquis/cf/undeclared-prop · 跨文件诊断
+父组件传递了子组件未声明的 prop。
+
+帮助:
+  请声明该 prop，或停止传递它。
+=== vize:croquis/cf/undefined-slot
+vize:croquis/cf/undefined-slot · 跨文件诊断
+父组件填充了子组件未公开的插槽。
+
+帮助:
+  请使用子组件声明的插槽，或在子组件中添加该插槽。
+=== vize:croquis/cf/unhandled-event
+vize:croquis/cf/unhandled-event · 跨文件诊断
+子组件 emit 的事件没有任何父组件处理。
+
+帮助:
+  请在父组件处理该事件，或停止 emit。
+=== vize:croquis/cf/unmatched-inject
+vize:croquis/cf/unmatched-inject · 跨文件诊断
+`inject` 使用了没有任何祖先 provide 的键。
+
+帮助:
+  请从祖先 provide 该键，或 inject 一个已 provide 的键。
+=== vize:croquis/cf/unmatched-listener
+vize:croquis/cf/unmatched-listener · 跨文件诊断
+父组件监听了子组件不会 emit 的事件。
+
+帮助:
+  请监听已声明的 emit，或在子组件上声明该事件。
+=== vize:croquis/cf/unregistered-component
+vize:croquis/cf/unregistered-component · 跨文件诊断
+模板使用了未注册也未 import 的组件。
+
+帮助:
+  请 import 或注册该组件。
+=== vize:croquis/cf/unresolved-import
+vize:croquis/cf/unresolved-import · 跨文件诊断
+import 无法解析到模块。
+
+帮助:
+  请把说明符改成指向存在的文件。
+=== vize:croquis/cf/unused-attrs
+vize:croquis/cf/unused-attrs · 跨文件诊断
+传给多根组件的 fallthrough 属性没有被使用。
+
+帮助:
+  请显式绑定 $attrs，或把这些属性声明为 props。
+=== vize:croquis/cf/unused-emit
+vize:croquis/cf/unused-emit · 跨文件诊断
+声明的 emit 从未被使用。
+
+帮助:
+  请 emit 该事件，或从声明中删除它。
+=== vize:croquis/cf/unused-provide
+vize:croquis/cf/unused-provide · 跨文件诊断
+被 provide 的键从未被 inject。
+
+帮助:
+  请在后代中 inject 该键，或删除这次 provide。
+=== vize:croquis/cf/value-extraction-breaks-reactivity
+vize:croquis/cf/value-extraction-breaks-reactivity · 跨文件诊断
+把响应式值读到局部变量会丢掉后续更新。
+
+帮助:
+  请保持 ref，或在 computed 或 effect 中读取它。
+=== vize:croquis/cf/watch-can-be-computed
+vize:croquis/cf/watch-can-be-computed · 跨文件诊断
+侦听器只是把值抄进状态，可以改成 computed。
+
+帮助:
+  请用 computed 替换该侦听器。
+=== vize:croquis/cf/watcheffect-async
+vize:croquis/cf/watcheffect-async · 跨文件诊断
+`watchEffect` 启动了异步任务，无法清理上一次运行。
+
+帮助:
+  请使用带 onCleanup 句柄的 watch，并在回调内 await。
+=== vize:croquis/cf/watcher-outside-setup
+vize:croquis/cf/watcher-outside-setup · 跨文件诊断
+`watch` 或 `watchEffect` 在 `setup` 之外被调用。
+
+帮助:
+  请在 setup 内调用该侦听器。

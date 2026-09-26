@@ -218,7 +218,7 @@ _Slices 2026-09-22 (surface, lowering, compile lanes; corpus compile oracle; lin
 
 **Steps:**
 
-- [ ] Page generator over `RuleContract` and the catalog; renderer expansion over `Witness`
+- [x] Page generator over `RuleContract` and the catalog; renderer expansion over `Witness` — [397-code acceptance record](./phase-4-records/p4-14c.md)
 
 **Acceptance:** TS-53 explain snapshots exact per locale for every code (the list generated, not hand-written); witness-why snapshots for the P4-3c and P4-11b witnesses.
 

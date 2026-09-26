@@ -1,12 +1,12 @@
 //! Cross-file diagnostic types.
 //!
 //! Diagnostics produced by cross-file analysis that span multiple files.
-//!
 //! This module is split into:
 //! - Core types and constructors (this file)
 //! - [`rules`]: Diagnostic code identifiers for filtering/configuration
 //! - [`formatting`]: Rich Markdown rendering of diagnostics
 
+mod codes;
 mod formatting;
 mod rules;
 

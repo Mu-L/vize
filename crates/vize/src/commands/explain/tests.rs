@@ -64,7 +64,7 @@ fn the_generated_list_covers_every_compiler_code_and_rule_once() {
         .iter()
         .filter(|subject| matches!(subject, Subject::Rule(_)))
         .count();
-    assert_eq!((all.len() - rules, rules), (56, 249));
+    assert_eq!((all.len() - rules, rules), (56 + 22 + 10 + 60, 249));
     let mut codes: Vec<&str> = all.iter().map(Subject::code).collect();
     let total = codes.len();
     codes.sort_unstable();
@@ -140,4 +140,35 @@ fn a_near_miss_suggests_the_closest_code_and_a_far_one_nothing() {
     assert_eq!(distance("kitten", "sitting"), 3);
     assert_eq!(distance("", "abc"), 3);
     assert_eq!(distance("名前", "名前"), 0);
+}
+
+#[test]
+fn every_new_producer_page_uses_its_localized_message_and_help() {
+    for subject in subjects::all() {
+        let key = match subject {
+            Subject::Canon(_) | Subject::CrossFile(_) => subject.code().to_owned(),
+            Subject::S3(_) => format!("s3/{}", subject.code()),
+            _ => continue,
+        };
+        for &locale in Locale::ALL {
+            let catalog = LocaleCatalog::new(locale);
+            let output = page::page(subject, &catalog, false);
+            let message = catalog
+                .text(&format!("{key}.message"))
+                .expect("message in every locale");
+            let help = catalog
+                .text(&format!("{key}.help"))
+                .expect("help in every locale");
+            assert!(
+                output.starts_with(&format!("{} · ", subject.code())),
+                "{output}"
+            );
+            assert!(output.contains(message.trim()), "{output}");
+            let rendered = vize_patina::render_help(help, vize_patina::HelpRenderTarget::PlainText);
+            for line in rendered.lines().filter(|line| !line.trim().is_empty()) {
+                assert!(output.contains(line.trim()), "{output}");
+            }
+            assert_eq!(subjects::find(subject.code()), Some(*subject));
+        }
+    }
 }

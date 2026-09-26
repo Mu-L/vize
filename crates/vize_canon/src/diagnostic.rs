@@ -135,6 +135,39 @@ pub enum TypeErrorCode {
 }
 
 impl TypeErrorCode {
+    /// Every producer code, in declaration order; catalog coverage checks this list.
+    pub const ALL: [Self; 22] = [
+        Self::UnknownIdentifier,
+        Self::PropertyNotFound,
+        Self::ArgumentTypeMismatch,
+        Self::TypeNotAssignable,
+        Self::NotCallable,
+        Self::MissingProperty,
+        Self::ImplicitAny,
+        Self::ModuleNotFound,
+        Self::ExpectedArguments,
+        Self::TooManyArguments,
+        Self::TypeConstraint,
+        Self::PossiblyUndefined,
+        Self::PossiblyNull,
+        Self::NotConstructable,
+        Self::DuplicateIdentifier,
+        Self::CannotRedeclare,
+        Self::InvalidPropType,
+        Self::InvalidEmit,
+        Self::UnknownComponent,
+        Self::InvalidSlot,
+        Self::InvalidDirective,
+        Self::ReactivityIssue,
+    ];
+
+    /// The diagnostic's stable catalogue identifier (including Vue-specific codes).
+    pub fn diagnostic_code(self) -> &'static str {
+        self.help_key()
+            .strip_suffix(".help")
+            .unwrap_or(self.help_key())
+    }
+
     /// Get the numeric code.
     #[inline]
     pub const fn code(&self) -> u32 {

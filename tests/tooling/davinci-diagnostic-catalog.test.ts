@@ -205,10 +205,13 @@ function explainCodes(locale: string): string[] {
     .map((line) => line.slice(4));
 }
 
-test("TS-53: vize explain has one generated page per compiler code and lint rule", () => {
+test("TS-53: vize explain has one generated page per diagnostic producer code", () => {
   const expected = [
     ...[...parseCompilerCodes().codes.values()].sort(),
     ...[...parseRules().keys()].sort(),
+    ...[...parseCanonCodes().help.values()].map((key) => key.replace(/\.help$/u, "")).sort(),
+    ...[...parseS3Codes().values()].sort(),
+    ...parseCroquisCodes(),
   ];
   const en = explainCodes("en");
   assert.deepEqual(en, expected);

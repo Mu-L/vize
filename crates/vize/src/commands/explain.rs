@@ -1,7 +1,8 @@
 //! `vize explain <code>` (P4-14c): the page behind a diagnostic code, in
 //! English, Japanese or Chinese.
 //!
-//! Every lint rule and every template compiler code has a page, generated
+//! Every lint rule, compiler code, Canon type code, S3 invariant and cross-file
+//! code has a page, generated
 //! from the producer's own metadata, its [`RuleContract`](vize_davinci::diagnostic::RuleContract)
 //! and the diagnostic catalogue. The page list is that generation — never a
 //! hand-written table.
