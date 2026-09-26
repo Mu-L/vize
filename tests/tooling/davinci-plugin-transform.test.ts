@@ -14,7 +14,7 @@ const plugin = (name = "design-system-transform") => ({
   version: "1",
   fingerprint: "design-system-static-class-v1",
   cacheInputs: [],
-  run(batchJson: string) {
+  run: (batchJson: string) => {
     const batch = JSON.parse(batchJson) as {
       schema: number;
       stage: string;
