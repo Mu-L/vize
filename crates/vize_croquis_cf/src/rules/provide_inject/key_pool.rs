@@ -23,6 +23,9 @@ pub(super) fn key_parts(key: &ProvideKey) -> (bool, &str) {
 /// mix. The pool and its owned arena are dropped at the end of this build.
 pub(super) fn build_pool<'a>(keys: impl Iterator<Item = &'a ProvideKey>) -> Option<Pool> {
     let mut texts = keys.map(|key| key_parts(key).1).collect::<Vec<_>>();
+    if texts.is_empty() {
+        return None;
+    }
     texts.sort_unstable();
     texts.dedup();
     let bytes = texts
