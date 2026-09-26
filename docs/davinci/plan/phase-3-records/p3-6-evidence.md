@@ -87,6 +87,16 @@ the commands that re-derive it, and the local measurements taken so far.
   upstream scope differences also execute authored JavaScript as an independent
   oracle, with the original official output and observations retained.
 
+- Computed slot outlet names admit references, members, conditional expressions,
+  compound expressions and calls with either prefix setting. A graph payload
+  mutation pins name ownership with an exact generated-code snapshot. The
+  single-test reparse recorder checks zero legacy walks and zero reparses for
+  all ten configurations. TS-33 mounts four name forms on native S3 and the
+  pinned official compiler: prop updates, switching supplied slots, absent
+  names, fallback text updates, fallback recreation, untouched sibling
+  identities and unmount match independently specified observations. Dynamic
+  slot _content_ names remain a separate legacy boundary.
+
 ## Mechanical witnesses
 
 - `cargo test -p vize_atelier_vapor --lib`

@@ -6,8 +6,12 @@ use vize_carton::{Allocator, Vec};
 use vize_s3::operand::{Operand, OperandRole as Role, ValueKind};
 
 use super::super::{Content, Expr, Prop};
-use super::{Result, ident::Folded, operands::one};
-use crate::s3::LegacyReason;
+use super::{
+    Result,
+    ident::Folded,
+    operands::{js, one},
+};
+use crate::s3::{LegacyReason, retained::Retained};
 
 /// A resolved component: its tag and static attributes (as literal props).
 pub(super) fn component<'a>(values: &[Operand<'a>], alloc: &'a Allocator) -> Result<Content<'a>> {
@@ -24,15 +28,24 @@ pub(super) fn component<'a>(values: &[Operand<'a>], alloc: &'a Allocator) -> Res
     })
 }
 
-/// A `<slot>` outlet with a static name and static attribute props.
-pub(super) fn outlet<'a>(values: &[Operand<'a>], alloc: &'a Allocator) -> Result<Content<'a>> {
+/// A `<slot>` outlet whose computed name keeps its retained expression tree.
+pub(super) fn outlet<'a>(
+    values: &[Operand<'a>],
+    retained: &Retained<'_, 'a>,
+) -> Result<Content<'a>> {
     let name = one(values, Role::Name)?;
-    if name.value.kind != ValueKind::Literal || name.target.is_some() {
+    if name.target.is_some() {
         return Err(LegacyReason::Component.into());
     }
-    let props = static_props(values, Role::Name, alloc)?;
+    let (name, dynamic) = match name.value.kind {
+        ValueKind::Literal => (Expr::plain(name.value.text), false),
+        ValueKind::Js => (js(retained, name)?, true),
+        _ => return Err(LegacyReason::Component.into()),
+    };
+    let props = static_props(values, Role::Name, retained.allocator())?;
     Ok(Content::Outlet {
-        name: name.value.text,
+        name,
+        dynamic,
         props,
     })
 }

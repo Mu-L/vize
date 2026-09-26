@@ -55,7 +55,8 @@ enum Content<'a> {
     },
     /// A `<slot>` outlet; `children` is its fallback content.
     Outlet {
-        name: &'a str,
+        name: Expr<'a>,
+        dynamic: bool,
         props: Vec<'a, Prop<'a>>,
     },
 }

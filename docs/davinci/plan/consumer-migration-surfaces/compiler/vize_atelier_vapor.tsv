@@ -180,7 +180,9 @@ compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_s3_compiled_t
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_teardown_without_stack_guard.rs	68	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_artifact.rs	13	s0	S0	stage	vize_carton	compat	7
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_native_budget.rs	18	s0	S0	stage	vize_carton	compat	1
-compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_upstream_parity/main.rs	20	s0	S0	stage	vize_carton	compat	1
+compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_upstream_parity/dynamic_slots.rs	7	s0	S0	stage	vize_carton	compat	1
+compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_upstream_parity/main.rs	21	s0	S0	stage	vize_carton	compat	1
+compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_vapor_upstream_parity/trace.rs	13	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_walk_baseline.rs	31	davinci	Davinci	stage	vize_davinci	preferred	1
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/davinci_walk_baseline.rs	31	s0	S0	stage	vize_carton	compat	1
 compiler	Compiler	test/dev	crates/vize_atelier_vapor/tests/experimental_diagnostics.rs	2	s0	S0	stage	vize_carton	compat	3

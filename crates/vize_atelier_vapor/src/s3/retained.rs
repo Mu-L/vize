@@ -14,7 +14,7 @@ use vize_atelier_core::{JsExpression, retained::js_module_compatible};
 use vize_carton::{Allocator, Span, Vec};
 use vize_s2::{
     expr::{ExprRef, JsExpr},
-    op::{BindingOp, Op, Region},
+    op::{BindingOp, DynamicName, Op, Region},
 };
 
 pub(crate) struct Retained<'s, 'a> {
@@ -67,6 +67,9 @@ impl<'s, 'a> Retained<'s, 'a> {
                         pending.push(&component.children);
                     }
                     Op::Slot(slot) => {
+                        if let DynamicName::Dynamic(name) = slot.name {
+                            retained.insert(name);
+                        }
                         retained.bindings(&slot.bindings);
                         pending.push(&slot.fallback);
                     }
