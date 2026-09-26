@@ -166,20 +166,21 @@ pub(super) fn binding<'a>(
         value.value.span,
     ]
     .map(|span| (span.start, span.end));
-    let (name, modifiers) = if matches!(family, BindingKind::Prop | BindingKind::Event) {
-        named(values, family, retained.allocator())?
-    } else if matches!(family, BindingKind::Spread | BindingKind::Handlers) {
-        // The object form: an absent name and no modifiers.
-        let name = one(values, Role::Name)?;
-        if values.len() != 3 || name.value.kind != ValueKind::Absent {
+    let (name, dynamic_name, modifiers) =
+        if matches!(family, BindingKind::Prop | BindingKind::Event) {
+            super::names::named(values, family, retained)?
+        } else if matches!(family, BindingKind::Spread | BindingKind::Handlers) {
+            // The object form: an absent name and no modifiers.
+            let name = one(values, Role::Name)?;
+            if values.len() != 3 || name.value.kind != ValueKind::Absent {
+                return Err(LegacyReason::Binding.into());
+            }
+            ("", None, Vec::new_in(&retained.allocator()))
+        } else if values.len() == 2 {
+            ("", None, Vec::new_in(&retained.allocator()))
+        } else {
             return Err(LegacyReason::Binding.into());
-        }
-        ("", Vec::new_in(&retained.allocator()))
-    } else if values.len() == 2 {
-        ("", Vec::new_in(&retained.allocator()))
-    } else {
-        return Err(LegacyReason::Binding.into());
-    };
+        };
     let value = if family == BindingKind::Event {
         handler(retained, value)?
     } else {
@@ -190,7 +191,7 @@ pub(super) fn binding<'a>(
         Binding {
             kind: family,
             name,
-            dynamic_name: None,
+            dynamic_name,
             value,
             modifiers,
             merge: None,
@@ -199,36 +200,6 @@ pub(super) fn binding<'a>(
             spans,
         },
     ))
-}
-
-/// The `v-bind:name` / `v-on:name.modifiers` schema.
-fn named<'a>(
-    values: &[Operand<'a>],
-    family: BindingKind,
-    alloc: &'a Allocator,
-) -> Result<(&'a str, Vec<'a, &'a str>)> {
-    let event = family == BindingKind::Event;
-    let name = one(values, Role::Name)?;
-    let mut modifiers = Vec::new_in(&alloc);
-    for value in values.iter().filter(|value| value.role == Role::Modifier) {
-        if !event || value.value.kind != ValueKind::Literal || !event_name(value.value.text) {
-            return Err(LegacyReason::Binding.into());
-        }
-        modifiers.push(value.value.text);
-    }
-    // `key` is admitted only as a loop key and `is` only on `<component>`;
-    // their owners are checked once the region tree is known.
-    if values.len() != 3 + modifiers.len()
-        || name.value.kind != ValueKind::Literal
-        || if event {
-            !event_name(name.value.text)
-        } else {
-            !matches!(name.value.text, "key" | "is") && !attribute_name(name.value.text)
-        }
-    {
-        return Err(LegacyReason::Binding.into());
-    }
-    Ok((name.value.text, modifiers))
 }
 
 pub(super) fn text<'a>(values: &[Operand<'a>], retained: &Retained<'_, 'a>) -> Result<Content<'a>> {
@@ -276,14 +247,7 @@ pub(super) fn one<'b, 'a>(values: &'b [Operand<'a>], role: Role) -> Result<&'b O
     Ok(value)
 }
 
-fn event_name(name: &str) -> bool {
-    name.starts_with(|c: char| c.is_ascii_alphabetic())
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':'))
-}
-
-fn attribute_name(name: &str) -> bool {
+pub(super) fn attribute_name(name: &str) -> bool {
     !matches!(
         name,
         "key" | "ref" | "ref_for" | "ref_key" | "is" | "innerHTML" | "textContent"

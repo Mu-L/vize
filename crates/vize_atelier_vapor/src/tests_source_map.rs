@@ -245,3 +245,31 @@ fn computed_slot_names_keep_their_authored_mapping_units() {
         insta::assert_debug_snapshot!(format!("computed_slot_{case}_map"), segments);
     }
 }
+
+#[test]
+fn computed_events_keep_name_and_handler_anchors_in_both_lanes() {
+    for (case, source) in [
+        ("reference", r#"<button @[eventName]="save">go</button>"#),
+        (
+            "member",
+            r#"<button v-on:[names[selected]].once.capture.passive="save">go</button>"#,
+        ),
+        (
+            "compound",
+            r#"<button @[enabled?first:second].enter.stop="save">go</button>"#,
+        ),
+        (
+            "call",
+            r#"<button @[eventName.toLowerCase()].right="save">go</button>"#,
+        ),
+    ] {
+        let (code, segments) = mapped_on(source, Lane::Selected);
+        assert_eq!(
+            mapped_on(source, Lane::Legacy),
+            (code.clone(), segments.clone()),
+            "{source}"
+        );
+        insta::assert_snapshot!(format!("computed_event_{case}_code"), code);
+        insta::assert_debug_snapshot!(format!("computed_event_{case}_map"), segments);
+    }
+}

@@ -68,6 +68,10 @@ fn vapor_legacy_reparse_floor_holds() {
         r#"<MyComponent><template #[name]>x</template></MyComponent>"#,
         r#"<MyComponent><template #[names[selected]]="{ item }">{{ item }}</template><template #fixed>fixed</template></MyComponent>"#,
         r#"<MyComponent><template #['slot-'+selected]>x</template><template #[selected.toLowerCase()]>y</template></MyComponent>"#,
+        r#"<button @[eventName]="save">go</button>"#,
+        r#"<button v-on:[names[selected]].once.capture.passive="save">go</button>"#,
+        r#"<button @[enabled?first:second].enter.stop="save">go</button>"#,
+        r#"<button @[eventName.toLowerCase()].right="save">go</button>"#,
     ] {
         for prefix_identifiers in [false, true] {
             let allocator = Allocator::new();

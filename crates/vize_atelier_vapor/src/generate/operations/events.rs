@@ -68,24 +68,20 @@ pub(super) fn generate_set_event(ctx: &mut GenerateContext, set_event: &SetEvent
         // through `onEffectCleanup`, so a renamed event never stays bound.
         ctx.use_helper("onBinding");
         ctx.use_helper("renderEffect");
-        let event_expr = ctx.resolve_expression_node(&set_event.key);
+        let event_expr = ctx.spanned_expression_node(&set_event.key);
         let options = event_listener_options(set_event);
         ctx.push_line("_renderEffect(() => {");
         ctx.indent();
+        let mut line = EmitDocument::plain(&cstr!("_onBinding({}, ", element));
+        line.push_spanned(&event_expr);
+        line.push_str(", ");
+        line.push_spanned(&wrapped_handler);
         if options.is_empty() {
-            ctx.push_line_fmt(format_args!(
-                "_onBinding({}, {}, {})",
-                element,
-                event_expr,
-                wrapped_handler.as_str()
-            ));
+            line.push_str(")");
+            ctx.push_line_spanned(&line);
         } else {
-            ctx.push_line_fmt(format_args!(
-                "_onBinding({}, {}, {}, {{",
-                element,
-                event_expr,
-                wrapped_handler.as_str()
-            ));
+            line.push_str(", {");
+            ctx.push_line_spanned(&line);
             ctx.indent();
             for (index, opt) in options.iter().enumerate() {
                 let comma = if index + 1 < options.len() { "," } else { "" };
