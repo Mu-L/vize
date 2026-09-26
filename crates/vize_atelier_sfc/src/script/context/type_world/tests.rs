@@ -225,3 +225,40 @@ fn declaration_merging_is_unknown_without_hiding_a_part_or_poisoning_siblings() 
         assert_eq!(world.declaration(&sibling).unwrap().body, "boolean");
     }
 }
+
+#[test]
+fn normal_script_only_sfc_preserves_legacy_metadata_with_a_scoped_world() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("api.ts"),
+        "export type Public = { label: string }",
+    )
+    .unwrap();
+    let source = "<script lang='ts'>import type { Public } from './api'; const item: Public = { label: 'ok' }; export default {}</script>";
+    let descriptor = parse_sfc(source, SfcParseOptions::default()).unwrap();
+    let analysis = analyze_sfc_descriptor_resolved(
+        &descriptor,
+        None,
+        SfcCroquisOptions::full(),
+        false,
+        false,
+        dir.path().join("App.vue").to_str().unwrap(),
+    );
+    let world = analysis
+        .croquis
+        .types
+        .resolved_world()
+        .expect("normal script imports need their declaring modules");
+    let TypeLookup::Found(public) = world.resolve(&world.root_module, "Public") else {
+        panic!("normal script type import resolves")
+    };
+    assert_eq!(
+        world.declaration(&public).unwrap().body,
+        "{ label: string }"
+    );
+    let legacy = analyze_sfc_descriptor_with_context(&descriptor, None, SfcCroquisOptions::full());
+    assert_eq!(
+        analysis.croquis.semantic_snapshot(),
+        legacy.croquis.semantic_snapshot()
+    );
+}

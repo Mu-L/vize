@@ -250,6 +250,16 @@ pub fn merge_resolved_props_into_croquis(
     use crate::types::BindingType;
 
     let Some(script_setup) = descriptor.script_setup.as_ref() else {
+        if let Some(script) = descriptor.script.as_ref() {
+            let ctx = ScriptCompileContext::new(&script.content);
+            croquis
+                .types
+                .set_resolved_world(ctx.resolve_type_world_with_syntax(
+                    filename,
+                    None,
+                    script.lang.as_deref() == Some("tsx"),
+                ));
+        }
         return;
     };
 

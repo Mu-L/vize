@@ -20,7 +20,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Croquis.import_statements` | field | `croquis` |     1 |     2 |
 | `Croquis.macros`            | field | `croquis` |     4 |    12 |
 | `Croquis.scopes`            | field | `croquis` |     1 |     2 |
-| `Croquis.types`             | field | `croquis` |     2 |     2 |
+| `Croquis.types`             | field | `croquis` |     2 |     4 |
 
 ## Non-product `vize_croquis` imports
 
@@ -44,7 +44,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `SfcCustomBlock`                          |     2 |     2 |
 | `SfcDescriptor`                           |    16 |    38 |
 | `SfcError`                                |    21 |    60 |
-| `SfcParseOptions`                         |    14 |   115 |
+| `SfcParseOptions`                         |    14 |   116 |
 | `SfcScriptBlock`                          |     2 |     2 |
 | `SfcStyleBlock`                           |     5 |     7 |
 | `SfcTemplateBlock`                        |     6 |     7 |
@@ -52,7 +52,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `TypeDeclarationKind`                     |     1 |     2 |
 | `TypeExportBinding`                       |     2 |     8 |
 | `TypeImport`                              |     1 |     1 |
-| `TypeLookup`                              |     1 |    12 |
+| `TypeLookup`                              |     1 |    13 |
 | `TypeModule`                              |     2 |     7 |
 | `TypeModuleReference`                     |     2 |     3 |
 | `UnknownTypeReason`                       |     1 |     1 |
@@ -92,4 +92,4 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 | `Croquis.bindings`  |       16 |  229 |
 | `Croquis.hoists`    |        0 |    2 |
 | `Croquis.macros`    |       12 |  107 |
-| `Croquis.types`     |        2 |   14 |
+| `Croquis.types`     |        4 |   16 |
