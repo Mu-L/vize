@@ -25,7 +25,6 @@
 //!   would keep an arena pinned across files.
 
 use std::{
-    fs,
     panic::{AssertUnwindSafe, catch_unwind},
     path::PathBuf,
     sync::atomic::Ordering,
@@ -69,7 +68,7 @@ pub(super) fn compile_file_with_profile(
 ) -> Result<(CompileOutput, FileProfile), CompileError> {
     if let Some(injection) = settings.davinci.injection_for(path)
         && (injection.when.is_none()
-            || injection.fires_on(&fs::read_to_string(path).unwrap_or_default()))
+            || injection.fires_on(&vize_s0::source_io::read_to_string(path).unwrap_or_default()))
     {
         // The injected pass was validated to be in the plan; should it not run,
         // the file compiles normally.
@@ -106,7 +105,7 @@ fn ice_error(
     failure: &davinci_ice::IceFailure,
     inject: Option<&davinci_ice::Injection>,
 ) -> CompileError {
-    let source = fs::read_to_string(path).unwrap_or_default();
+    let source = vize_s0::source_io::read_to_string(path).unwrap_or_default();
     let folio = davinci_ice::source_repro(
         settings.davinci.plan_string.as_str(),
         settings.davinci.mode,
@@ -144,7 +143,10 @@ fn compile_file_inner(
     let file_start = Instant::now();
 
     // Read file
-    let source = match profile!("cli.build.file.read", fs::read_to_string(path)) {
+    let source = match profile!(
+        "cli.build.file.read",
+        vize_s0::source_io::read_to_string(path)
+    ) {
         Ok(source) => {
             global_profiler().record_fs_read_to_string(source.len());
             source

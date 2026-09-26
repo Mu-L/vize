@@ -25,6 +25,7 @@ serde_json = { workspace = true }
 once_cell = { workspace = true }
 smallvec = { workspace = true }
 memchr = { workspace = true }
+simdutf8 = { workspace = true }
 stacker = { workspace = true }
 xxhash-rust = { workspace = true }
 pklrust = { workspace = true }

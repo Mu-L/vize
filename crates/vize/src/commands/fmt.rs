@@ -3,7 +3,6 @@
 use clap::Args;
 use oxc_span::SourceType;
 use rayon::prelude::*;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -12,6 +11,7 @@ use vize_glyph::{
     Allocator, FormatOptions, FormatResult, format_script_with_source_type,
     format_sfc_with_allocator,
 };
+use vize_s0::source_io as fs;
 use vize_s0::{cstr, profile, profiler::global_profiler};
 
 use super::atomic_write::atomic_write;
