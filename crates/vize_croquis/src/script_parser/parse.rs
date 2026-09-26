@@ -99,6 +99,8 @@ pub fn analyze_script_setup_program(
         result.resolve_type_export_hoisting()
     );
 
+    super::expose::extract_exposes(&mut result, program, source);
+
     result
 }
 

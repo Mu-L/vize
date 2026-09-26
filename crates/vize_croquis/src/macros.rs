@@ -1,4 +1,7 @@
+mod expose;
 mod tracker;
+
+pub use expose::{ExposeBinding, ExposeDefinition};
 
 use vize_carton::{CompactString, FxHashMap};
 
@@ -309,15 +312,6 @@ pub struct TopLevelAwait {
     pub expression: CompactString,
 }
 
-/// Expose definition from defineExpose
-#[derive(Debug, Clone)]
-pub struct ExposeDefinition {
-    /// Exposed property name
-    pub name: CompactString,
-    /// Type of the exposed property (if known)
-    pub expose_type: Option<CompactString>,
-}
-
 /// Slots definition from defineSlots
 #[derive(Debug, Clone)]
 pub struct SlotsDefinition {
@@ -370,6 +364,8 @@ pub struct MacroTracker {
     model_modifier_types: FxHashMap<CompactString, CompactString>,
     /// Exposed properties from defineExpose
     exposes: Vec<ExposeDefinition>,
+    expose_bindings: Vec<ExposeBinding>,
+    expose_incomplete: bool,
     /// Slots from defineSlots
     slots: Vec<SlotsDefinition>,
     /// Art metadata from defineArt
@@ -525,18 +521,6 @@ impl MacroTracker {
         self.emit_calls
             .iter()
             .filter(move |c| c.event_name.as_str() == event_name)
-    }
-
-    /// Add an expose definition
-    #[inline]
-    pub fn add_expose(&mut self, expose: ExposeDefinition) {
-        self.exposes.push(expose);
-    }
-
-    /// Get all exposes
-    #[inline]
-    pub fn exposes(&self) -> &[ExposeDefinition] {
-        &self.exposes
     }
 
     /// Add a slot definition
