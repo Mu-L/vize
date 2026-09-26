@@ -1,5 +1,6 @@
 //! Layout NAPI bindings.
 
+use crate::layout::dimensions::{parse_dimension, parse_length_percentage_auto};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use std::cell::RefCell;
@@ -386,46 +387,4 @@ fn convert_flex_style(style: FlexStyleNapi) -> FlexStyle {
     }
 
     result
-}
-
-/// Parse dimension string.
-fn parse_dimension(s: &str) -> crate::layout::Dimension {
-    use crate::layout::Dimension;
-
-    if s == "auto" {
-        return Dimension::Auto;
-    }
-
-    if let Some(pct) = s.strip_suffix('%')
-        && let Ok(v) = pct.parse::<f32>()
-    {
-        return Dimension::Percent(v);
-    }
-
-    if let Ok(v) = s.parse::<f32>() {
-        return Dimension::Points(v);
-    }
-
-    Dimension::Auto
-}
-
-/// Parse length/percentage/auto string.
-fn parse_length_percentage_auto(s: &str) -> crate::layout::LengthPercentageAuto {
-    use crate::layout::LengthPercentageAuto;
-
-    if s == "auto" {
-        return LengthPercentageAuto::Auto;
-    }
-
-    if let Some(pct) = s.strip_suffix('%')
-        && let Ok(v) = pct.parse::<f32>()
-    {
-        return LengthPercentageAuto::Percent(v);
-    }
-
-    if let Ok(v) = s.parse::<f32>() {
-        return LengthPercentageAuto::Points(v);
-    }
-
-    LengthPercentageAuto::Auto
 }

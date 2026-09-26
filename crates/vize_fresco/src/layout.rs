@@ -5,6 +5,8 @@
 //! - Flexbox style conversion
 //! - Rectangle/area calculations
 
+#[cfg(any(feature = "napi", test))]
+pub(crate) mod dimensions;
 mod engine;
 mod flex;
 #[cfg(test)]
