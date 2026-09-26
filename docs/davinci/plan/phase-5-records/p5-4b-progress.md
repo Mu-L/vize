@@ -41,3 +41,42 @@ the 10k-file session is sampled with the same process-tree RSS methodology,
 and its peak is below a recorded 10k-file preset. The existing TS-42 corpus
 checks the block artifacts; the summary path needs a corpus edit script as
 part of that final acceptance.
+
+## Synthetic scale probe (2026-09-26)
+
+The new `vize_resident` `resource_session` example retains 10,000 distinct SFC
+inputs, builds every S1/S2 artifact and six-facet fixture interface, and compares
+both with the clean functions. It exercises 32 body and prop-signature edits
+with exact dependent execution counts: body edits execute zero consumers;
+changing the prop contract executes its consumer and reuses the emit consumer.
+A high-durability tsconfig update must reject all stale exports. After refreshing
+all fixture exports it revisits every cold file and declaration name, comparing
+against clean results after LRU eviction and intern revision collection.
+
+`resident-resources.rs` samples three fresh optimized processes through the same
+Linux process-tree RSS sampler as TS-44 (50 ms). It preserves the existing
+337 MiB peak and 316 MiB idle reference caps. Each process holds its populated
+database for ten seconds; idle RSS is the maximum of its final 100 nonzero
+samples. The workflow retains the full measurement JSON and per-run checks.
+This is an isolated database probe with synthetic alpha inputs, without the LSP
+or Corsa. It does not replace the nine-file production LSP measurement or claim
+that a production alpha exporter exists. P5-4b remains open pending production
+export wiring, the full process-tree scale measurement and corpus summary scripts.
+
+Command:
+
+```sh
+cargo build --profile ci-opt -p vize_resident --example resource_session \
+  --config 'profile.ci-opt.inherits="release"' \
+  --config 'profile.ci-opt.lto="thin"' \
+  --config 'profile.ci-opt.codegen-units=16'
+rust-script tools/commands/davinci/resident-resources.rs \
+  --server target/ci-opt/examples/resource_session --files 10000 --edits 32 \
+  --runs 3 --out /tmp/resident-resource.json
+```
+
+The scale probe also exposed an unbounded accounting event vector. Accounting
+now aggregates executions/reuses per registered query ingredient as events
+arrive, preserving existing TS-46 counts while storage scales with query kinds
+rather than keystrokes. A 10,000-revision regression verifies one undrained row,
+10,001 executions and a fresh accounting interval after draining.
