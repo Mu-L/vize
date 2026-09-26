@@ -43,9 +43,6 @@ pub(crate) enum LegacyReason {
     ControlFlow,
     Component,
     Selected,
-    /// Admission accepted the artifact but native emission found it
-    /// inconsistent.
-    Emission,
 }
 
 impl LegacyReason {
@@ -61,7 +58,6 @@ impl LegacyReason {
             Self::ControlFlow => "davinci.s3_vapor.legacy.control_flow",
             Self::Component => "davinci.s3_vapor.legacy.component",
             Self::Selected => "davinci.s3_vapor.legacy.selected",
-            Self::Emission => "davinci.s3_vapor.legacy.emission",
         }
     }
 }
@@ -103,7 +99,7 @@ impl<'a> VaporS3Artifact<'a> {
     }
 
     /// [`Self::into_ir`] that also returns the authored anchors when `spans`
-    /// is set (Davinci P3-9). `None` sends the compile to the legacy lane.
+    /// is set (Davinci P3-9). `None` rejects this compile without code.
     pub(crate) fn into_ir_with_spans(
         self,
         allocator: &'a Allocator,
@@ -242,7 +238,7 @@ pub(crate) fn record_selection(status: &VaporS3BridgeStatus<'_>) {
     record(match status {
         VaporS3BridgeStatus::Accepted(_) => ACCEPTED,
         VaporS3BridgeStatus::Legacy(reason) => reason.counter(),
-        VaporS3BridgeStatus::Rejected(_) => "davinci.s3_vapor.rejected",
+        VaporS3BridgeStatus::Rejected(_) => REJECTED,
     });
 }
 
@@ -251,6 +247,12 @@ pub(crate) fn record_accepted() {
     record(ACCEPTED);
 }
 
+/// A checked payload failed during emission; it never selects a legacy lane.
+pub(crate) fn record_rejected() {
+    record(REJECTED);
+}
+
+const REJECTED: &str = "davinci.s3_vapor.rejected";
 const ACCEPTED: &str = "davinci.s3_vapor.accepted";
 
 fn record(counter: &'static str) {

@@ -187,7 +187,7 @@ impl<'a> NativeArtifact<'a> {
     /// With `spans`, payload slices borrowed from `source` keep their authored
     /// spans and the template and control-flow anchors are returned (Davinci
     /// P3-9). `None` when emission found the payload inconsistent; the
-    /// caller then compiles through the legacy lane.
+    /// caller then rejects the compile without code.
     pub(super) fn into_ir_with_spans(
         self,
         allocator: &'a Allocator,
@@ -201,3 +201,6 @@ impl<'a> NativeArtifact<'a> {
         emit::emit(self, allocator, source, scope_id, spans)
     }
 }
+
+#[cfg(test)]
+mod tests;

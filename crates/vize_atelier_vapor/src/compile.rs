@@ -4,6 +4,7 @@
 //! code generation behind the public `compile_vapor*` functions.
 
 mod entry;
+pub(crate) mod native;
 
 use crate::generate::spans::VaporSourceSpans;
 use crate::lower as vapor_lower;
@@ -167,32 +168,31 @@ fn compile_vapor_inner_with_stack<'a>(
     let emit = |ir: &crate::ir::RootIRNode<'a>, errors, spans: Option<&VaporSourceSpans>| {
         generate(ir, &options, &experimental_options, errors, spans)
     };
-    let s3_bridge_status = match s3_bridge_status {
-        VaporS3BridgeStatus::Accepted(artifact) => {
-            debug_assert!(
-                parse_with_options_custom_elements_and_template_syntax(
-                    allocator,
-                    source,
-                    parser_options(&options),
-                    custom_elements.clone(),
-                    template_syntax,
-                )
-                .1
-                .is_empty(),
-                "the native Vapor lane admitted a source the legacy parser diagnoses"
-            );
-            match artifact.into_ir_with_spans(allocator, source, scope_id, source_map) {
-                Some((ir, spans)) => {
-                    s3::record_accepted();
-                    return (emit(&ir, Vec::new(), spans.as_ref()), std::vec::Vec::new());
-                }
-                // Emission found the admitted payload inconsistent: compile
-                // through the legacy lane rather than emit a partial render.
-                None => VaporS3BridgeStatus::Legacy(s3::LegacyReason::Emission),
-            }
-        }
-        status => status,
-    };
+    if let VaporS3BridgeStatus::Accepted(artifact) = s3_bridge_status {
+        debug_assert!(
+            parse_with_options_custom_elements_and_template_syntax(
+                allocator,
+                source,
+                parser_options(&options),
+                custom_elements.clone(),
+                template_syntax,
+            )
+            .1
+            .is_empty(),
+            "the native Vapor lane admitted a source the legacy parser diagnoses"
+        );
+        return (
+            native::emit_accepted(
+                allocator,
+                source,
+                artifact,
+                scope_id,
+                source_map,
+                |ir, spans| emit(ir, Vec::new(), spans),
+            ),
+            std::vec::Vec::new(),
+        );
+    }
 
     let (mut root, errors) = parse_with_options_custom_elements_and_template_syntax(
         allocator,
@@ -224,8 +224,7 @@ fn compile_vapor_inner_with_stack<'a>(
     };
     s3::record_selection(&s3_bridge_status);
     match s3_bridge_status {
-        // An emitted artifact returned above; one whose emission failed was
-        // relabelled `Legacy`, so this keeps the legacy route.
+        // Every accepted artifact returned above, including emission failures.
         VaporS3BridgeStatus::Accepted(_) => {}
         VaporS3BridgeStatus::Rejected(error_messages) => {
             return (
