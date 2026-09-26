@@ -1,11 +1,21 @@
 //! Static `withDefaults` facts extracted from the authored object AST.
 
-use oxc_ast::ast::{CallExpression, ObjectPropertyKind, PropertyKey, PropertyKind};
+mod invalidation;
+
+use oxc_ast::ast::{
+    CallExpression, Expression, ObjectPropertyKind, PropertyKey, PropertyKind,
+    VariableDeclarationKind,
+};
 use oxc_span::GetSpan;
-use vize_carton::{CompactString, FxHashMap, ToCompactString};
+use vize_carton::{CompactString, ToCompactString};
 
 use super::super::ScriptParseResult;
-use super::common::argument_object;
+use crate::macros::defaults::StaticDefaultObject;
+use crate::scope::ScopeKind;
+
+pub(in crate::script_parser) use invalidation::{
+    invalidate_default_expression, invalidate_default_objects,
+};
 
 pub(super) fn record_defaults(
     result: &mut ScriptParseResult,
@@ -16,36 +26,81 @@ pub(super) fn record_defaults(
         return;
     };
     let expression = CompactString::new(argument.span().source_text(source));
-    let mut values = FxHashMap::default();
-    if let Some(object) = argument_object(argument) {
-        for property in &object.properties {
-            let ObjectPropertyKind::ObjectProperty(property) = property else {
-                // An unknown spread may overwrite every preceding key.
-                values.clear();
-                continue;
-            };
-            let name = match &property.key {
-                PropertyKey::StaticIdentifier(id) if !property.computed => {
-                    CompactString::new(id.name.as_str())
+    let values = argument
+        .as_expression()
+        .and_then(|expression| collect_object(result, expression, source))
+        .unwrap_or_default()
+        .values;
+    result.macros.set_with_defaults(expression, values);
+}
+
+pub(super) fn record_object_binding(
+    result: &mut ScriptParseResult,
+    name: &str,
+    expression: &Expression<'_>,
+    kind: VariableDeclarationKind,
+    source: &str,
+) {
+    let object = (kind == VariableDeclarationKind::Const
+        && matches!(
+            result.scopes.current_scope().kind,
+            ScopeKind::ScriptSetup | ScopeKind::NonScriptSetup | ScopeKind::Module
+        ))
+    .then(|| collect_object(result, expression, source))
+    .flatten();
+    result.macros.record_default_object(name, object);
+}
+
+fn collect_object(
+    result: &ScriptParseResult,
+    expression: &Expression<'_>,
+    source: &str,
+) -> Option<StaticDefaultObject> {
+    let object = match expression.get_inner_expression() {
+        Expression::ObjectExpression(object) => object,
+        Expression::Identifier(identifier) => {
+            return result
+                .macros
+                .default_object(identifier.name.as_str())
+                .cloned();
+        }
+        _ => return None,
+    };
+    let mut output = StaticDefaultObject::default();
+    for property in &object.properties {
+        match property {
+            ObjectPropertyKind::SpreadProperty(spread) => {
+                match collect_object(result, &spread.argument, source) {
+                    Some(object) => output.spread(object),
+                    None => output.clear(),
                 }
-                PropertyKey::StringLiteral(literal) => CompactString::new(literal.value.as_str()),
-                PropertyKey::NumericLiteral(literal) => literal.value.to_compact_string(),
-                _ => {
-                    // A dynamic key may overwrite any preceding default.
-                    values.clear();
+            }
+            ObjectPropertyKind::ObjectProperty(property) => {
+                let name = match &property.key {
+                    PropertyKey::StaticIdentifier(id) if !property.computed => {
+                        CompactString::new(id.name.as_str())
+                    }
+                    PropertyKey::StringLiteral(literal) => {
+                        CompactString::new(literal.value.as_str())
+                    }
+                    PropertyKey::NumericLiteral(literal) => literal.value.to_compact_string(),
+                    _ => {
+                        output.clear();
+                        continue;
+                    }
+                };
+                if property.kind != PropertyKind::Init {
+                    output.values.remove(&name);
+                    output.removed.insert(name);
                     continue;
                 }
-            };
-            if property.kind != PropertyKind::Init {
-                // An accessor does not author the default's resulting value.
-                values.remove(&name);
-                continue;
+                output.removed.remove(&name);
+                output.values.insert(
+                    name,
+                    CompactString::new(property.value.span().source_text(source)),
+                );
             }
-            values.insert(
-                name,
-                CompactString::new(property.value.span().source_text(source)),
-            );
         }
     }
-    result.macros.set_with_defaults(expression, values);
+    Some(output)
 }

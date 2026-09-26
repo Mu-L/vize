@@ -100,7 +100,7 @@ pub fn analyze_script_setup_program(
     );
 
     super::expose::extract_exposes(&mut result, program, source);
-
+    result.macros.invalidate_default_objects();
     result
 }
 
@@ -250,5 +250,6 @@ pub(crate) fn parse_script_with_options_source_type(
         result.resolve_type_export_hoisting()
     );
 
+    result.macros.invalidate_default_objects();
     result
 }

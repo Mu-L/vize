@@ -1,4 +1,4 @@
-use oxc_ast::ast::{Expression, ObjectExpression, ObjectPropertyKind};
+use oxc_ast::ast::{Expression, ObjectExpression, ObjectPropertyKind, VariableDeclarationKind};
 
 use crate::macros::{EmitDefinition, PropDefinition};
 use vize_carton::CompactString;
@@ -10,8 +10,10 @@ pub(in crate::script_parser) fn record_static_runtime_object_literal(
     result: &mut ScriptParseResult,
     name: &str,
     expr: &Expression<'_>,
+    kind: VariableDeclarationKind,
     source: &str,
 ) {
+    super::with_defaults::record_object_binding(result, name, expr, kind, source);
     let Some(literal) = collect_runtime_object_expression(result, expr, source) else {
         return;
     };

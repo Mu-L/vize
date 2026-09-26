@@ -10,9 +10,17 @@ fn imported_props_expanded_after_macro_extraction_receive_authored_defaults() {
     )
     .unwrap();
     let filename = dir.path().join("App.vue");
-    for binding in ["", "const props = "] {
+    for (binding, declaration, defaults) in [
+        ("", "", "{ count: 41, label: () => 'ready' }"),
+        ("const props = ", "", "{ count: 41, label: () => 'ready' }"),
+        (
+            "const props = ",
+            "const defaults = { count: 41, label: () => 'ready' };",
+            "defaults",
+        ),
+    ] {
         let source = vize_carton::cstr!(
-            "<script setup lang='ts'>import type {{ Public }} from './types'; {binding}withDefaults(defineProps<Public>(), {{ count: 41, label: () => 'ready' }})</script>"
+            "<script setup lang='ts'>import type {{ Public }} from './types'; {declaration} {binding}withDefaults(defineProps<Public>(), {defaults})</script>"
         );
         let descriptor = parse_sfc(&source, SfcParseOptions::default()).unwrap();
         let croquis = analyze_sfc_descriptor_resolved(
@@ -44,9 +52,6 @@ fn imported_props_expanded_after_macro_extraction_receive_authored_defaults() {
                 ("label", false, Some("string"), Some("() => 'ready'"))
             ]
         );
-        assert_eq!(
-            croquis.macros.with_defaults_expression(),
-            Some("{ count: 41, label: () => 'ready' }")
-        );
+        assert_eq!(croquis.macros.with_defaults_expression(), Some(defaults));
     }
 }
