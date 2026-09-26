@@ -121,7 +121,12 @@ impl ExprDialect for MoonBitDialect {
     fn map_span(&self, expr: ExprRef<'_>, inner: Span) -> Span {
         let span = expr.span();
         let verbatim = u32::try_from(expr.source().len()).is_ok_and(|len| len == span.len());
-        if verbatim && inner.start <= inner.end && inner.end <= span.len() {
+        if verbatim
+            && expr
+                .source()
+                .get(inner.start as usize..inner.end as usize)
+                .is_some()
+        {
             Span::new(span.start + inner.start, span.start + inner.end)
         } else {
             span

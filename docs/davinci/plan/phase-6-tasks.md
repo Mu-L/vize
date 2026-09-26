@@ -169,7 +169,8 @@ open; see [typed-world evidence](./phase-6-records/p6-4b-typed-world.md) and the
 
 **Steps:**
 
-- [ ] Write the report from P6-4b's findings; land or defer each fix
+- [x] Write the report from P6-4b's findings; land or defer each fix
+  — [validation report](./exprref-validation.md), with pending fixes in #6795.
 
 **Acceptance:** the report committed; every finding marked `fixed` (with its PR) or `deferred` (with its rationale).
 

@@ -270,19 +270,32 @@ test("the JS and Rust SDK constants are the released handshake", async () => {
   });
 });
 
-
 test("the compiled legacy guests use the exact frozen SDK/WIT 0.1.2 sources", () => {
   const archive = path.join(root, "crates/vize_extension_host/tests/fixtures/sdk-0.1.2");
-  const manifest = JSON.parse(fs.readFileSync(path.join(archive, "source-sha256.json"), "utf8")) as {
-    commit: string; files: Record<string, string>;
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(archive, "source-sha256.json"), "utf8"),
+  ) as {
+    commit: string;
+    files: Record<string, string>;
   };
   assert.equal(manifest.commit, "2248de341f744f7d01f17b10a9432b40a826ab8b");
-  const files = ["src", "wit"].flatMap((dir) => fs.readdirSync(path.join(archive, dir), { recursive: true })
-    .map((file) => `${dir}/${file}`)
-    .filter((file) => fs.statSync(path.join(archive, file)).isFile())).toSorted();
+  const files = ["src", "wit"]
+    .flatMap((dir) =>
+      fs
+        .readdirSync(path.join(archive, dir), { recursive: true })
+        .map((file) => `${dir}/${file}`)
+        .filter((file) => fs.statSync(path.join(archive, file)).isFile()),
+    )
+    .toSorted();
   assert.deepEqual(files, Object.keys(manifest.files).toSorted());
   for (const file of files) {
-    assert.equal(createHash("sha256").update(fs.readFileSync(path.join(archive, file))).digest("hex"), manifest.files[file], file);
+    assert.equal(
+      createHash("sha256")
+        .update(fs.readFileSync(path.join(archive, file)))
+        .digest("hex"),
+      manifest.files[file],
+      file,
+    );
   }
   for (const guest of ["sdk-hello-0-1-2", "expression-echo-0-1-2"]) {
     const cargo = read("crates/vize_extension_host/tests/guests", guest, "Cargo.toml");

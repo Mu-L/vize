@@ -63,7 +63,7 @@ fn expressions<'a>(ops: &[Op<'a>], out: &mut Vec<ExprRef<'a>>) {
 
 #[test]
 fn every_expression_is_foreign_and_scopes_keep_exact_authored_names() {
-    let source = r#"<script setup lang="moonbit">let x = 1</script><template><section><button :[name]="x" @click="x.val += 1" v-show="show.val">{{ if show.val { x.val } else { 0 } }}</button><p v-for="(item, i) in items">{{ item }}</p><Comp v-slot="props" :title><slot :name /></Comp></section></template>"#;
+    let source = r#"<script setup lang="moonbit">let x = 1</script><template><section><button :[name]="x" @[event]="x.val += 1" v-show="show.val">{{ if show.val { x.val } else { 0 } }}</button><p v-for="(item, i) in items">{{ item }}</p><Comp v-slot="props" :title><slot :name /></Comp></section></template>"#;
     let allocator = Allocator::new();
     let sfc = split(source).unwrap();
     let (tree, errors) = vize_s1::parse(&allocator, sfc.template.source());
@@ -84,6 +84,7 @@ fn every_expression_is_foreign_and_scopes_keep_exact_authored_names() {
         [
             "name",
             "x",
+            "event",
             "x.val += 1",
             "show.val",
             "if show.val { x.val } else { 0 }",
