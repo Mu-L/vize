@@ -36,13 +36,37 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           path: head
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          path: base
-          ref: ${{ github.event.pull_request.base.sha || inputs.base_sha }}
-          persist-credentials: false
+      - name: Select and record exact comparison commits
+        env:
+          REQUESTED_BASE: ${{ github.event.pull_request.base.sha || inputs.base_sha }}
+          REQUESTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REQUESTED_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git -C head rev-parse HEAD)" == "$REQUESTED_HEAD" ]]
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            COMPARISON_BASE="$(git -C head merge-base "$REQUESTED_BASE" HEAD)"
+          else
+            git -C head merge-base --is-ancestor "$REQUESTED_BASE" HEAD
+            COMPARISON_BASE="$REQUESTED_BASE"
+          fi
+          git -C head worktree add ../base "$COMPARISON_BASE"
+          [[ "$(git -C base rev-parse HEAD)" == "$COMPARISON_BASE" ]]
+          mkdir -p measurements
+          export COMPARISON_BASE
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('measurements/commits.json').write_text(json.dumps({
+              'base': os.environ['COMPARISON_BASE'],
+              'head': os.environ['REQUESTED_HEAD'],
+              'requested_base': os.environ['REQUESTED_BASE'],
+          }, indent=2))
+          PY
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: clippy
