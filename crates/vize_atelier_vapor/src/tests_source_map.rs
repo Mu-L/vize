@@ -13,6 +13,8 @@
 )]
 
 mod component_names;
+mod computed_dom;
+
 mod support;
 
 use super::{VaporCompilerOptions, compile_vapor};
