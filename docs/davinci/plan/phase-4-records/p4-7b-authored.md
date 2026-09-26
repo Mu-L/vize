@@ -23,6 +23,11 @@ and the JSX refusal fallback.
 - `authored_document_skeleton` shares the existing skeleton builder and checker.
   `PermittedContents::enter_document` uses that skeleton. The SFC route performs
   no Relief parser re-entry, second tokenization or synthetic template AST.
+- Its document hook replaces the original template callback at the same
+  registry position, after the shared suppression pre-scan and before element
+  traversal. The other 39 routes keep their existing batch ordering. Mixed
+  legacy registries, both registration orders and the default preset pin the
+  complete diagnostic sequence against a legacy-only content-model wrapper.
 
 The authored walk retains lossless whitespace text. Quirks removes some boundary
 whitespace nodes, so complete skeleton row equality is pinned for the structural

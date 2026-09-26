@@ -90,3 +90,65 @@ fn permitted_contents_runs_only_from_the_s2_document_hook() {
     assert_eq!((diagnostic.start, diagnostic.end), (16, 20));
     assert_eq!(diagnostic.labels.len(), 1);
 }
+
+struct LegacyDocument;
+impl Rule for LegacyDocument {
+    fn meta(&self) -> &'static crate::rule::RuleMeta {
+        PermittedContents.meta()
+    }
+    fn run_on_template<'a>(
+        &self,
+        ctx: &mut crate::context::LintContext<'a>,
+        root: &vize_relief::RootNode<'a>,
+    ) {
+        Rule::run_on_template(&PermittedContents, ctx, root);
+    }
+}
+
+#[test]
+fn authored_document_preserves_order_among_unmigrated_template_rules() {
+    use crate::rules::html::{DeprecatedAttr, IdDuplication};
+    for reversed in [false, true] {
+        let make = |authored: bool| {
+            let mut registry = RuleRegistry::new();
+            if reversed {
+                registry.register(Box::new(IdDuplication));
+            }
+            if authored {
+                registry.register(Box::new(PermittedContents));
+            } else {
+                registry.register(Box::new(LegacyDocument));
+            }
+            if !reversed {
+                registry.register(Box::new(IdDuplication));
+            }
+            registry.register(Box::new(DeprecatedAttr));
+            Linter::with_registry(registry)
+        };
+        for source in [
+            r#"<template><table bgcolor="red"><tr><td id="same"/><td id="same"/></tr></table></template>"#,
+            r#"<template><!-- eslint-disable-next-line vue/permitted-contents -->
+<p><div id="same"/></p><span><div id="same" align="left"/></span></template>"#,
+        ] {
+            let expected = make(false).lint_sfc(source, "Mixed.vue");
+            let actual = make(true).lint_sfc(source, "Mixed.vue");
+            assert!(!actual.diagnostics.is_empty());
+            assert_eq!(
+                cstr!("{:?}", actual.diagnostics),
+                cstr!("{:?}", expected.diagnostics)
+            );
+            assert_eq!(actual.error_count, expected.error_count);
+            assert_eq!(actual.warning_count, expected.warning_count);
+        }
+    }
+    let source =
+        "<template><table><tr><td id=\"same\"/><td id=\"same\"/></tr></table><body/></template>";
+    let mut legacy = Linter::default();
+    legacy.registry.replace(Box::new(LegacyDocument));
+    let expected = legacy.lint_sfc(source, "All.vue");
+    let actual = Linter::default().lint_sfc(source, "All.vue");
+    assert_eq!(
+        cstr!("{:?}", actual.diagnostics),
+        cstr!("{:?}", expected.diagnostics)
+    );
+}
