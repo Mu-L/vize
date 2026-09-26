@@ -2,11 +2,11 @@
 
 use super::{FileId, FxHashMap, ModuleNode};
 use fixedbitset::FixedBitSet;
-use roaring::RoaringBitmap;
+use vize_carton::FxHashSet;
 
 pub(super) enum VisitSet {
     Dense(FixedBitSet),
-    Sparse(RoaringBitmap),
+    Sparse(FxHashSet<FileId>),
 }
 
 impl VisitSet {
@@ -25,14 +25,14 @@ impl VisitSet {
             .and_then(|highest| highest.checked_add(1))
             .unwrap_or(0);
         // At this density the bit payload uses at most half a byte per node,
-        // versus at least four bytes per stored FileId in a sparse collection.
+        // versus at least four bytes per stored FileId in a hash set.
         // A sparse/high FileId never drives a proportional dense allocation.
         let dense = highest.is_none() || (domain > 0 && domain <= nodes.len().saturating_mul(4));
         let make = || {
             if dense {
                 Self::Dense(FixedBitSet::with_capacity(domain))
             } else {
-                Self::Sparse(RoaringBitmap::new())
+                Self::Sparse(FxHashSet::default())
             }
         };
         (make(), make())
@@ -42,7 +42,7 @@ impl VisitSet {
         match self {
             Self::Dense(bits) => bits.insert(id.as_u32() as usize),
             Self::Sparse(bits) => {
-                bits.insert(id.as_u32());
+                bits.insert(id);
             }
         }
     }
@@ -50,7 +50,7 @@ impl VisitSet {
     pub(super) fn contains(&self, id: &FileId) -> bool {
         match self {
             Self::Dense(bits) => bits.contains(id.as_u32() as usize),
-            Self::Sparse(bits) => bits.contains(id.as_u32()),
+            Self::Sparse(bits) => bits.contains(id),
         }
     }
 
@@ -58,7 +58,7 @@ impl VisitSet {
         match self {
             Self::Dense(bits) => bits.set(id.as_u32() as usize, false),
             Self::Sparse(bits) => {
-                bits.remove(id.as_u32());
+                bits.remove(id);
             }
         }
     }
@@ -87,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn dense_rows_use_fixed_bits_and_sparse_or_dangling_ids_use_roaring() {
+    fn dense_rows_use_fixed_bits_and_sparse_or_dangling_ids_keep_hash_sets() {
         assert!(matches!(pair(&[], None).0, VisitSet::Dense(_)));
         assert!(matches!(pair(&[0, 1, 2], None).0, VisitSet::Dense(_)));
         assert!(matches!(

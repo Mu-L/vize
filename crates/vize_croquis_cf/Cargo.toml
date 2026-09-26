@@ -33,7 +33,6 @@ serde.workspace = true
 lasso.workspace = true
 ecow.workspace = true
 fixedbitset.workspace = true
-roaring.workspace = true
 
 [dev-dependencies]
 davinci_harness.workspace = true
