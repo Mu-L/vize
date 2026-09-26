@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
-use vize_atelier_core::{
-    BindingMetadata, ExpressionNode, SimpleExpressionNode, SourceLocation, TransformContext,
-    TransformOptions, process_expression,
-};
-use vize_carton::{Box as CoreBox, String, profile};
+use vize_atelier_core::BindingMetadata;
+use vize_carton::{String, profile};
 
 use crate::script::{ScriptCompileContext, gen_props_access_exp};
 
@@ -59,28 +56,12 @@ fn transform_css_var_expression(
     var_expr: &str,
     source_is_ts: bool,
 ) -> String {
-    let allocator = vize_carton::pool::acquire();
-    let loc = SourceLocation::new(0, var_expr.len() as u32);
-    let exp = ExpressionNode::Simple(CoreBox::new_in(
-        SimpleExpressionNode::new(var_expr, false, loc),
-        &&*allocator,
-    ));
-    let mut transform_ctx = TransformContext::new(
-        &allocator,
+    let code = crate::css::transform::vars::transform_value(
         var_expr,
-        TransformOptions {
-            prefix_identifiers: true,
-            inline: true,
-            is_ts: source_is_ts,
-            binding_metadata: Some(ctx.bindings.clone()),
-            ..Default::default()
-        },
+        Some(&ctx.bindings),
+        true,
+        source_is_ts,
     );
-
-    let code = match process_expression(&mut transform_ctx, &exp, false) {
-        ExpressionNode::Simple(simple) => String::new(simple.content),
-        ExpressionNode::Compound(_) => String::new(var_expr),
-    };
 
     rewrite_props_aliases(code, &ctx.bindings)
 }
@@ -186,9 +167,11 @@ pub(super) fn emit_setup_body(
                 crate::css::scoped_v_bind_name(scope_id, var_expr)
             };
             let var_value = transform_css_var_expression(ctx, var_expr, source_is_ts);
-            output.extend_from_slice(b"  \"");
-            output.extend_from_slice(var_name.as_bytes());
-            output.extend_from_slice(b"\": (");
+            let mut quoted_name = String::default();
+            crate::vite_plugin::js_string::push_js_string_literal(&mut quoted_name, &var_name);
+            output.extend_from_slice(b"  ");
+            output.extend_from_slice(quoted_name.as_bytes());
+            output.extend_from_slice(b": (");
             output.extend_from_slice(var_value.as_bytes());
             output.extend_from_slice(b")");
             if i < css_vars.len() - 1 {

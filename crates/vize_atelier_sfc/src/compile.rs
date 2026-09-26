@@ -26,8 +26,8 @@ use crate::compile_template::{
 };
 use crate::script::ScriptCompileContext;
 use crate::types::{
-    BindingMetadata, BindingType, SfcCompileExperimentalOptions, SfcCompileOptions,
-    SfcCompileResult, SfcDescriptor, SfcError,
+    BindingType, SfcCompileExperimentalOptions, SfcCompileOptions, SfcCompileResult, SfcDescriptor,
+    SfcError,
 };
 use vize_atelier_core::{CodegenOptions, TemplateSyntaxMode, options::CustomElementMatcher};
 
@@ -61,7 +61,7 @@ use vize_carton::{String, ToCompactString, profile};
 
 fn compile_sfc_inner(
     descriptor: &SfcDescriptor,
-    options: SfcCompileOptions,
+    mut options: SfcCompileOptions,
     template_syntax: TemplateSyntaxMode,
     custom_elements: CustomElementMatcher,
     codegen_options: CodegenOptions,
@@ -96,10 +96,26 @@ fn compile_sfc_inner(
     } else {
         String::default()
     };
+    let auto_ssr_css_vars = options.template.ssr_css_vars.is_none();
+    if auto_ssr_css_vars {
+        crate::css::transform::vars::inject_ssr_values(
+            &mut options.template,
+            &descriptor.css_vars,
+            &scope_id,
+            filename,
+            None,
+        );
+    }
 
     let compiled_styles = profile!(
         "atelier.sfc.styles",
         compile_styles(&descriptor.styles, &scope_id, &options.style, &mut warnings)
+            .with_css_var_names(
+                &descriptor.css_vars,
+                &scope_id,
+                filename,
+                options.template.is_prod
+            )
     );
     if !compiled_styles.css.is_empty() {
         css = Some(compiled_styles.css.clone());
@@ -203,65 +219,11 @@ fn compile_sfc_inner(
             final_script = script_with_preamble;
         }
 
-        // Resolve Options API template bindings (data / computed / methods /
-        // props / inject) from the plain `<script>` so the template compiler can
-        // emit the render-function prefixes Vue's compiler-sfc uses
-        // (`$data.`, `$options.`, `$props.`) instead of falling back to `_ctx.`
-        // for everything. This mirrors `@vue/compiler-sfc`, which feeds the
-        // analyzed Options API bindingMetadata to template codegen.
-        //
-        // Only the Options API member kinds are forwarded. `@vue/compiler-sfc`
-        // does NOT register top-level imports, module-local consts, or
-        // `components: {}` registrations from a non-`<script setup>` block as
-        // template bindings — Croquis assigns those `SetupConst`/`LiteralConst`,
-        // which would otherwise rewrite locally-registered components to
-        // `$setup.Foo` instead of leaving them for `_resolveComponent("Foo")`.
-        let options_api_bindings: Option<BindingMetadata> = if has_template {
-            // Parse the `<script>` once for Options API binding extraction only —
-            // this lighter `parse_script_with_options` path skips the full
-            // template/reactivity Croquis analysis the `<script setup>` path runs.
-            let parsed = profile!(
-                "atelier.sfc.normal_script.options_api_bindings",
-                vize_croquis::script_parser::parse_script_with_options_and_jsx(
-                    &script_content,
-                    vize_croquis::script_parser::ScriptParserOptions {
-                        options_api: true,
-                        legacy_vue2: false,
-                    },
-                    script
-                        .lang
-                        .as_deref()
-                        .is_some_and(|lang| matches!(lang.trim(), "tsx" | "jsx")),
-                )
-            );
-            let mut bindings = BindingMetadata::default();
-            for (name, bt) in parsed.bindings.iter() {
-                // Forward only the unambiguous Options API member kinds. Croquis
-                // assigns `SetupConst`/`LiteralConst` to top-level imports and
-                // module-local consts and `SetupMaybeRef` to `setup()` returns —
-                // none of which `@vue/compiler-sfc` registers as template
-                // bindings for a non-`<script setup>` block (forwarding them would
-                // rewrite locally-registered components to `$setup.Foo` instead of
-                // leaving them for `_resolveComponent("Foo")`).
-                if matches!(
-                    bt,
-                    BindingType::Data
-                        | BindingType::Options
-                        | BindingType::Props
-                        | BindingType::PropsAliased
-                ) {
-                    bindings.bindings.insert(name.to_compact_string(), bt);
-                }
-            }
-            for (local, key) in &parsed.bindings.props_aliases {
-                bindings
-                    .props_aliases
-                    .insert(local.to_compact_string(), key.to_compact_string());
-            }
-            (!bindings.bindings.is_empty()).then_some(bindings)
-        } else {
-            None
-        };
+        let options_api_bindings = has_template
+            .then(|| {
+                bindings::collect_options_api_bindings(&script_content, script.lang.as_deref())
+            })
+            .flatten();
 
         // Compile template if present
         if let Some(template) = descriptor.template.as_ref() {
@@ -290,7 +252,16 @@ fn compile_sfc_inner(
                     )
                 )
             } else {
-                let template_opts = options.template.clone();
+                let mut template_opts = options.template.clone();
+                if auto_ssr_css_vars {
+                    crate::css::transform::vars::inject_ssr_values(
+                        &mut template_opts,
+                        &descriptor.css_vars,
+                        &scope_id,
+                        filename,
+                        options_api_bindings.as_ref(),
+                    );
+                }
 
                 // Also pass scope IDs to the client template compiler. Vue's runtime
                 // normally propagates __scopeId, but wrapper components such as NuxtLink
@@ -625,12 +596,22 @@ fn compile_sfc_inner(
             // Also pass scope IDs to the client template compiler. Vue's runtime
             // normally propagates __scopeId, but wrapper components such as NuxtLink
             // can otherwise lose parent scoped attrs before the final DOM root.
+            let mut template_opts = options.template.clone();
+            if auto_ssr_css_vars {
+                crate::css::transform::vars::inject_ssr_values(
+                    &mut template_opts,
+                    &descriptor.css_vars,
+                    &scope_id,
+                    filename,
+                    Some(&script_bindings),
+                );
+            }
             Some(profile!(
                 "atelier.sfc.template.compile",
                 compile_template_block(
                     &template_allocator,
                     template,
-                    &options.template,
+                    &template_opts,
                     &custom_elements,
                     TemplateBlockCompileContext {
                         scope_id: &scope_id,

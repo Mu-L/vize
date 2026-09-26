@@ -12,6 +12,32 @@ pub(super) struct CompiledStyles {
     pub(super) css_modules: Vec<CssModuleMapping>,
 }
 
+impl CompiledStyles {
+    /// Production script and SSR values use the same hashed names as CSS.
+    pub(super) fn with_css_var_names(
+        mut self,
+        vars: &[std::borrow::Cow<'_, str>],
+        scope_id: &str,
+        filename: &str,
+        is_prod: bool,
+    ) -> Self {
+        if is_prod {
+            for expression in vars {
+                let from = vize_carton::cstr!(
+                    "var(--{})",
+                    crate::css::scoped_v_bind_name(scope_id, expression)
+                );
+                let to = vize_carton::cstr!(
+                    "var(--{})",
+                    crate::css::prod_scoped_v_bind_name(filename, expression)
+                );
+                self.css = self.css.replace(from.as_str(), to.as_str()).into();
+            }
+        }
+        self
+    }
+}
+
 /// Helper to compile all style blocks
 pub(super) fn compile_styles(
     styles: &[SfcStyleBlock],

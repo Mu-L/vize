@@ -1,6 +1,6 @@
 ---
 source: crates/vize_atelier_sfc/src/css/tests.rs
-expression: "v_bind_snapshot(&transformed, &vars)"
+expression: "v_bind_snapshot(transformed, &vars)"
 ---
 vars:
 - color /* keep ) inside comments */
@@ -9,7 +9,7 @@ css:
 
 .icon::before {
   content: "v-bind(icon)";
-  color: var(--test-color\ \/\*\ keep\ \)\ inside\ comments\ \*\/);
+  color: var(--be1a5602);
 }
 
 /* background: v-bind(bg); */

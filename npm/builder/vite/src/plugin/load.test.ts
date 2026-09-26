@@ -732,7 +732,7 @@ assert.ok(
 );
 assert.equal(
   applyCssVirtualLoad.code,
-  String.raw`.root[data-v-applycss]{@apply text-fg; height: var(--applycss-height\ \+\ \'px\');}`,
+  ".root[data-v-applycss]{@apply text-fg; height: var(--v85a80cca);}",
   "Delegated @apply CSS should keep @apply while applying scoped selector and CSS vars",
 );
 
@@ -747,7 +747,7 @@ assert.ok(
 );
 assert.equal(
   applyCssVisibleStyleLoad.code,
-  String.raw`.root[data-v-applycss]{@apply text-fg; height: var(--applycss-height\ \+\ \'px\');}`,
+  ".root[data-v-applycss]{@apply text-fg; height: var(--v85a80cca);}",
   "CSS-visible delegated styles should keep Vite pipeline semantics",
 );
 

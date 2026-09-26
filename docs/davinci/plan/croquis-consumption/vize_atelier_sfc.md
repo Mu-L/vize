@@ -10,7 +10,7 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 
 | product                     | kind  | module    | files | sites |
 | --------------------------- | ----- | --------- | ----: | ----: |
-| `BindingMetadata`           | type  | `croquis` |    13 |    31 |
+| `BindingMetadata`           | type  | `croquis` |    12 |    31 |
 | `Croquis`                   | type  | `croquis` |     7 |    17 |
 | `Drawer`                    | type  | `drawer`  |     2 |     7 |
 | `DrawerOptions`             | type  | `drawer`  |     1 |     5 |
@@ -68,16 +68,16 @@ One shard of the [Croquis consumption matrix](../croquis-consumption.md): every 
 
 | product             | resolved | grep |
 | ------------------- | -------: | ---: |
-| `BindingMetadata`   |       31 |   49 |
+| `BindingMetadata`   |       31 |   51 |
 | `BlockKind`         |        0 |   10 |
-| `Croquis`           |       17 |   44 |
+| `Croquis`           |       17 |   43 |
 | `Drawer`            |        7 |    9 |
 | `DrawerOptions`     |        5 |    6 |
 | `ReactivityTracker` |        0 |    1 |
 | `Scope`             |        0 |    6 |
 | `ScopeKind`         |        2 |    3 |
 | `Span`              |        0 |    7 |
-| `Symbol`            |        0 |    4 |
+| `Symbol`            |        0 |    5 |
 | `SymbolFlags`       |        0 |    5 |
 | `Croquis.bindings`  |       16 |  225 |
 | `Croquis.hoists`    |        0 |    2 |
