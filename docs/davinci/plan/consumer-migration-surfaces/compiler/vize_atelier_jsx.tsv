@@ -24,7 +24,7 @@ compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/col
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/collisions.rs	6	raw_oxc	raw OXC	raw	oxc_ast_visit	raw	2
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/collisions.rs	6	raw_oxc	raw OXC	raw	oxc_syntax	raw	1
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/contexts.rs	3	raw_oxc	raw OXC	raw	oxc_ast	raw	1
-compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/contexts.rs	3	raw_oxc	raw OXC	raw	oxc_ast_visit	raw	2
+compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/contexts.rs	3	raw_oxc	raw OXC	raw	oxc_ast_visit	raw	3
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/contexts.rs	3	raw_oxc	raw OXC	raw	oxc_syntax	raw	1
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/mapped.rs	3	s0	S0	stage	vize_s0	preferred	1
 compiler	Compiler	source	crates/vize_atelier_jsx/src/compile/authored_module/unsupported.rs	3	raw_oxc	raw OXC	raw	oxc_allocator	raw	1

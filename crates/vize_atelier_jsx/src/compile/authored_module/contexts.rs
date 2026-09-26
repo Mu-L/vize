@@ -1,7 +1,11 @@
 //! A Vue setup method cannot inherit an authored arrow's enclosing receiver.
 
-use oxc_ast::ast::{Function, IdentifierReference, MetaProperty, Program, ThisExpression};
+use oxc_ast::ast::{
+    Function, IdentifierReference, MetaProperty, Program, PropertyDefinition, StaticBlock,
+    ThisExpression,
+};
 use oxc_ast_visit::Visit;
+use oxc_span::{GetSpan, Span};
 
 use super::{JsxComponent, JsxDiagnostic, error};
 
@@ -15,6 +19,7 @@ pub(super) fn check(
     let mut visitor = Contexts {
         components,
         missing: None,
+        receivers: Vec::new(),
     };
     visitor.visit_program(program);
     if let Some((start, end)) = visitor.missing {
@@ -30,6 +35,7 @@ pub(super) fn check(
 struct Contexts<'a> {
     components: &'a [JsxComponent],
     missing: Option<(u32, u32)>,
+    receivers: Vec<Span>,
 }
 
 impl Contexts<'_> {
@@ -38,7 +44,14 @@ impl Contexts<'_> {
             .components
             .iter()
             .filter_map(JsxComponent::component_setup)
-            .any(|setup| setup.declaration_start <= start && end <= setup.declaration_end)
+            .any(|setup| {
+                setup.declaration_start <= start
+                    && end <= setup.declaration_end
+                    && self.receivers.last().is_none_or(|receiver| {
+                        receiver.start < setup.declaration_start
+                            || setup.declaration_end < receiver.end
+                    })
+            })
         {
             self.missing = Some((start, end));
         }
@@ -47,21 +60,29 @@ impl Contexts<'_> {
 
 impl<'a> Visit<'a> for Contexts<'_> {
     fn visit_function(&mut self, function: &Function<'a>, flags: oxc_syntax::scope::ScopeFlags) {
-        // Normal functions keep their own receiver, arguments and new.target.
-        // Walk enclosing functions to reach nested component arrows, but skip
-        // functions whose complete body is retained within a setup wrapper.
-        if self
-            .components
-            .iter()
-            .filter_map(JsxComponent::component_setup)
-            .any(|setup| {
-                setup.declaration_start <= function.span.start
-                    && function.span.end <= setup.declaration_end
-            })
-        {
-            return;
-        }
+        // A retained normal function owns its context; a nested component
+        // wrapper still needs to diagnose captures from that enclosing context.
+        self.receivers.push(function.span);
         oxc_ast_visit::walk::walk_function(self, function, flags);
+        self.receivers.pop();
+    }
+
+    fn visit_property_definition(&mut self, property: &PropertyDefinition<'a>) {
+        // Decorators and computed keys use the surrounding receiver. Field
+        // initializer values bind the class instance (or the static class).
+        self.visit_decorators(&property.decorators);
+        self.visit_property_key(&property.key);
+        if let Some(value) = &property.value {
+            self.receivers.push(value.span());
+            self.visit_expression(value);
+            self.receivers.pop();
+        }
+    }
+
+    fn visit_static_block(&mut self, block: &StaticBlock<'a>) {
+        self.receivers.push(block.span);
+        oxc_ast_visit::walk::walk_static_block(self, block);
+        self.receivers.pop();
     }
 
     fn visit_this_expression(&mut self, expression: &ThisExpression) {

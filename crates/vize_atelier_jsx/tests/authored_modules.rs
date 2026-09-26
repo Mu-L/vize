@@ -78,7 +78,10 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
                 function readLabel(this: { prefix: string }, label: string) {
                     return this.prefix + arguments[0];
                 }
-                const read = () => readLabel.call({ prefix: "" }, props.label);
+                class Model { self = this; static self; static { this.self = this; } }
+                const model = new Model();
+                const read = () => readLabel.call({ prefix: "" }, props.label)
+                    + (model.self === model && Model.self === Model ? "" : "lost-class-receiver");
                 return <p>{read()}</p>;
             }; export const afterTyped = "retained-after-setup";
         "#,
