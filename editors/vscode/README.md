@@ -133,6 +133,24 @@ template bindings and Nuxt 2 globals in type checking, completion, hover, defini
 When paired with the `Vize Art` extension (`vize.vize-art`), the same editor capabilities also
 apply to `*.art.vue` documents.
 
+### Vue TSX and JSX
+
+Opening a `.tsx` or `.jsx` file activates the extension, including in a workspace containing
+no Vue SFCs. Enable Vue JSX checking in the project's `vize.config.json`:
+
+```json
+{
+  "lsp": { "editor": true, "typecheck": true },
+  "typeChecker": { "jsxTypecheck": true }
+}
+```
+
+The same `typeChecker.jsxTypecheck` option works in Pkl configuration. It enables type
+diagnostics, completion, hover, and navigation through the native TypeScript backend.
+Leave it off for React projects: JSX documents are then withheld from the Vize server.
+Restart the server after changing the project configuration. Older servers that do not
+advertise JSX support also leave JSX documents with their existing language service.
+
 ## Commands
 
 - `Vize: Show Status` - Open the Vize status and setup action hub

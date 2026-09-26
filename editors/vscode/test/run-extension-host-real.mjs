@@ -16,6 +16,7 @@ import {
 import { withPinnedFixtureWorkspace } from "../../../tests/_helpers/realworld-patch.ts";
 import { createRealHostEnvironment, runPackagedExtensionHost } from "./packaged-host-contract.mjs";
 import { readPinnedCreateVueHostResult } from "./pinned-create-vue-host-result.mjs";
+import { runTsxHostScenarios } from "./run-tsx-host-scenarios.mjs";
 
 const sourceExtensionPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const testDataPath = path.join(sourceExtensionPath, ".vscode-test", "host-smoke-real");
@@ -30,6 +31,13 @@ const vsixPath = path.join(sourceExtensionPath, "dist", "vize.vsix");
 const vscodeVersion = process.env.VIZE_TEST_VSCODE_VERSION ?? "1.107.1";
 
 const serverPath = resolveRealServerPath();
+await runTsxHostScenarios(runVSCodeCommand, {
+  onOutput: writeCommandOutput,
+  serverPath,
+  sourceExtensionPath,
+  vscodeVersion,
+  vsixPath,
+});
 
 fs.rmSync(testDataPath, { force: true, recursive: true });
 await withPinnedFixtureWorkspace(

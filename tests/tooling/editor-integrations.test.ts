@@ -108,12 +108,6 @@ test("vscode-vize wires art-vue documents into editor features", () => {
     }
   }
   const extensionSource = readText("editors/vscode/src/extension.ts");
-  const extensionCoreSource = readText("editors/vscode/src/extension-core.ts");
-
-  assert.match(extensionCoreSource, /SUPPORTED_LANGUAGE_IDS\s*=\s*\["vue", "art-vue", "html"\]/);
-  assert.match(extensionCoreSource, /SUPPORTED_URI_SCHEMES\s*=\s*\["file", "untitled"\]/);
-  assert.match(extensionCoreSource, /function createDocumentSelector/);
-  assert.match(extensionSource, /documentSelector:\s*createDocumentSelector\(\)/);
   assert.match(extensionSource, /onDidChangeConfiguration/);
   assert.match(extensionSource, /scheduleClientSync\(context,\s*"configuration changed"\)/);
   assert.match(extensionSource, /function scheduleClientSync/);

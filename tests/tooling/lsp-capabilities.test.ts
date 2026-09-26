@@ -174,6 +174,7 @@ const EDITOR_BUNDLE_CAPABILITIES = {
     full: true,
   },
   inlayHintProvider: true,
+  experimental: { vize: { jsxTypecheck: false } },
   workspace: {
     workspaceFolders: { supported: true, changeNotifications: true },
     fileOperations: {
@@ -183,10 +184,8 @@ const EDITOR_BUNDLE_CAPABILITIES = {
       didDelete: { filters: FILE_EVENT_FILTERS },
     },
   },
-  // Absent on purpose, and therefore absent from this object: the three
-  // formatting providers (opt-in, see below),
-  // `executeCommandProvider`, `monikerProvider` and `experimental` is absent
-  // unless the private client explicitly opts in.
+  // Opt-in formatting providers, `executeCommandProvider` and
+  // `monikerProvider` are absent from this default capability set.
 };
 
 test("vize lsp advertises exactly this capability set for the default editor bundle", async () => {
@@ -198,6 +197,7 @@ test("vize lsp advertises exactly this capability set for the default editor bun
 test("vize lsp advertises the exact measured auto-insertion extension only when opted in", async () => {
   await withCapabilities("auto-insert", { editor: true, autoInsert: true }, (capabilities) => {
     assert.deepEqual(capabilities.experimental, {
+      vize: { jsxTypecheck: false },
       autoInsertionProvider: {
         triggerCharacters: ["}", "=", ">", "/", "\\w"],
         configurationSections: [
@@ -211,7 +211,7 @@ test("vize lsp advertises the exact measured auto-insertion extension only when 
   });
 
   await withCapabilities("auto-insert-off", { editor: true, autoInsert: false }, (capabilities) => {
-    assert.equal(capabilities.experimental, undefined);
+    assert.deepEqual(capabilities.experimental, { vize: { jsxTypecheck: false } });
   });
 });
 

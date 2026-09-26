@@ -353,15 +353,15 @@
       "commandPalette": [
         {
           "command": "vize.restartServer",
-          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html"
+          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html || editorLangId == typescriptreact || editorLangId == javascriptreact"
         },
         {
           "command": "vize.showOutput",
-          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html"
+          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html || editorLangId == typescriptreact || editorLangId == javascriptreact"
         },
         {
           "command": "vize.findReferences",
-          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html"
+          "when": "editorLangId == vue || editorLangId == art-vue || editorLangId == html || editorLangId == typescriptreact || editorLangId == javascriptreact"
         }
       ]
     },
@@ -421,6 +421,8 @@
     "onCommand:vize.showStatus",
     "onLanguage:art-vue",
     "onLanguage:html",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact",
     "onLanguage:vue"
   ],
   "icon": "icons/logo.png",

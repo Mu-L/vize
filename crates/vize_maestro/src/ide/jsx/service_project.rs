@@ -1,11 +1,18 @@
 //! Canonical Corsa project synchronization for JSX/TSX editor requests.
 
 use oxc_span::SourceType;
-use vize_canon::{CorsaBridge, CorsaScriptVirtualDocumentRequest, CorsaVueVirtualDocumentOptions};
+use tower_lsp::lsp_types::Location;
+use vize_canon::{
+    CorsaBridge, CorsaScriptVirtualDocumentRequest, CorsaVueVirtualDocumentOptions, LspLocation,
+};
 
 use super::service::JsxService;
 use super::virtual_ts::JsxVirtualTs;
 use crate::ide::IdeContext;
+use crate::ide::corsa_support::{
+    CanonicalVirtualDocument, canonical_source_offset_to_position, map_canonical_corsa_locations,
+    merge_canonical_locations, open_canonical_script_document,
+};
 
 pub(super) async fn open_virtual_project(
     ctx: &IdeContext<'_>,
@@ -45,4 +52,32 @@ pub(super) async fn open_virtual_project(
         },
         document.request_uri,
     ))
+}
+
+/// Navigation retains the canonical project's authored identities, including
+/// imported modules materialized inside the private Corsa session.
+pub(super) async fn prepare_navigation_request(
+    ctx: &IdeContext<'_>,
+    bridge: &CorsaBridge,
+) -> Option<(CanonicalVirtualDocument, u32, u32)> {
+    if !bridge.is_initialized() {
+        return None;
+    }
+    let document = open_canonical_script_document(ctx, bridge, false).await?;
+    let (line, character) = canonical_source_offset_to_position(&document, ctx.offset)?;
+    Some((document, line, character))
+}
+
+/// Distinct generated entries may map to one authored occurrence.
+pub(super) fn map_navigation_locations(
+    ctx: &IdeContext<'_>,
+    document: &CanonicalVirtualDocument,
+    locations: Vec<LspLocation>,
+) -> Vec<Location> {
+    merge_canonical_locations(
+        Some(map_canonical_corsa_locations(ctx, document, locations)),
+        None,
+        None,
+    )
+    .unwrap_or_default()
 }

@@ -26,7 +26,7 @@ use tower_lsp::{
 #[cfg(test)]
 use tower_lsp::lsp_types::{Position, Range};
 
-use super::{MaestroServer, server_capabilities};
+use super::MaestroServer;
 use crate::ide::{
     CompletionService, DocumentHighlightService, DocumentLinkService, HoverService, IdeContext,
     RenameService, position_to_offset,
@@ -73,7 +73,7 @@ impl LanguageServer for MaestroServer {
         }
 
         Ok(InitializeResult {
-            capabilities: server_capabilities(self.state.lsp_features()),
+            capabilities: self.client_capabilities(),
             server_info: Some(ServerInfo {
                 name: "vize-maestro".to_owned(),
                 version: Some(env!("CARGO_PKG_VERSION").to_owned()),
