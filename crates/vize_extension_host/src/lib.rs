@@ -43,7 +43,7 @@ pub mod vue;
 pub mod wasm;
 pub mod wire;
 
-pub use accept::{Accepted, accept};
+pub use accept::Accepted;
 pub use contract::{
     Capability, Diagnostic, DiagnosticPart, GuestError, GuestLimits, InputDialectGuest,
     LoweredBlock, Page, PartKind, Severity, SourceBlock, Span, Stage, Witness,
