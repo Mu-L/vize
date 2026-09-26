@@ -7,6 +7,7 @@ mod component;
 mod control;
 mod expressions;
 mod ident;
+mod keep_alive;
 mod model;
 mod names;
 mod once;
@@ -171,6 +172,7 @@ pub(super) fn admit<'a>(
     attach::bindings(&mut nodes, &slots, &parents, bindings, alloc)?;
     slots::check(&nodes, &parents)?;
     teleport::check(&nodes)?;
+    keep_alive::check(&nodes)?;
     model::check(&nodes)?;
     once::check(&nodes, &parents)?;
     spread::check(&nodes)?;
