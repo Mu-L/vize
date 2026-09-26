@@ -95,7 +95,7 @@ the commands that re-derive it, and the local measurements taken so far.
   pinned official compiler: prop updates, switching supplied slots, absent
   names, fallback text updates, fallback recreation, untouched sibling
   identities and unmount match independently specified observations. Dynamic
-  slot *content* names remain a separate legacy boundary.
+  slot _content_ names remain a separate legacy boundary.
 
 ## Mechanical witnesses
 
