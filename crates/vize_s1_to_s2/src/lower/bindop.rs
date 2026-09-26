@@ -21,7 +21,6 @@
 use vize_s0::{Box, String, Vec, cstr};
 use vize_s1::Attribute;
 
-use vize_s2::expr::ExprRef;
 use vize_s2::op::{BindOp, BindingOp, DynamicName, OnOp, VueSyncOp};
 
 use super::cx::{Cx, attr_slice, attr_span};
@@ -89,7 +88,7 @@ pub(crate) fn lower_bind<'a>(
                 } else {
                     cx.allocator.alloc_str(camel.as_str())
                 };
-                let expr = ExprRef::parse_js_in(cx.allocator, text, cx.span_of(arg_text));
+                let expr = super::expr::expression_in(cx, text, cx.span_of(arg_text));
                 cx.record(
                     RULE_SAME_NAME,
                     node,

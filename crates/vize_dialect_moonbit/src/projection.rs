@@ -1,9 +1,8 @@
 //! The virtual MoonBit projection with span links (charter #14).
 //!
 //! The template is lowered through S1 → S2 like every Vue template; each
-//! S2 expression position is then re-read as `ExprRef::Foreign` of
-//! dialect `moonbit` (the P6-4a stand-in for a lowering that constructs
-//! `Foreign` itself, which P6-4b owns) and emitted by
+//! S2 expression position is admitted directly as `ExprRef::Foreign` of
+//! dialect `moonbit`, with exact source spans, and emitted by
 //! [`crate::dialect::MoonBitDialect`] into **one** virtual `.mbt` file:
 //!
 //! 1. the script block, verbatim, as the binding environment;
@@ -34,7 +33,7 @@
 mod emit;
 
 use vize_s0::{Allocator, Span, String, append};
-use vize_s1_to_s2::{LegacyCaps, lower_source_block_with_caps};
+use vize_s1_to_s2::{ForeignDialect, LegacyCaps, lower_source_block_with_foreign_expressions};
 use vize_s2::expr::ForeignExpr;
 
 use crate::sfc::MoonBitSfc;
@@ -88,7 +87,7 @@ pub enum PositionKind {
     HandlerStatement,
 }
 
-/// One template expression position, re-read as a foreign expression.
+/// One template expression position carrying its foreign expression.
 #[derive(Debug, Clone, Copy)]
 pub struct Position<'a> {
     /// How the position was projected.
@@ -157,8 +156,15 @@ pub fn project<'a>(
     file_name: &str,
 ) -> Projection<'a> {
     let (tree, errors) = vize_s1::parse(allocator, sfc.template.source());
-    let lowered =
-        lower_source_block_with_caps(allocator, &tree, &errors, sfc.template, LegacyCaps::VUE3);
+    let dialect = moonbit_dialect();
+    let lowered = lower_source_block_with_foreign_expressions(
+        allocator,
+        &tree,
+        &errors,
+        sfc.template,
+        LegacyCaps::VUE3,
+        dialect,
+    );
     let mut parts = Vec::new();
     interpolation_parts(&tree.children, sfc.template, &mut parts);
     let mut emitter = Emitter {
@@ -198,4 +204,13 @@ pub fn project<'a>(
         }
     }
     emitter.projection
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "the fixed MoonBit registry id is validated by its contract test"
+)]
+fn moonbit_dialect() -> ForeignDialect<'static> {
+    ForeignDialect::new::<crate::dialect::MoonBitDialect>(crate::sfc::DIALECT)
+        .expect("the fixed MoonBit registry id is valid")
 }

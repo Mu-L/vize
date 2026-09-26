@@ -29,7 +29,7 @@ use vize_davinci::side_table::SideTable;
 use vize_s0::{Allocator, SourceBlock, SourceRoot, Span, String};
 use vize_s1::{SurfaceError, SurfaceTree};
 
-use vize_s2::op::{Namespace, Region};
+use vize_s2::op::Region;
 use vize_s2::provenance::ProvenanceRecord;
 use vize_s2::scope::ScopeFacts;
 
@@ -43,6 +43,8 @@ mod directive;
 mod element;
 mod expr;
 mod features;
+mod finish;
+mod foreign;
 mod forop;
 mod html;
 mod if_keys;
@@ -60,6 +62,7 @@ mod vtext;
 
 pub use caps::LegacyCaps;
 pub use features::{LoweringFeatures, OpFamily};
+pub use foreign::{ForeignDialect, lower_source_block_with_foreign_expressions};
 pub use if_keys::{BranchKey, BranchKeyKind, IfFacts, SAME_KEY_MESSAGE};
 
 // The one-scanner rule (#4365): the S2 passes re-derive binding names
@@ -251,7 +254,7 @@ fn lower_source_block_with_caps_and_comment_policy<'a>(
             && tree.source.len() == block.source().len(),
         "the source block must be the exact string parsed into the S1 tree"
     );
-    let mut cx = cx::Cx::with_source_block_and_comment_policy(
+    let cx = cx::Cx::with_source_block_and_comment_policy(
         allocator,
         block,
         caps,
@@ -259,29 +262,7 @@ fn lower_source_block_with_caps_and_comment_policy<'a>(
         custom_elements.patterns,
         custom_elements.predicate,
     );
-    for error in errors {
-        cx.diagnostics.push(crate::exemptions::surface_syntax(
-            surface_error_span(block, error.offset),
-            error.code.message(),
-        ));
-    }
-    let ops = structural::lower_children(&mut cx, &tree.children, Namespace::Html);
-    Lowered {
-        allocator,
-        source: block.root_source(),
-        root: Region { ops },
-        op_count: cx.op_count(),
-        diagnostics: cx.diagnostics,
-        provenance: cx.provenance,
-        scopes: cx.scopes,
-        texts: cx.texts,
-        for_facts: cx.for_facts,
-        if_facts: cx.if_facts,
-        wrappers: cx.wrappers,
-        for_wrappers: cx.for_wrappers,
-        features: cx.features,
-        caps,
-    }
+    finish::lower_in_context(cx, tree, errors, block)
 }
 
 /// The artifact for a source that cannot be addressed by `u32` offsets.

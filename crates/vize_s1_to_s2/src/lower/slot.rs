@@ -19,7 +19,6 @@ use super::features::OpFamily;
 use vize_s0::{Box, String, Vec, cstr};
 use vize_s1::Element;
 
-use vize_s2::expr::ExprRef;
 use vize_s2::op::{Attribute, BindingOp, DynamicName, Namespace, Op, Region, SlotOp};
 
 use super::binding::{defer, lower_slot_content};
@@ -77,7 +76,7 @@ pub(crate) fn lower_slot<'a>(
                                 _ => "name",
                             };
                             let expr =
-                                ExprRef::parse_js_in(cx.allocator, arg_text, cx.span_of(arg_text));
+                                super::expr::expression_in(cx, arg_text, cx.span_of(arg_text));
                             cx.record(
                                 RULE_SAME_NAME,
                                 node,

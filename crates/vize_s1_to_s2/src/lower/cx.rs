@@ -57,6 +57,7 @@ pub(crate) struct Cx<'a> {
     pub wrappers: SideTable<super::structural::WrapperKeys>,
     pub for_wrappers: SideTable<super::structural::ForWrapper>,
     pub caps: super::caps::LegacyCaps,
+    pub foreign_dialect: Option<super::foreign::ForeignDialect<'a>>,
     /// Op families this lowering built, set where the op is minted —
     /// see `lower::features`.
     pub features: super::features::LoweringFeatures,
@@ -92,6 +93,7 @@ impl<'a> Cx<'a> {
             wrappers: SideTable::new(),
             for_wrappers: SideTable::new(),
             caps,
+            foreign_dialect: None,
             features: super::features::LoweringFeatures::EMPTY,
             custom_element_patterns: custom_element_patterns.to_vec(),
             custom_element_predicate,

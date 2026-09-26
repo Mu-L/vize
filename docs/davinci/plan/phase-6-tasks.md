@@ -131,6 +131,14 @@
 
 ## P6-4b — MoonBit expression dialect
 
+**Lowering and cache slice 2026-09-26:** S1→S2 constructs foreign payloads
+before projection, preserving dialect-owned scope names without a JS parse.
+A bounded checker cache keys every result by the toolchain version and the
+complete projection inputs. The fixed `moonc` still reproduces both existing
+fixture projections and diagnostic spans. The typed `.mbti` environment and
+expression-world exchange remain open; see
+[phase-6-records/p6-4b-lowering-cache.md](./phase-6-records/p6-4b-lowering-cache.md).
+
 **Start gate:** gated on P4-5b — the dialect's projection is an instance of the single projection.
 
 **Lane:** D

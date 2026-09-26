@@ -18,10 +18,22 @@ pub(super) fn generated_offset(text: &str) -> u32 {
 }
 
 /// An expression's authored text and file-absolute span.
-type Piece<'a> = (&'a str, Span);
+#[derive(Clone, Copy)]
+pub(super) struct Piece<'a> {
+    source: &'a str,
+    span: Span,
+    retained: Option<&'a ForeignExpr<'a>>,
+}
 
 fn piece(expr: ExprRef<'_>) -> Piece<'_> {
-    (expr.source(), expr.span())
+    Piece {
+        source: expr.source(),
+        span: expr.span(),
+        retained: match expr {
+            ExprRef::Foreign(foreign) => Some(foreign),
+            _ => None,
+        },
+    }
 }
 
 /// Every S1 interpolation's trimmed content, file-absolute, in document
@@ -37,7 +49,11 @@ pub(super) fn interpolation_parts<'a>(
             SurfaceChild::Interpolation(node) => {
                 let text = node.content.text.trim();
                 if let Some(span) = block.span_of(text) {
-                    out.push((text, span));
+                    out.push(Piece {
+                        source: text,
+                        span,
+                        retained: None,
+                    });
                 }
             }
             _ => {}
@@ -78,7 +94,7 @@ impl<'a> Emitter<'a> {
                     let span = interpolation.span;
                     let parts = self.parts.iter().copied();
                     let inside: Vec<_> = parts
-                        .filter(|(_, at)| span.start <= at.start && at.end <= span.end)
+                        .filter(|part| span.start <= part.span.start && part.span.end <= span.end)
                         .collect();
                     for part in inside {
                         self.demand("__vize_show", PositionKind::Interpolation, part);
@@ -212,15 +228,23 @@ impl<'a> Emitter<'a> {
     /// Emit one expression through the dialect, recording its position and
     /// link; `statement_start` opens the position's statement range, which
     /// [`Self::close_statement`] closes.
-    fn expr(&mut self, kind: PositionKind, (source, span): Piece<'a>, statement_start: u32) {
-        let foreign: &'a ForeignExpr<'a> = self.allocator.alloc(ForeignExpr {
-            dialect: DIALECT,
+    fn expr(&mut self, kind: PositionKind, piece: Piece<'a>, statement_start: u32) {
+        let Piece {
             source,
             span,
-            facts: vize_s0::Vec::new_in(&self.allocator),
+            retained,
+        } = piece;
+        let foreign: &'a ForeignExpr<'a> = retained.unwrap_or_else(|| {
+            self.allocator.alloc(ForeignExpr {
+                dialect: DIALECT,
+                source,
+                span,
+                facts: vize_s0::Vec::new_in(&self.allocator),
+            })
         });
         let start = generated_offset(&self.projection.text);
-        // The dialect emits its own payload verbatim into a `String`, which
+        // Whole expressions reuse their S2 payload; compound display parts
+        // retain their exact S1 spans. The dialect emits verbatim, which
         // cannot fail.
         let _ = MoonBitDialect.emit(ExprRef::Foreign(foreign), &mut self.projection.text);
         let end = generated_offset(&self.projection.text);
