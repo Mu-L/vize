@@ -197,19 +197,26 @@ fn scoped_slot_lowering_matches_the_batch_generator() {
     );
 }
 
-/// The structural walk (semantic tokens, hover) must still see the slot pattern
-/// and every body expression once the generator wraps them in a scope.
+/// The structural walk (semantic tokens, hover) sees the imported component,
+/// slot pattern and body expression once, at their authored source spans.
 #[test]
 fn collect_jsx_expressions_includes_scoped_slot_pattern_and_body() {
     let source = "import Widget from './Widget.vue';\nexport const view = <Widget fooBar=\"ok\">{{ default: (props: { item: string }) => props.item }}</Widget>;\n";
-    let contents: Vec<String> = collect_jsx_expressions(source, JsxLang::Tsx)
+    let expressions: Vec<(String, usize, usize)> = collect_jsx_expressions(source, JsxLang::Tsx)
         .into_iter()
-        .map(|expr| expr.content)
+        .map(|expr| (expr.content, expr.start as usize, expr.end as usize))
         .collect();
+    let tag = source.find("<Widget").expect("opening component tag") + 1;
+    let pattern = source.find("(props:").expect("slot parameter") + 1;
+    let body = source.find("=> props.item").expect("slot body") + 3;
 
     assert_eq!(
-        contents,
-        vec!["props".to_string(), "props.item".to_string()]
+        expressions,
+        vec![
+            ("Widget".to_string(), tag, tag + "Widget".len()),
+            ("props".to_string(), pattern, pattern + "props".len()),
+            ("props.item".to_string(), body, body + "props.item".len()),
+        ]
     );
 }
 
