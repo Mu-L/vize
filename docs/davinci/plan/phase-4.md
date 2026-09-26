@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Early re-cut 2026-09-21, while phase 3 is still live.** The plan README's rule is that a phase is re-cut at its predecessor's exit and that a provisional task cannot be picked up until it carries the full contract. Phase 4 is re-cut **before** the phase-3 exit because almost all of it consumes only S2 (phase 2, exited 2026-09-12), and the maintainer's completion target (**2026-09-23**, ahead of the Vue Fes Japan 2026 presentation on **2026-10-24**) leaves no room to idle the consumer half of the program behind S3 work it does not read. The [plan README](./README.md#phase-files) records the early re-cut rule this phase follows: every task states its **start gate** — either _startable now_ (P3-independent) or _gated on_ a named phase-3 task — and a gated task is not picked up until that task lands. The exit gate below is unchanged and still requires the phase-3 exit (P4-17 depends on P3-16). The target date orders work; it does not relax a gate, a ratchet or a waiver ledger (roadmap: phases are ordered, not scheduled).
 
-**The per-task contracts live in [phase-4-tasks.md](./phase-4-tasks.md) (P4-1a…P4-5c), [phase-4-tasks-later.md](./phase-4-tasks-later.md) (P4-6a…P4-9b) and [phase-4-tasks-last.md](./phase-4-tasks-last.md) (P4-10a…P4-17)** — Start gate / Lane / Deliverable / Steps / Acceptance / Deps / Non-goals for all 39 tasks. This file keeps the phase-level record: what the re-cut changed, what phase 3 carried in so far, the start gates, the parallel lanes, the critical path, the TODO index and the exit gate. [`davinci-phase4-contract-status.test.ts`](../../../tests/tooling/davinci-phase4-contract-status.test.ts) enforces the structure: every index entry links a full contract, every dependency names a real task, the graph is acyclic, a _startable now_ task has no open phase-3 dependency, lanes own disjoint paths, and the exit-gate lines below survive verbatim.
+**The per-task contracts live in [phase-4-tasks.md](./phase-4-tasks.md) (P4-1a…P4-5c), [phase-4-tasks-later.md](./phase-4-tasks-later.md) (P4-6a…P4-9b) and [phase-4-tasks-last.md](./phase-4-tasks-last.md) (P4-10a…P4-17)** — Start gate / Lane / Deliverable / Steps / Acceptance / Deps / Non-goals for all 40 tasks. This file keeps the phase-level record: what the re-cut changed, what phase 3 carried in so far, the start gates, the parallel lanes, the critical path, the TODO index and the exit gate. [`davinci-phase4-contract-status.test.ts`](../../../tests/tooling/davinci-phase4-contract-status.test.ts) enforces the structure: every index entry links a full contract, every dependency names a real task, the graph is acyclic, a _startable now_ task has no open phase-3 dependency, lanes own disjoint paths, and the exit-gate lines below survive verbatim.
 
 ## What the re-cut changed
 
@@ -19,6 +19,8 @@ Each item is a scope or design change forced by what the tree measures today (20
 8. **Pug has no parser anywhere.** No crate parses pug; Maestro has a 339-line line-heuristic cursor helper (`vize_maestro/src/ide/pug.rs`) and corpus coverage scans pug line-heuristically. Charter #12's first-class S1 pug dialect is therefore its own task (P4-12c), independent of the Glyph rewrite (P4-12b).
 9. **S1 is template-only.** `vize_s1` (1,381 lines) is the Vue-template surface tree; SFC block splitting lives in `vize_croquis/src/sfc/` (3,687 lines) and there is no OXC-backed lossless script wrapper. P4-12b and P4-13 consume the existing splitter plus S1 template trees and name the script wrapper as a non-goal.
 
+**Follow-up audit 2026-09-26 (`339f29e3`):** P4-12c has since landed its Pug parser and lowering slices. The script/JSX lossless S1 wrapper remains absent; [P4-12d](./phase-4-tasks-last.md#p4-12d--lossless-script-and-jsx-s1) now owns this open migration. Functional JSX S2 support already exists through OXC → legacy `RootNode` → S2 projection; that does not establish script/JSX S1 fidelity.
+
 ## Carried from phase 3 (so far)
 
 | Phase-3 state (2026-09-21)                                                                                        | Phase-4 tasks affected | How                                                                                                                                             |
@@ -33,7 +35,7 @@ The ledgers carry two deferred items into this phase: **FP-1** (`type/require-ty
 
 ## Start gates and parallel lanes
 
-**Startable now (P3-independent), 35 of 39 tasks:** every task except the four below; two of them (P4-5c, P4-10b) wait behind the gated P4-5b. **Gated on phase 3, 4 tasks:** P4-3e and P4-4b on P3-6; P4-5b on P3-9; P4-17 on P3-16.
+**Startable now (P3-independent), 36 of 40 tasks:** every task except the four below; two of them (P4-5c, P4-10b) wait behind the gated P4-5b. **Gated on phase 3, 4 tasks:** P4-3e and P4-4b on P3-6; P4-5b on P3-9; P4-17 on P3-16.
 
 Each lane owns a disjoint set of paths; tasks in different lanes never edit the same file, so one agent per lane can run concurrently from the first hour. The only cross-lane edits are registration touchpoints — a `mod` line in `lib.rs`, a `Cargo.toml` dependency, a one-line rule or seed-class registration, a regenerated matrix (`rule-parity.md`, `croquis-consumption.md`), a `test-suites.md` row — and those are the expected rebase conflicts. A path listed with `minus lane <L>` is carved out for lane L.
 
@@ -54,6 +56,7 @@ Each lane owns a disjoint set of paths; tasks in different lanes never edit the 
 | M    | P4-14a, P4-14b, P4-14c    | `crates/vize_davinci/src/render*`, `crates/vize_carton/src/i18n*`, `crates/vize/src/commands/explain*`, `tests/tooling/davinci-diagnostic-catalog*`                                                                                                                             |
 | N    | P4-15a, P4-15b            | `tools/commands/davinci/seed-defects*`, `tools/commands/davinci/suppression-telemetry*`, `tests/_fixtures/davinci-fpfn/`                                                                                                                                                        |
 | O    | P4-16                     | `crates/vize_vitrine/src/napi/plugin*`                                                                                                                                                                                                                                          |
+| P    | P4-12d                    | `crates/vize_s1/src/script*`, `crates/vize_s1/tests/script*`, `crates/vize_s1_to_s2/src/lower/script*`, `crates/vize_atelier_jsx/src/`                                                                                                                                          |
 | X    | P4-17                     | `docs/davinci/plan/phase-4-records/`                                                                                                                                                                                                                                            |
 
 **Projection consumers belong to lane C.** P4-3 waves switch every `Croquis` field reader **except** `crates/vize_canon/src/virtual_ts/**` and `crates/vize_maestro/src/virtual_code/**`; those readers die with the old generators in P4-5c, so switching them first would be work deleted a week later.
@@ -103,6 +106,7 @@ Each ID links to its contract; the box is checked only in the PR that satisfies 
 - [x] [P4-12a](./phase-4-tasks-last.md#p4-12a--style-specification) Style specification — lane J · startable now
 - [ ] [P4-12b](./phase-4-tasks-last.md#p4-12b--glyph-on-s1) Glyph on S1 — lane J · startable now
 - [ ] [P4-12c](./phase-4-tasks-last.md#p4-12c--pug-as-an-s1-dialect) Pug as an S1 dialect — lane K · startable now
+- [ ] [P4-12d](./phase-4-tasks-last.md#p4-12d--lossless-script-and-jsx-s1) Lossless script and JSX S1 — lane P · startable now
 - [x] [P4-13](./phase-4-tasks-last.md#p4-13--musea-onto-s0-and-s1) Musea onto S0 and S1 — lane L · startable now
 - [x] [P4-14a](./phase-4-tasks-last.md#p4-14a--structured-diagnostic-renderer) Structured diagnostic renderer — lane M · startable now
 - [ ] [P4-14b](./phase-4-tasks-last.md#p4-14b--catalog-completeness-for-every-producer) Catalog completeness for every producer — lane M · startable now
