@@ -8,10 +8,12 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use ecow::EcoString;
 use oxc_span::SourceType;
 use vize_carton::{CompactString, FxHashMap, SmallVec};
 use vize_croquis::sfc::{SfcParseOptions, parse_sfc_without_css_vars};
+
+mod key;
+use key::ModuleKey;
 
 /// A module's index in its [`ProjectSources`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -70,7 +72,7 @@ pub struct ProjectModule {
     path: CompactString,
     // The normalized key is also owned by `by_key`. Heap-backed keys share
     // that one allocation; authored path/source storage stays unchanged.
-    key: EcoString,
+    key: ModuleKey,
     source: CompactString,
     kind: ModuleKind,
     scripts: SmallVec<[ScriptRange; 2]>,
@@ -134,7 +136,7 @@ impl ProjectModule {
 #[derive(Debug, Default)]
 pub struct ProjectSources {
     modules: Vec<ProjectModule>,
-    by_key: FxHashMap<EcoString, ModuleId>,
+    by_key: FxHashMap<ModuleKey, ModuleId>,
 }
 
 const SCRIPT_EXTENSIONS: &[&str] = &["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
@@ -274,9 +276,9 @@ fn split_sfc(source: &str, path: &str) -> (SmallVec<[ScriptRange; 2]>, Option<(u
 }
 
 /// A path as a `/`-separated key with `.` and `..` folded lexically.
-fn normalize(path: &Path) -> EcoString {
+fn normalize(path: &Path) -> ModuleKey {
     let mut parts: Vec<PathBuf> = Vec::new();
-    let mut prefix = EcoString::new();
+    let mut prefix = ModuleKey::default();
     for component in path.components() {
         match component {
             Component::Prefix(value) => prefix.push_str(&value.as_os_str().to_string_lossy()),
