@@ -4466,8 +4466,11 @@ name = "vize_dialect_moonbit"
 version = "0.428.1"
 dependencies = [
  "serde_json",
+ "sha2 0.11.0",
  "vize_carton",
  "vize_croquis",
+ "vize_davinci",
+ "vize_extension_host",
  "vize_s1",
  "vize_s1_to_s2",
  "vize_s2",

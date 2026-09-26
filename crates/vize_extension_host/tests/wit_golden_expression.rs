@@ -63,7 +63,7 @@ fn the_expression_guest_imports_no_host_function() {
         .imports(&engine)
         .map(|(name, _)| name.to_owned())
         .collect();
-    assert_eq!(imports, ["vize:contracts/types@0.1.2"]);
+    assert_eq!(imports, ["vize:contracts/types@0.1.3"]);
 }
 
 #[test]

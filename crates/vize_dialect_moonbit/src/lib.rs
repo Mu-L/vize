@@ -34,6 +34,7 @@ pub mod native;
 pub mod projection;
 pub mod render;
 pub mod sfc;
+pub mod typed;
 
 use core::fmt;
 
@@ -98,6 +99,7 @@ pub fn check<'a, H: MooncHost>(
             package: PACKAGE,
             file_name: &projection.file_name,
             source: &projection.text,
+            environment: None,
         })
         .map_err(Error::Host)?;
     let diagnostics = map_all(&projection, &raw.lines).map_err(Error::Parse)?;

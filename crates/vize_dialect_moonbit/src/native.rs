@@ -6,7 +6,8 @@
 //! the `.moonbit-version` pin; no wasm build of it is published, so there
 //! is nothing for wasmtime to load. The native binary takes the virtual
 //! file from its command line (`-replace-name` / `-replace-content`), so
-//! no source file is ever written; it does write `<pkg>.ast` and
+//! no authored `.mbt` source file is written; a generated typed interface
+//! is compiled inside the private scratch directory. `moonc` writes `<pkg>.ast` and
 //! `<pkg>.typechecked` beside `-o` even with `-no-mi`, so each check runs
 //! in a private scratch directory that is removed afterwards.
 
@@ -18,6 +19,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use vize_s0::{String, ToCompactString, cstr};
 
 use crate::host::{CheckUnit, HostError, MooncHost, RawCheck};
+
+mod environment;
 
 /// Checks started by this process: each gets its own scratch directory.
 static RUNS: AtomicU64 = AtomicU64::new(0);
@@ -95,6 +98,10 @@ impl MooncHost for NativeMoonc {
         &self.toolchain
     }
 
+    fn dependency_key(&self) -> Result<String, HostError> {
+        environment::dependency_key(&self.std_path)
+    }
+
     fn check(&mut self, unit: &CheckUnit<'_>) -> Result<RawCheck, HostError> {
         if unit.source.len() > ARGUMENT_LIMIT {
             return Err(HostError::TooLarge {
@@ -107,10 +114,21 @@ impl MooncHost for NativeMoonc {
             std::env::temp_dir().join(cstr!("vize-moonc-{}-{run}", std::process::id()).as_str());
         std::fs::create_dir_all(&scratch)
             .map_err(|error| HostError::Unavailable(cstr!("{}: {error}", scratch.display())))?;
+        let interface = match unit.environment {
+            Some(text) => match environment::build(&self.moonc, &self.std_path, &scratch, text) {
+                Ok(interface) => Some(interface),
+                Err(error) => {
+                    let _ = std::fs::remove_dir_all(&scratch);
+                    return Err(error);
+                }
+            },
+            None => None,
+        };
         let stem = unit.package.rsplit('/').next().unwrap_or(unit.package);
         let mut prelude = OsString::from(self.std_path.join("prelude/prelude.mi"));
         prelude.push(":prelude");
-        let output = Command::new(&self.moonc)
+        let mut command = Command::new(&self.moonc);
+        command
             .current_dir(&scratch)
             .arg("check")
             .arg("-o")
@@ -135,8 +153,13 @@ impl MooncHost for NativeMoonc {
                 "-replace-content",
                 unit.source,
             ])
-            .arg(unit.file_name)
-            .output();
+            .arg(unit.file_name);
+        if let Some(interface) = interface {
+            let mut import = OsString::from(interface);
+            import.push(":environment");
+            command.arg("-i").arg(import);
+        }
+        let output = command.output();
         let removed = std::fs::remove_dir_all(&scratch);
         let output = output.map_err(|error| HostError::Unavailable(cstr!("{error}")))?;
         removed.map_err(|error| HostError::Failed(cstr!("scratch cleanup: {error}")))?;

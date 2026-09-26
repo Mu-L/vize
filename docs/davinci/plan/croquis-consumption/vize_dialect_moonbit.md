@@ -22,5 +22,5 @@ _None._
 
 | product            | resolved | grep |
 | ------------------ | -------: | ---: |
-| `Span`             |        0 |   25 |
+| `Span`             |        0 |   28 |
 | `Croquis.bindings` |        0 |    6 |

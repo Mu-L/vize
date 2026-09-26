@@ -52,7 +52,8 @@ reuse, each invalidation, retries, entry eviction and the byte limit.
 - Expand the exact end-to-end matrix over props, refs and composables.
 - Complete the `ExprRef` validation report and the required maintainer review.
 
-The expression-world binding record currently carries a name and kind, with
-no type signature. A typed environment needs an explicit contract extension
-or a reviewed producer that supplies those signatures; the dialect must not
-invent them from binding names.
+The original expression-world binding record carries a name and kind. The
+[typed-world extension](./p6-4b-typed-world.md) now carries explicit signatures
+through a separate additive world and checks generated interfaces. The real
+S2 scope producer still needs to supply those signatures automatically; the
+dialect must not invent them from binding names.

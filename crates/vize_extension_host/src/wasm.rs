@@ -22,9 +22,11 @@ use crate::contract::{
 
 mod expression;
 mod output;
+mod typed_expression;
 
 pub use expression::WasmExpressionGuest;
 pub use output::WasmOutputGuest;
+pub use typed_expression::WasmTypedExpressionGuest;
 
 pub(crate) mod bindings {
     wasmtime::component::bindgen!({

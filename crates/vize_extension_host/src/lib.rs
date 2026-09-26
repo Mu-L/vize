@@ -37,6 +37,7 @@ pub mod outproc;
 pub mod output;
 pub mod session;
 pub mod surface_page;
+pub mod typed_expression;
 pub mod vue;
 #[cfg(feature = "extension-host")]
 pub mod wasm;

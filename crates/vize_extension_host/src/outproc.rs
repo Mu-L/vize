@@ -19,6 +19,7 @@ use crate::contract::{
 };
 use crate::expression::{Analysis, ExpressionBatch, ExpressionDialectGuest};
 use crate::output::{EmitRequest, Emitted, OutputTargetGuest};
+use crate::typed_expression::{TypedExpressionBatch, TypedExpressionGuest};
 use crate::wire::{Request, Response, read_message, transport, write_message};
 
 /// A guest behind a child process.
@@ -212,5 +213,35 @@ impl Drop for OutOfProcessGuest {
         drop(self.stdin.take());
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+/// Start the child hosting a typed-expression component.
+pub fn serve_typed_expression_command(
+    runner: &Path,
+    component: &Path,
+    limits: GuestLimits,
+) -> Command {
+    let mut command = Command::new(runner);
+    command
+        .arg("serve")
+        .arg(component)
+        .arg("--world")
+        .arg("typed-expression-dialect");
+    with_limits(&mut command, limits);
+    command
+}
+
+impl TypedExpressionGuest for OutOfProcessGuest {
+    fn get_capability(&mut self) -> Result<Capability, GuestError> {
+        InputDialectGuest::get_capability(self)
+    }
+    fn analyze_typed(&mut self, batch: &TypedExpressionBatch) -> Result<Analysis, GuestError> {
+        match self.call(&Request::AnalyzeTyped {
+            batch: batch.clone(),
+        })? {
+            Response::Analysis(analysis) => Ok(analysis),
+            other => Err(unexpected(&other)),
+        }
     }
 }

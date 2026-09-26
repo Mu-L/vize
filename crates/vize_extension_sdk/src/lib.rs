@@ -62,6 +62,7 @@ mod runtime;
     reason = "wit-bindgen generates this module without docs"
 )]
 pub mod bindings {
+    #[cfg(not(feature = "typed-expression"))]
     wit_bindgen::generate!({
         path: "wit",
         world: "input-dialect",
@@ -70,16 +71,26 @@ pub mod bindings {
         default_bindings_module: "vize_extension_sdk::bindings",
         additional_derives: [PartialEq, Eq],
     });
+    #[cfg(feature = "typed-expression")]
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "input-dialect",
+        pub_export_macro: false,
+        export_macro_name: "export_input_dialect",
+        default_bindings_module: "vize_extension_sdk::bindings",
+        additional_derives: [PartialEq, Eq],
+    });
 }
 
 /// Export a type implementing [`handshake::Guest`] and
 /// [`input_lowering::Guest`] as the guest component's world.
+#[cfg(not(feature = "typed-expression"))]
 pub use bindings::export_input_dialect;
 pub use bindings::exports::vize::contracts::{handshake, input_lowering};
 pub use bindings::vize::contracts::types;
 
 /// The WIT package this SDK binds.
-pub const PACKAGE: &str = "vize:contracts@0.1.2";
+pub const PACKAGE: &str = "vize:contracts@0.1.3";
 /// The handshake protocol version of this contract version.
 pub const PROTOCOL_VERSION: u32 = 1;
 /// The S1 page schema version the [`pages::s1`] writer emits.
@@ -122,3 +133,29 @@ pub fn capability(langs: &[&str]) -> handshake::Capability {
         features,
     }
 }
+
+/// Required features of the separate typed-expression world.
+pub const TYPED_EXPRESSION_REQUIRED_FEATURES: &[&str] =
+    &["facts-page@1", "projection-page@1", "typed-environment@1"];
+
+/// Guest bindings for producer-supplied foreign types and lexical scopes.
+#[expect(
+    missing_docs,
+    reason = "wit-bindgen generates this module without docs"
+)]
+#[cfg(feature = "typed-expression")]
+pub mod typed_bindings {
+    wit_bindgen::generate!({
+        path: "wit",
+        world: "typed-expression-dialect",
+        with: { "vize:contracts/handshake@0.1.3": crate::handshake, "vize:contracts/types@0.1.3": crate::types },
+        pub_export_macro: true,
+        export_macro_name: "export_typed_expression_dialect",
+        default_bindings_module: "vize_extension_sdk::typed_bindings",
+        additional_derives: [PartialEq, Eq],
+    });
+}
+
+/// Export a guest implementing the typed expression world.
+#[cfg(feature = "typed-expression")]
+pub use typed_bindings::export_typed_expression_dialect;

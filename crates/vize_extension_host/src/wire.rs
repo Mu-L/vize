@@ -15,6 +15,7 @@ use vize_s0::{String, cstr};
 use crate::contract::{Capability, GuestError, InputDialectGuest, LoweredBlock, SourceBlock};
 use crate::expression::{Analysis, ExpressionBatch, ExpressionDialectGuest};
 use crate::output::{EmitRequest, Emitted, OutputTargetGuest};
+use crate::typed_expression::{TypedExpressionBatch, TypedExpressionGuest};
 
 /// A call from the parent host.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -23,6 +24,7 @@ pub enum Request {
     GetCapability,
     LowerBlock { block: SourceBlock },
     Analyze { batch: ExpressionBatch },
+    AnalyzeTyped { batch: TypedExpressionBatch },
     Emit { request: EmitRequest },
 }
 
@@ -104,7 +106,7 @@ pub fn answer_input<G: InputDialectGuest>(guest: &mut G, request: Request) -> Re
         Request::LowerBlock { block } => guest
             .lower_block(&block)
             .map_or_else(Response::Guest, Response::LoweredBlock),
-        Request::Analyze { .. } => wrong_world("input-dialect"),
+        Request::Analyze { .. } | Request::AnalyzeTyped { .. } => wrong_world("input-dialect"),
         Request::Emit { .. } => wrong_world("input-dialect"),
     }
 }
@@ -118,7 +120,9 @@ pub fn answer_expression<G: ExpressionDialectGuest>(guest: &mut G, request: Requ
         Request::Analyze { batch } => guest
             .analyze(&batch)
             .map_or_else(Response::Guest, Response::Analysis),
-        Request::LowerBlock { .. } => wrong_world("expression-dialect"),
+        Request::LowerBlock { .. } | Request::AnalyzeTyped { .. } => {
+            wrong_world("expression-dialect")
+        }
         Request::Emit { .. } => wrong_world("expression-dialect"),
     }
 }
@@ -132,10 +136,28 @@ pub fn answer_output<G: OutputTargetGuest>(guest: &mut G, request: Request) -> R
         Request::Emit { request } => guest
             .emit(&request)
             .map_or_else(Response::Guest, Response::Emitted),
-        Request::LowerBlock { .. } | Request::Analyze { .. } => wrong_world("output-target"),
+        Request::LowerBlock { .. } | Request::Analyze { .. } | Request::AnalyzeTyped { .. } => {
+            wrong_world("output-target")
+        }
     }
 }
 
 pub(crate) fn transport(error: &io::Error) -> GuestError {
     GuestError::Transport(cstr!("{error}"))
+}
+
+/// Answer one typed batch through its negotiated guest.
+pub fn answer_typed_expression<G: TypedExpressionGuest>(
+    guest: &mut G,
+    request: Request,
+) -> Response {
+    match request {
+        Request::GetCapability => guest
+            .get_capability()
+            .map_or_else(Response::Guest, Response::Capability),
+        Request::AnalyzeTyped { batch } => guest
+            .analyze_typed(&batch)
+            .map_or_else(Response::Guest, Response::Analysis),
+        _ => wrong_world("typed-expression-dialect"),
+    }
 }

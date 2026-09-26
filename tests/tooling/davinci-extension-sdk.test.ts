@@ -106,6 +106,7 @@ test("the SDK owns the canonical WIT and released surfaces", () => {
     "handshake.wit",
     "input-dialect.wit",
     "output-target.wit",
+    "typed-expression-dialect.wit",
     "types.wit",
   ]);
   assert.match(
@@ -134,6 +135,7 @@ function newestSurface(): Surface {
     "vize-contracts@0.1.0.json",
     "vize-contracts@0.1.1.json",
     "vize-contracts@0.1.2.json",
+    "vize-contracts@0.1.3.json",
   ]);
   return JSON.parse(read("crates/vize_extension_sdk/versions", files.at(-1)!)) as Surface;
 }
@@ -195,14 +197,20 @@ test("the TypeScript declarations mirror the released surface", () => {
       }
     }
   }
-  for (const exported of ["handshake", "input-lowering", "expression-analysis", "emission"]) {
+  for (const exported of [
+    "handshake",
+    "input-lowering",
+    "expression-analysis",
+    "typed-expression-analysis",
+    "emission",
+  ]) {
     const methods = Object.entries(surface.interfaces[exported].functions).map(
       ([name, fn]) =>
         `${camel(name)}(${fn.params.map((param) => `${camel(param.name)}: ${tsType(param.type)}`).join(", ")}): ${fn.result ? tsType(fn.result) : "void"};`,
     );
     assert.deepEqual(interfaceBody(declarations, pascal(exported)), methods);
   }
-  assert.equal(checked, 17);
+  assert.equal(checked, 22);
 });
 
 test("the JS and Rust SDK constants are the released handshake", async () => {
@@ -213,7 +221,9 @@ test("the JS and Rust SDK constants are the released handshake", async () => {
   >;
   const rust = read("crates/vize_extension_sdk/src/lib.rs");
   const rustConst = (name: string) =>
-    new RegExp(`^pub const ${name}: [^=]+ = (?<value>[^;]+);$`, "mu").exec(rust)?.groups?.value;
+    new RegExp(String.raw`^pub const ${name}: [^=]+ =\s*(?<value>[^;]+);$`, "mu")
+      .exec(rust)
+      ?.groups?.value?.trim();
   assert.equal(sdkJs.PACKAGE, `vize:contracts@${surface.version}`);
   assert.equal(rustConst("PACKAGE"), `"vize:contracts@${surface.version}"`);
   assert.equal(sdkJs.PROTOCOL_VERSION, surface.protocolVersion);
@@ -245,6 +255,12 @@ test("the JS and Rust SDK constants are the released handshake", async () => {
   assert.equal(
     rustConst("EXPRESSION_REQUIRED_FEATURES"),
     `&[${expressionRequired.map((f) => `"${f}"`).join(", ")}]`,
+  );
+  const typedRequired = surface.worlds["typed-expression-dialect"].requiredFeatures;
+  assert.deepEqual(sdkJs.TYPED_EXPRESSION_REQUIRED_FEATURES, typedRequired);
+  assert.equal(
+    rustConst("TYPED_EXPRESSION_REQUIRED_FEATURES"),
+    `&[${typedRequired.map((f) => `"${f}"`).join(", ")}]`,
   );
   const capability = sdkJs.capability as (langs: string[]) => unknown;
   assert.deepEqual(capability(["zz", "html", "html"]), {

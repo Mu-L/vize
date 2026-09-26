@@ -23,6 +23,9 @@ pub struct CheckUnit<'a> {
     pub file_name: &'a str,
     /// The virtual file's text.
     pub source: &'a str,
+    /// A generated `vize/environment` interface, compiled and imported
+    /// before checking the virtual file. `None` preserves the spike lane.
+    pub environment: Option<&'a str>,
 }
 
 /// What a checker answered.
@@ -69,6 +72,12 @@ impl fmt::Display for HostError {
 pub trait MooncHost {
     /// The toolchain version every answer is tied to.
     fn toolchain(&self) -> &str;
+
+    /// Content identity of implicit checker dependencies, never a scratch
+    /// path. Hosts without external dependencies return the empty identity.
+    fn dependency_key(&self) -> Result<String, HostError> {
+        Ok(String::default())
+    }
 
     /// Check one virtual file.
     ///

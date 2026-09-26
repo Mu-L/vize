@@ -2,7 +2,7 @@
 ///
 /// Versioning and compatibility policy: `docs/davinci/contracts-compat-policy.md`.
 /// Every released version's canonical surface: `crates/vize_extension_sdk/versions/`.
-package vize:contracts@0.1.2;
+package vize:contracts@0.1.3;
 
 /// Values every vize contract world shares.
 interface types {
