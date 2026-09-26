@@ -136,8 +136,7 @@ fn scoped_layout_slots_render_page_roots_like_vue() {
         let (_, errors, result) = compile_ssr_with_options(&allocator, template, options);
         assert!(errors.is_empty(), "{errors:?}");
         let code = format!("{}{}", result.preamble, result.code);
-        assert!(!code.contains("_attrs, _scopeId"));
-        assert!(code.contains("\"data-v-layout-s\""));
+        insta::assert_snapshot!(format!("scoped_layout_{name}"), code);
         let legacy = code.replace("\"data-v-layout-s\"", "({})");
         format!(
             "{{\"name\":{},\"template\":{},\"vize\":{},\"legacy\":{},\"scopeId\":\"data-v-layout\",\"expectLegacyMismatch\":{}}}",
@@ -147,8 +146,14 @@ fn scoped_layout_slots_render_page_roots_like_vue() {
     .join(",");
     let rendered = render_cases(&format!("{{\"check\":true,\"cases\":[{cases}]}}"));
     assert_eq!(rendered.lines().count(), 2);
-    assert!(rendered.contains("data-v-page"));
-    assert!(rendered.contains("data-v-layout-s"));
+    let expected = [
+        r#"<div class="layout" data-v-layout><!--[--><div class="posts" data-v-layout-s data-v-page>page</div><!--]--></div>"#,
+        r#"<!--[--><!--[--><div class="posts" data-v-layout-s data-v-page>page</div><!--]--><!--]-->"#,
+    ];
+    for (line, expected) in rendered.lines().zip(expected) {
+        let result: serde_json::Value = serde_json::from_str(line).expect("render result JSON");
+        assert_eq!(result["vize"]["html"].as_str(), Some(expected));
+    }
 }
 
 fn render_cases(input: &str) -> String {
