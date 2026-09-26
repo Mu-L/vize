@@ -1,6 +1,7 @@
 //! Type definitions for scope analysis.
 //!
 mod binding;
+mod index;
 mod scope_data;
 
 pub use binding::{BindingFlags, ScopeBinding, Span};
@@ -24,7 +25,7 @@ pub type ParamNames = SmallVec<[CompactString; PARAM_INLINE_CAP]>;
 pub type ParentScopes = SmallVec<[ScopeId; 2]>;
 
 /// Unique identifier for a scope
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ScopeId(u32);
 

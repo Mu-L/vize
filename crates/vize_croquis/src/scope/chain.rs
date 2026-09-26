@@ -3,7 +3,6 @@
 //! - [`Scope`] - A single scope in the scope chain
 //! - [`ScopeChain`] - Manages the hierarchical scope chain
 //!
-//! - Core types, `Scope`, and `ScopeChain` struct with basic accessors (this file)
 //! - [`builder`]: Methods for entering/creating scopes
 //! - [`resolution`]: Binding lookup, mutation tracking, and depth computation
 
@@ -12,6 +11,7 @@ mod resolution;
 mod template_offsets;
 mod visibility;
 use core::fmt;
+use index_vec::IndexVec;
 
 use vize_carton::{
     CompactString, FxHashMap, FxHashSet, SmallVec, String, ToCompactString, smallvec,
@@ -217,7 +217,7 @@ impl Scope {
 /// Manages the scope chain during analysis
 pub struct ScopeChain {
     /// All scopes (indexed by ScopeId)
-    pub(crate) scopes: Vec<Scope>,
+    pub(crate) scopes: IndexVec<ScopeId, Scope>,
     pub(crate) current: ScopeId,
     /// v-slot scopes whose directive argument was dynamic (`v-slot:[name]`).
     dynamic_v_slot_scopes: FxHashSet<ScopeId>,
@@ -322,7 +322,7 @@ impl ScopeChain {
             );
         }
         Self {
-            scopes: vec![root],
+            scopes: IndexVec::from_vec(vec![root]),
             current: ScopeId::ROOT,
             dynamic_v_slot_scopes: FxHashSet::default(),
             directive_expression_offsets: FxHashMap::default(),
@@ -339,7 +339,7 @@ impl ScopeChain {
                 ScopeBinding::new(BindingType::JsGlobalUniversal, 0),
             );
         }
-        let mut scopes = Vec::with_capacity(capacity);
+        let mut scopes = IndexVec::with_capacity(capacity);
         scopes.push(root);
         Self {
             scopes,
@@ -357,13 +357,13 @@ impl ScopeChain {
         // to `self.scopes` before exposing the id. Exiting a scope moves to a
         // stored parent id, never an arbitrary index. This unchecked access is on
         // every identifier lookup path, so we keep the invariant centralized here.
-        unsafe { self.scopes.get_unchecked(self.current.as_u32() as usize) }
+        unsafe { self.scopes.get_unchecked(self.current) }
     }
 
     /// Get the current scope mutably
     #[inline]
     pub fn current_scope_mut(&mut self) -> &mut Scope {
-        let idx = self.current.as_u32() as usize;
+        let idx = self.current;
         // SAFETY: same invariant as `current_scope`: `idx` comes from a
         // ScopeId minted by this chain and therefore addresses an existing scope.
         // The `&mut self` receiver guarantees no competing borrow of the scope
@@ -374,7 +374,7 @@ impl ScopeChain {
     /// Get a scope by ID
     #[inline]
     pub fn get_scope(&self, id: ScopeId) -> Option<&Scope> {
-        self.scopes.get(id.as_u32() as usize)
+        self.scopes.get(id)
     }
 
     /// Get a scope by ID (unchecked)
@@ -386,7 +386,7 @@ impl ScopeChain {
     #[inline]
     pub unsafe fn get_scope_unchecked(&self, id: ScopeId) -> &Scope {
         // SAFETY: upheld by the caller contract above.
-        unsafe { self.scopes.get_unchecked(id.as_u32() as usize) }
+        unsafe { self.scopes.get_unchecked(id) }
     }
 
     /// Current scope ID
@@ -492,7 +492,7 @@ impl ScopeChain {
     /// Get mutable scope by ID
     #[inline]
     pub fn get_scope_mut(&mut self, id: ScopeId) -> Option<&mut Scope> {
-        self.scopes.get_mut(id.as_u32() as usize)
+        self.scopes.get_mut(id)
     }
 
     /// Set the current scope directly (used for switching between sibling scopes)

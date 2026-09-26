@@ -15,7 +15,7 @@ impl ScopeChain {
     /// Enter a new scope
     #[inline]
     pub fn enter_scope(&mut self, kind: ScopeKind) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let scope = Scope::new(id, Some(self.current), kind);
         self.scopes.push(scope);
         self.current = id;
@@ -25,7 +25,7 @@ impl ScopeChain {
     /// Enter a new scope with Vue global access (for template scopes)
     #[inline]
     pub fn enter_scope_with_vue_global(&mut self, kind: ScopeKind) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut parents: ParentScopes = smallvec![self.current];
 
         // Add Vue global scope as additional parent if it exists
@@ -51,7 +51,7 @@ impl ScopeChain {
 
     /// Enter a v-for scope with the given data
     pub fn enter_v_for_scope(&mut self, data: VForScopeData, start: u32, end: u32) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let parents = self.build_template_parents();
         let mut scope = Scope::with_span_parents(id, parents, ScopeKind::VFor, start, end);
 
@@ -99,7 +99,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let parents = self.build_template_parents();
         let mut scope = Scope::with_span_parents(id, parents, ScopeKind::VSlot, start, end);
 
@@ -127,7 +127,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let parents = self.build_template_parents();
         let mut scope = Scope::with_span_parents(id, parents, ScopeKind::EventHandler, start, end);
 
@@ -160,7 +160,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         // Script callbacks only have current scope as parent (no vue global)
         let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Callback, start, end);
 
@@ -185,7 +185,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let parents = self.build_template_parents();
         let mut scope = Scope::with_span_parents(id, parents, ScopeKind::Callback, start, end);
 
@@ -205,7 +205,7 @@ impl ScopeChain {
 
     /// Enter a module scope
     pub fn enter_module_scope(&mut self, start: u32, end: u32) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let scope = Scope::with_span(id, Some(self.current), ScopeKind::Module, start, end);
         self.scopes.push(scope);
         self.current = id;
@@ -219,7 +219,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope =
             Scope::with_span(id, Some(self.current), ScopeKind::ScriptSetup, start, end);
         scope.set_data(ScopeData::ScriptSetup(data));
@@ -235,7 +235,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(
             id,
             Some(self.current),
@@ -256,7 +256,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Universal, start, end);
         scope.set_data(ScopeData::Universal(data));
         self.scopes.push(scope);
@@ -272,7 +272,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
 
         // Build parents: current scope + !js (browser globals)
         let mut parents: ParentScopes = smallvec![self.current];
@@ -296,7 +296,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let scope_kind = data.runtime.to_scope_kind();
         let binding_type = data.runtime.to_binding_type();
         let mut scope = Scope::with_span(id, Some(self.current), scope_kind, start, end);
@@ -319,7 +319,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::VueGlobal, start, end);
 
         // Add Vue globals as bindings
@@ -343,7 +343,7 @@ impl ScopeChain {
         start: u32,
         end: u32,
     ) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(
             id,
             Some(self.current),
@@ -359,7 +359,7 @@ impl ScopeChain {
 
     /// Enter a closure scope (function declaration, function expression, arrow function)
     pub fn enter_closure_scope(&mut self, data: ClosureScopeData, start: u32, end: u32) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Closure, start, end);
 
         // Add parameter names as bindings
@@ -378,7 +378,7 @@ impl ScopeChain {
 
     /// Enter a block scope (if, for, switch, try, catch, etc.)
     pub fn enter_block_scope(&mut self, data: BlockScopeData, start: u32, end: u32) -> ScopeId {
-        let id = ScopeId::new(self.scopes.len() as u32);
+        let id = self.scopes.next_idx();
         let mut scope = Scope::with_span(id, Some(self.current), ScopeKind::Block, start, end);
         scope.set_data(ScopeData::Block(data));
         self.scopes.push(scope);

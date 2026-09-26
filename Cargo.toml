@@ -172,6 +172,10 @@ memchr = "=2.8.3"
 simdutf8 = "=0.1.5"
 regex = "=1.13.1"
 smallvec = { version = "=1.15.2", features = ["union"] }
+thin-vec = "=0.2.20"
+index_vec = { version = "=0.1.4", default-features = false }
+fixedbitset = { version = "=0.5.7", default-features = false }
+roaring = "=0.11.5"
 dashmap = "=6.2.1"
 xxhash-rust = { version = "=0.8.18", features = ["xxh3"] }
 # Incremental query engine for the resident tier only (charter #10 and #39):

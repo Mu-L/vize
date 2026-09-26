@@ -10,6 +10,9 @@
 //! - Iterative algorithms avoid stack overflow on deep graphs
 //! - Early termination in path finding algorithms
 
+mod cycles;
+mod visited;
+
 use super::registry::FileId;
 use vize_carton::{CompactString, FxHashMap, FxHashSet, SmallVec, String};
 
@@ -234,61 +237,6 @@ impl DependencyGraph {
 
         visited.remove(&id);
         visited
-    }
-
-    /// Detect circular dependencies using DFS.
-    pub fn detect_circular_dependencies(&mut self) {
-        self.circular_deps.clear();
-
-        let mut visited = FxHashSet::default();
-        let mut rec_stack = FxHashSet::default();
-        let mut path = Vec::new();
-        let mut cycles = Vec::new();
-
-        for start_id in self.nodes.keys().copied() {
-            if !visited.contains(&start_id) {
-                Self::dfs_cycle_static(
-                    &self.nodes,
-                    start_id,
-                    &mut visited,
-                    &mut rec_stack,
-                    &mut path,
-                    &mut cycles,
-                );
-            }
-        }
-
-        self.circular_deps = cycles;
-    }
-
-    fn dfs_cycle_static(
-        nodes: &FxHashMap<FileId, ModuleNode>,
-        id: FileId,
-        visited: &mut FxHashSet<FileId>,
-        rec_stack: &mut FxHashSet<FileId>,
-        path: &mut Vec<FileId>,
-        cycles: &mut Vec<Vec<FileId>>,
-    ) {
-        visited.insert(id);
-        rec_stack.insert(id);
-        path.push(id);
-
-        if let Some(node) = nodes.get(&id) {
-            for (dep_id, _) in &node.imports {
-                if !visited.contains(dep_id) {
-                    Self::dfs_cycle_static(nodes, *dep_id, visited, rec_stack, path, cycles);
-                } else if rec_stack.contains(dep_id) {
-                    // Found a cycle - extract the cycle from path
-                    if let Some(start) = path.iter().position(|p| p == dep_id) {
-                        let cycle: Vec<_> = path.get(start..).unwrap_or_default().to_vec();
-                        cycles.push(cycle);
-                    }
-                }
-            }
-        }
-
-        path.pop();
-        rec_stack.remove(&id);
     }
 
     /// Get detected circular dependencies.
