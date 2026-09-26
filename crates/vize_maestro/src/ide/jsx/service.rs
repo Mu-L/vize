@@ -24,10 +24,9 @@
 use std::sync::Arc;
 
 use tower_lsp::lsp_types::{
-    CompletionResponse, GotoDefinitionResponse, Hover, Location, Position, Range, SignatureHelp,
-    Url,
+    CompletionResponse, GotoDefinitionResponse, Hover, Position, Range, SignatureHelp, Url,
 };
-use vize_canon::{CorsaBridge, LspLocation};
+use vize_canon::CorsaBridge;
 use vize_s0::cstr;
 
 use super::position::{
@@ -36,6 +35,7 @@ use super::position::{
 use super::virtual_ts::JsxVirtualTs;
 use crate::ide::IdeContext;
 use crate::ide::completion::CompletionService;
+use crate::ide::corsa_support::map_canonical_corsa_locations;
 use crate::ide::hover::HoverService;
 
 /// Type-aware JSX/TSX LSP service.
@@ -138,75 +138,24 @@ impl JsxService {
         corsa_bridge: Option<Arc<CorsaBridge>>,
     ) -> Option<GotoDefinitionResponse> {
         let bridge = corsa_bridge?;
-        let (virtual_ts, request_uri, line, character) =
-            Self::prepare_request(ctx, &bridge).await?;
+        let (document, line, character) =
+            super::service_project::prepare_navigation_request(ctx, &bridge).await?;
 
         let locations = bridge
-            .definition(&request_uri, line, character)
+            .definition(&document.request_uri, line, character)
             .await
             .ok()?;
         if locations.is_empty() {
             return None;
         }
 
-        let mapped: Vec<Location> = locations
-            .iter()
-            .filter_map(|location| Self::map_location(ctx, &virtual_ts, &request_uri, location))
-            .collect();
+        let mapped = map_canonical_corsa_locations(ctx, &document, locations);
 
         match mapped.len() {
             0 => None,
             1 => Some(GotoDefinitionResponse::Scalar(mapped.into_iter().next()?)),
             _ => Some(GotoDefinitionResponse::Array(mapped)),
         }
-    }
-
-    /// Map a Corsa definition location back onto the source.
-    ///
-    /// Locations pointing at this document's own virtual TS are remapped to the
-    /// original `.jsx`/`.tsx` source range; locations in real project files
-    /// (e.g. a `node_modules` `.d.ts`) pass through unchanged.
-    pub(super) fn map_location(
-        ctx: &IdeContext<'_>,
-        virtual_ts: &JsxVirtualTs,
-        request_uri: &str,
-        location: &LspLocation,
-    ) -> Option<Location> {
-        if Self::same_uri(&location.uri, request_uri) {
-            let range = Self::map_virtual_range(
-                virtual_ts,
-                &ctx.content,
-                Range {
-                    start: Position {
-                        line: location.range.start.line,
-                        character: location.range.start.character,
-                    },
-                    end: Position {
-                        line: location.range.end.line,
-                        character: location.range.end.character,
-                    },
-                },
-            )?;
-            return Some(Location {
-                uri: ctx.uri.clone(),
-                range,
-            });
-        }
-
-        let uri = Url::parse(&location.uri).ok()?;
-        Some(Location {
-            uri,
-            range: Range {
-                start: Position {
-                    line: location.range.start.line,
-                    character: location.range.start.character,
-                },
-                end: Position {
-                    line: location.range.end.line,
-                    character: location.range.end.character,
-                },
-            },
-        })
     }
 
     /// Map an LSP range in virtual-TS coordinates back to the source document.
@@ -234,20 +183,6 @@ impl JsxService {
             },
         })
     }
-
-    /// Compare a Corsa-returned URI against the virtual-document URI we opened.
-    /// Corsa may echo the URI in `file://` form while the request path is a
-    /// bare filesystem path, so compare on the path component.
-    pub(super) fn same_uri(candidate: &str, request_uri: &str) -> bool {
-        if candidate == request_uri {
-            return true;
-        }
-        Self::uri_path(candidate) == Self::uri_path(request_uri)
-    }
-
-    fn uri_path(uri: &str) -> &str {
-        uri.strip_prefix("file://").unwrap_or(uri)
-    }
 }
 
 #[cfg(test)]
@@ -270,18 +205,6 @@ mod tests {
         let uri = Url::parse("file:///tmp/Comp.tsx").unwrap();
         let path = JsxService::request_path(&uri);
         assert_eq!(path.as_str(), "/tmp/Comp.tsx.jsx.ts");
-    }
-
-    #[test]
-    fn same_uri_matches_across_file_scheme() {
-        assert!(JsxService::same_uri(
-            "file:///tmp/Comp.tsx.jsx.ts",
-            "/tmp/Comp.tsx.jsx.ts"
-        ));
-        assert!(!JsxService::same_uri(
-            "file:///tmp/Other.ts",
-            "/tmp/Comp.tsx.jsx.ts"
-        ));
     }
 
     // Without a Corsa bridge the type-aware path must degrade gracefully (the

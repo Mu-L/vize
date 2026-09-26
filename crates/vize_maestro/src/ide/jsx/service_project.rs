@@ -6,6 +6,9 @@ use vize_canon::{CorsaBridge, CorsaScriptVirtualDocumentRequest, CorsaVueVirtual
 use super::service::JsxService;
 use super::virtual_ts::JsxVirtualTs;
 use crate::ide::IdeContext;
+use crate::ide::corsa_support::{
+    CanonicalVirtualDocument, canonical_source_offset_to_position, open_canonical_script_document,
+};
 
 pub(super) async fn open_virtual_project(
     ctx: &IdeContext<'_>,
@@ -45,4 +48,18 @@ pub(super) async fn open_virtual_project(
         },
         document.request_uri,
     ))
+}
+
+/// Navigation retains the canonical project's authored identities, including
+/// imported modules materialized inside the private Corsa session.
+pub(super) async fn prepare_navigation_request(
+    ctx: &IdeContext<'_>,
+    bridge: &CorsaBridge,
+) -> Option<(CanonicalVirtualDocument, u32, u32)> {
+    if !bridge.is_initialized() {
+        return None;
+    }
+    let document = open_canonical_script_document(ctx, bridge, false).await?;
+    let (line, character) = canonical_source_offset_to_position(&document, ctx.offset)?;
+    Some((document, line, character))
 }

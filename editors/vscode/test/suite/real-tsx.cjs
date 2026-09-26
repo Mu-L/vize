@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const fs = require("node:fs");
 const vscode = require("vscode");
 
 const {
@@ -65,7 +66,11 @@ async function verifyDocument(document, enabled) {
   const mismatch = diagnostics.filter((item) => item.source === "vize/types");
   assert.equal(mismatch.length, 1, JSON.stringify(diagnostics));
   assert.equal(mismatch[0].message, "Type 'number' is not assignable to type 'string'.");
-  assert.equal(mismatch[0].range.start.line, 1);
+  const wrong = document.getText().indexOf("wrong");
+  assert.deepEqual(
+    mismatch[0].range,
+    new vscode.Range(document.positionAt(wrong), document.positionAt(wrong + "wrong".length)),
+  );
 
   const completions = await completion(document);
   const items = Array.isArray(completions) ? completions : completions?.items;
@@ -89,6 +94,41 @@ async function verifyDocument(document, enabled) {
       },
     },
   ]);
+
+  const expected = propertyLocations();
+  const references = await request(
+    "textDocument/references",
+    document,
+    positionAfter(document, "account.label", "account.la"),
+    { context: { includeDeclaration: true } },
+  );
+  assert.deepEqual(sortLocations(references), expected);
+  const rename = await request(
+    "textDocument/rename",
+    document,
+    positionAfter(document, "account.label", "account.la"),
+    { newName: "displayName" },
+  );
+  const edits = Object.entries(rename?.changes ?? {}).flatMap(([uri, entries]) =>
+    entries.map((edit) => ({ uri, range: edit.range, newText: edit.newText })),
+  );
+  for (const change of rename?.documentChanges ?? []) {
+    assert.ok(change.textDocument, JSON.stringify(rename));
+    edits.push(
+      ...change.edits.map((edit) => ({
+        uri: change.textDocument.uri,
+        range: edit.range,
+        newText: edit.newText,
+      })),
+    );
+  }
+  assert.deepEqual(
+    sortLocations(edits),
+    expected.map((location) => ({
+      ...location,
+      newText: "displayName",
+    })),
+  );
 
   const editor = await vscode.window.showTextDocument(document);
   const offset = document.getText().indexOf("= 1;") + 2;
@@ -132,10 +172,11 @@ function completion(document) {
   );
 }
 
-function request(method, document, position) {
+function request(method, document, position, extra = {}) {
   return vscode.commands.executeCommand("vize.test.executeLspRequest", {
     method,
     params: {
+      ...extra,
       textDocument: { uri: document.uri.toString() },
       position: {
         line: position.line,
@@ -143,4 +184,34 @@ function request(method, document, position) {
       },
     },
   });
+}
+
+function propertyLocations() {
+  return sortLocations(
+    ["model.ts", "App.tsx", "App.jsx"].map((filename) => {
+      const filePath = path.join(getWorkspaceFolderPath(), filename);
+      const source = fs.readFileSync(filePath, "utf8");
+      const offset =
+        filename === "model.ts"
+          ? source.indexOf("label:")
+          : source.indexOf("account.label") + "account.".length;
+      assert.ok(offset >= 0, filename);
+      const preceding = source.slice(0, offset).split("\n");
+      const start = { line: preceding.length - 1, character: preceding.at(-1).length };
+      return {
+        uri: vscode.Uri.file(filePath).toString(),
+        range: { start, end: { ...start, character: start.character + "label".length } },
+      };
+    }),
+  );
+}
+
+function sortLocations(locations) {
+  assert.ok(Array.isArray(locations), JSON.stringify(locations));
+  return [...locations].sort(
+    (a, b) =>
+      a.uri.localeCompare(b.uri) ||
+      a.range.start.line - b.range.start.line ||
+      a.range.start.character - b.range.start.character,
+  );
 }

@@ -4,11 +4,9 @@
 //! The SFC [`ReferencesService`](crate::ide::ReferencesService) only fires when
 //! the cursor lands in an SFC block; a `.jsx`/`.tsx` document has none, so this
 //! is the JSX parallel. It reuses the exact same machinery as the JSX
-//! hover/definition path: lower the document to plain virtual TS via
-//! [`super::virtual_ts`], forward-map the cursor with [`JsxService`], call the
-//! **same** `CorsaBridge::references` the SFC path uses, then map each returned
-//! location back to the original `.jsx`/`.tsx` source (locations in real project
-//! files pass through unchanged).
+//! definition path: retain the canonical virtual project's authored identities,
+//! forward-map the cursor, call the **same** `CorsaBridge::references` the SFC
+//! path uses, then map each returned location back to its authored source.
 //!
 //! Gated by the caller on `typeChecker.jsxTypecheck`, so React `.tsx` files are
 //! never touched unless the user opts in.
@@ -18,8 +16,9 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::Location;
 use vize_canon::CorsaBridge;
 
-use super::service::JsxService;
+use super::service_project::prepare_navigation_request;
 use crate::ide::IdeContext;
+use crate::ide::corsa_support::map_canonical_corsa_locations;
 
 /// Find-all-references service for `.jsx`/`.tsx` components.
 pub struct JsxReferencesService;
@@ -33,24 +32,17 @@ impl JsxReferencesService {
         corsa_bridge: Option<Arc<CorsaBridge>>,
     ) -> Option<Vec<Location>> {
         let bridge = corsa_bridge?;
-        let (virtual_ts, uri, line, character) = JsxService::prepare_request(ctx, &bridge).await?;
+        let (document, line, character) = prepare_navigation_request(ctx, &bridge).await?;
 
         let locations = bridge
-            .references(&uri, line, character, include_declaration)
+            .references(&document.request_uri, line, character, include_declaration)
             .await
             .ok()?;
         if locations.is_empty() {
             return None;
         }
 
-        // Map each reference back: own-document locations become `.jsx`/`.tsx`
-        // source ranges; locations in real files (a `.d.ts`, another module)
-        // pass through. Reuses the definition path's `map_location` so JSX
-        // references and definitions translate identically.
-        let mapped: Vec<Location> = locations
-            .iter()
-            .filter_map(|location| JsxService::map_location(ctx, &virtual_ts, &uri, location))
-            .collect();
+        let mapped = map_canonical_corsa_locations(ctx, &document, locations);
 
         if mapped.is_empty() {
             None
