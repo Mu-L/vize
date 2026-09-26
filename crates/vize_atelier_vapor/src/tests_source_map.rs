@@ -14,6 +14,7 @@
 
 mod component_names;
 mod computed_dom;
+mod model_names;
 
 mod support;
 
