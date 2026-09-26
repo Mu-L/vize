@@ -1,5 +1,5 @@
 //! Element bindings in authored order: props and content directives are
-//! render effects; listeners and `v-show` are one-time operations.
+//! render effects; static listeners and `v-show` are one-time operations.
 
 use vize_atelier_core::{DirectiveNode, ExpressionNode, SimpleExpressionNode, SourceLocation};
 use vize_carton::{Box, Vec};
@@ -72,22 +72,33 @@ impl<'a> Emitter<'a, '_> {
                     }));
             }
             BindingKind::Event => {
+                let dynamic = binding.dynamic_name;
                 let modifiers = EventModifiers::from_names(
                     self.allocator,
-                    Some(binding.name),
+                    dynamic.is_none().then_some(binding.name),
                     binding.modifiers.iter().copied(),
                 );
-                let name = modifiers.event_name(binding.name);
-                let delegate = modifiers.can_delegate(name);
+                let name = if dynamic.is_some() {
+                    binding.name
+                } else {
+                    modifiers.event_name(binding.name)
+                };
+                let delegate = dynamic.is_none() && modifiers.can_delegate(name);
+                let key = match dynamic {
+                    Some(expression) => {
+                        self.spanned(expression, false, Some(self.trimmed(name_raw)))
+                    }
+                    None => self.expression(Expr::plain(name), true),
+                };
                 block
                     .operation
                     .push(OperationNode::SetEvent(SetEventIRNode {
                         element,
-                        key: self.expression(Expr::plain(name), true),
+                        key,
                         value: Some(self.spanned(binding.value, false, value_span)),
                         modifiers,
                         delegate,
-                        effect: false,
+                        effect: dynamic.is_some(),
                     }));
             }
             BindingKind::Prop => {

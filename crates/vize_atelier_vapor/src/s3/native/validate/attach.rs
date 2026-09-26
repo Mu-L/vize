@@ -266,7 +266,11 @@ fn prop<'a>(
 ) -> Result<()> {
     let handler = match binding.kind {
         BindingKind::Prop => false,
-        BindingKind::Event if component && binding.modifiers.is_empty() => true,
+        BindingKind::Event
+            if component && binding.dynamic_name.is_none() && binding.modifiers.is_empty() =>
+        {
+            true
+        }
         _ => return Err(LegacyReason::Component.into()),
     };
     if !handler && !component_prop(binding.name)

@@ -82,9 +82,12 @@ impl<'s, 'a> Retained<'s, 'a> {
 
     fn bindings(&mut self, bindings: &'s [BindingOp<'s>]) {
         for binding in bindings {
-            if let BindingOp::SlotContent(slot) = binding
-                && let Some(DynamicName::Dynamic(name)) = slot.name
-            {
+            let name = match binding {
+                BindingOp::SlotContent(slot) => slot.name,
+                BindingOp::On(on) => on.name,
+                _ => None,
+            };
+            if let Some(DynamicName::Dynamic(name)) = name {
                 self.insert(name);
             }
             let value = match binding {

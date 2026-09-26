@@ -8,6 +8,7 @@ mod control;
 mod expressions;
 mod ident;
 mod model;
+mod names;
 mod once;
 mod operands;
 mod order;
