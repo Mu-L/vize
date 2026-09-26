@@ -84,9 +84,9 @@ pub struct JsxCompileResultNapi {
     /// standalone Vapor output contains named renderer exports; unsupported
     /// authored Vapor modules return diagnostics and an empty module.
     pub code: String,
-    /// v3 source map (JSON) for `code`, present only when `sourceMap` was
-    /// requested for VDOM output. Authored spans and all JSX roots are mapped
-    /// against the complete source. `null` for backends without map support.
+    /// v3 source map (JSON) for `code`, present when requested for mappable
+    /// output. Authored spans and all VDOM JSX roots map against the complete
+    /// source. `null` for generated backends without map support.
     pub map: Option<String>,
     /// Error-severity diagnostic messages.
     pub errors: Vec<String>,

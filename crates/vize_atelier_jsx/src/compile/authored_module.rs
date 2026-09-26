@@ -28,7 +28,13 @@ pub(super) fn emit(
     source_map: bool,
 ) -> Result<Option<(String, Option<String>)>, JsxDiagnostic> {
     if components.is_empty() {
-        return Ok(None);
+        let mut writer = ModuleWriter::new(source, components, source_map);
+        writer.authored(0, source.len() as u32)?;
+        return Ok(Some(writer.finish(if lang.is_typescript() {
+            "module.tsx"
+        } else {
+            "module.jsx"
+        })));
     }
     if components.iter().any(|c| c.mode() != JsxOutputMode::Vdom)
         || components.iter().any(|c| matches!(c, JsxComponent::Ssr(_)))

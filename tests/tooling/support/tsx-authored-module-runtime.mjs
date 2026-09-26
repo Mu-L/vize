@@ -8,6 +8,8 @@ import { vueVaporRuntimeEntry } from "./vue-vapor-release.mjs";
 let payload = "";
 for await (const chunk of process.stdin) payload += chunk;
 const modules = JSON.parse(payload);
+const plainModule = modules.plain;
+delete modules.plain;
 const window = new Window();
 for (const key of [
   "window",
@@ -26,6 +28,7 @@ const messages = [];
 for (const [scenario, module] of Object.entries(modules)) {
   const entry = fileURLToPath(new URL("./tsx-authored-module-fixture.ts", import.meta.url));
   const child = "virtual:tsx-authored-child.ts";
+  const plain = "virtual:tsx-authored-plain.ts";
   const compiled = await build({
     configFile: false,
     logLevel: "silent",
@@ -40,14 +43,16 @@ for (const [scenario, module] of Object.entries(modules)) {
         name: "tsx-authored-module-fixture",
         resolveId(id) {
           if (id === "vue") return vueVaporRuntimeEntry;
-          if (id === entry || id === child) return `\0${id}`;
+          if (id === entry || id === child || id === plain) return `\0${id}`;
           if (id === "./Child") return `\0${child}`;
+          if (id === "./Plain") return `\0${plain}`;
         },
         load(id) {
           if (id === `\0${entry}`)
             return `${module}\nexport { createApp, h, reactive, nextTick } from "vue";`;
           if (id === `\0${child}`)
             return `import { h } from "vue"; export default { props: ['label'], setup(props) { return () => h('strong', props.label); } };`;
+          if (id === `\0${plain}`) return plainModule;
         },
       },
     ],

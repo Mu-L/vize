@@ -99,11 +99,16 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
         (
             "factory",
             r#"
+            import { label } from "./Plain";
             export const make = function (label: string) {
                 return () => { return <p>{label}</p>; };
             };
-            export default make("retained-factory");
+            export default make(label);
         "#,
+        ),
+        (
+            "plain",
+            "export interface Props { label: string }\nexport const label: string = 'retained-factory';",
         ),
     ];
     let modules: serde_json::Map<_, _> = cases
@@ -141,6 +146,41 @@ fn complete_tsx_modules_execute_with_imports_defaults_and_mixed_roots() {
         std::string::String::from_utf8_lossy(&output.stdout).trim(),
         "6 mounted TSX module scenarios passed"
     );
+}
+
+#[test]
+fn modules_without_jsx_keep_exact_source_and_identity_maps() {
+    let source = "// 😀 保全\r\nimport type { Ref } from 'vue';\r\nexport interface Props { label: Ref<string> }\r\nexport const label: string = 'retained';\r\nexport default label;\r\n";
+    for default_mode in [
+        vize_atelier_jsx::JsxOutputMode::Vdom,
+        vize_atelier_jsx::JsxOutputMode::Vapor,
+    ] {
+        let allocator = Allocator::new();
+        let mut config = JsxCompileConfig {
+            default_mode,
+            ..Default::default()
+        };
+        config.vdom.source_map = true;
+        let output = compile_jsx(&allocator, source, JsxLang::Tsx, &config);
+        assert_eq!(output.diagnostics.len(), 0);
+        assert_eq!(output.components.len(), 0);
+        assert_eq!(output.module_code().as_str(), source);
+        let map = SourceMap::from_json_string(output.source_map().expect("identity map"))
+            .expect("valid identity map");
+        assert_eq!(
+            map.get_source_contents().collect::<Vec<_>>(),
+            [Some(source)]
+        );
+        assert!(map.get_source_view_tokens().all(|token| {
+            token.get_dst_line() == token.get_src_line()
+                && token.get_dst_col() == token.get_src_col()
+        }));
+        let original = position(source, source.find("export const label").expect("export"));
+        let token = map
+            .lookup_source_view_token(&map.generate_lookup_table(), original.0, original.1)
+            .expect("export mapping");
+        assert_eq!((token.get_src_line(), token.get_src_col()), original);
+    }
 }
 
 #[test]
