@@ -251,7 +251,7 @@ impl ServerState {
     /// Close a document and release any cached Corsa overlay immediately.
     pub(crate) fn close_document(&self, uri: &Url) {
         self.documents.close(uri);
-        self.resident.close(uri.as_str());
+        self.resident.close_document(uri);
         #[cfg(feature = "native")]
         {
             self.corsa_overlays.remove(uri);
@@ -281,7 +281,7 @@ impl ServerState {
 
     /// Rename a document while dropping the overlay cached under its old URI.
     pub(crate) fn rename_document(&self, old_uri: &Url, new_uri: Url) -> bool {
-        let renamed = self.documents.rename(old_uri, new_uri);
+        let renamed = self.resident.rename(&self.documents, old_uri, new_uri);
         #[cfg(feature = "native")]
         if renamed {
             self.corsa_overlays.remove(old_uri);

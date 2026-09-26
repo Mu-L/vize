@@ -9,8 +9,8 @@ read component metadata through the existing shared component cache. That
 consumer now requests the resident interface, exports the current descriptor's
 resolved Croquis facts, publishes them outside Salsa queries, and decodes the
 prop/slot contracts served by `sfc_summary`. There is one export per changed
-source, filename or project configuration. Equal metadata reuses the existing
-shared snapshot after a body edit. Template facts and slot outlets share one
+source, filename, imported editor source world or project configuration. Equal
+metadata reuses the existing shared snapshot after a body edit. Template facts and slot outlets share one
 parsed template tree.
 
 The document manager retains each provider's `SummaryInput`. A source edit and
@@ -18,7 +18,13 @@ fresh alpha publication happen before its consumer read. Type-checker config
 reloads and watched dependency notifications invalidate every provider; each
 is refreshed before its next read. The TypeScript configuration stamp has HIGH
 durability. Source buffers and alpha updates retain LOW durability. Filename
-changes participate in the source stamp because they affect resolution.
+and imported editor-world revisions also retain LOW durability. Each editor
+revision shares one immutable source snapshot across providers and both type
+loaders; unchanged document text is shared without another copy. Open, edit,
+close and rename operations advance the source-world revision. A failed refresh
+cannot serve its previous fingerprint. Closing eagerly releases overlay text
+and both URI and filesystem provider keys.
+Filename changes participate in the source stamp because they affect resolution.
 Rejected parses or exports return no interface for that revision. Closing a
 document releases its alpha entries and replaces the memo with an empty surface;
 reopening exports again. No tracked query mutates Salsa inputs.
@@ -27,25 +33,27 @@ reopening exports again. No tracked query mutates Salsa inputs.
 
 `Croquis::ALPHA_CONTRACT_SCHEMA` and `croquis::alpha::ALPHA_CONTRACT_SCHEMA` are
 version 1. Every production contract requires `schema: 1`; typed deserialization
-rejects missing, wrong and noninteger versions. This version describes the
+rejects missing, wrong and noninteger versions and unknown fields. This version describes the
 Croquis JSON payload inside the generic AlphaPages contract strings. It does not
 change the generic summary/facet folio versions or accept a bare type spelling
 as a production JSON contract.
 
-| Facet      | Canonical production contract                                                                                                                                        |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Signature  | component identity, declared name, generic parameters, component/API shape, exact macro type arguments, exposed names/types/completeness, reachable type environment |
-| Prop       | authored name, nullable type, nullable required flag, exact nullable default expression, nullable model modifier type, reachable type environment                    |
-| Emit       | authored name and nullable payload type, including model update events, reachable type environment                                                                   |
-| Slot       | declared/outlet name and nullable props type, reachable type environment                                                                                             |
-| Reactivity | public name, nullable type, authoritative kind/class/verdict/effects, reachable type environment                                                                     |
-| Component  | resolved module specifier and exported identity, independent of a local alias                                                                                        |
+| Facet      | Canonical production contract                                                                                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Signature  | component identity, declared name, generic parameters, component/API shape, authored prop/slot order, exact macro type arguments, exposed names/types/completeness, reachable type environment |
+| Prop       | authored name, nullable type, nullable required flag, exact nullable default expression, nullable model modifier type, reachable type environment                                              |
+| Emit       | authored name, nullable payload and ordered overload payloads, unknown type arguments, runtime validator headers and type annotations, reachable type environment                            |
+| Slot       | declared/outlet name and nullable props type, reachable type environment                                                                                                                       |
+| Reactivity | public name, nullable type, authoritative kind/class/verdict/effects, reachable type environment                                                                                               |
+| Component  | resolved module specifier and exported identity, independent of a local alias                                                                                                                  |
 
 JSON field order and declaration order are deterministic. Contract names retain
 their original spelling; a folio-unsafe identity is encoded injectively. Type
 literal whitespace and default expressions are preserved exactly. Null means
-the analyzer has no fact. Private state, declaration offsets, function bodies
-and template expression text never enter the payload. Template-only outlet
+the analyzer has no fact. Private state, declaration offsets, private function
+bodies and template expression text never enter the payload. Public default
+expressions retain the source already displayed by the metadata consumer,
+including function-valued defaults. Template-only outlet
 props remain unknown. Explicit exposed aliases resolve to their actual local
 binding before reading the authoritative reactivity facts.
 
@@ -55,6 +63,21 @@ contract. Unused private aliases do not participate. The payload records
 resolution completeness; unresolved or inferred types are not claimed exact.
 Macro type arguments remain in the signature conservatively until extraction
 can prove completeness, so some interface edits also invalidate the signature.
+Inline object type arguments retain per-field reachable type closures. Expanded
+alias, interface, intersection and mapped props conservatively carry their
+whole scoped macro type closure, because the compatibility expander does not
+retain individual field origins. Sibling edits within that opaque contract can
+therefore invalidate several prop pages. Unsupported declaration merging stays
+incomplete and retains every authored type-only part, framed by its UTF-8 byte
+length followed by a colon, together with reachable helpers.
+
+Emit payload overloads retain authored order. Generic, `this` and unannotated
+payloads stay unknown; their authored type arguments still participate in the
+contract. Runtime validators retain parameter/return type headers and explicit
+assertion or `satisfies` type annotations. These facts include reachable scoped
+types while excluding function bodies and parameter default initializers.
+Assertions remain conservative unknown payloads, and `satisfies` is recorded
+as a constraint without claiming an inferred payload type.
 
 ## Verification gates
 
@@ -65,11 +88,15 @@ can prove completeness, so some interface edits also invalidate the signature.
   rejected revisions, close and rename.
 - Maestro compares full prop and slot metadata values against the previous
   direct Croquis projection across script setup, Options API and legacy options.
-  Alpha declarations give completion entries stable name order; type, required,
+  Signature order hints preserve authored completion order; type, required,
   default and slot-prop values stay equal. A body edit reuses the same shared
   metadata snapshot; a prop edit replaces it. The actual `component_surface`
   Salsa consumer executes 1/0/0/1 times for first read, body edit, unchanged
-  read and prop edit; corresponding reuse counts are 0/1/1/0.
+  read and prop edit; corresponding validation reuse counts are 0/1/0/0. Same-revision reads emit
+  no Salsa validation event.
+- Actual metadata tests observe unsaved external TypeScript public names/types
+  on open and edit, then restore saved types on close or rename. Immutable snapshots are
+  reused between reads at the same editor revision.
 - TS-42 uses this production exporter over the three hydrated corpus projects
   and both committed fixture directories, comparing every interface with the
   clean projection. Body edits use the SFC parser's template span. Controlled

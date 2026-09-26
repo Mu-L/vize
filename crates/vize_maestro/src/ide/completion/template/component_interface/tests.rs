@@ -27,10 +27,8 @@ fn alpha_metadata_preserves_full_prop_and_slot_contracts() {
                 &vize_resident::ComponentSurface::from_summary(&summary),
             )
             .unwrap();
-            let mut expected =
+            let expected =
                 legacy::legacy_metadata(Some(&descriptor), "Widget.vue", options_api, legacy_vue2);
-            expected.props.sort_by(|a, b| a.name.cmp(&b.name));
-            expected.slots.sort_by(|a, b| a.name.cmp(&b.name));
             assert_eq!(
                 projected, expected,
                 "{source}; options={options_api}, legacy={legacy_vue2}"

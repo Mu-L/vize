@@ -56,8 +56,8 @@ fn body_edits_and_private_bindings_do_not_dirty_the_interface() {
 
 #[test]
 fn type_literal_whitespace_is_semantic_without_dirtying_sibling_facets() {
-    let before = draw("defineProps<{ title: 'a b' }>();", "<p/>");
-    let after = draw("defineProps<{ title: 'ab' }>();", "<p/>");
+    let before = draw("defineProps<{ title: 'a b' }>();", "<p></p>");
+    let after = draw("defineProps<{ title: 'ab' }>();", "<p></p>");
     let changed = summary(&before).changed(&summary(&after));
     // The signature conservatively keeps exact macro type arguments until
     // extraction can prove completeness, so it changes along with the prop.
@@ -255,6 +255,15 @@ fn check_schema<T: serde::de::DeserializeOwned>(contract: &str) {
         serde_json::from_value::<T>(missing).is_err(),
         "missing schema must be rejected"
     );
+    let mut extended = original.clone();
+    extended
+        .as_object_mut()
+        .expect("contract object")
+        .insert("future_field".into(), serde_json::json!(true));
+    assert!(
+        serde_json::from_value::<T>(extended).is_err(),
+        "unknown fields require an explicit contract schema"
+    );
     for invalid in [
         serde_json::json!(0),
         serde_json::json!(2),
@@ -274,4 +283,37 @@ fn check_schema<T: serde::de::DeserializeOwned>(contract: &str) {
             "unsupported schema must be rejected"
         );
     }
+}
+
+#[test]
+fn signature_preserves_declared_completion_order_and_stable_fallbacks() {
+    let mut croquis = draw(
+        "defineProps<{ z: string; a: number }>(); defineSlots<{ z(props: {}): void; a(props: {}): void }>();",
+        "<div></div>",
+    );
+    for (name, kind) in [
+        ("unknownZ", crate::BindingType::Props),
+        ("private", crate::BindingType::SetupConst),
+        ("unknownA", crate::BindingType::Props),
+    ] {
+        croquis.bindings.add(name, kind);
+    }
+    for name in ["z", "model"] {
+        croquis.macros.add_model(ModelDefinition {
+            name: name.into(),
+            local_name: name.into(),
+            model_type: None,
+            required: false,
+            default_value: None,
+        });
+    }
+    let pages = croquis.alpha_pages("Component", None).expect("pages");
+    let signature: SignatureContract =
+        serde_json::from_str(&pages.signature.params).expect("signature");
+    assert_eq!(
+        signature.prop_order,
+        ["z", "a", "model", "unknownA", "unknownZ"]
+    );
+    assert_eq!(signature.slot_order, ["z", "a"]);
+    assert_eq!(pages.props[0].name, "a");
 }

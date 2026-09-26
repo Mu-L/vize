@@ -7,11 +7,13 @@ use crate::Croquis;
 use crate::macros::ModelDefinition;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use vize_carton::CompactString;
+use vize_carton::{CompactString, cstr};
 
-/// Reachable type declarations. `complete` never claims imported/inferred
-/// types are resolved by the local declaration store.
+/// Reachable authored type declarations, resolved in their declaring modules.
+/// `complete` means this declaration closure is known; it does not assert
+/// TypeScript assignability or infer a value's type from its implementation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TypeEnvironment {
     pub complete: bool,
     pub declarations: Vec<TypeDependency>,
@@ -19,6 +21,7 @@ pub struct TypeEnvironment {
 
 /// One authored declaration or an explicitly unresolved external identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TypeDependency {
     pub name: CompactString,
     pub kind: CompactString,
@@ -51,6 +54,67 @@ impl Croquis {
         environment.complete &= model.model_type.is_some();
         environment
     }
+    pub(super) fn emit_type_environment<'s>(
+        &self,
+        name: &str,
+        payloads: impl Iterator<Item = Option<&'s str>>,
+        generic: Option<&str>,
+    ) -> TypeEnvironment {
+        let payloads: Vec<_> = payloads.collect();
+        let known = payloads.iter().all(Option::is_some);
+        let arguments = (!known)
+            .then(|| {
+                self.macros
+                    .define_emits()
+                    .and_then(|call| call.type_args.as_deref())
+            })
+            .flatten()
+            .map(type_arguments_body);
+        let validators: Vec<_> = self
+            .macros
+            .emit_validator_signatures(name)
+            .iter()
+            .map(|header| cstr!("{{ validator{header} }}"))
+            .collect();
+        let mut environment = self.collect_type_environment(
+            payloads
+                .iter()
+                .filter_map(|payload| *payload)
+                .chain(arguments)
+                .chain(validators.iter().map(CompactString::as_str))
+                .chain(
+                    self.macros
+                        .emit_validator_type_annotations(name)
+                        .iter()
+                        .map(CompactString::as_str),
+                ),
+            generic,
+        );
+        environment.complete &= known;
+        environment
+    }
+
+    pub(super) fn prop_type_environment(
+        &self,
+        source: Option<&str>,
+        generic: Option<&str>,
+    ) -> TypeEnvironment {
+        if let Some(arguments) = self
+            .macros
+            .define_props()
+            .and_then(|call| call.type_args.as_deref())
+        {
+            let arguments = type_arguments_body(arguments);
+            if !type_refs::is_object_type(arguments) {
+                // Compatibility prop expansion loses a field's declaring
+                // module. Keep the complete scoped macro closure on each
+                // expanded row until the producer supplies field origins.
+                return self.type_environment(Some(arguments), generic);
+            }
+        }
+        self.type_environment(source, generic)
+    }
+
     pub(super) fn type_environment(
         &self,
         source: Option<&str>,

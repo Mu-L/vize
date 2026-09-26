@@ -23,6 +23,8 @@ use super::source_snapshot::source_path;
 use super::{ScriptCompileContext, TypeSourceSnapshot};
 
 const MAX_MODULES: usize = 512;
+type ModuleSource = (Arc<str>, bool);
+type PendingModule = (PathBuf, Option<ModuleSource>);
 
 impl ScriptCompileContext {
     /// Retain real module/export identities separately from the compatibility
@@ -127,7 +129,7 @@ impl ScriptCompileContext {
 fn resolve_target(
     target: &mut TypeModuleReference,
     current: &Path,
-    pending: &mut Vec<(PathBuf, Option<(Arc<str>, bool)>)>,
+    pending: &mut Vec<PendingModule>,
     follow: bool,
     sources: &TypeSourceSnapshot,
 ) {
@@ -139,7 +141,7 @@ fn resolve_target(
     }
 }
 
-fn read_module_source(path: &Path, sources: &TypeSourceSnapshot) -> Option<(Arc<str>, bool)> {
+fn read_module_source(path: &Path, sources: &TypeSourceSnapshot) -> Option<ModuleSource> {
     let source = sources.read(path)?;
     if path.extension().is_some_and(|ext| ext == "vue") {
         let descriptor = crate::parse_sfc(&source, crate::SfcParseOptions::default()).ok()?;

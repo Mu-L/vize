@@ -7,6 +7,8 @@ use crate::{ResidentDocuments, SharedDescriptor, SummaryInput, sfc_summary};
 /// Prop and slot contracts used by imported-component IDE metadata.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComponentSurface {
+    /// Producer metadata for authored prop and slot presentation order.
+    pub signature: Option<AlphaEntry>,
     /// Current props, in canonical declaration order.
     pub props: Vec<AlphaEntry>,
     /// Current slots, in canonical declaration order.
@@ -28,6 +30,13 @@ impl ComponentSurface {
                 .collect()
         };
         Self {
+            signature: summary
+                .iter()
+                .find(|(facet, _, _)| *facet == Facet::Signature)
+                .map(|(_, name, contract)| AlphaEntry {
+                    name: name.into(),
+                    contract: contract.into(),
+                }),
             props: project(Facet::Prop),
             slots: project(Facet::Slot),
         }
@@ -35,13 +44,24 @@ impl ComponentSurface {
 
     /// Exactly the declarations the IDE consumer decodes.
     pub fn iter(&self) -> impl Iterator<Item = (Facet, &str, &str)> {
-        self.props
+        self.signature
             .iter()
-            .map(|entry| (Facet::Prop, entry.name.as_str(), entry.contract.as_str()))
+            .map(|entry| {
+                (
+                    Facet::Signature,
+                    entry.name.as_str(),
+                    entry.contract.as_str(),
+                )
+            })
             .chain(
-                self.slots
+                self.props
                     .iter()
-                    .map(|entry| (Facet::Slot, entry.name.as_str(), entry.contract.as_str())),
+                    .map(|entry| (Facet::Prop, entry.name.as_str(), entry.contract.as_str()))
+                    .chain(
+                        self.slots.iter().map(|entry| {
+                            (Facet::Slot, entry.name.as_str(), entry.contract.as_str())
+                        }),
+                    ),
             )
     }
 }

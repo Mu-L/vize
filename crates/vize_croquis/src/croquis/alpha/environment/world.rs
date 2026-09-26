@@ -4,7 +4,7 @@ use super::super::type_refs::{self, References};
 use super::{PendingTypeRef, TypeDependency};
 use crate::Croquis;
 use crate::types::world::{TypeDeclarationKind, TypeLookup, UnknownTypeReason};
-use vize_carton::CompactString;
+use vize_carton::{CompactString, cstr};
 
 impl Croquis {
     pub(super) fn world_type_dependency(
@@ -19,15 +19,9 @@ impl Croquis {
             Some(specifier) => world.resolve_import(context, specifier, &reference.name),
             None => world.resolve(context, &reference.name),
         };
-        let empty = || References {
-            refs: Default::default(),
-            complete: false,
-        };
         match found {
             TypeLookup::Found(id) => {
-                let Some(declaration) = world.declaration(&id) else {
-                    return None;
-                };
+                let declaration = world.declaration(&id)?;
                 // Imported declarations cannot capture an SFC's own generic
                 // parameters just because both happen to be spelled `T`.
                 let generic = (id.module == world.root_module)
@@ -55,20 +49,46 @@ impl Croquis {
                     Some(id.module),
                 ))
             }
-            TypeLookup::Unknown(unknown) => Some((
-                TypeDependency {
-                    name: unknown.name,
-                    kind: CompactString::new("unresolved"),
-                    module: Some(unknown.module),
-                    export: None,
-                    body: None,
-                    parameters: None,
-                    extends: Vec::new(),
-                    unresolved_reason: Some(CompactString::new(reason_name(unknown.reason))),
-                },
-                empty(),
-                None,
-            )),
+            TypeLookup::Unknown(unknown) => {
+                let parts = world.unknown_contract(&unknown);
+                let mut references = References {
+                    refs: Default::default(),
+                    complete: false,
+                };
+                let generic = (unknown.module == world.root_module)
+                    .then_some(generic)
+                    .flatten();
+                for part in parts.into_iter().flatten() {
+                    references
+                        .refs
+                        .extend(type_refs::collect_declaration(part, generic).refs);
+                }
+                // Retain every authored type-only part without claiming that
+                // unsupported declaration merging has been elaborated.
+                // Each part is framed by its UTF-8 byte length and a colon;
+                // concatenation is injective and needs no fallible serializer.
+                let body = parts.map(|parts| {
+                    let mut framed = CompactString::default();
+                    for part in parts {
+                        framed.push_str(&cstr!("{}:{part}", part.len()));
+                    }
+                    framed
+                });
+                Some((
+                    TypeDependency {
+                        name: unknown.name,
+                        kind: CompactString::new("unresolved"),
+                        module: Some(unknown.module.clone()),
+                        export: None,
+                        body,
+                        parameters: None,
+                        extends: Vec::new(),
+                        unresolved_reason: Some(CompactString::new(reason_name(unknown.reason))),
+                    },
+                    references,
+                    Some(unknown.module),
+                ))
+            }
         }
     }
 }

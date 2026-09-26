@@ -13,18 +13,21 @@
 //! The lock is held only for the lookup — never across an `.await` — and the
 //! descriptor handed out is an owned, shared snapshot.
 
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use parking_lot::Mutex;
 use tower_lsp::lsp_types::Url;
+use vize_atelier_sfc::script::TypeSourceSnapshot;
 use vize_davinci::summary::AlphaPages;
 use vize_resident::{ComponentSurface, ParsedSfc, ResidentDocuments, SharedDescriptor};
 
 use super::ServerState;
 
+mod sources;
+
 /// Every document the request paths have read, one resident database.
 #[derive(Default)]
-pub(crate) struct ResidentCache(Mutex<ResidentDocuments>);
+pub(crate) struct ResidentCache(Mutex<ResidentDocuments>, Mutex<sources::SourceState>);
 
 impl ResidentCache {
     /// The parse of document `key`'s `text`, including a rejection.
@@ -37,8 +40,44 @@ impl ResidentCache {
         self.0.lock().close(key);
     }
 
+    pub(crate) fn close_document(&self, uri: &Url) {
+        self.close(uri.as_str());
+        if let Ok(path) = uri.to_file_path() {
+            self.close(&path.to_string_lossy());
+            if let Ok(canonical) = path.canonicalize()
+                && canonical != path
+            {
+                self.close(&canonical.to_string_lossy());
+            }
+        }
+        self.1.lock().close(uri);
+    }
+
+    pub(crate) fn rename(
+        &self,
+        documents: &crate::document::DocumentStore,
+        old: &Url,
+        new: Url,
+    ) -> bool {
+        let renamed = documents.rename(old, new);
+        if renamed {
+            self.close_document(old);
+        }
+        renamed
+    }
+
     pub(crate) fn invalidate_interfaces(&self) {
         self.0.lock().invalidate_interfaces();
+        self.1.lock().invalidate();
+    }
+
+    pub(crate) fn sources(
+        &self,
+        documents: &crate::document::DocumentStore,
+    ) -> Option<(u64, Arc<TypeSourceSnapshot>)> {
+        let sources = self.1.lock().snapshot(documents)?;
+        self.0.lock().set_source_world_revision(sources.0);
+        Some(sources)
     }
 
     pub(crate) fn interface(
@@ -66,6 +105,9 @@ impl ResidentCache {
 }
 
 impl ServerState {
+    pub(crate) fn component_type_sources(&self) -> Option<(u64, Arc<TypeSourceSnapshot>)> {
+        self.resident.sources(&self.documents)
+    }
     /// Publish current Croquis alpha pages before imported-component
     /// completion/hover/diagnostics consume the declaration contracts.
     pub(crate) fn component_interface(

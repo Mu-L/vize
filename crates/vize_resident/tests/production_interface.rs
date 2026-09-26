@@ -50,7 +50,7 @@ fn body_edits_execute_zero_production_metadata_consumers() {
     let stats = docs.take_interface_stats();
     assert_eq!(
         (stats.exports, stats.consumers, stats.consumer_reuses),
-        (0, 0, 1)
+        (0, 0, 0)
     );
     assert!(
         docs.component_surface("button", "Button.vue", PROP, "strict", export)
@@ -60,6 +60,49 @@ fn body_edits_execute_zero_production_metadata_consumers() {
     assert_eq!(
         (stats.exports, stats.consumers, stats.consumer_reuses),
         (1, 1, 0)
+    );
+}
+
+#[test]
+fn editor_source_world_refreshes_at_buffer_durability_and_failed_exports_stay_stale() {
+    let mut docs = ResidentDocuments::default();
+    let first = docs
+        .component_surface("button", "Button.vue", FIRST, "strict", export)
+        .unwrap();
+    let before = docs
+        .interface_fingerprint("button", Facet::Prop, "label")
+        .unwrap();
+    let _ = docs.take_interface_stats();
+    docs.set_source_world_revision(1);
+    assert_eq!(
+        docs.component_surface("button", "Button.vue", FIRST, "strict", export),
+        Some(first)
+    );
+    let refreshed = docs.take_interface_stats();
+    assert_eq!(
+        (
+            refreshed.exports,
+            refreshed.consumers,
+            refreshed.consumer_reuses
+        ),
+        (1, 0, 1)
+    );
+    assert_eq!(
+        docs.interface_fingerprint("button", Facet::Prop, "label"),
+        Some(before)
+    );
+    docs.set_source_world_revision(2);
+    assert_eq!(
+        docs.interface("button", "Button.vue", FIRST, "strict", |_| None),
+        None
+    );
+    assert_eq!(
+        docs.interface_fingerprint("button", Facet::Prop, "label"),
+        None
+    );
+    assert_eq!(
+        read(&mut docs, FIRST).fingerprint(Facet::Prop, "label"),
+        Some(before)
     );
 }
 

@@ -57,6 +57,7 @@ test("TS-42 runs over the hydrated corpus shard and proves the seeded defect cau
   assert.deepEqual(runs(job), [
     `git submodule update --init --depth 1 -- ${shard.map((id) => `tests/_fixtures/_git/${id}`).join(" ")}`,
     "cargo test -p vize_resident",
+    "cargo test -p vize_maestro production_alpha_corpus_edits_match_clean -- --ignored --nocapture",
     `${driver} --corpus-shard ${fixtures}`,
     "cargo test -p vize_resident --features seeded-stale-cache --test equivalence",
     `${driver} --corpus-shard ${fixtures} --seeded`,

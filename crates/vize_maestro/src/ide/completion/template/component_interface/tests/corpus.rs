@@ -143,7 +143,10 @@ fn production_alpha_interface_scripts_isolate_used_declarations() {
     assert_eq!(Some(served.clone()), clean("Button.vue", &edited));
     assert_ne!(
         served.fingerprint(Facet::Reactivity, "item"),
-        before.fingerprint(Facet::Reactivity, "item")
+        before.fingerprint(Facet::Reactivity, "item"),
+        "before item={:?}; after item={:?}; edited source={edited}",
+        reactivity_contract(initial, "item"),
+        reactivity_contract(&edited, "item")
     );
     assert_eq!(
         served.fingerprint(Facet::Reactivity, "publicCount"),
@@ -155,4 +158,66 @@ fn production_alpha_interface_scripts_isolate_used_declarations() {
     );
     assert_eq!(served.fingerprint(Facet::Emit, "select"), emit);
     assert_eq!(served.fingerprint(Facet::Slot, "header"), slot);
+}
+
+fn reactivity_contract(source: &str, name: &str) -> Option<String> {
+    let descriptor = parse_descriptor("Button.vue", source)?;
+    export_component_interface(&descriptor, "Button.vue", true, false)?
+        .reactivity
+        .into_iter()
+        .find(|entry| entry.name == name)
+        .map(|entry| entry.contract.to_string())
+}
+
+#[test]
+fn production_expanded_prop_tracks_its_external_module_helper() {
+    let directory = tempfile::tempdir().expect("temporary type module");
+    let types = directory.path().join("types.ts");
+    let component = directory.path().join("Component.vue");
+    let filename = component.to_str().expect("UTF8 fixture path");
+    let source = "<script setup lang='ts'>import type { Public as Alias } from './types'; type Helper = boolean; defineProps<Alias>(); defineEmits<{ stable: [] }>();</script>";
+    let module =
+        |helper| format!("type Helper = {helper}; export type Public = {{ value: Helper }};");
+    std::fs::write(&types, module("string")).expect("type source");
+    let before = clean(filename, source).expect("initial interface");
+    std::fs::write(&types, module("number")).expect("changed type source");
+    let after = clean(filename, source).expect("changed interface");
+    assert_ne!(
+        before.fingerprint(Facet::Prop, "value"),
+        after.fingerprint(Facet::Prop, "value")
+    );
+    assert_eq!(
+        before.fingerprint(Facet::Emit, "stable"),
+        after.fingerprint(Facet::Emit, "stable")
+    );
+    let descriptor = parse_descriptor(filename, source).expect("descriptor");
+    let pages = export_component_interface(&descriptor, filename, true, false).expect("pages");
+    let prop: vize_croquis::croquis::alpha::PropContract = serde_json::from_str(
+        &pages
+            .props
+            .iter()
+            .find(|entry| entry.name == "value")
+            .expect("expanded value")
+            .contract,
+    )
+    .expect("prop contract");
+    assert!(
+        prop.type_dependencies
+            .declarations
+            .iter()
+            .any(|dependency| dependency.name == "Helper"
+                && dependency.body.as_deref() == Some("number")
+                && dependency
+                    .module
+                    .as_deref()
+                    .is_some_and(|module| module.ends_with("types.ts")))
+    );
+    assert!(
+        !prop
+            .type_dependencies
+            .declarations
+            .iter()
+            .any(|dependency| dependency.name == "Helper"
+                && dependency.body.as_deref() == Some("boolean"))
+    );
 }

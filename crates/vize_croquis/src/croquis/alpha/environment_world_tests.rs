@@ -205,3 +205,102 @@ fn imported_declarations_do_not_capture_sfc_generic_parameters() {
                 && dependency.body.as_deref() == Some("'external literal'"))
     );
 }
+
+#[test]
+fn expanded_imported_prop_retains_the_scoped_macro_contract() {
+    let source = "import type { Public as Alias } from './types'; type Helper = boolean; \
+        defineProps<Alias>();";
+    let build = |helper| {
+        let mut result = croquis(source, world(helper));
+        result.macros.add_prop(crate::macros::PropDefinition {
+            name: "value".into(),
+            prop_type: Some("Helper".into()),
+            required: true,
+            default_value: None,
+        });
+        result
+    };
+    let before = build("string");
+    let after = build("number");
+    assert_ne!(
+        summary(&before).fingerprint(Facet::Prop, "value"),
+        summary(&after).fingerprint(Facet::Prop, "value")
+    );
+    let pages = before.alpha_pages("Component", None).expect("pages");
+    let prop: PropContract = serde_json::from_str(&pages.props[0].contract).expect("contract");
+    assert!(
+        prop.type_dependencies
+            .declarations
+            .iter()
+            .any(|dependency| dependency.name == "Helper"
+                && dependency.module.as_deref() == Some("/types.ts")
+                && dependency.body.as_deref() == Some("string"))
+    );
+    assert!(
+        !prop
+            .type_dependencies
+            .declarations
+            .iter()
+            .any(|dependency| dependency.module.as_deref() == Some("/Component.vue"))
+    );
+}
+
+#[test]
+fn unsupported_merge_parts_and_their_helpers_remain_observable() {
+    let source = "import type { Public as Alias } from './types'; \
+        defineProps<{ value: Alias; sibling: boolean }>(); \
+        const item: Alias = null as Alias; defineExpose({ item });";
+    let merged_world = |first: &str, helper: &str| {
+        let mut result = world(helper);
+        let module = result.modules.get_mut("/types.ts").expect("types");
+        module.unsupported_declarations.insert("Internal".into());
+        module.unsupported_contracts.insert(
+            "Internal".into(),
+            vec![
+                cstr!("interface Internal {{ first: {first} }}"),
+                "interface Internal { value: Helper }".into(),
+            ],
+        );
+        result
+    };
+    let before = croquis(source, merged_world("string", "string"));
+    for (first, helper) in [("number", "string"), ("string", "number")] {
+        let after = croquis(source, merged_world(first, helper));
+        let changed = summary(&before).changed(&summary(&after));
+        for facet in [Facet::Prop, Facet::Reactivity] {
+            assert!(changed.iter().any(|id| id.facet() == facet
+                && id.name()
+                    == if facet == Facet::Prop {
+                        "value"
+                    } else {
+                        "item"
+                    }));
+        }
+        assert!(
+            !changed
+                .iter()
+                .any(|id| id.facet() == Facet::Prop && id.name() == "sibling")
+        );
+    }
+    let pages = before.alpha_pages("Component", None).expect("pages");
+    let prop: PropContract = serde_json::from_str(
+        &pages
+            .props
+            .iter()
+            .find(|entry| entry.name == "value")
+            .expect("value")
+            .contract,
+    )
+    .expect("contract");
+    assert!(!prop.type_dependencies.complete);
+    let dependency = prop
+        .type_dependencies
+        .declarations
+        .iter()
+        .find(|dependency| dependency.name == "Internal")
+        .expect("merged type");
+    assert_eq!(
+        dependency.body.as_deref(),
+        Some("36:interface Internal { first: string }36:interface Internal { value: Helper }")
+    );
+}

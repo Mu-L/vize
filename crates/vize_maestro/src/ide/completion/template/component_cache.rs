@@ -4,7 +4,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::ide::IdeContext;
 
-use super::component_interface::{component_metadata_from_interface, export_component_interface};
+use super::component_interface::component_metadata_from_interface;
 use super::component_meta::ComponentMetadata;
 
 #[derive(Clone)]
@@ -14,6 +14,7 @@ pub(crate) struct CachedComponentMetadata {
     version: Option<i32>,
     hash: Option<u64>,
     configuration: u64,
+    source_revision: u64,
     metadata: Arc<ComponentMetadata>,
 }
 
@@ -24,6 +25,7 @@ pub(super) fn cached_component_metadata(
     let cache = ctx.state.component_metadata_cache();
     let options_api = ctx.state.options_api_enabled();
     let legacy_vue2 = ctx.state.legacy_vue2_enabled();
+    let revision = ctx.state.documents.revision();
     let configuration = serde_json::to_string(&(
         ctx.state.get_type_checker_config(),
         options_api,
@@ -36,6 +38,7 @@ pub(super) fn cached_component_metadata(
     {
         if let Some(entry) = cache.get(resolved)
             && entry.configuration == configuration_hash
+            && entry.source_revision == revision
             && entry.len == len
             && entry.version == Some(version)
             && entry.hash == Some(hash)
@@ -49,6 +52,7 @@ pub(super) fn cached_component_metadata(
         let modified = metadata.modified().ok();
         if let Some(entry) = cache.get(resolved)
             && entry.configuration == configuration_hash
+            && entry.source_revision == revision
             && modified.is_some()
             && entry.len == len
             && entry.modified == modified
@@ -65,14 +69,19 @@ pub(super) fn cached_component_metadata(
         )
     };
 
+    let (source_revision, sources) = ctx.state.component_type_sources()?;
+    if source_revision != revision {
+        return None;
+    }
     let summary =
         ctx.state
             .component_interface(resolved, &content, &configuration, |descriptor| {
-                export_component_interface(
+                super::component_interface::export_component_interface_with_sources(
                     descriptor,
                     &resolved.to_string_lossy(),
                     options_api,
                     legacy_vue2,
+                    &sources,
                 )
             })?;
     let projected = component_metadata_from_interface(&summary)?;
@@ -88,6 +97,7 @@ pub(super) fn cached_component_metadata(
             version,
             hash,
             configuration: configuration_hash,
+            source_revision: revision,
             metadata: metadata.clone(),
         },
     );
@@ -118,6 +128,9 @@ fn open_stamp(document: &crate::document::Document) -> (String, u64, i32, u64) {
         hash,
     )
 }
+
+#[cfg(test)]
+mod overlay_tests;
 
 #[cfg(test)]
 mod tests {

@@ -49,6 +49,16 @@ pub struct InterfaceStats {
 }
 
 impl ResidentDocuments {
+    /// Invalidate editor-source exports at LOW durability. The next provider
+    /// read must publish against this source snapshot before returning facts.
+    pub fn set_source_world_revision(&mut self, revision: u64) {
+        use salsa::{Durability, Setter as _};
+        crate::summary::SourceWorld::get(&self.db)
+            .set_revision(&mut self.db)
+            .with_durability(Durability::LOW)
+            .to(revision);
+    }
+
     /// Read the current production interface. `export` is called only when
     /// the source, filename or project configuration changed. A parse or
     /// export rejection cannot return the previous revision's interface.

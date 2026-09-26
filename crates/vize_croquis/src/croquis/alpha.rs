@@ -2,9 +2,13 @@
 //!
 //! Contracts are compact JSON with fixed field order. Type spellings and
 //! defaults are kept verbatim, including whitespace inside literal types.
-//! Declaration offsets, private bindings, function bodies, and template
-//! expression text never enter these pages.
+//! Declaration offsets, private bindings and implementation bodies, and
+//! template expression text never enter these pages. An authored public
+//! default expression is interface metadata and is preserved exactly,
+//! including a function expression used as that default.
 
+#[cfg(test)]
+mod emit_tests;
 mod environment;
 #[cfg(test)]
 mod environment_tests;
@@ -24,7 +28,7 @@ pub use types::{
     SignatureContract, SlotContract,
 };
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use vize_carton::{CompactString, cstr};
@@ -43,6 +47,8 @@ impl Croquis {
     /// metadata have unknown required/default/type facts. Reactivity exports
     /// only explicitly exposed members and model bindings, so changing private
     /// setup state cannot invalidate a consuming component's interface.
+    /// Authored annotations are not TypeScript inference results: unresolved
+    /// types are explicit, and no private function body is copied to infer one.
     ///
     /// # Errors
     ///
@@ -63,20 +69,49 @@ impl Croquis {
                     required: Some(prop.required),
                     default_value: prop.default_value.clone(),
                     model_modifiers: None,
-                    type_dependencies: self.type_environment(prop.prop_type.as_deref(), generic),
+                    type_dependencies: self
+                        .prop_type_environment(prop.prop_type.as_deref(), generic),
                 });
         }
-        let mut emits = BTreeMap::new();
+        let mut payloads: BTreeMap<CompactString, Vec<Option<CompactString>>> = BTreeMap::new();
         for emit in self.macros.emits() {
-            emits
+            payloads
                 .entry(emit.name.clone())
-                .or_insert_with(|| EmitContract {
-                    schema: AlphaSchema,
-                    name: emit.name.clone(),
-                    payload: emit.payload_type.clone(),
-                    type_dependencies: self.type_environment(emit.payload_type.as_deref(), generic),
-                });
+                .or_default()
+                .push(emit.payload_type.clone());
         }
+        let mut emits: BTreeMap<_, _> = payloads
+            .into_iter()
+            .map(|(name, overload_payloads)| {
+                let type_dependencies = self.emit_type_environment(
+                    &name,
+                    overload_payloads.iter().map(|payload| payload.as_deref()),
+                    generic,
+                );
+                let contract = EmitContract {
+                    schema: AlphaSchema,
+                    name: name.clone(),
+                    payload: overload_payloads.first().cloned().flatten(),
+                    unresolved_type_arguments: overload_payloads
+                        .iter()
+                        .any(Option::is_none)
+                        .then(|| {
+                            self.macros
+                                .define_emits()
+                                .and_then(|call| call.type_args.clone())
+                        })
+                        .flatten(),
+                    validator_signatures: self.macros.emit_validator_signatures(&name).to_vec(),
+                    validator_type_annotations: self
+                        .macros
+                        .emit_validator_type_annotations(&name)
+                        .to_vec(),
+                    overload_payloads,
+                    type_dependencies,
+                };
+                (name, contract)
+            })
+            .collect();
         for model in self.macros.models() {
             props
                 .entry(model.name.clone())
@@ -97,6 +132,10 @@ impl Croquis {
                 schema: AlphaSchema,
                 name,
                 payload: model.model_type.clone(),
+                overload_payloads: vec![model.model_type.clone()],
+                unresolved_type_arguments: None,
+                validator_signatures: Vec::new(),
+                validator_type_annotations: Vec::new(),
                 type_dependencies: self.type_environment(model.model_type.as_deref(), generic),
             });
         }
@@ -154,6 +193,21 @@ impl Croquis {
                 )
             })
             .collect();
+        let fallback: BTreeSet<_> = self
+            .bindings
+            .iter()
+            .filter(|(_, kind)| *kind == BindingType::Props)
+            .map(|(name, _)| CompactString::new(name))
+            .collect();
+        let prop_order = ordered_names(
+            self.macros
+                .props()
+                .iter()
+                .map(|prop| prop.name.clone())
+                .chain(self.macros.models().iter().map(|model| model.name.clone()))
+                .chain(fallback),
+        );
+        let slot_order = ordered_names(self.macros.slots().iter().map(|slot| slot.name.clone()));
         SignatureContract {
             schema: AlphaSchema,
             name: CompactString::new(name),
@@ -164,6 +218,8 @@ impl Croquis {
                 ComponentShape::ClassApi => "class-api",
             }),
             script_setup: self.bindings.is_script_setup,
+            prop_order,
+            slot_order,
             prop_type_arguments: self
                 .macros
                 .define_props()
@@ -224,4 +280,9 @@ fn entries<T: Serialize>(
             })
         })
         .collect()
+}
+
+fn ordered_names(names: impl Iterator<Item = CompactString>) -> Vec<CompactString> {
+    let mut seen = BTreeSet::new();
+    names.filter(|name| seen.insert(name.clone())).collect()
 }

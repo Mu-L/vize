@@ -68,6 +68,13 @@ pub struct TsConfig {
     pub text: String,
 }
 
+/// The editor's imported-source snapshot changes at buffer durability.
+#[salsa::input(singleton, debug)]
+pub(crate) struct SourceWorld {
+    #[returns(copy)]
+    pub revision: u64,
+}
+
 /// The upstream α producer's current pages for one SFC. The source is kept
 /// separately so body edits cannot be accidentally included in the summary.
 #[salsa::input(debug)]
@@ -80,6 +87,8 @@ pub struct SummaryInput {
     pub source_stamp: [u8; 16],
     #[returns(copy)]
     pub config_stamp: [u8; 16],
+    #[returns(copy)]
+    pub world_revision: u64,
 }
 
 /// A stale upstream α export is an error, not an unchanged interface.
@@ -116,6 +125,7 @@ fn config_stamp(text: &str) -> [u8; 16] {
 pub(crate) fn alpha_is_current(db: &ResidentDatabase, input: SummaryInput) -> bool {
     source_stamp(db, input.file(db)) == input.source_stamp(db)
         && config_stamp(TsConfig::get(db).text(db)) == input.config_stamp(db)
+        && SourceWorld::get(db).revision(db) == input.world_revision(db)
 }
 
 /// A declaration identity shared by users. Salsa reclaims interned names
@@ -136,6 +146,7 @@ pub fn sfc_summary(
     let config = TsConfig::get(db).text(db);
     if source_stamp(db, input.file(db)) != input.source_stamp(db)
         || config_stamp(config) != input.config_stamp(db)
+        || SourceWorld::get(db).revision(db) != input.world_revision(db)
     {
         return Err(ResidentSummaryError::StaleAlpha);
     }
@@ -162,7 +173,8 @@ impl ResidentDatabase {
     pub fn publish_alpha(&self, file: SourceFile, pages: AlphaPages) -> SummaryInput {
         let source_stamp = source_stamp(self, file);
         let config_stamp = config_stamp(TsConfig::get(self).text(self));
-        SummaryInput::builder(file, pages, source_stamp, config_stamp)
+        let world_revision = SourceWorld::get(self).revision(self);
+        SummaryInput::builder(file, pages, source_stamp, config_stamp, world_revision)
             .durability(Durability::LOW)
             .new(self)
     }
@@ -183,6 +195,11 @@ impl ResidentDatabase {
             .set_config_stamp(self)
             .with_durability(Durability::LOW)
             .to(config_stamp);
+        let world_revision = SourceWorld::get(self).revision(self);
+        input
+            .set_world_revision(self)
+            .with_durability(Durability::LOW)
+            .to(world_revision);
     }
 
     /// Replace a buffer and its freshly exported α pages before any query

@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 
 use oxc_ast::ast::{
     Expression, Statement, TSImportType, TSImportTypeQualifier, TSInferType, TSInterfaceHeritage,
-    TSMappedType, TSTypeName, TSTypeParameterDeclaration, TSTypeQuery, TSTypeReference,
+    TSMappedType, TSType, TSTypeName, TSTypeParameterDeclaration, TSTypeQuery, TSTypeReference,
 };
 use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
@@ -23,6 +23,17 @@ pub(super) struct TypeRef {
 pub(super) struct References {
     pub refs: BTreeSet<TypeRef>,
     pub complete: bool,
+}
+
+pub(super) fn is_object_type(source: &str) -> bool {
+    let allocator = Allocator::new();
+    let input = cstr!("type __Vize = {source};");
+    let parsed = Parser::new(&allocator, &input, SourceType::ts()).parse();
+    parsed.diagnostics.is_empty()
+        && !parsed.panicked
+        && matches!(parsed.program.body.as_slice(),
+            [Statement::TSTypeAliasDeclaration(alias)]
+                if matches!(alias.type_annotation, TSType::TSTypeLiteral(_)))
 }
 
 pub(super) fn collect(
